@@ -48,6 +48,34 @@ public static class MapRenderDecoder
         return planes;
     }
 
+    /// <summary>One `um` plane. Heights are depths in legacy units, added to the surface by the caller.</summary>
+    public static TerrainRenderPlane DecodeUnderwaterTerrain(Stream stream, CancellationToken cancellationToken = default)
+    {
+        var plane = new TerrainRenderPlane(new int[4096], new int[4096], new int[4096], new int[4096], new int[4096], new int[4096]);
+        for (var tile = 0; tile < 4096; tile++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            while (true)
+            {
+                var opcode = ReadByte(stream);
+                if (opcode == 0) break;
+                if (opcode == 1)
+                {
+                    plane.Heights[tile] = ReadByte(stream) * 32;
+                    break;
+                }
+                if (opcode <= 49)
+                {
+                    plane.Overlays[tile] = ReadByte(stream);
+                    plane.OverlayShapes[tile] = (opcode - 2) / 4;
+                    plane.OverlayRotations[tile] = (opcode - 2) & 3;
+                }
+                else if (opcode > 81) plane.Underlays[tile] = opcode - 81;
+            }
+        }
+        return plane;
+    }
+
     public static MapAtmosphere? DecodeAtmosphere(Stream stream, CancellationToken cancellationToken = default)
     {
         MapAtmosphere? atmosphere = null;
@@ -147,10 +175,11 @@ public static class MapRenderDecoder
         int? rgb = 0, secondary = null;
         var texture = -1;
         var scale = 512;
+        var properties = new OverlayRenderProperties(8, false, 0x122b3d, 512, 255, 63, 0, 64);
         while (true)
         {
             var opcode = ReadByte(stream);
-            if (opcode == 0) return new FloorRenderDefinition(id, overlay, rgb, texture, secondary, scale);
+            if (opcode == 0) return new FloorRenderDefinition(id, overlay, rgb, texture, secondary, scale, overlay ? properties : null);
             if (opcode == 1) rgb = ReadMedium(stream);
             else if (overlay && opcode == 2) texture = ReadByte(stream);
             else if ((overlay && opcode == 3) || (!overlay && opcode == 2))
@@ -160,10 +189,15 @@ public static class MapRenderDecoder
             }
             else if (overlay && opcode == 7) secondary = ReadMedium(stream);
             else if ((overlay && opcode == 9) || (!overlay && opcode == 3)) scale = ReadShort(stream) << 2;
-            else if (overlay && opcode == 13) ReadMedium(stream);
-            else if (overlay && (opcode == 20 || opcode == 22)) ReadShort(stream);
-            else if (overlay && opcode is 11 or 14 or 16 or 21) ReadByte(stream);
-            else if (overlay ? opcode is not (5 or 8 or 10 or 12) : opcode is not (4 or 5))
+            else if (overlay && opcode == 11) properties = properties with { Priority = ReadByte(stream) };
+            else if (overlay && opcode == 12) properties = properties with { SpreadsToNeighbours = true };
+            else if (overlay && opcode == 13) properties = properties with { WaterFogRgb = ReadMedium(stream) };
+            else if (overlay && opcode == 14) properties = properties with { WaterFogScale = ReadByte(stream) << 5 };
+            else if (overlay && opcode == 16) properties = properties with { WaterFogBias = ReadByte(stream) };
+            else if (overlay && opcode == 20) properties = properties with { WaterParameter20 = ReadShort(stream) };
+            else if (overlay && opcode == 21) properties = properties with { WaterParameter21 = ReadByte(stream) };
+            else if (overlay && opcode == 22) properties = properties with { WaterParameter22 = ReadShort(stream) };
+            else if (overlay ? opcode is not (5 or 8 or 10) : opcode is not (4 or 5))
                 throw new NotSupportedException($"Unsupported {(overlay ? "overlay" : "underlay")} opcode {opcode}.");
         }
     }

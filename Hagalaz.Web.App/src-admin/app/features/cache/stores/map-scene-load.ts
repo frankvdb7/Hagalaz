@@ -1,9 +1,10 @@
-import { catchError, EMPTY, finalize, from, mergeMap, Subscription, switchMap, tap } from "rxjs";
+import { catchError, EMPTY, finalize, from, map, mergeMap, Subscription, switchMap, tap } from "rxjs";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import type { CacheMapsService } from "../services/cache-maps.service";
 import {
     mapAppearanceKey,
     selectedMapIds,
+    withUnderwaterLayer,
     type MapLoadProgress,
     type MapLoadRequest,
     type MapPlacement,
@@ -81,6 +82,7 @@ export class MapSceneLoad {
                     mergeMap(
                         (id) =>
                             this.service.render(id, this.request.keys[id]).pipe(
+                                map(withUnderwaterLayer),
                                 tap((region) => {
                                     this.regions.set(id, region);
                                     this.regionList = this.ids.flatMap((id) => this.regions.get(id) ?? []);

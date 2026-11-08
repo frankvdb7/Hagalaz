@@ -1,7 +1,9 @@
 import { modelFaceWinding, prepareCacheModel, type CacheModelGeometry } from "../../../../../shared/model-viewer/cache-model-geometry";
 import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
-import { mapAppearanceKey, type MapAtmosphere, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
+import { mapAppearanceKey, underwaterPlaneIndex, type MapAtmosphere, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import { terrainSampler, linearFloorColor, isVisibleFloor, type VisibleFloor, type FloorSample } from "./terrain-blending";
+import { mixWaterFog, waterFogFactor, waterFogLookup, type WaterFog } from "./underwater-fog";
+import { overlayPriority, overlaySample, overlaySpreads, spreadSample, type SpreadLookup } from "./overlay-spreading";
 import type { TerrainBlend } from "../../../../../shared/model-viewer/terrain-material";
 
 // Revision-742 ordinary floor topology, Class274's floor vertex and triangle tables.
@@ -126,6 +128,9 @@ type SceneContext = {
     originX: number;
     originY: number;
     sampleTerrain: ReturnType<typeof terrainSampler>;
+    spreads: SpreadLookup;
+    waterSurface: boolean;
+    waterFog: (worldX: number, worldY: number) => WaterFog | undefined;
     blends: Map<string, TerrainBlend>;
     preparation: MapScenePreparation;
     atmosphere?: MapAtmosphere;
@@ -190,12 +195,12 @@ export class MapScenePreparation {
     private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; atmosphere?: MapAtmosphere; parts: PreparedMapPart[] }>();
     private combined?: { terrain: SceneGeometry; appearances: ReadonlyMap<string, ObjectRenderAppearance>; parts: PreparedMapPart[][]; draft?: MapSceneDraft; result: { geometry: MapSceneGeometry; warnings: string[] } };
 
-    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], atmosphere: MapAtmosphere | undefined, build: () => SceneGeometry): SceneGeometry {
+    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], waterSurface: boolean, atmosphere: MapAtmosphere | undefined, build: () => SceneGeometry): SceneGeometry {
         const modes = regions.flatMap(region => region.floors.map(floor => {
             const texture = textures.get(floor.textureId);
             return `${texture?.alphaMode ?? 0}:${texture?.effectId ?? 0}`;
         }));
-        const key = planes.join();
+        const key = `${planes.join()}:${waterSurface}`;
         if (this.ground?.regions === regions && this.ground.planes === key && this.ground.atmosphere === atmosphere && sameValues(this.ground.modes, modes)) return this.ground.geometry;
         const geometry = build();
         this.ground = { regions, planes: key, modes, atmosphere, geometry };
@@ -251,6 +256,7 @@ export function buildMapScene(
     preparation = new MapScenePreparation(),
     atmosphereRegionId: number | null = regions[0]?.id ?? null,
     draft?: MapSceneDraft,
+    waterSurface = true,
 ): { geometry: MapSceneGeometry | null; warnings: string[] } {
     if (!regions.length) return { geometry: null, warnings: [] };
     const atmosphere = regions.find(region => region.id === atmosphereRegionId)?.atmosphere ?? undefined;
@@ -274,6 +280,8 @@ export function buildMapScene(
         terrainWeights: [],
     };
     let sampler: ReturnType<typeof terrainSampler> | undefined;
+    let spreads: SpreadLookup | undefined;
+    let waterFog: ReturnType<typeof waterFogLookup> | undefined;
     const context: SceneContext = {
         regions,
         appearances,
@@ -284,12 +292,15 @@ export function buildMapScene(
         originX: Math.min(...regions.map((region) => region.regionX)) * 64,
         originY: Math.min(...regions.map((region) => region.regionY)) * 64,
         sampleTerrain: (...args) => { sampler ??= preparation.sampleTerrain(regions); return sampler(...args); },
+        waterSurface,
+        spreads: (...args) => { spreads ??= overlaySpreads(regions); return spreads(...args); },
+        waterFog: (...args) => { waterFog ??= waterFogLookup(regions); return waterFog(...args); },
         blends: new Map(),
         preparation,
         atmosphere,
         lightTint,
     };
-    const terrain = preparation.terrain(regions, textures, visiblePlanes, atmosphere, () => {
+    const terrain = preparation.terrain(regions, textures, visiblePlanes, waterSurface, atmosphere, () => {
         addTerrain(context);
         context.geometry.indices = sequentialIndices(context.geometry.opacities.length);
         return context.geometry;
@@ -370,32 +381,69 @@ function addFloorTriangle(
     const plane = region.planes[level];
     const overlay = triangle < overlayCount[shape];
     const floor = floors.get(`${overlay}:${overlay ? plane.overlays[tile] : plane.underlays[tile]}`);
-    if (!floor) return;
+    if (!floor || isHiddenWater(context, level, floor)) return;
     const corners = [a[shape][triangle], c[shape][triangle], b[shape][triangle]].map((point) => {
         const [rx, ry] = rotateFloor(floorX[point], floorY[point], rotation);
         const wx = region.regionX * 64 + x + rx / 512,
             wy = region.regionY * 64 + y + ry / 512;
-        return { wx, wy, height: mapHeight([region], level, wx, wy) };
+        return { wx, wy, point, height: mapHeight([region], level, wx, wy) };
     });
-    const available = corners.filter((corner): corner is { wx: number; wy: number; height: number } => corner.height !== null);
+    const available = corners.filter((corner): corner is FloorCorner => corner.height !== null);
     if (available.length !== 3) return;
-    if (!overlay && addBlendedFloor(context, level, available)) return;
-    const texture = floor.textureId;
+    const spreads = context.spreads(level, region.regionX * 64 + x, region.regionY * 64 + y);
+    const minimumPriority = overlay ? overlayPriority(floor) : -1;
+    const cornerSamples = available.map(corner => {
+        const spread = spreadSample(spreads, corner.point, rotation, minimumPriority);
+        return spread ? [spread] : overlay ? [overlaySample(floor)] : context.sampleTerrain(level, corner.wx, corner.wy);
+    });
+    const shade = floorShade(context, level, region.regionX * 64 + x, region.regionY * 64 + y, available);
+    if (shade.flat) {
+        addPlainFloor(context, -1, floor.textureScale, available, () => shade.flat as readonly number[]);
+        return;
+    }
+    if (addLayeredFloor(context, available, cornerSamples, shade.apply)) return;
     // Floor textures modulate the client palette tint, not raw definition RGB or white.
+    addPlainFloor(context, floor.textureId, floor.textureScale, available, index => {
+        const samples = cornerSamples[index];
+        return shade.apply(samples.length ? blendedFloorColor(samples) : linearFloorColor(floor.rgb), index);
+    });
+}
+
+// The client's water material effects: water, underwater, lake, HD water and HD water wave.
+const waterEffects = [2, 4, 5, 8, 9];
+
+function isHiddenWater(context: SceneContext, level: number, floor: VisibleFloor): boolean {
+    return !context.waterSurface && level !== underwaterPlaneIndex && waterEffects.includes(context.textures.get(floor.textureId)?.effectId ?? 0);
+}
+
+function addPlainFloor(context: SceneContext, texture: number, textureScale: number, corners: readonly FloorCorner[], tint: (index: number) => readonly number[]): void {
     context.geometry.textureIds.push(texture);
     context.geometry.facePriorities.push(0);
-    for (const corner of available) {
-        const samples = overlay ? [] : context.sampleTerrain(level, corner.wx, corner.wy);
-        const tint = samples.length ? blendedFloorColor(samples) : linearFloorColor(floor.rgb);
-        addVertex(context, { x: corner.wx, y: -corner.height, z: corner.wy }, tint, 1, [
-            (corner.wx * 512) / floor.textureScale,
-            (-corner.wy * 512) / floor.textureScale,
+    for (const [index, corner] of corners.entries()) {
+        addVertex(context, { x: corner.wx, y: -corner.height, z: corner.wy }, tint(index), 1, [
+            (corner.wx * 512) / textureScale,
+            (-corner.wy * 512) / textureScale,
         ]);
     }
 }
 
-function addBlendedFloor(context: SceneContext, level: number, corners: readonly { wx: number; wy: number; height: number }[]): boolean {
-    const samples = corners.map(corner => context.sampleTerrain(level, corner.wx, corner.wy));
+interface FloorShade {
+    /** The fog hides the floor entirely, texture included. */
+    flat?: readonly number[];
+    apply: (color: readonly number[], index: number) => readonly number[];
+}
+const noShade: FloorShade = { apply: color => color };
+
+function floorShade(context: SceneContext, level: number, worldX: number, worldY: number, corners: readonly FloorCorner[]): FloorShade {
+    const fog = level === underwaterPlaneIndex ? context.waterFog(worldX, worldY) : undefined;
+    if (!fog) return noShade;
+    const factors = corners.map(corner => waterFogFactor(fog, corner.height - (mapHeight(context.regions, 0, corner.wx, corner.wy) ?? corner.height)));
+    return { flat: factors.every(factor => factor >= 1) ? fog.color : undefined, apply: (color, index) => mixWaterFog(color, fog, factors[index]) };
+}
+
+type FloorCorner = { wx: number; wy: number; point: number; height: number };
+
+function addLayeredFloor(context: SceneContext, corners: readonly FloorCorner[], samples: readonly (readonly FloorSample[])[], shade: FloorShade["apply"]): boolean {
     if (samples.some(sample => !sample.length)) return false;
     const layers = new Map(samples.flat().map(sample => [sample.key, sample.layer]));
     if (layers.size < 2) return false;
@@ -417,7 +465,7 @@ function addBlendedFloor(context: SceneContext, level: number, corners: readonly
     context.geometry.facePriorities.push(0);
     corners.forEach((corner, index) => {
         const weights = keys.map(key => samples[index].find(sample => sample.key === key)?.weight ?? 0);
-        const color = blendedFloorColor(samples[index]);
+        const color = shade(blendedFloorColor(samples[index]), index);
         addVertex(context, { x: corner.wx, y: -corner.height, z: corner.wy }, color, 1, [corner.wx * 512, -corner.wy * 512], weights);
     });
     return true;

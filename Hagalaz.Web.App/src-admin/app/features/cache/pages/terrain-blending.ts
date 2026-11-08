@@ -13,7 +13,7 @@ export function linearFloorColor(rgb: number): number[] {
     return linearColor(floorPaletteColor(rgb));
 }
 
-function linearColor(channels: readonly number[]): number[] {
+export function linearColor(channels: readonly number[]): number[] {
     return channels.map((channel) => {
         const value = channel / 255;
         return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;

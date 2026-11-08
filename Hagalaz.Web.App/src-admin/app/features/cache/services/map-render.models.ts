@@ -9,7 +9,12 @@ export interface MapRenderPlane {
     overlayRotations: number[];
 }
 export interface MapPlacement { id: number; shape: number; rotation: number; x: number; y: number; plane: number; }
-export interface MapFloor { id: number; overlay: boolean; rgb: number | null; textureId: number; secondaryRgb: number | null; textureScale: number; }
+export interface MapOverlayProperties {
+    priority: number; spreadsToNeighbours: boolean;
+    waterFogRgb: number; waterFogScale: number; waterFogBias: number;
+    waterParameter20: number; waterParameter21: number; waterParameter22: number;
+}
+export interface MapFloor { id: number; overlay: boolean; rgb: number | null; textureId: number; secondaryRgb: number | null; textureScale: number; overlayProperties?: MapOverlayProperties | null; }
 export interface MapAtmosphere {
     lightRgb: number; intensity: number; positiveResponse: number; negativeResponse: number;
     directionX: number; directionY: number; directionZ: number;
@@ -26,7 +31,18 @@ export interface MapRenderRegion {
     landscapeStatus: "available" | "absent" | "failed";
     planes: MapRenderPlane[]; objects: MapPlacement[]; floors: MapFloor[]; warnings: string[];
     atmosphere?: MapAtmosphere | null;
+    underwaterPlane?: MapRenderPlane | null;
+    underwaterObjects?: MapPlacement[] | null;
 }
+/** The client's second, underwater scene layer occupies the plane slot after the four surface planes. */
+export const underwaterPlaneIndex = 4;
+
+export function withUnderwaterLayer(region: MapRenderRegion): MapRenderRegion {
+    if (!region.underwaterPlane) return region;
+    const objects = (region.underwaterObjects ?? []).map(placement => ({ ...placement, plane: underwaterPlaneIndex }));
+    return { ...region, planes: [...region.planes, region.underwaterPlane], objects: [...region.objects, ...objects] };
+}
+
 export interface ObjectRenderAppearance {
     name?: string | null;
     id: number; shape: number; rotation: number; sizeX: number; sizeY: number; decorDisplacement: number;

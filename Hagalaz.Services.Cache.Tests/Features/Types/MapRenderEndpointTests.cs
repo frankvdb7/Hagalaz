@@ -31,6 +31,26 @@ public sealed class MapRenderEndpointTests
     private static byte[] ContainerBytes(byte[] bytes) { using var container = new Container(new MemoryStream(bytes)); return container.Encode(); }
 
     [TestMethod]
+    public async Task RenderRegion_AddsUnderwaterDepthsToSurfaceHeightsAndReadsUnencryptedObjects()
+    {
+        var data = new byte[16384];
+        var depths = new byte[4098];
+        depths[0] = 1;
+        depths[1] = 3;
+        var store = Store(("m1_2", data), ("m2_2", data), ("m1_3", data), ("m2_3", data), ("um1_2", depths), ("ul1_2", new byte[] { 1, 1, 40, 0, 0 }));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
+        response.EnsureSuccessStatusCode();
+        var region = await response.Content.ReadFromJsonAsync<MapRenderRegion>();
+        Assert.IsNotNull(region?.UnderwaterPlane);
+        Assert.AreEqual(region.Planes[0].CornerHeights[0] + 96, region.UnderwaterPlane.CornerHeights[0]);
+        Assert.AreEqual(region.Planes[0].CornerHeights[64 * 65 + 64], region.UnderwaterPlane.CornerHeights[64 * 65 + 64]);
+        Assert.HasCount(1, region.UnderwaterObjects!);
+        Assert.AreEqual(10, region.UnderwaterObjects![0].Shape);
+    }
+
+    [TestMethod]
     public async Task RenderRegion_UsesAuthoritativeNeighborBordersAndIndependentLandscapeStatus()
     {
         var data = new byte[16384];
@@ -131,7 +151,7 @@ public sealed class MapRenderEndpointTests
         var region = await response.Content.ReadFromJsonAsync<MapRenderRegion>();
         Assert.IsNotNull(region);
         Assert.AreEqual(6, region.Planes[0].Underlays[0]);
-        CollectionAssert.AreEqual(new[] { new FloorRenderDefinition(6, false, 0x123456, -1, null, 512) }, region.Floors.ToArray());
+        CollectionAssert.AreEqual(new[] { new FloorRenderDefinition(6, false, 0x123456, -1, null, 512, null) }, region.Floors.ToArray());
         Assert.IsFalse(region.Warnings.Any(warning => warning.Contains("Underlay", StringComparison.Ordinal)));
     }
 

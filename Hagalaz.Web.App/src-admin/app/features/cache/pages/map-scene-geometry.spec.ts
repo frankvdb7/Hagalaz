@@ -392,6 +392,56 @@ describe("map scene geometry", () => {
         expect(scene.geometry?.colors?.slice(0, 3)).toEqual([0.01599629336550963, 0.021219010376003555, 0.8796223968878317]);
         expect(Math.max(...(scene.geometry?.positions.filter((_, i) => i % 3 === 0) ?? []))).toBe(64 * 512 + 512);
     });
+    it("blends a spreading overlay into a neighbouring underlay's shared corners only", () => {
+        const build = (spreadsToNeighbours: boolean) => {
+            const source = region();
+            source.floors.push({ id: 1, overlay: true, rgb: 0x0000ff, textureId: 7, secondaryRgb: null, textureScale: 512, overlayProperties: { priority: 8, spreadsToNeighbours, waterFogRgb: 0x122b3d, waterFogScale: 512, waterFogBias: 255, waterParameter20: 63, waterParameter21: 0, waterParameter22: 64 } });
+            source.planes[0].underlays[64] = 1;
+            source.planes[0].overlays[64] = 1;
+            return required(buildMapScene([source], new Map(), new Map(), [true], false).geometry, "the terrain");
+        };
+        const blue = [0.01599629336550963, 0.021219010376003555, 0.8796223968878317];
+        const hasBlue = (colors: readonly number[], count: number) => colors.slice(0, count * 3).some((value, index) => index % 3 === 2 && Math.abs(value - blue[2]) < 1e-9);
+        // Tile 0 is drawn first: its four underlay triangles precede tile 64's.
+        expect(hasBlue(required(build(false).colors, "colours"), 12)).toBe(false);
+        const spread = build(true);
+        expect(hasBlue(required(spread.colors, "colours"), 12)).toBe(true);
+        expect(spread.terrainBlends?.length).toBeGreaterThan(0);
+    });
+    it("draws the underwater layer under surface tiles and fogs it from the surface overlay", () => {
+        const build = (waterFogBias: number, visible = true) => {
+            const source = region();
+            source.floors.push({ id: 2, overlay: true, rgb: 0x0000ff, textureId: -1, secondaryRgb: null, textureScale: 512, overlayProperties: { priority: 8, spreadsToNeighbours: false, waterFogRgb: 0x00ff00, waterFogScale: 51200, waterFogBias, waterParameter20: 63, waterParameter21: 0, waterParameter22: 64 } });
+            source.floors.push({ id: 3, overlay: false, rgb: 0xff0000, textureId: 7, secondaryRgb: null, textureScale: 512 });
+            source.planes[0].overlays[0] = 2;
+            const heights = source.planes[0].cornerHeights.map(height => (height ?? 0) + 200);
+            source.planes.push({ ...source.planes[0], cornerHeights: heights, overlays: Array(4096).fill(0), underlays: [3, ...Array(4095).fill(0)] });
+            return required(buildMapScene([source], new Map(), new Map(), [true, false, false, false, visible], false).geometry, "the terrain");
+        };
+        const surfaceVertices = 12;
+        const seabedY = (geometry: ReturnType<typeof build>) => geometry.positions[surfaceVertices * 3 + 1];
+        const partial = build(0), opaque = build(255);
+        expect(partial.positions.length / 3).toBe(surfaceVertices + 12);
+        expect(seabedY(partial)).toBe(partial.positions[1] - 200);
+        expect(partial.textureIds?.[4]).toBe(7);
+        expect(partial.colors?.[surfaceVertices * 3 + 1]).toBeGreaterThan(0);
+        expect(partial.colors?.[surfaceVertices * 3 + 1]).toBeLessThan(1);
+        expect(opaque.textureIds?.[4]).toBe(-1);
+        expect(opaque.colors?.slice(surfaceVertices * 3, surfaceVertices * 3 + 3)).toEqual([0, 1, 0]);
+        expect(build(255, false).positions.length / 3).toBe(surfaceVertices);
+    });
+    it("removes only water-effect floors when the water surface is hidden and rebuilds on toggle", () => {
+        const source = region();
+        source.floors.push({ id: 2, overlay: true, rgb: 0x0000ff, textureId: 7, secondaryRgb: null, textureScale: 512 }, { id: 3, overlay: true, rgb: 0x00ff00, textureId: 8, secondaryRgb: null, textureScale: 512 });
+        source.planes[0].overlays[0] = 2;
+        source.planes[0].overlays[1] = 3;
+        const textures = new Map<number, ModelTexture>([[7, { image: {} as ImageBitmap, alphaMode: 0, effectId: 4 }], [8, { image: {} as ImageBitmap, alphaMode: 0 }]]);
+        const preparation = new MapScenePreparation();
+        const vertices = (waterSurface: boolean) => buildMapScene([source], new Map(), textures, [true], false, preparation, null, undefined, waterSurface).geometry?.positions.length;
+        expect(vertices(true)).toBe(24 * 3);
+        expect(vertices(false)).toBe(12 * 3);
+        expect(vertices(true)).toBe(24 * 3);
+    });
     it("omits unavailable boundaries and absent floors rather than inventing geometry", () => {
         const source = region();
         source.planes[0].cornerHeights[0] = null;

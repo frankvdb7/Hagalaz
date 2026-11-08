@@ -70,6 +70,22 @@ public sealed class MapRenderDecoderTests
     }
 
     [Fact]
+    public void UnderwaterTerrain_ReadsOnePlaneOfDepthsAndFloors()
+    {
+        // Tile 0: underlay 5, overlay 9 (shape 1, rotation 2), ignored tile flag, depth 3. Tile 1: plain. Tile 2: depth 1 stays 32.
+        byte[] first = [86, 8, 9, 60, 1, 3, 0, 1, 1];
+        var plane = MapRenderDecoder.DecodeUnderwaterTerrain(new MemoryStream([.. first, .. new byte[4093]]));
+        Assert.Equal(96, plane.Heights[0]);
+        Assert.Equal(5, plane.Underlays[0]);
+        Assert.Equal(9, plane.Overlays[0]);
+        Assert.Equal(1, plane.OverlayShapes[0]);
+        Assert.Equal(2, plane.OverlayRotations[0]);
+        Assert.Equal(0, plane.Flags[0]);
+        Assert.Equal(0, plane.Heights[1]);
+        Assert.Equal(32, plane.Heights[2]);
+    }
+
+    [Fact]
     public void TerrainProjection_PreservesFullTileSemanticsAndPlaneSpacing()
     {
         using var stream = new MemoryStream(new byte[] { 49, 200, 51, 255, 1, 5 }.Concat(new byte[16383]).ToArray());
@@ -108,11 +124,15 @@ public sealed class MapRenderDecoderTests
         Assert.Equal(0x654321, result.SecondaryRgb);
         Assert.Equal(-1, result.TextureId);
         Assert.Equal(256, result.TextureScale);
+        Assert.Equal(new Hagalaz.Cache.Types.OverlayRenderProperties(1, true, 0, 32, 2, 3, 4, 5), result.OverlayProperties);
         using var underlay = new MemoryStream([1, 0, 255, 0, 2, 0, 7, 3, 0, 32, 4, 5, 0]);
         var ground = MapRenderDecoder.DecodeFloor(underlay, 8, false);
         Assert.Equal(0x00ff00, ground.Rgb);
         Assert.Equal(7, ground.TextureId);
         Assert.Equal(128, ground.TextureScale);
+        Assert.Null(ground.OverlayProperties);
+        using var plain = new MemoryStream([1, 0, 0, 1, 0]);
+        Assert.Equal(new Hagalaz.Cache.Types.OverlayRenderProperties(8, false, 0x122b3d, 512, 255, 63, 0, 64), MapRenderDecoder.DecodeFloor(plain, 1, true).OverlayProperties);
     }
 
     [Fact]

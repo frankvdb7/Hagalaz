@@ -41,6 +41,8 @@ public sealed class MapRenderReader(ICacheAPI cache)
 
         var planes = new List<MapRenderPlane>();
         var floors = new List<FloorRenderDefinition>();
+        MapRenderPlane? underwaterPlane = null;
+        MapRenderPlacement[]? underwaterObjects = null;
         if (terrain is not null)
         {
             var x = id >> 8;
@@ -62,10 +64,67 @@ public sealed class MapRenderReader(ICacheAPI cache)
                 var p = terrain[z];
                 planes.Add(new MapRenderPlane(heights, p.Flags, p.Underlays, p.Overlays, p.OverlayShapes, p.OverlayRotations));
             }
-            ReadFloors(terrain.SelectMany(p => p.Underlays), false, floors, warnings, cancellationToken);
-            ReadFloors(terrain.SelectMany(p => p.Overlays), true, floors, warnings, cancellationToken);
+            var underwater = ReadUnderwaterTerrain(id, warnings, cancellationToken);
+            if (underwater is not null)
+            {
+                underwaterPlane = ComposeUnderwaterPlane(id, underwater, planes[0], warnings, cancellationToken);
+                underwaterObjects = ReadUnderwaterObjects(id, warnings, cancellationToken);
+            }
+            var surfaces = underwater is null ? terrain : terrain.Append(underwater);
+            ReadFloors(surfaces.SelectMany(p => p.Underlays), false, floors, warnings, cancellationToken);
+            ReadFloors(surfaces.SelectMany(p => p.Overlays), true, floors, warnings, cancellationToken);
         }
-        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, atmosphere);
+        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, atmosphere, underwaterPlane, underwaterObjects);
+    }
+
+    private MapRenderPlane ComposeUnderwaterPlane(int id, TerrainRenderPlane underwater, MapRenderPlane surface, List<string> warnings, CancellationToken cancellationToken)
+    {
+        // The client adds depths to surface heights across the whole scene; a neighbour without `um` adds nothing.
+        var x = id >> 8;
+        var y = id & 255;
+        var east = x < 255 ? ReadUnderwaterTerrain(id + 256, warnings, cancellationToken) : null;
+        var north = y < 255 ? ReadUnderwaterTerrain(id + 1, warnings, cancellationToken) : null;
+        var corner = x < 255 && y < 255 ? ReadUnderwaterTerrain(id + 257, warnings, cancellationToken) : null;
+        var heights = new int?[65 * 65];
+        for (var tx = 0; tx <= 64; tx++)
+        for (var ty = 0; ty <= 64; ty++)
+        {
+            var source = tx < 64 ? ty < 64 ? underwater : north : ty < 64 ? east : corner;
+            heights[tx * 65 + ty] = surface.CornerHeights[tx * 65 + ty] + (source?.Heights[(tx % 64) * 64 + ty % 64] ?? 0);
+        }
+        return new MapRenderPlane(heights, underwater.Flags, underwater.Underlays, underwater.Overlays, underwater.OverlayShapes, underwater.OverlayRotations);
+    }
+
+    private TerrainRenderPlane? ReadUnderwaterTerrain(int id, List<string> warnings, CancellationToken cancellationToken)
+    {
+        var file = cache.GetFileId(5, $"um{id >> 8}_{id & 255}");
+        if (file < 0) return null;
+        try
+        {
+            using var container = cache.ReadContainer(5, file);
+            return MapRenderDecoder.DecodeUnderwaterTerrain(container.Data, cancellationToken);
+        }
+        catch (Exception error) when (IsDataError(error))
+        {
+            warnings.Add($"Region {id} underwater terrain could not be decoded. {error.Message}");
+            return null;
+        }
+    }
+
+    private MapRenderPlacement[] ReadUnderwaterObjects(int id, List<string> warnings, CancellationToken cancellationToken)
+    {
+        var file = cache.GetFileId(5, $"ul{id >> 8}_{id & 255}");
+        if (file < 0) return [];
+        try
+        {
+            using var container = cache.ReadContainer(5, file);
+            return MapRenderDecoder.DecodeLandscape(container.Data, cancellationToken);
+        }
+        catch (Exception error) when (IsDataError(error))
+        {
+            warnings.Add($"Region {id} underwater objects could not be decoded. {error.Message}");
+            return [];
+        }
     }
 
     private TerrainRenderPlane[]? ReadTerrain(int id, List<string> warnings, CancellationToken cancellationToken, out string status,

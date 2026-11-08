@@ -51,6 +51,9 @@ export class MapsDetailPageComponent {
     readonly error = signal<string | null>(null);
     readonly planes = signal([true, false, false, false]);
     readonly landscape = signal(true);
+    readonly underwater = signal(true);
+    readonly waterSurface = signal(true);
+    private readonly visiblePlanes = computed(() => [...this.planes(), this.underwater()]);
     readonly selectedPlane = computed(() => this.planes().filter(Boolean).length === 1 ? this.planes().indexOf(true) : -1);
     private readonly preparation = linkedSignal(() => { this.selectionKey(); return new MapScenePreparation(); });
     readonly useRegionAtmosphere = signal(true);
@@ -100,8 +103,8 @@ export class MapsDetailPageComponent {
     });
     readonly regionAtmosphere = computed(() => this.store.regions().find(region => region.id === this.selection().id)?.atmosphere ?? null);
     readonly scene = computed(() => buildMapScene(
-        this.store.regions(), this.store.appearances(), this.store.textures(), this.planes(), this.landscape(), this.preparation(),
-        this.useRegionAtmosphere() ? this.selection().id : null, this.edits(),
+        this.store.regions(), this.store.appearances(), this.store.textures(), this.visiblePlanes(), this.landscape(), this.preparation(),
+        this.useRegionAtmosphere() ? this.selection().id : null, this.edits(), this.waterSurface(),
     ));
     readonly objectNames = computed(() => {
         const names = new Map<number, string>();
@@ -142,7 +145,7 @@ export class MapsDetailPageComponent {
         return `${stage}. Regions ${progress.regionsSettled}/${progress.regionsTotal}. Appearances ${progress.appearancesSettled}/${progress.appearancesTotal}. Textures ${progress.texturesSettled}/${progress.texturesTotal}. ${progress.failures} failed reads.`;
     });
     readonly visibleTiles = computed(() => this.store.regions().reduce((count, region) =>
-        count + region.planes.reduce((tiles, plane, index) => tiles + (this.planes()[index] ? plane.flags.length : 0), 0), 0));
+        count + region.planes.reduce((tiles, plane, index) => tiles + (this.visiblePlanes()[index] ? plane.flags.length : 0), 0), 0));
     readonly visiblePlacements = computed(() => this.scene().geometry?.placements.length ?? 0);
     // Edited rotations and additions need their own appearances, independent of source plane visibility.
     // The loader only reacts when the set of appearance keys changes, not on every move or scale step.
@@ -156,7 +159,7 @@ export class MapsDetailPageComponent {
 
     constructor() {
         effect(() => {
-            const value = { planes: this.planes(), landscape: this.landscape(), previewPlacements: this.previewPlacements() };
+            const value = { planes: this.visiblePlanes(), landscape: this.landscape(), previewPlacements: this.previewPlacements() };
             untracked(() => this.store.setVisibility(value));
         });
         effect(() => {

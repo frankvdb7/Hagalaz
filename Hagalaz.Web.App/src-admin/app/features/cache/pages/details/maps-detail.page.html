@@ -160,6 +160,8 @@
                         <h3><mat-icon class="studio-icon-small">layers</mat-icon>Layers &amp; visibility</h3>
                         <div class="region-layers">
                             @for (visible of planes(); track $index) { <mat-checkbox [checked]="visible" (change)="togglePlane($index, $event.checked)">Plane {{ $index }}</mat-checkbox> }
+                            <mat-checkbox [checked]="underwater()" (change)="underwater.set($event.checked)">Underwater terrain</mat-checkbox>
+                            <mat-checkbox [checked]="waterSurface()" (change)="waterSurface.set($event.checked)">Water surface</mat-checkbox>
                             <mat-checkbox [checked]="landscape()" (change)="landscape.set($event.checked)">Landscape objects</mat-checkbox>
                         </div>
                     </section>

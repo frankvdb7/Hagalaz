@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapFogRange, selectedMapIds } from "./map-render.models";
+import { mapFogRange, selectedMapIds, underwaterPlaneIndex, withUnderwaterLayer, type MapRenderRegion } from "./map-render.models";
 
 describe("map selection", () => {
     it("packs adjacent coordinates without treating archive IDs as regions", () => {
@@ -19,5 +19,20 @@ describe("map fog range", () => {
     });
     it("clamps the start to the client near plane", () => {
         expect(mapFogRange(65535)).toEqual({ start: 200, end: 14332 });
+    });
+});
+
+describe("underwater layer", () => {
+    const plane = { cornerHeights: [], flags: [], underlays: [], overlays: [], overlayShapes: [], overlayRotations: [] };
+    const placement = { id: 1, shape: 10, rotation: 0, x: 0, y: 0, plane: 0 };
+    const region: MapRenderRegion = { id: 1, regionX: 0, regionY: 1, terrainStatus: "available", landscapeStatus: "available", planes: [plane, plane, plane, plane], objects: [placement], floors: [], warnings: [] };
+    it("leaves regions without underwater data untouched", () => {
+        expect(withUnderwaterLayer(region)).toBe(region);
+    });
+    it("appends the underwater plane and retargets its objects", () => {
+        const underwaterPlane = { ...plane, flags: [1] };
+        const result = withUnderwaterLayer({ ...region, underwaterPlane, underwaterObjects: [{ ...placement, id: 2 }] });
+        expect(result.planes[underwaterPlaneIndex]).toBe(underwaterPlane);
+        expect(result.objects).toEqual([placement, { ...placement, id: 2, plane: underwaterPlaneIndex }]);
     });
 });
