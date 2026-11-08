@@ -51,7 +51,8 @@ export class CacheModelPreviewComponent {
                 switchMap(({response, material}) => {
                     const alphaMode = material.alphaMode;
                     if (alphaMode !== 0 && alphaMode !== 1 && alphaMode !== 2) throw new Error("Unsupported texture alpha mode.");
-                    const bitmap = from(createImageBitmap(response.body!, {imageOrientation: "flipY"}).then(image => {
+                    if (!response.body) throw new Error("Texture image is missing.");
+                    const bitmap = from(createImageBitmap(response.body, {imageOrientation: "flipY"}).then(image => {
                         if (cancelled) { image.close(); return; }
                         images.set(id, {image, ...material, alphaMode});
                     }));

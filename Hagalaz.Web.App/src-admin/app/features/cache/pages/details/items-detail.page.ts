@@ -77,7 +77,10 @@ export class ItemsDetailPageComponent {
     readonly previewShadow = signal(true);
     readonly previewShadowColour = signal("#302020");
     readonly previewShadowParameter = computed(() => (this.previewShadow() ? this.previewShadowColour().slice(1) : "none"));
-    readonly draft = linkedSignal<GetItemDefinitionDto | null>(() => (this.item() ? structuredClone(this.item()!) : null));
+    readonly draft = linkedSignal<GetItemDefinitionDto | null>(() => {
+        const item = this.item();
+        return item ? structuredClone(item) : null;
+    });
     readonly dirty = computed(() => JSON.stringify(this.draft()) !== JSON.stringify(this.item()));
     readonly valid = computed(() => {
         const draft = this.draft();
@@ -86,24 +89,14 @@ export class ItemsDetailPageComponent {
             !!draft.name?.trim() &&
             draft.name.length <= 50 &&
             [...draft.name].every((character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) <= 255) &&
+            typeof draft.value === "number" &&
             Number.isInteger(draft.value) &&
-            draft.value! >= 0 &&
-            draft.value! <= 2147483647
+            draft.value >= 0 &&
+            draft.value <= 2147483647
         );
     });
     readonly canSave = computed(() => this.dirty() && this.valid() && !this.store.loading());
 
-    readonly overview = computed<ItemField[]>(() => {
-        const item = this.item();
-        return [
-            { label: "Definition ID", value: this.value(item?.id) },
-            { label: "Display name", value: item?.name || "Not supplied" },
-            { label: "Cache base value", value: this.value(item?.value) },
-            { label: "Stackable", value: this.value(item?.stackable) },
-            { label: "Noted", value: this.value(item?.noted) },
-            { label: "Members only", value: this.value(item?.membersOnly) },
-        ];
-    });
     readonly equipment = computed<ItemField[]>(() => [
         { label: "Equip slot", value: this.reference(this.item()?.equipSlot) },
         { label: "Equip type", value: this.reference(this.item()?.equipType) },
@@ -159,18 +152,21 @@ export class ItemsDetailPageComponent {
     }
 
     async save(): Promise<void> {
-        if (!this.canSave()) return;
-        const draft = structuredClone(this.draft()!);
+        const current = this.draft();
+        if (!this.canSave() || !current) return;
+        const draft = structuredClone(current);
         if (await this.confirm(`Save the complete definition for item #${draft.id}?`)) this.store.updateItem(draft);
     }
 
     async duplicate(): Promise<void> {
-        if (!this.item() || this.store.loading() || this.dirty()) return;
-        if (await this.confirm(`Duplicate persisted item #${this.item()!.id} into a new definition?`)) this.store.duplicateItem(this.item()!.id);
+        const item = this.item();
+        if (!item || this.store.loading() || this.dirty()) return;
+        if (await this.confirm(`Duplicate persisted item #${item.id} into a new definition?`)) this.store.duplicateItem(item.id);
     }
 
     resetDraft(): void {
-        this.draft.set(this.item() ? structuredClone(this.item()!) : null);
+        const item = this.item();
+        this.draft.set(item ? structuredClone(item) : null);
     }
 
     reload(): void {

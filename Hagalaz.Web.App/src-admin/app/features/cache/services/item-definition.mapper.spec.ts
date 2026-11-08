@@ -1,4 +1,4 @@
-import { CacheItemsStore } from "../stores/cache-items.store";
+import type { CacheItemsStore } from "../stores/cache-items.store";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { GetItemDefinitionDto, UpdateItemDefinitionDto, GetItemTypeDto, SearchDefinitionsDto } from "./dtos";
 import { toUpdateItemDefinitionDto } from "./item-definition.mapper";

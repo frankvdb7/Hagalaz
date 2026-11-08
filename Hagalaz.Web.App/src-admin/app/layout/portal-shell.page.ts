@@ -71,11 +71,12 @@ export class PortalShellPageComponent {
     readonly currentUrl = computed(() => (this.navigationEnd()?.urlAfterRedirects ?? this.router.url).split("#")[0]);
     readonly definitionCrumb = computed(() => {
         const model = this.currentUrl().match(/^\/cache\/models\/([^/?]+)(?:[/?]|$)/);
-        if (model) return {kind: "models", label: "Model", id: model[1]};
+        // The parent link returns to the model browser, or to the type browser filtered to this kind.
+        if (model) return { label: "Model", id: model[1], path: "/cache/models", queryParams: {}, queryParamsHandling: "" as const, href: "/cache/models" };
         const match = this.currentUrl().match(/^\/cache\/types\/([^/]+)\/(\d+)(?:[/?]|$)/);
         if (!match || !Object.hasOwn(cacheTypeNames, match[1])) return null;
         const kind = match[1] as TypeKind;
-        return { kind, label: cacheTypeNames[kind], id: match[2] };
+        return { label: cacheTypeNames[kind], id: match[2], path: "/cache/types", queryParams: { kind }, queryParamsHandling: "merge" as const, href: `/cache/types?kind=${kind}` };
     });
     readonly title = computed(() => {
         const url = this.currentUrl();

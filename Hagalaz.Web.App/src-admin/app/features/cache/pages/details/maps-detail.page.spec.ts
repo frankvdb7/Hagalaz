@@ -12,6 +12,7 @@ import { environment } from "../../../../../environments/environment";
 import { MapViewportComponent } from "../map-viewport.component";
 import { MapsDetailPageComponent } from "./maps-detail.page";
 import { CacheObjectsService } from "../../services/cache-objects.service";
+import { required } from "../../../../../testing/required";
 
 @Component({ selector: "cache-map-viewport", template: "<ng-content />" })
 class ViewportBoundary {
@@ -32,7 +33,7 @@ describe("MapsDetailPageComponent", () => {
         const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
         http.expectOne(`${base}258/render`).flush(region(258));
         page.selectCatalogObject({ id: 99, name: "Fence", shape: 10 });
-        const viewport = harness.routeDebugElement!.query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;
+        const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;
         viewport.objectDrop.emit({ id: 99, x: 3 * 512 + 100, z: 6 * 512 });
         harness.detectChanges();
         const batch = http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`);
@@ -74,7 +75,7 @@ describe("MapsDetailPageComponent", () => {
             atmosphere: { lightRgb: 0xddcebb, intensity: 1.3, positiveResponse: 2, negativeResponse: 0.36, directionX: -4, directionY: -16, directionZ: 1 },
         });
         harness.detectChanges();
-        const viewport = harness.routeDebugElement!.query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;
+        const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(ViewportBoundary)).componentInstance as ViewportBoundary;
         const key = viewport.selectionKey();
         expect(viewport.hasRegionAtmosphere()).toBe(true);
         expect(viewport.useRegionAtmosphere()).toBe(true);
@@ -145,17 +146,17 @@ describe("MapsDetailPageComponent", () => {
         const harness = await RouterTestingHarness.create();
         await harness.navigateByUrl("/cache/types/maps/258?kind=maps&offset=25", MapsDetailPageComponent);
         http.expectOne(`${base}258/render`).flush(region(258));
-        const root = harness.routeNativeElement!;
+        const root = required(harness.routeNativeElement, "the routed page");
         const loader = TestbedHarnessEnvironment.loader(harness.fixture);
         const assets = await loader.getHarness(MatTabGroupHarness.with({ selector: ".asset-tabs" }));
         await assets.selectTab({ label: /Textures/ });
         expect(root.textContent).toContain("Search textures by ID");
         const inspector = await loader.getHarness(MatTabGroupHarness.with({ selector: ".inspector-tabs" }));
         await inspector.selectTab({ label: /Tools/ });
-        root.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click();
+        required(root.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]'), "the dialog button").click();
         harness.detectChanges();
-        const dialog = document.querySelector<HTMLFormElement>('form[role="dialog"]')!;
-        const input = dialog.querySelector<HTMLInputElement>('input[type="number"]')!;
+        const dialog = required(document.querySelector<HTMLFormElement>('form[role="dialog"]'), "the dialog form");
+        const input = required(dialog.querySelector<HTMLInputElement>('input[type="number"]'), "the number input");
         input.value = "259";
         input.dispatchEvent(new Event("input", { bubbles: true }));
         dialog.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));

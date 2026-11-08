@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildMapScene, mapHeight, MapScenePreparation } from "./map-scene-geometry";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { mapAppearanceKey, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
+import { required } from "../../../../testing/required";
 
 function region(id = 258): MapRenderRegion {
     return {
@@ -65,7 +66,7 @@ describe("map scene geometry", () => {
         const appearances = new Map([[mapAppearanceKey(original), appearance()], [mapAppearanceKey({ ...original, rotation: 1 }), { ...appearance(), rotation: 1 }]]);
         const preparation = new MapScenePreparation();
         const regions = [source];
-        const draw = (draft?: Parameters<typeof buildMapScene>[7]) => buildMapScene(regions, appearances, new Map(), [true], true, preparation, source.id, draft).geometry!;
+        const draw = (draft?: Parameters<typeof buildMapScene>[7]) => required(buildMapScene(regions, appearances, new Map(), [true], true, preparation, source.id, draft).geometry, "scene geometry");
         const initial = draw();
         const edited = draw({
             transforms: new Map([[original, { x: 1, y: 3, plane: 0, rotation: 1, scale: 2 }]]),
@@ -87,10 +88,10 @@ describe("map scene geometry", () => {
         const unrotated = { ...appearance(), sizeX: 1, sizeY: 3, contourMode: 0 };
         const rotated = { ...unrotated, rotation: 1, parts: [{ ...unrotated.parts[0], positions: [0, 0, 0, 0, 0, 512, 0, -512, 0] }] };
         const appearances = new Map([[mapAppearanceKey(original), unrotated], [mapAppearanceKey({ ...original, rotation: 1 }), rotated]]);
-        const edited = buildMapScene([source], appearances, new Map(), [true], true, new MapScenePreparation(), source.id, {
+        const edited = required(buildMapScene([source], appearances, new Map(), [true], true, new MapScenePreparation(), source.id, {
             transforms: new Map([[original, { x: 0, y: 0, plane: 0, rotation: 1, scale: 1 }]]),
             additions: [],
-        }).geometry!;
+        }).geometry, "edited scene geometry");
         const start = edited.placements[0].startVertex * 3;
         // A rotated 1x3 footprint spans three tiles east and one north; its centre is (1.5, 0.5).
         expect([edited.positions[start], edited.positions[start + 2]]).toEqual([768, 256]);
@@ -104,10 +105,10 @@ describe("map scene geometry", () => {
         const original = { id: 1, shape: 10, rotation: 0, plane: 0, x: 0, y: 0 };
         source.objects = [original];
         const unrotated = { ...appearance(), sizeX: 1, sizeY: 3, contourMode: 0 };
-        const pending = buildMapScene([source], new Map([[mapAppearanceKey(original), unrotated]]), new Map(), [true], true, new MapScenePreparation(), source.id, {
+        const pending = required(buildMapScene([source], new Map([[mapAppearanceKey(original), unrotated]]), new Map(), [true], true, new MapScenePreparation(), source.id, {
             transforms: new Map([[original, { x: 2, y: 0, plane: 0, rotation: 1, scale: 1 }]]),
             additions: [],
-        }).geometry!;
+        }).geometry, "pending scene geometry");
         expect(pending.placements.map(item => item.placement)).toEqual([original]);
         const start = pending.placements[0].startVertex * 3;
         // Source footprint (1x3) at the edited tile: centre (2.5, 1.5).
@@ -119,8 +120,8 @@ describe("map scene geometry", () => {
         const second = { ...first, x: 1 };
         source.objects = [first, second];
         const appearances = new Map([[mapAppearanceKey(first), appearance()]]);
-        const ground = buildMapScene([source], appearances, new Map(), [true], false).geometry!;
-        const scene = buildMapScene([source], appearances, new Map(), [true], true).geometry!;
+        const ground = required(buildMapScene([source], appearances, new Map(), [true], false).geometry, "ground geometry");
+        const scene = required(buildMapScene([source], appearances, new Map(), [true], true).geometry, "scene geometry");
         const start = ground.positions.length / 3;
         expect(scene.placements).toEqual([
             { regionId: source.id, placement: first, startVertex: start, endVertex: start + 3 },
@@ -133,14 +134,15 @@ describe("map scene geometry", () => {
         neighbor.atmosphere = { lightRgb: 0xffffff, intensity: 0, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0 };
         anchor.atmosphere = { ...neighbor.atmosphere, intensity: 1.1523438, lightRgb: 0xff0000 };
         const regions = [neighbor, anchor], preparation = new MapScenePreparation();
-        const draw = (loaded: MapRenderRegion[], id: number | null) => buildMapScene(loaded, new Map(), new Map(), [true], false, preparation, id).geometry!;
+        const draw = (loaded: MapRenderRegion[], id: number | null) => required(buildMapScene(loaded, new Map(), new Map(), [true], false, preparation, id).geometry, "terrain geometry");
         const partial = draw([neighbor], anchor.id);
-        expect(partial.colors![1]).toBeGreaterThan(0);
+        const partialColors = required(partial.colors, "partial terrain colours");
+        expect(partialColors[1]).toBeGreaterThan(0);
         const lit = draw(regions, anchor.id);
-        expect(lit.colors!.slice(0, 3)).toEqual([partial.colors![0], 0, 0]);
+        expect(required(lit.colors, "lit terrain colours").slice(0, 3)).toEqual([partialColors[0], 0, 0]);
         expect(draw(regions, anchor.id)).toBe(lit);
-        expect(draw(regions, null).colors!.slice(0, 3)).toEqual(partial.colors!.slice(0, 3));
-        expect(draw(regions, neighbor.id).colors!.every(channel => channel === 0)).toBe(true);
+        expect(required(draw(regions, null).colors, "terrain colours").slice(0, 3)).toEqual(partialColors.slice(0, 3));
+        expect(required(draw(regions, neighbor.id).colors, "neighbour terrain colours").every(channel => channel === 0)).toBe(true);
     });
     it("retains first-texel markers when prepared object faces join terrain", () => {
         const source = region();

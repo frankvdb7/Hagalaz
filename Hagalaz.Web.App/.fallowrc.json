@@ -17,6 +17,8 @@
   },
   "ignoreDependencies": [
     "@angular/language-service",
+    "@tailwindcss/postcss",
+    "postcss",
     "tailwindcss"
   ],
   "ignoreUnresolvedImports": [

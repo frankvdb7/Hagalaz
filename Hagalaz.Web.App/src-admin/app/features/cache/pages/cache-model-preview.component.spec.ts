@@ -1,7 +1,7 @@
 import { provideHttpClient } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
 import { Component, input } from "@angular/core";
-import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { type ComponentFixture, TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
 import { By } from "@angular/platform-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,7 @@ import { CacheModelPreviewComponent } from "./cache-model-preview.component";
 import { ModelWorkspaceComponent } from "./model-workspace.component";
 import { ModelTexturesComponent } from "./model-textures.component";
 import { CacheTextureThumbnailComponent } from "./cache-texture-thumbnail.component";
+import { required } from "../../../../testing/required";
 
 @Component({ selector: "hagalaz-model-viewer", template: "" })
 class RendererBoundary {
@@ -56,7 +57,7 @@ describe("CacheModelPreviewComponent playback", () => {
         const button = Array.from(fixture.nativeElement.querySelectorAll("button") as NodeListOf<HTMLButtonElement>)
             .find(value => value.textContent?.trim() === label);
         expect(button, label).toBeDefined();
-        button!.click(); settle();
+        required(button, "the preview button").click(); settle();
     }
     async function loadAnimation(): Promise<void> {
         http.expectOne(`${baseUrl}models/7`).flush(model);

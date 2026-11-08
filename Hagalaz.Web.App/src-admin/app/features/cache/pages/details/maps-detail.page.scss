@@ -22,13 +22,12 @@
 .region-inspector section + section { border-top: 1px solid var(--mat-sys-outline-variant); }
 .region-inspector h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font: var(--mat-sys-label-large); letter-spacing: .07em; text-transform: uppercase; }
 .region-layers { display: flex; flex-direction: column; align-items: flex-start; }
-.region-details { margin: 12px 0 0 12px; }
-.region-details h4 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font: var(--mat-sys-title-small); }
+.region-details { display: grid; gap: 6px; margin: 12px 0 0 12px; }
+.region-details h4 { display: flex; align-items: center; gap: 10px; margin: 0; font: var(--mat-sys-title-small); }
 .region-details p, .region-stats dt { display: flex; align-items: center; gap: 10px; margin: 0; }
-.region-details p + p, .region-stats div + div { margin-top: 6px; }
-.region-available { color: var(--mat-sys-tertiary); }
-.region-stats { margin: 0 0 0 12px; }
+.region-stats { display: grid; gap: 6px; margin: 0 0 0 12px; }
 .region-stats div { display: flex; justify-content: space-between; gap: 8px; }
+.region-available { color: var(--mat-sys-tertiary); }
 .region-stats dd { margin: 0; font-variant-numeric: tabular-nums; }
 .edit-toolbar, .asset-toolbar {
     display: flex;

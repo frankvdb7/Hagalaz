@@ -37,9 +37,9 @@ export class CacheShellPageComponent {
     readonly kindLabels = { ...cacheTypeLabels, models: "Models" };
     readonly activeKind = computed(() => {
         const url = this.router.parseUrl(this.navigation()?.urlAfterRedirects ?? this.router.url);
-        const segments = url.root.children["primary"]?.segments;
+        const segments = url.root.children.primary?.segments;
         if (segments?.[1]?.path === "models") return "models";
-        const kind = segments?.[2]?.path ?? url.queryParams["kind"];
+        const kind = segments?.[2]?.path ?? url.queryParams.kind;
         return this.kinds.find((value) => value === kind) ?? "items";
     });
 }

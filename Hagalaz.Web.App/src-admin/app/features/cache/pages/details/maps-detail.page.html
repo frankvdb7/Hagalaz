@@ -35,7 +35,7 @@
                 </cache-map-viewport>
                 @if (!store.loading() && !scene().geometry) { <p role="status" class="p-3">No renderable tiles or objects. Check the region availability.</p> }
             </mat-card>
-            <mat-card appearance="outlined" class="asset-tray" role="region" aria-label="Scene assets">
+            <mat-card appearance="outlined" class="asset-tray"><section class="contents" aria-label="Scene assets">
                 <div class="asset-toolbar">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="asset-search studio-compact-inspector">
                         <mat-label>{{ assetKind() === 'objects' ? 'Search objects by name or ID' : 'Search ' + assetKind() + ' by ID' }}</mat-label>
@@ -98,16 +98,16 @@
                                 } @empty {
                                     <p class="supporting-text">No matching scene assets.</p>
                                 }
-                                @if (visibleAssets().length < assetItems().length) {
+                                @if (assetItems().length > visibleAssets().length) {
                                     <button mat-button type="button" (click)="assetLimit.set(assetLimit() + 60)">Show more</button>
                                 }
                             </div>
                         }
                     </div>
                 </ng-template>
-            </mat-card>
+            </section></mat-card>
         </div>
-        <mat-card appearance="outlined" class="region-inspector" role="complementary" aria-label="Region inspector">
+        <mat-card appearance="outlined" class="region-inspector"><aside class="contents" aria-label="Region inspector">
             <mat-tab-group class="inspector-tabs map-workspace-tabs" mat-stretch-tabs="true" aria-label="Inspector view" animationDuration="0ms" [selectedIndex]="inspectorTab()" (selectedIndexChange)="inspectorTab.set($event)">
                 <mat-tab>
                     <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">view_in_ar</mat-icon>Object</ng-template>
@@ -115,9 +115,9 @@
                         <section aria-label="Selected object">
                             <h3><mat-icon class="studio-icon-small">view_in_ar</mat-icon>Object (ID {{ selected.placement.id }})</h3>
                             <dl class="region-stats">
-                                <div><dt>Object ID</dt><dd><a [routerLink]="['/cache/types/objects', selected.placement.id]">{{ selected.placement.id }}</a></dd></div>
+                                <div><dt>Object ID</dt><dd><a href="/cache/types/objects/{{ selected.placement.id }}" [routerLink]="['/cache/types/objects', selected.placement.id]">{{ selected.placement.id }}</a></dd></div>
                                 @for (part of objectModels(); track $index) {
-                                    <div><dt>Model</dt><dd><a [routerLink]="['/cache/models', part.id]">{{ part.id }}</a></dd></div>
+                                    <div><dt>Model</dt><dd><a href="/cache/models/{{ part.id }}" [routerLink]="['/cache/models', part.id]">{{ part.id }}</a></dd></div>
                                 }
                                 <div><dt>Shape</dt><dd>{{ selected.placement.shape }}</dd></div>
                                 <div><dt>Region</dt><dd>{{ selected.regionId }}</dd></div>
@@ -249,12 +249,12 @@
                         } @empty {
                             <p class="supporting-text">No matching placements on visible planes.</p>
                         }
-                        @if (visibleScenePlacements().length < scenePlacements().length) {
+                        @if (scenePlacements().length > visibleScenePlacements().length) {
                             <button mat-button type="button" (click)="placementLimit.set(placementLimit() + 50)">Show more</button>
                         }
                     </section>
                 </mat-tab>
             </mat-tab-group>
-        </mat-card>
+        </aside></mat-card>
     </div>
 </section>

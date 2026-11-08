@@ -212,6 +212,9 @@ aside h3 {
     margin-top: 8px;
 }
 .icon-options {
+    min-width: 0;
+    padding: 0;
+    border: 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

@@ -22,6 +22,7 @@ import { ItemsDetailPageComponent } from "./items-detail.page";
 
 import { Component, input } from "@angular/core";
 import { CacheModelPreviewComponent } from "../cache-model-preview.component";
+import { required } from "../../../../../testing/required";
 
 @Component({ selector: "cache-item-sprite-thumbnail", template: "" })
 class ItemSpriteBoundary {
@@ -232,16 +233,16 @@ describe("Item Forge", () => {
     it("saves the complete definition after confirmation and keeps model data in the payload", async () => {
         const data = { ...item, stackableType: 0, scaleX: 128, maleWornModelId1: 456, extraData: { 451: 123 }, unknownArray1: [1, 2] };
         const { page, harness, element } = await open(data);
-        const name = element.querySelector<HTMLInputElement>("#item-name")!;
+        const name = required(element.querySelector<HTMLInputElement>("#item-name"), "the item name input");
         name.value = "New blade";
         name.dispatchEvent(new Event("input"));
-        const value = element.querySelector<HTMLInputElement>("#item-value")!;
+        const value = required(element.querySelector<HTMLInputElement>("#item-value"), "the item value input");
         value.value = "55";
         value.dispatchEvent(new Event("input"));
         TestBed.tick();
         expect(page.dirty()).toBe(true);
         expect(page.canSave()).toBe(true);
-        element.querySelector<HTMLButtonElement>(".save-action")!.click();
+        required(element.querySelector<HTMLButtonElement>(".save-action"), "the save button").click();
         TestBed.tick();
         expect(TestBed.inject(MatDialog).openDialogs).toHaveLength(1);
         TestBed.inject(MatDialog).openDialogs[0].close(true);
@@ -337,7 +338,7 @@ describe("Item Forge", () => {
         expect(page.spriteZoom()).toBe(1.5);
         // Zoom renders the icon at the larger size instead of stretching it.
         expect(previewSprite(harness).size()).toBe(132);
-        element.querySelector<HTMLButtonElement>(".quick-panel button")!.click();
+        required(element.querySelector<HTMLButtonElement>(".quick-panel button"), "the quick panel button").click();
         await harness.fixture.whenStable();
         expect(page.selectedTab()).toBe(4);
         await vi.waitFor(() => {
