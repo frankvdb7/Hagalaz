@@ -9,6 +9,7 @@ import { RouterTestingHarness } from "@angular/router/testing";
 import { of } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../../environments/environment";
+import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { MapViewportComponent } from "../map-viewport.component";
 import { MapsDetailPageComponent } from "./maps-detail.page";
 import { CacheObjectsService } from "../../services/cache-objects.service";
@@ -310,6 +311,54 @@ describe("MapsDetailPageComponent", () => {
             http.expectOne(`${base}258/render`).flush({ ...region(258), landscapeStatus: "available", objects: [{ ...source, x: 5 }] });
             harness.detectChanges();
             http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => { batch.flush([]); });
+        });
+
+        it("reloads saved regions even while scene assets are still loading", async () => {
+            const { harness, page } = await loadRegion();
+            answer(true);
+            page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
+            page.addObject();
+            harness.detectChanges();
+            const pendingAssets = http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`);
+            expect(page.store.loading()).toBe(true);
+
+            const saving = page.saveChanges();
+            (await vi.waitFor(() => http.expectOne(`${base}258/landscape`))).flush({});
+            (await vi.waitFor(() => http.expectOne(worldMapUrl))).flush({ refreshed: [258], unchanged: [], skipped: [] });
+            await saving;
+
+            expect(page.edits()).toBeUndefined();
+            expect(pendingAssets.cancelled).toBe(true);
+            http.expectOne(`${base}258/render`).flush({ ...region(258), landscapeStatus: "available", objects: [source] });
+            harness.detectChanges();
+            http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => { batch.flush([]); });
+        });
+
+        it("asks before leaving a draft, including one the cache cannot store", async () => {
+            const { page } = await loadRegion();
+            const pendingChanges = TestBed.inject(CachePendingChangesService);
+            await expect(pendingChanges.canLeave()).resolves.toBe(true);
+            page.changeTransform("scale", 2);
+
+            const leaving = pendingChanges.canLeave();
+            TestBed.tick();
+            TestBed.inject(MatDialog).openDialogs[0].close(false);
+
+            await expect(leaving).resolves.toBe(false);
+            expect(page.edits()).toBeDefined();
+        });
+
+        it("refuses to leave while a save is writing to the cache", async () => {
+            const { page } = await loadRegion();
+            answer(true);
+            page.changeTransform("x", 5);
+            const saving = page.saveChanges();
+            const request = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+
+            await expect(TestBed.inject(CachePendingChangesService).canLeave()).resolves.toBe(false);
+
+            request.flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
+            await saving;
         });
 
         it("keeps edits and reports the failure", async () => {

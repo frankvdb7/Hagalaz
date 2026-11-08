@@ -1072,7 +1072,9 @@
         "type": "Project",
         "dependencies": {
           "Hagalaz.Services.Abstractions": "[1.0.0, )",
-          "Hagalaz.Services.Common": "[1.0.0, )"
+          "Hagalaz.Services.Common": "[1.0.0, )",
+          "Microsoft.Extensions.Hosting.Abstractions": "[10.0.10, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
         }
       }
     }

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, linkedSignal, signal, untracked } from "@angular/core";
+import { Component, computed, DestroyRef, effect, inject, linkedSignal, signal, untracked } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { MatButtonModule } from "@angular/material/button";
 import { MatButtonToggleModule } from "@angular/material/button-toggle";
@@ -19,6 +19,7 @@ import { ActivatedRoute, RouterLink } from "@angular/router";
 import { firstValueFrom } from "rxjs";
 import type { PlacementGizmoMode, PlacementGizmoResult } from "../../../../../../shared/model-viewer/placement-gizmo";
 import { PortalBreadcrumbDirective } from "../../../../layout/portal-breadcrumb.directive";
+import { CachePendingChangesService } from "../../cache-pending-changes.service";
 import { CacheObjectsService, type ObjectCatalogEntry } from "../../services/cache-objects.service";
 import { mapAppearanceKey, selectedMapIds, type MapFloor, type MapPlacement, type MapWorldMapRefreshResult } from "../../services/map-render.models";
 import { CacheMapSceneStore } from "../../stores/cache-map-scene.store";
@@ -181,6 +182,7 @@ export class MapsDetailPageComponent {
     }, { equal: (left, right) => left.join() === right.join() });
 
     constructor() {
+        inject(CachePendingChangesService).register({ dirty: () => this.edits() !== undefined, saving: () => this.store.saving() || this.store.worldMapRefreshing() }, inject(DestroyRef));
         effect(() => {
             const value = { planes: this.visiblePlanes(), landscape: this.landscape(), previewPlacements: this.previewPlacements(), previewTextures: this.previewTextures() };
             untracked(() => this.store.setVisibility(value));
@@ -299,7 +301,7 @@ export class MapsDetailPageComponent {
         const regionIds = [...new Set(saves.map(save => save.regionId))];
         if (!saves.length || !(await this.confirmSave(regionIds))) return;
         if (!(await this.store.saveRegions(saves))) return;
-        this.retry();
+        this.reloadSaved();
         const refresh = await this.store.refreshWorldMap(regionIds);
         this.notify(`Saved ${regionList(regionIds)} to the cache.${refresh ? ` ${describeWorldMapRefresh(refresh)}` : ""}`);
     }
@@ -328,8 +330,8 @@ export class MapsDetailPageComponent {
         // Vertex ranges shift with each draft, and an undone addition no longer exists.
         this.selectedObject.set(this.scene().geometry?.placements.find(candidate => candidate.placement === selected) ?? null);
     }
-    retry(): void {
-        if (this.store.loading()) return;
+    // A new load replaces any still running, so saved regions always come back from the cache.
+    private reloadSaved(): void {
         this.resetEdits();
         this.store.load({ ...this.selection(), keys: {} });
     }
