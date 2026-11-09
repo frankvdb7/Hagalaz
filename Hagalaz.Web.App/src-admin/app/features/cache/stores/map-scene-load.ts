@@ -7,6 +7,7 @@ import {
     withUnderwaterLayer,
     type MapLoadProgress,
     type MapLoadRequest,
+    type MapObjectClip,
     type MapPlacement,
     type MapRenderRegion,
     type MapVisibility,
@@ -18,6 +19,7 @@ import { getCacheErrorMessage } from "./cache-error";
 export interface MapSceneState {
     regions: MapRenderRegion[];
     appearances: Map<string, ObjectRenderAppearance>;
+    animations: ReadonlyMap<number, MapObjectClip>;
     textures: Map<number, ModelTexture>;
     environmentFaces: readonly ModelTexture[] | null;
     warnings: string[];
@@ -40,6 +42,9 @@ export class MapSceneLoad {
     private readonly ids: number[];
     private readonly regions = new Map<number, MapRenderRegion>();
     private readonly appearances = new Map<string, ObjectRenderAppearance>();
+    private animations = new Map<number, MapObjectClip>();
+    private readonly attemptedAnimations = new Set<number>();
+    private animationRequests = 0;
     private readonly appearanceTextureIds = new WeakMap<ObjectRenderAppearance, readonly number[]>();
     private readonly textures = new Map<number, ModelTexture>();
     // Hidden planes keep their published textures; environment-only images stay out of surface rendering.
@@ -186,9 +191,18 @@ export class MapSceneLoad {
             this.loadPendingTextures(new Set([...textures, ...environment]));
             const pending = [...placements].filter(([key]) => !this.attemptedAppearances.has(key));
             while (this.appearanceRequests < 2 && pending.length) this.loadAppearances(pending.splice(0, 32));
+            this.loadPendingAnimations(placements.keys());
         } while (this.pumpAgain && !this.cancelled);
         this.pumping = false;
         this.schedule();
+    }
+
+    private loadPendingAnimations(keys: Iterable<string>): void {
+        for (const key of keys) {
+            if (this.animationRequests >= 2) break;
+            const id = this.appearances.get(key)?.parts.find(part => part.objectAnimation)?.animationIds?.[0];
+            if (id !== undefined && !this.attemptedAnimations.has(id)) this.loadAnimation(id);
+        }
     }
 
     private loadAppearances(entries: [string, MapPlacement][]): void {
@@ -228,6 +242,24 @@ export class MapSceneLoad {
         this.appearances.set(key, row.appearance);
         this.appearancesDirty = true;
         for (const warning of row.appearance.warnings) this.warnings.add(`Object ${placement.id}: ${warning}`);
+    }
+
+    private loadAnimation(id: number): void {
+        this.attemptedAnimations.add(id);
+        this.animationRequests++;
+        this.requests.add(this.service.objectAnimation(id).pipe(
+            tap(clip => {
+                this.animations = new Map(this.animations).set(id, clip);
+            }),
+            catchError(error => {
+                this.warnings.add(`Animation ${id}: ${getCacheErrorMessage(error)}`);
+                return EMPTY;
+            }),
+            finalize(() => {
+                this.animationRequests--;
+                this.pump();
+            }),
+        ).subscribe());
     }
 
     private loadTexture(id: number): void {
@@ -313,6 +345,7 @@ export class MapSceneLoad {
         this.publish({
             regions: this.regionList,
             appearances: this.publishedAppearances,
+            animations: this.animations,
             textures: this.publishedTextures,
             environmentFaces: this.publishedEnvironmentFaces,
             warnings: [...this.warnings],

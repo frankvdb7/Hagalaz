@@ -69,6 +69,40 @@ describe("ModelScene resource ownership", () => {
         opacities: Array(9).fill(0.5),
     };
 
+    it("updates animated map buffers in place and restores the base pose when switched off", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            const rgba = new Float32Array(12).fill(1);
+            const positions = Float32Array.from(triangle.positions, value => value + 3);
+            const sample = vi.fn(() => ({ delay: 20, pose: { positions, rgba: new Float32Array(12).fill(0.5) } }));
+            map.setSceneGeometry({ terrain: null, objects: {
+                ...triangle, vertexRgba: rgba, preparedLighting: true,
+                animations: [{ startVertex: 0, vertexCount: 3, alphaFaces: [true], sample }],
+            } }, false);
+            map.captureImage();
+            const mesh = (gpu.render.mock.lastCall![0] as THREE.Scene).children.find(child => child instanceof THREE.Mesh) as THREE.Mesh;
+            expect(mesh.geometry.getAttribute("position").getX(0)).toBe(3);
+            expect(mesh.geometry.getAttribute("color").getW(0)).toBe(0.5);
+            expect(rgba[3]).toBe(1);
+            expect(vi.getTimerCount()).toBe(1);
+            map.setObjectAnimationsEnabled(false);
+            map.captureImage();
+            expect(mesh.geometry.getAttribute("position").getX(0)).toBe(0);
+            expect(mesh.geometry.getAttribute("color").getW(0)).toBe(1);
+            expect(sample).toHaveBeenCalledTimes(1);
+            expect(vi.getTimerCount()).toBe(0);
+            map.setObjectAnimationsEnabled(true);
+            map.captureImage();
+            expect(vi.getTimerCount()).toBe(1);
+        } finally {
+            map.dispose();
+            const timers = vi.getTimerCount();
+            vi.useRealTimers();
+            expect(timers).toBe(0);
+        }
+    });
+
     it("creates placement handles on first use, keeps them out of saved images and releases them", () => {
         scene.showPlacementGizmo(null);
         expect(gpu.placementCreated).not.toHaveBeenCalled();

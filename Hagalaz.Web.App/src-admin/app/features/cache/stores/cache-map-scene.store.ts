@@ -4,7 +4,7 @@ import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { firstValueFrom, Observable, pipe, switchMap, tap } from "rxjs";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { CacheMapsService } from "../services/cache-maps.service";
-import type { MapFloor, MapLoadRequest, MapRegionSave, MapRenderRegion, MapVisibility, MapWorldMapRefreshResult, ObjectRenderAppearance } from "../services/map-render.models";
+import type { MapFloor, MapLoadRequest, MapObjectClip, MapRegionSave, MapRenderRegion, MapVisibility, MapWorldMapRefreshResult, ObjectRenderAppearance } from "../services/map-render.models";
 import { getCacheErrorMessage } from "./cache-error";
 import { emptyMapProgress, MapSceneLoad, type MapSceneState } from "./map-scene-load";
 
@@ -12,6 +12,7 @@ export const CacheMapSceneStore = signalStore(
     withState({
         regions: [] as MapRenderRegion[],
         appearances: new Map<string, ObjectRenderAppearance>(),
+        animations: new Map<number, MapObjectClip>() as ReadonlyMap<number, MapObjectClip>,
         textures: new Map<number, ModelTexture>(),
         environmentFaces: null as readonly ModelTexture[] | null,
         warnings: [] as string[],

@@ -1,9 +1,11 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
-import { map } from "rxjs";
+import { from, map, mergeMap, switchMap, toArray } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
 import type { GetMapDefinitionDto, GetMapRegionsDto, GetTextureMaterialDto } from "./dtos";
+import type { GetAnimationFrameDto } from "./dtos/get-animation-frame-dto";
+import type { GetAnimationSequenceDto } from "./dtos/get-animation-sequence-dto";
 import type { MapFloor, MapPlacement, MapRenderRegion, MapTerrainTileChange, MapWorldMapRefreshResult, ObjectAppearanceResult, UpdateMapLandscapeResultDto, UpdateMapTerrainResultDto } from "./map-render.models";
 
 @Service()
@@ -35,6 +37,25 @@ export class CacheMapsService {
         return this.http.post<ObjectAppearanceResult[]>(
             `${environment.cacheApiUrl}types/objects/render-appearances`,
             placements.map(({ id, shape, rotation }) => ({ id, shape, rotation }))
+        );
+    }
+
+    objectAnimation(id: number) {
+        return this.http.get<GetAnimationSequenceDto>(`${environment.cacheApiUrl}types/animations/${id}/sequence`).pipe(
+            switchMap(sequence => {
+                if (!sequence.frameIds.length) throw new Error("Sequence has no frames.");
+                return from(new Set(sequence.frameIds)).pipe(
+                    mergeMap(frameId => this.http.get<GetAnimationFrameDto>(`${environment.cacheApiUrl}animation-frames/${frameId}`).pipe(
+                        map(frame => {
+                            if (frame.frame.transforms.some(transform => ![0, 1, 2, 3, 5].includes(frame.skeleton.types[transform.slot])))
+                                throw new Error("Sequence uses unsupported transforms.");
+                            return [frameId, frame] as const;
+                        }),
+                    ), 4),
+                    toArray(),
+                    map(entries => ({ sequence, frames: new Map(entries) })),
+                );
+            }),
         );
     }
 

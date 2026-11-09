@@ -1,9 +1,63 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildMapScene as buildLayers, mapHeight, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapSceneGeometry, type MapSceneObjects } from "./map-scene-geometry";
 import { applyTerrainEdits } from "./map-terrain-edit";
 import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { mapAppearanceKey, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import { required } from "../../../../testing/required";
+import type { MapObjectClip } from "../services/map-render.models";
+
+it("poses a rotated placement with cache timing while preserving its base vertices and identity", () => {
+    const source = region();
+    const placement = { id: 1, shape: 10, rotation: 1, x: 1, y: 1, plane: 0 };
+    source.objects = [placement, { ...placement, x: 2 }];
+    const asset = appearance();
+    asset.rotation = 1;
+    asset.contourMode = 0;
+    Object.assign(asset.parts[0], {
+        objectAnimation: { rotation: 1, offset: [0, 0, 0], positionsBeforeExtraRotation: null },
+        vertexSkins: [0, 0, 0], faceSkins: [1], animationIds: [42],
+    });
+    const clip: MapObjectClip = {
+        sequence: { id: 42, frameIds: [10, 11], frameDurations: [2, 3], loop: 2, isTweened: false },
+        frames: new Map([
+            [10, { frame: { skeletonId: 1, transforms: [] }, skeleton: { types: [], groups: [], enabled: [], masks: [] } }],
+            [11, {
+                frame: { skeletonId: 1, transforms: [{ slot: 0, x: 32, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }, { slot: 1, x: 10, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }] },
+                skeleton: { types: [1, 5], groups: [[0], [1]], enabled: [], masks: [] },
+            }],
+        ]),
+    };
+    const appearances = new Map([[mapAppearanceKey(placement), asset]]);
+    const draw = (clips: ReadonlyMap<number, MapObjectClip>) => required(buildLayers(
+        [source], appearances, new Map(), [true], true, new MapScenePreparation(), null, undefined, undefined, false, clips,
+    ).geometry?.objects, "map objects");
+    expect(draw(new Map()).animations).toBeUndefined();
+    const reads = vi.spyOn(clip.frames, "get");
+    const objects = draw(new Map([[42, clip]]));
+    expect(objects.placements[0].placement).toBe(placement);
+    const animations = required(objects.animations, "animated ranges");
+    expect(animations.map(range => range.startVertex)).toEqual([0, 3]);
+    const first = animations[0];
+    const initial = required(first.sample(0).pose, "first frame");
+    expect(Array.from(initial.positions)).toEqual(objects.positions.slice(0, 9));
+    expect(first.sample(39, 0)).toEqual({ delay: 1 });
+    const moved = required(first.sample(40, 39).pose, "second frame");
+    expect(moved.positions[0]).toBe(objects.positions[0]);
+    expect(moved.positions[2]).toBe(objects.positions[2] - 32);
+    expect(moved.rgba[3]).toBeCloseTo(175 / 255);
+    expect(objects.vertexRgba?.[3]).toBe(1);
+    expect(first.alphaFaces).toEqual([true]);
+    const nextLoop = required(first.sample(100, 99).pose, "first frame of the next loop");
+    expect(Array.from(nextLoop.positions)).toEqual(objects.positions.slice(0, 9));
+    for (let elapsed = 100; elapsed < 2000; elapsed += 100) {
+        const other = required(animations[1].sample(elapsed).pose, "second placement");
+        expect(other.positions[0]).toBe(objects.positions[9]);
+        first.sample(elapsed + 40);
+    }
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(animations[1].sample(2000).pose?.positions).toBe(nextLoop.positions);
+    expect(mapLandscapeSaves([source], undefined)).toEqual([]);
+});
 
 describe("rebuilding after terrain edits", () => {
     const tileKey = (x: number, y: number) => (x << 6) | y;

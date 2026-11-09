@@ -241,6 +241,50 @@ describe("CacheMapSceneStore", () => {
         expect(store.warnings()).toContain("Texture 7: Texture image or material metadata is missing.");
     });
 
+    it("shares clips and duplicate frames without blocking the base scene", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const objects = [placement(1), placement(2)];
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush({ ...region(258), objects });
+        http.expectOne(batchUrl).flush(objects.map(object => ({
+            ...success(object),
+            appearance: { ...appearance, ...object, parts: [{ animationIds: [42], objectAnimation: { rotation: 0 } }] },
+        })));
+
+        expect(store.appearances().size).toBe(2);
+        expect(store.loading()).toBe(false);
+        expect(store.animations().size).toBe(0);
+        http.expectOne(`${base}types/animations/42/sequence`).flush({ frameIds: [6, 5, 6], frameDurations: [1, 2, 3], loop: 2 });
+        const first = http.expectOne(`${base}animation-frames/6`);
+        http.expectOne(`${base}animation-frames/5`).flush({ frame: { transforms: [] }, skeleton: { types: [], groups: [] } });
+        expect(store.animations().size).toBe(0);
+        first.flush({ frame: { transforms: [] }, skeleton: { types: [], groups: [] } });
+        expect(store.animations().get(42)?.sequence.frameIds).toEqual([6, 5, 6]);
+        expect(store.animations().get(42)?.frames.size).toBe(2);
+    });
+
+    it("keeps a failed animation in the base pose and cancels old frames on selection change", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const objects = [placement(1), placement(2)];
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush({ ...region(258), objects });
+        http.expectOne(batchUrl).flush(objects.map(object => ({
+            ...success(object),
+            appearance: { ...appearance, ...object, parts: [{ animationIds: [object.id], objectAnimation: { rotation: 0 } }] },
+        })));
+        http.expectOne(`${base}types/animations/1/sequence`).flush({ frameIds: [] });
+        http.expectOne(`${base}types/animations/2/sequence`).flush({ frameIds: [55] });
+        const pending = http.expectOne(`${base}animation-frames/55`);
+        expect(store.warnings()).toContain("Animation 1: Sequence has no frames.");
+        expect(store.appearances().size).toBe(2);
+        expect(store.animations().size).toBe(0);
+        store.load({ id: 259, width: 1, height: 1, keys: {} });
+        expect(pending.cancelled).toBe(true);
+        http.expectOne(`${base}types/maps/259/render`).flush(region(259));
+        expect(store.animations().size).toBe(0);
+        expect(store.warnings()).toEqual([]);
+    });
+
     it("loads the anchor region's environment-map faces but not a neighbour's", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.setVisibility({ planes: [true], landscape: false });

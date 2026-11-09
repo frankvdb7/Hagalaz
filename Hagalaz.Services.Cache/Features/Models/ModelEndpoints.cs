@@ -238,7 +238,7 @@ public static class ModelEndpoints
                 return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
                     definition.GroundContoured, definition.AnInt780, [], [$"Hidden for {state}; live game state is unavailable."], name, ShadowStrength(castsShadow, isStatic, null)));
             definition = (ObjectType)objects.Get(selected);
-            warnings.Add($"Static preview uses object {selected} for {state}; live game state is unavailable.");
+            warnings.Add($"Preview uses object {selected} for {state}; live game state is unavailable.");
         }
         var group = Array.FindIndex(definition.Shapes ?? [], value => value == modelShape);
         if (group < 0 || group >= definition.ModelIDs.Length) return TypedResults.NotFound();
@@ -254,8 +254,8 @@ public static class ModelEndpoints
             var mirrored = definition.Inverted || (modelShape == 2 && orientation > 3);
             var model = BuildModel(id, definition.ModelIDs[group], cache, definition.ScaleX, definition.ScaleY, definition.ScaleZ,
                 definition.OffsetX / 4, definition.OffsetY / 4, definition.OffsetZ / 4,
-                definition.OriginalColors, definition.ModifiedColors, definition.AShortArray831, definition.AShortArray762, [],
-                "Static region appearance. Scene atmosphere, animated variants and advanced lighting are not simulated.",
+                definition.OriginalColors, definition.ModifiedColors, definition.AShortArray831, definition.AShortArray762, definition.AnimationIDs ?? [],
+                "Region object appearance.",
                 ambient: 64 + definition.Ambient, contrast: 850 + definition.Contrast,
                 placement: (modelShape, orientation, mirrored), extraRotation: shape == 11);
             parts.Add(model);
@@ -330,6 +330,10 @@ public static class ModelEndpoints
                 textureUvs.AddRange(part.FaceTextureUvs ?? new float[part.Indices.Length * 2]);
                 skins.AddRange(part.VertexSkins ?? Enumerable.Repeat(-1, part.Positions.Length / 3).ToArray());
             }
+            var objectAnimation = placement is { } placed && animationIds.Any(animationId => animationId >= 0)
+                && (skins.Any(skin => skin >= 0) || faceSkins.Any(skin => skin >= 0))
+                ? new ObjectAnimationPoseDto(placed.Orientation & 3, [offsetX * 4, offsetY * 4, offsetZ * 4], extraRotation ? positions.ToArray() : null)
+                : null;
             if (extraRotation)
                 for (var vertex = 0; vertex < positions.Count; vertex += 3)
                 {
@@ -343,7 +347,10 @@ public static class ModelEndpoints
             for (var face = 0; face < textureIds.Count; face++)
                 if (textureIds[face] == 65535) textureIds[face] = -1;
             return new GetModelDto(id, positions.ToArray(), indices.ToArray(), colors.ToArray(), alpha.ToArray(), skins.Any(skin => skin >= 0) ? skins.ToArray() : null,
-                new[] { warning }.Concat(ProjectionWarnings(firstTexelFaces.ToArray())).ToArray(), animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast, firstTexelFaces.ToArray());
+                new[] { warning }.Concat(ProjectionWarnings(firstTexelFaces.ToArray())).ToArray(), animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast, firstTexelFaces.ToArray())
+            {
+                ObjectAnimation = objectAnimation,
+            };
         }
     }
 

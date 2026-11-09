@@ -1,4 +1,11 @@
 import type { GetModelDto } from "./dtos";
+import type { GetAnimationFrameDto } from "./dtos/get-animation-frame-dto";
+import type { GetAnimationSequenceDto } from "./dtos/get-animation-sequence-dto";
+
+export interface MapObjectClip {
+    sequence: GetAnimationSequenceDto;
+    frames: ReadonlyMap<number, GetAnimationFrameDto>;
+}
 
 export interface MapRenderPlane {
     cornerHeights: (number | null)[];

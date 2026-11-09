@@ -25,8 +25,18 @@ export interface ModelGeometry {
     facePriorities?: readonly number[];
     particles?: readonly ModelParticle[];
     particleScale?: number;
+    animations?: readonly ModelAnimationRange[];
     /** This geometry equals `base` except for the vertices in `ranges`, as [start, end) pairs. */
     patchOf?: { base: ModelGeometry; ranges: readonly (readonly [number, number])[] };
+}
+
+/** A contiguous set of map triangles whose vertices can be replaced together. */
+export interface ModelAnimationRange {
+    startVertex: number;
+    vertexCount: number;
+    alphaFaces: readonly boolean[];
+    /** The renderer copies the pose before sampling another range. */
+    sample(elapsed: number, previousElapsed?: number): { delay: number; pose?: { positions: Float32Array; rgba: Float32Array } };
 }
 
 /** Unindexed triangles drawn over a scene: six vertices and one sRGB colour per tile. */
@@ -95,6 +105,10 @@ export class ModelScene {
     private strokePreview?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
     private wireframe = false;
     private pendingFrame?: number;
+    private animationTimer?: ReturnType<typeof setTimeout>;
+    private objectAnimationsEnabled = true;
+    private objectAnimationEpoch?: number;
+    private lastObjectAnimationTime?: number;
     private environmentFaces?: readonly ModelTexture[];
     // Shared by every reflective effect program; an empty sampler keeps the procedural sky.
     private readonly environmentMap = { value: null as THREE.CubeTexture | null };
@@ -393,6 +407,7 @@ export class ModelScene {
         if (this.primary.currentModel) this.particles?.update(this.lastTime === undefined ? 0 : (time-this.lastTime)/1000, this.primary.currentModel,
             this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
         this.lastTime = time;
+        if (this.framing === "map") this.renderObjectAnimations(time);
         this.controls.update();
         this.placementGizmo?.fitToCamera();
         this.orderSurfaces();
@@ -407,6 +422,73 @@ export class ModelScene {
             }
         }
     };
+
+    setObjectAnimationsEnabled(enabled: boolean): void {
+        this.objectAnimationsEnabled = enabled;
+        this.requestRender();
+    }
+
+    private renderObjectAnimations(time: number): void {
+        clearTimeout(this.animationTimer);
+        const surface = this.primary;
+        const model = surface.currentModel;
+        const mesh = surface.mesh;
+        const animations = model?.animations;
+        if (!animations || !model.vertexRgba || !mesh) {
+            this.objectAnimationEpoch = undefined;
+            return;
+        }
+        if (!this.objectAnimationsEnabled) {
+            if (this.lastObjectAnimationTime !== undefined) this.updateObjectAnimationRanges(mesh, animations, model.positions, model.vertexRgba, null);
+            this.lastObjectAnimationTime = undefined;
+            this.objectAnimationEpoch = undefined;
+            return;
+        }
+        this.objectAnimationEpoch ??= time;
+        const elapsed = Math.max(time - this.objectAnimationEpoch, 0);
+        const next = this.updateObjectAnimationRanges(mesh, animations, model.positions, model.vertexRgba, elapsed);
+        this.lastObjectAnimationTime = elapsed;
+        if (next < Infinity) this.animationTimer = setTimeout(this.requestRender, next);
+    }
+
+    private updateObjectAnimationRanges(
+        mesh: NonNullable<MeshSurface["mesh"]>, animations: readonly ModelAnimationRange[],
+        basePositions: readonly number[], baseColors: Float32Array, elapsed: number | null,
+    ): number {
+        const { geometry } = mesh;
+        const positions = geometry.getAttribute("position") as THREE.BufferAttribute;
+        const colors = geometry.getAttribute("color") as THREE.BufferAttribute;
+        const normals = geometry.getAttribute("normal") as THREE.BufferAttribute;
+        let next = Infinity;
+        let updated = false;
+        for (const animation of animations) {
+            const start = animation.startVertex;
+            const end = start + animation.vertexCount;
+            if (elapsed !== null) {
+                const { delay, pose } = animation.sample(elapsed, this.lastObjectAnimationTime);
+                next = Math.min(next, delay);
+                if (!pose) continue;
+                positions.array.set(pose.positions, start * 3);
+                colors.array.set(pose.rgba, start * 4);
+            } else {
+                positions.array.set(basePositions.slice(start * 3, end * 3), start * 3);
+                colors.array.set(baseColors.subarray(start * 4, end * 4), start * 4);
+            }
+            positions.addUpdateRange(start * 3, animation.vertexCount * 3);
+            colors.addUpdateRange(start * 4, animation.vertexCount * 4);
+            writeTriangleNormals(positions, normals, start, end);
+            updated = true;
+        }
+        if (updated) {
+            positions.needsUpdate = true;
+            colors.needsUpdate = true;
+            normals.needsUpdate = true;
+            geometry.boundingBox = null;
+            geometry.boundingSphere = null;
+            this.primary.orderingDirty = true;
+        }
+        return next;
+    }
 
     setGeometry(model: ModelGeometry, fitCamera = true, surface = this.primary): void {
         if (this.disposed) throw new Error("The model scene has been disposed.");
@@ -424,6 +506,7 @@ export class ModelScene {
         if (surface === this.primary) {
             this.epoch = undefined;
             this.lastTime = undefined;
+            this.lastObjectAnimationTime = undefined;
         }
         const geometry = retainedGeometry ?? new THREE.BufferGeometry();
         if (!retainedGeometry) fillGeometry(geometry, model, firstTexel);
@@ -477,6 +560,7 @@ export class ModelScene {
         }
         this.assignSurfaceGroups(geometry, model, surface);
         surface.mesh = new THREE.Mesh(geometry, materials);
+        surface.mesh.frustumCulled = !hasObjectAnimations(model);
         // Translucent ground draws first, then translucent objects sort among themselves.
         if (surface === this.terrain) surface.mesh.renderOrder = -1;
         surface.mesh.userData["preparedLighting"] = !!model.preparedLighting;
@@ -653,6 +737,7 @@ export class ModelScene {
         if (this.framing === "model") this.renderer.setAnimationLoop(null);
         else this.controls.removeEventListener("change", this.requestRender);
         if (this.pendingFrame !== undefined) cancelAnimationFrame(this.pendingFrame);
+        clearTimeout(this.animationTimer);
         this.resizeObserver.disconnect();
         this.controls.dispose();
         this.orientationGizmo?.dispose();
@@ -784,13 +869,14 @@ export class ModelScene {
         const opaque = new Map<number, number[]>();
         const sourceIndices = surface.sourceIndices;
         const opacities = model.vertexRgba ?? model.opacities;
+        const animatedAlpha = animatedAlphaFaces(model);
         const stride = model.vertexRgba ? 4 : 1, offset = model.vertexRgba ? 3 : 0;
         for (let start = 0; start < model.indices.length; start += 3) {
             const face = start / 3;
             const a = sourceIndices[start];
             const b = sourceIndices[start + 1];
             const c = sourceIndices[start + 2];
-            const translucent = (opacities?.[a * stride + offset] ?? 1) < 1 || (opacities?.[b * stride + offset] ?? 1) < 1 || (opacities?.[c * stride + offset] ?? 1) < 1;
+            const translucent = animatedAlpha.has(face) || hasTranslucentVertex(opacities, stride, offset, a, b, c);
             const textureId = model.textureIds?.[face] ?? -1;
             const textureIndex = textureIndices.get(textureId) ?? -1;
             const material = terrainSurfaceMaterial(textureId, model.terrainBlends, textureIds.length, (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0));
@@ -820,13 +906,14 @@ export class ModelScene {
         if (!surface.blendedSurfaces.length && geometry.groups.length) return;
         geometry.clearGroups();
         for (const group of surface.opaqueGroups) geometry.addGroup(group.start, group.count, group.materialIndex);
+        const positions = geometry.getAttribute("position");
         for (const face of surface.blendedSurfaces) {
             this.centroid.set(0, 0, 0);
             for (let corner = 0; corner < 3; corner++) {
-                const vertex = model.indices[face.sourceStart + corner] * 3;
-                this.centroid.x += model.positions[vertex] / 3;
-                this.centroid.y += model.positions[vertex + 1] / 3;
-                this.centroid.z += model.positions[vertex + 2] / 3;
+                const vertex = model.indices[face.sourceStart + corner];
+                this.centroid.x += positions.getX(vertex) / 3;
+                this.centroid.y += positions.getY(vertex) / 3;
+                this.centroid.z += positions.getZ(vertex) / 3;
             }
             this.centroid.applyMatrix4(this.viewMatrix);
             face.depth = -this.centroid.z;
@@ -857,6 +944,36 @@ export class ModelScene {
         }
         if (changed) index.needsUpdate = true;
     }
+}
+
+function hasObjectAnimations(model: ModelGeometry): boolean {
+    return !!model.animations?.length;
+}
+
+function animatedAlphaFaces(model: ModelGeometry): Set<number> {
+    const faces = new Set<number>();
+    for (const range of model.animations ?? []) {
+        range.alphaFaces.forEach((animated, face) => {
+            if (animated) faces.add(range.startVertex / 3 + face);
+        });
+    }
+    return faces;
+}
+
+function hasTranslucentVertex(opacities: readonly number[] | Float32Array | undefined, stride: number, offset: number, a: number, b: number, c: number): boolean {
+    return (opacities?.[a * stride + offset] ?? 1) < 1 || (opacities?.[b * stride + offset] ?? 1) < 1 || (opacities?.[c * stride + offset] ?? 1) < 1;
+}
+
+function writeTriangleNormals(positions: THREE.BufferAttribute, normals: THREE.BufferAttribute, start: number, end: number): void {
+    const origin = new THREE.Vector3(), edge = new THREE.Vector3(), normal = new THREE.Vector3();
+    for (let vertex = start; vertex < end; vertex += 3) {
+        origin.fromBufferAttribute(positions, vertex);
+        edge.fromBufferAttribute(positions, vertex + 1).sub(origin);
+        normal.fromBufferAttribute(positions, vertex + 2).sub(origin);
+        normal.crossVectors(edge, normal).normalize();
+        for (let corner = 0; corner < 3; corner++) normals.setXYZ(vertex + corner, normal.x, normal.y, normal.z);
+    }
+    normals.addUpdateRange(start * 3, (end - start) * 3);
 }
 
 function writePositions(positions: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, model: ModelGeometry): void {
@@ -910,7 +1027,7 @@ function markerAttribute(markers: ModelGeometry["firstTexel"]): THREE.BufferAttr
 }
 
 function colorAttribute(model: ModelGeometry): THREE.BufferAttribute | undefined {
-    if (model.vertexRgba) return new THREE.BufferAttribute(model.vertexRgba, 4);
+    if (model.vertexRgba) return new THREE.BufferAttribute(hasObjectAnimations(model) ? model.vertexRgba.slice() : model.vertexRgba, 4);
     if (model.opacities) return new THREE.BufferAttribute(colorsWithOpacity(model, model.opacities), 4);
     return model.colors ? new THREE.Float32BufferAttribute(model.colors, 3) : undefined;
 }

@@ -13,6 +13,7 @@ export interface GetModelDto {
     vertexSkins: number[] | null;
     warnings: string[];
     animationIds: number[] | null;
+    objectAnimation?: { rotation: number; offset: number[]; positionsBeforeExtraRotation: number[] | null } | null;
     coordinateScale: number;
     faceSkins: number[] | null;
     faceTextureIds: number[] | null;

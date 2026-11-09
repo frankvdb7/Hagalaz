@@ -35,6 +35,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             <button mat-menu-item type="button" [matMenuTriggerFor]="gridMenu"><mat-icon>grid_on</mat-icon>Grid ({{ snap() }})</button>
             <button mat-menu-item type="button" [matMenuTriggerFor]="lightingMenu"><mat-icon>light_mode</mat-icon>Lighting: {{ regionLightingActive() ? 'Region atmosphere' : 'Default' }}{{ fogActive() ? ' with fog' : '' }}</button>
             <button mat-menu-item type="button" [matMenuTriggerFor]="displayMenu"><mat-icon>texture</mat-icon>{{ wireframe() ? 'Wireframe' : 'Textured' }}</button>
+            <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="animateObjects()" (click)="animateObjects.set(!animateObjects())">Animate objects</button>
             @if (layersMenu(); as layers) { <button mat-menu-item type="button" [matMenuTriggerFor]="layers"><mat-icon>layers</mat-icon>Layers</button> }
             <button mat-menu-item type="button" [matMenuTriggerFor]="cameraMenu"><mat-icon>my_location</mat-icon>Camera</button>
         </mat-menu>
@@ -149,6 +150,7 @@ export class MapViewportComponent implements OnDestroy {
     readonly layersMenu = input<MatMenu>();
     readonly snapSizes = [1, 2, 4];
     readonly wireframe = signal(false);
+    readonly animateObjects = signal(!(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false));
     readonly grid = signal(true);
     readonly error = signal<string | null>(null);
     private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -177,6 +179,7 @@ export class MapViewportComponent implements OnDestroy {
             } catch { this.error.set("3D rendering is unavailable. Enable WebGL in a supported browser."); }
         });
         effect(() => this.scene()?.setDisplay(this.grid(), this.wireframe()));
+        effect(() => this.scene()?.setObjectAnimationsEnabled(this.animateObjects()));
         effect(() => this.scene()?.setPrimaryDragEnabled(!this.brushActive()));
         effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null)));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));

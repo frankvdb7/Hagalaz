@@ -157,7 +157,7 @@ export class MapsDetailPageComponent {
     readonly regionAtmosphere = computed(() => this.store.regions().find(region => region.id === this.selection().id)?.atmosphere ?? null);
     readonly scene = computed(() => buildMapScene(
         this.previewRegions(), this.store.appearances(), this.store.textures(), this.visiblePlanes(), this.landscape(), this.preparation(),
-        this.useRegionAtmosphere() ? this.selection().id : null, this.edits(), this.sceneFilter(), this.store.loading(),
+        this.useRegionAtmosphere() ? this.selection().id : null, this.edits(), this.sceneFilter(), this.store.loading(), this.store.animations(),
     ));
     readonly objectNames = computed(() => {
         const names = new Map<number, string>();

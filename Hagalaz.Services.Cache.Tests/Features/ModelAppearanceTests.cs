@@ -621,6 +621,28 @@ public sealed class ModelAppearanceTests
     }
 
     [TestMethod]
+    public async Task ObjectRenderAppearance_ExposesAnimationInputsForSkinnedPlacement()
+    {
+        var store = new MemoryFileStore();
+        SeedDefinition(store, 16, Definition("objects").SkipLast(1).Concat(new byte[] { 24, 0, 42, 70, 0, 3, 0 }).ToArray());
+        store.Set(7, 0, ContainerBytes(ModernSkinnedModel));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] { new ObjectRenderAppearanceKeyDto(0, 11, 1) });
+        var rows = await response.Content.ReadFromJsonAsync<ObjectRenderAppearanceResultDto[]>();
+        Assert.IsNotNull(rows);
+        var appearance = rows[0].Appearance;
+        Assert.IsNotNull(appearance);
+        var part = appearance.Parts[0];
+        CollectionAssert.AreEqual(new[] { 42 }, part.AnimationIds);
+        CollectionAssert.AreEqual(new[] { 1, 2, 3 }, part.VertexSkins);
+        Assert.IsNotNull(part.ObjectAnimation);
+        Assert.AreEqual(1, part.ObjectAnimation.Rotation);
+        CollectionAssert.AreEqual(new[] { 12, 0, 0 }, part.ObjectAnimation.Offset);
+        CollectionAssert.AreEqual(new[] { 12, 0, 0, 12, 0, -10, 12, 10, 0 }, part.ObjectAnimation.PositionsBeforeExtraRotation);
+    }
+
+    [TestMethod]
     public async Task ObjectRenderAppearance_CombinesCornerWallPartsAndPreservesMirroredUvs()
     {
         var store = new MemoryFileStore();
