@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { clientReflection, sampleMaterialEffect, type MaterialEffect } from "./material-effects";
+import { clientFixedWater, clientHdWater, clientReflection, fixedWaterParameters, isFixedWater, sampleMaterialEffect, type MaterialEffect } from "./material-effects";
 import {ModelParticles, type ModelParticle} from "./model-particles";
 import { OrientationGizmo } from "./orientation-gizmo";
 import { PlacementGizmo, type PlacementGizmoTarget } from "./placement-gizmo";
 import { applyTerrainMaterials, TerrainMaterial, terrainSurfaceMaterial, type TerrainBlend } from "./terrain-material";
 import { MapLightMaterial, type MapLightField } from "./map-light-material";
 import { MapPointerNavigation } from "./map-pointer-navigation";
+import { waterTurbulence, waterTurbulenceRows, waterVolume, waterVolumeSize, waterVolumeSlices, type WaterVolume } from "./water-noise";
 
 type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
 
@@ -25,6 +26,7 @@ export interface ModelGeometry {
     terrainBlends?: readonly TerrainBlend[];
     terrainWeights?: readonly number[];
     mapPlanes?: readonly number[];
+    waterDepth?: readonly number[];
     facePriorities?: readonly number[];
     particles?: readonly ModelParticle[];
     particleScale?: number;
@@ -61,12 +63,13 @@ interface MeshSurface {
     blendedSurfaces: { sourceStart: number; material: number; depth: number; priority: number }[];
     materials: Map<string, { material: SurfaceMaterial; texture?: THREE.Texture; asset?: ModelTexture }>;
     texturesDirty: boolean;
+    animatedWater: boolean;
 }
 
 interface SurfaceHit { surface: MeshSurface; vertex: number; x: number; z: number; distance: number; }
 
 function createMeshSurface(): MeshSurface {
-    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], materials: new Map(), texturesDirty: false };
+    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], materials: new Map(), texturesDirty: false, animatedWater: false };
 }
 
 export interface ModelTexture extends MaterialEffect {
@@ -77,6 +80,30 @@ export interface ModelTexture extends MaterialEffect {
     repeatU?: boolean;
     repeatV?: boolean;
     hdr?: {width: number; height: number; rgba: number[]};
+}
+
+interface RegionSun {
+    lightRgb: number;
+    directionX: number;
+    directionY: number;
+    directionZ: number;
+    intensity?: number;
+    fogValue?: number;
+}
+
+const defaultRegionSun: RegionSun = { lightRgb: 0xffffff, directionX: -200, directionY: -240, directionZ: -200, intensity: 1.1523438 };
+
+function isHdWater(effectId: number | undefined): effectId is 8 | 9 {
+    return effectId === 8 || effectId === 9;
+}
+
+function isAnimatedFixedWater({ effectId, effectParameter = 0 }: MaterialEffect): boolean {
+    return isFixedWater(effectId) && (effectId !== 4 || (effectParameter & 1) !== 0);
+}
+
+/** Map objects already carry the region tint in their vertices. Only terrain takes the effect 2 ambient term in its program. */
+function hasBakedRegionTint(model: ModelGeometry): boolean {
+    return !!model.mapPlanes && !model.waterDepth;
 }
 
 /** Owns the canvas and GPU resources for a single model inspection surface. */
@@ -101,6 +128,13 @@ export class ModelScene {
     private disposed = false;
     private textureImages?: ReadonlyMap<number, ModelTexture>;
     private readonly textures = new Map<number, THREE.Texture>();
+    private readonly waterTextures = new Map<WaterVolume, THREE.IUniform<THREE.Data3DTexture | null>>();
+    private turbulenceTexture?: THREE.DataTexture;
+    private hdWaterActive = false;
+    private readonly sunDirection = { value: new THREE.Vector3() };
+    private readonly sunColor = { value: new THREE.Vector3(1, 1, 1) };
+    private readonly waterAmbient = { value: new THREE.Vector3(1.1523438, 1.1523438, 1.1523438) };
+    private readonly waterFogWidth = { value: 1 };
     private grid?: THREE.GridHelper;
     private readonly gridFittedTo = new THREE.Box3();
     private orientationGizmo?: OrientationGizmo;
@@ -116,7 +150,7 @@ export class ModelScene {
     private lastObjectAnimationTime?: number;
     private nextObjectAnimationTime = 0;
     private environmentFaces?: readonly ModelTexture[];
-    // Shared by every reflective effect program; an empty sampler keeps the procedural sky.
+    // Shared by the reflective material programs.
     private readonly environmentMap = { value: null as THREE.CubeTexture | null };
     private readonly environmentEnabled = { value: false };
 
@@ -125,6 +159,7 @@ export class ModelScene {
         this.pendingFrame = requestAnimationFrame(time => {
             try { this.renderFrame(time); }
             finally { this.pendingFrame = undefined; }
+            if (this.surfaces.some(surface => surface.mesh?.visible && surface.animatedWater)) this.requestRender();
         });
     };
 
@@ -301,9 +336,14 @@ export class ModelScene {
      * Clears to `skyRgb` and fades geometry towards it over an eye-depth range. Null restores the transparent canvas.
      * `environmentFaces` (+X, -X, +Y, -Y, +Z, -Z in client space) replace the procedural sky in reflective effects.
      */
-    setEnvironment(skyRgb: number | null, fog: { start: number; end: number } | null, environmentFaces: readonly ModelTexture[] | null = null): void {
+    setEnvironment(skyRgb: number | null, fog: { start: number; end: number } | null, environmentFaces: readonly ModelTexture[] | null = null, sun?: RegionSun | null): void {
         this.scene.background = skyRgb === null ? null : new THREE.Color(skyRgb);
         this.scene.fog = skyRgb === null || !fog ? null : new THREE.Fog(skyRgb, fog.start, fog.end);
+        const { lightRgb: rgb, directionX, directionY, directionZ, intensity = 1.1523438, fogValue } = sun ?? defaultRegionSun;
+        this.sunDirection.value.set(-directionX, -directionY, -directionZ).normalize();
+        this.sunColor.value.set((rgb >> 16 & 255) / 255, (rgb >> 8 & 255) / 255, (rgb & 255) / 255);
+        this.waterAmbient.value.copy(this.sunColor.value).multiplyScalar(intensity);
+        this.waterFogWidth.value = fogValue === undefined ? (fog ? fog.end - fog.start : 1) : (fogValue + 256) << 2;
         this.setEnvironmentMap(environmentFaces);
         this.requestRender();
     }
@@ -313,6 +353,7 @@ export class ModelScene {
         if (faces?.length === current?.length && (faces ?? []).every((face, index) => face === current?.[index])) return;
         this.environmentFaces = faces ?? undefined;
         this.releaseEnvironmentMap();
+        this.refreshHdWater();
         if (!faces) return;
         const size = Math.max(...faces.map(face => Math.max(face.image.width, face.image.height)));
         // Cache bitmaps are flipped for 2D sampling; cube faces take source row order. The client upscales smaller faces by repetition.
@@ -327,6 +368,8 @@ export class ModelScene {
                 cube.needsUpdate = true;
                 this.environmentMap.value = cube;
                 this.environmentEnabled.value = true;
+                if (this.framing === "map" && [...this.textureImages?.values() ?? []].some(asset => isHdWater(asset.effectId))) this.waterTexture("normal");
+                this.refreshHdWater();
                 this.requestRender();
             }, () => undefined);
     }
@@ -338,6 +381,20 @@ export class ModelScene {
         this.environmentEnabled.value = false;
         cube.dispose();
         for (const image of cube.images as ImageBitmap[]) image.close();
+    }
+
+    private refreshHdWater(): void {
+        const active = this.environmentEnabled.value && !!this.waterTextures.get("normal")?.value;
+        if (this.disposed || this.hdWaterActive === active) return;
+        this.hdWaterActive = active;
+        for (const surface of this.surfaces) if (surface.mesh?.visible) this.rebuildHdWaterMaterials(surface);
+    }
+
+    private rebuildHdWaterMaterials(surface: MeshSurface): void {
+        const model = surface.currentModel;
+        if (!model?.textureIds?.some(id => isHdWater(this.textureImages?.get(id)?.effectId))) return;
+        surface.texturesDirty = true;
+        this.setGeometry(model, false, surface);
     }
 
     private applyWireframe(): void {
@@ -558,18 +615,14 @@ export class ModelScene {
             useMaterial(`plain:${surfaceKey}:true`, () => new OrdinaryMaterial({ ...options, transparent: true, depthWrite: false })),
         ];
         for (const [id, texture] of this.textures) {
-            const mode = this.textureImages?.get(id)?.alphaMode ?? 0;
-            const alphaTest = mode === 1 ? 0.5 : 0;
-            const asset: MaterialEffect = this.textureImages?.get(id) ?? {};
-            const create = (transparent: boolean) => useMaterial(`texture:${id}:${surfaceKey}:${firstTexel}:${transparent}`, () => {
-                const appearance = {...options, map: texture, alphaTest, transparent, depthWrite: !transparent};
-                const basic = asset.effectId === 6 || (model.preparedLighting && ![1,2,4,5,7,8,9].includes(asset.effectId ?? 0));
-                const material = basic ? new THREE.MeshBasicMaterial({vertexColors: appearance.vertexColors, map: texture, alphaTest, transparent, depthWrite: !transparent}) : new THREE.MeshStandardMaterial(appearance);
-                if (!basic) this.applyEffect(material as THREE.MeshStandardMaterial, asset, !!model.preparedLighting);
-                if (firstTexel) applyFirstTexelSampling(material, this.textureImages!.get(id)!);
-                return material;
-            }, texture, this.textureImages?.get(id));
-            materials.push(create(mode === 2));
+            const asset = this.textureImages?.get(id);
+            const hd = this.hdWaterActive && isHdWater(asset?.effectId);
+            const create = (transparent: boolean) => useMaterial(
+                `texture:${id}:${surfaceKey}:${firstTexel}:${transparent}:${hd}:${!!model.waterDepth}`,
+                () => this.createTexturedMaterial(texture, asset, model, options.vertexColors, transparent, firstTexel),
+                texture, asset,
+            );
+            materials.push(create(asset?.alphaMode === 2));
             materials.push(create(true));
         }
         applyTerrainMaterials(geometry, materials, retainedGeometry ? undefined : model.terrainWeights, model.terrainBlends, this.textures, blend => {
@@ -598,6 +651,41 @@ export class ModelScene {
         this.fitGrid();
         if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
         if (fitCamera) this.resetCamera();
+    }
+
+    private createTexturedMaterial(texture: THREE.Texture, asset: ModelTexture | undefined, model: ModelGeometry, vertexColors: boolean, transparent: boolean, firstTexel: boolean): SurfaceMaterial {
+        const hdWater = this.createHdWaterMaterial(texture, asset, !!model.waterDepth);
+        if (hdWater) return hdWater;
+        const appearance = { vertexColors, map: texture, alphaTest: asset?.alphaMode === 1 ? 0.5 : 0, transparent, depthWrite: !transparent };
+        const material = asset && isFixedWater(asset.effectId)
+            ? this.createFixedWaterMaterial(asset, asset.effectId, appearance, hasBakedRegionTint(model))
+            : this.createBaseMaterial(asset, appearance, !!model.preparedLighting);
+        if (firstTexel && asset) applyFirstTexelSampling(material, asset);
+        return material;
+    }
+
+    private createHdWaterMaterial(texture: THREE.Texture, asset: ModelTexture | undefined, hasDepth: boolean): THREE.MeshBasicMaterial | null {
+        const effect = asset?.effectId;
+        if (!asset || !isHdWater(effect) || this.framing !== "map" || !this.environmentEnabled.value) return null;
+        const noise = this.waterTexture("normal");
+        if (!this.hdWaterActive) return null;
+        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: true });
+        this.applyHdWater(material, asset, effect, noise, hasDepth);
+        return material;
+    }
+
+    private createBaseMaterial(asset: ModelTexture | undefined, appearance: THREE.MeshBasicMaterialParameters, preparedLighting: boolean): SurfaceMaterial {
+        const effect = asset?.effectId;
+        if (effect === 6 || (preparedLighting && effect !== 1 && effect !== 7)) return new THREE.MeshBasicMaterial(appearance);
+        const material = new THREE.MeshStandardMaterial({ ...appearance, ...(preparedLighting ? {} : { roughness: 0.8 }) });
+        if (asset) this.applyEffect(material, asset, preparedLighting);
+        return material;
+    }
+
+    private createFixedWaterMaterial(asset: ModelTexture, effect: 2 | 4 | 5, appearance: THREE.MeshBasicMaterialParameters, bakedTint: boolean): THREE.MeshBasicMaterial {
+        const material = new THREE.MeshBasicMaterial({ ...appearance, alphaTest: 0, transparent: true, depthWrite: this.framing === "map" || appearance.depthWrite });
+        this.applyFixedWater(material, asset, effect, bakedTint);
+        return material;
     }
 
     /** Models with a source ID and an unchanged layout only need their buffers rewritten. */
@@ -785,6 +873,9 @@ export class ModelScene {
         }
         for (const texture of this.textures.values()) texture.dispose();
         this.textures.clear();
+        for (const texture of this.waterTextures.values()) texture.value?.dispose();
+        this.waterTextures.clear();
+        this.turbulenceTexture?.dispose();
         this.environmentFaces = undefined;
         this.releaseEnvironmentMap();
         this.mapLighting.dispose();
@@ -822,19 +913,15 @@ export class ModelScene {
 
     private applyEffect(material: THREE.MeshStandardMaterial, asset: MaterialEffect, preparedLighting = false): void {
         const id = asset.effectId ?? 0;
-        if (![1, 2, 4, 5, 7, 8, 9].includes(id)) return;
+        if (id !== 1 && id !== 7) return;
         const phase = {value: new THREE.Vector4()};
-        const wave = {value: new THREE.Vector3()};
-        const lake = {value: new THREE.Vector2()};
         const update = (seconds: number) => {
             const sample = sampleMaterialEffect(asset, seconds);
             phase.value.set(
-                id === 4 ? sample.underwater : id === 5 ? sample.lakeNoise : id >= 8 ? sample.hdPhase : sample.animateWater ? sample.secondary : 0,
-                id === 5 ? sample.lakeShift : sample.noise,
-                id >= 8 ? sample.hdScale : sample.distortion,
+                sample.animateWater ? sample.secondary : 0,
+                sample.noise,
+                sample.distortion,
                 asset.effectParameter ?? 0);
-            wave.value.set(sample.waveIntensity[0], sample.waveIntensity[1], sample.waveExponent);
-            lake.value.set(sample.lakeScale, sample.lakeXAxis ? 1 : 0);
         };
         update(0);
         this.effectUpdates.set(material, update);
@@ -842,34 +929,96 @@ export class ModelScene {
         const postLightingEffect = id === 1 ? clientSpecularHighlight : id === 7 ? clientReflection("sampledDiffuseColor.a") : null;
         material.onBeforeCompile = shader => {
             shader.uniforms.cachePhase = phase;
-            shader.uniforms.cacheWave = wave;
-            shader.uniforms.cacheLake = lake;
             shader.uniforms.cacheEnvironment = this.environmentMap;
             shader.uniforms.cacheEnvironmentEnabled = this.environmentEnabled;
             shader.vertexShader = `varying vec3 cachePosition;\n${shader.vertexShader}`.replace("#include <begin_vertex>", "#include <begin_vertex>\ncachePosition = vec3(position.x, -position.y, position.z);");
-            shader.fragmentShader = `uniform vec4 cachePhase;\nuniform vec3 cacheWave;\nuniform vec2 cacheLake;\nuniform samplerCube cacheEnvironment;\nuniform bool cacheEnvironmentEnabled;\nvarying vec3 cachePosition;\n${shader.fragmentShader}`;
+            shader.fragmentShader = `uniform vec4 cachePhase;\nuniform samplerCube cacheEnvironment;\nuniform bool cacheEnvironmentEnabled;\nvarying vec3 cachePosition;\n${shader.fragmentShader}`;
             if (preparedLighting) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", "outgoingLight = diffuseColor.rgb;\n#include <opaque_fragment>");
-            if ([2, 4, 5, 8, 9].includes(id)) {
-                // Procedural inspection noise replaces the client's unavailable generated volume texture.
-                shader.fragmentShader = shader.fragmentShader.replace("#include <normal_fragment_maps>", `
-                    #include <normal_fragment_maps>
-                    vec2 cachePoint = ${id === 5 ? "vec2(mix(cachePosition.z, cachePosition.x, cacheLake.y), cachePosition.y) * cacheLake.x" : "cachePosition.xz * " + (id >= 8 ? "cachePhase.z" : "0.025")};
-                    normal = normalize(normal + vec3(sin(cachePoint.x + cachePhase.x * 6.2831853), cos(cachePoint.y + cachePhase.y * 6.2831853), 0.0) * ${id >= 8 ? "0.18" : "cachePhase.z"});
-                `);
-            }
             if (postLightingEffect) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `${postLightingEffect}\n#include <opaque_fragment>`);
-            if ([8, 9].includes(id)) {
-                shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
-                    vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
-                    vec3 cacheSky = mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));
-                    ${regionCubeSample(id)}
-                    float cacheFresnel = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), ${id === 8 ? "2.0" : "1.0"});
-                    ${id === 9 ? "float cacheWaveShape = pow(0.5 + 0.5 * sin(cachePoint.x + cachePhase.x * 6.2831853), max(cacheWave.z, 1.0)); cacheSky += vec3(cacheWave.x * cacheWaveShape + cacheWave.y);" : ""}
-                    outgoingLight = mix(outgoingLight, cacheSky, 0.2 + cacheFresnel * 0.6);
-                    #include <opaque_fragment>
-                `);
-            }
         };
+    }
+
+    private applyFixedWater(material: THREE.MeshBasicMaterial, asset: MaterialEffect, id: 2 | 4 | 5, bakedTint: boolean): void {
+        const noise = this.waterTexture(id === 5 ? "lake" : "ridged");
+        if (id === 2 && !this.turbulenceTexture) {
+            this.turbulenceTexture = new THREE.DataTexture(waterTurbulence(), 128, waterTurbulenceRows, THREE.RedFormat, THREE.FloatType);
+            this.turbulenceTexture.needsUpdate = true;
+        }
+        const parameters = { value: new THREE.Vector4() };
+        const p = asset.effectParameter ?? 0;
+        const flags = { value: new THREE.Vector4((p & 128) === 0 ? 1 : 0, (p & 64) === 0 && !bakedTint ? 1 : 0, (p & 128) === 0 ? 0 : 1, 0) };
+        const scroll = { value: new THREE.Vector2() };
+        const update = (seconds: number) => {
+            const sample = sampleMaterialEffect(asset, seconds);
+            parameters.value.set(...fixedWaterParameters(id, sample), 0);
+            flags.value.w = noise.value ? 1 : 0;
+            scroll.value.set(sample.u, sample.v);
+        };
+        update(0);
+        this.effectUpdates.set(material, update);
+        const source = clientFixedWater(id);
+        material.customProgramCacheKey = () => `cache-fixed-water-${id}`;
+        material.onBeforeCompile = shader => {
+            shader.uniforms.cacheWaterNoise = noise;
+            shader.uniforms.cacheTurbulence = { value: this.turbulenceTexture };
+            shader.uniforms.cacheWaterParams = parameters;
+            shader.uniforms.cacheWaterFlags = flags;
+            shader.uniforms.cacheWaterScroll = scroll;
+            shader.uniforms.cacheWaterAmbient = this.waterAmbient;
+            shader.uniforms.cacheWaterFogWidth = this.waterFogWidth;
+            shader.vertexShader = source.vertexDeclarations + shader.vertexShader.replace("#include <fog_vertex>", `#include <fog_vertex>\n${source.vertex}`);
+            shader.fragmentShader = source.fragmentDeclarations + shader.fragmentShader
+                .replace("#include <colorspace_fragment>", source.fragment)
+                .replace("#include <fog_fragment>", "");
+        };
+    }
+
+    private applyHdWater(material: THREE.MeshBasicMaterial, asset: MaterialEffect, id: 8 | 9, noise: THREE.IUniform<THREE.Data3DTexture | null>, hasDepth: boolean): void {
+        const { hdScale, breakDepth, breakOffset, waveIntensity, waveExponent } = sampleMaterialEffect(asset, 0);
+        const parameters = { value: new THREE.Vector4(0, hdScale, breakDepth, breakOffset) };
+        const wave = { value: new THREE.Vector3(waveIntensity[0], waveIntensity[1], waveExponent) };
+        const scroll = { value: new THREE.Vector2() };
+        this.effectUpdates.set(material, seconds => {
+            const sample = sampleMaterialEffect(asset, seconds);
+            parameters.value.x = sample.hdPhase;
+            scroll.value.set(sample.u, sample.v);
+        });
+        const source = clientHdWater(id, hasDepth);
+        material.customProgramCacheKey = () => `cache-hd-water-${id}-${hasDepth}`;
+        material.onBeforeCompile = shader => {
+            shader.uniforms.cacheWaterNoise = noise;
+            shader.uniforms.cacheEnvironment = this.environmentMap;
+            shader.uniforms.cacheWaterParams = parameters;
+            shader.uniforms.cacheWaterScroll = scroll;
+            shader.uniforms.cacheWave = wave;
+            shader.uniforms.cacheSunDirection = this.sunDirection;
+            shader.uniforms.cacheSunColor = this.sunColor;
+            shader.vertexShader = source.vertexDeclarations + shader.vertexShader.replace("#include <fog_vertex>", source.vertex);
+            shader.fragmentShader = source.fragmentDeclarations + shader.fragmentShader
+                .replace("#include <colorspace_fragment>", source.fragment)
+                .replace("#include <fog_fragment>", "");
+        };
+    }
+
+    private waterTexture(kind: WaterVolume): THREE.IUniform<THREE.Data3DTexture | null> {
+        const existing = this.waterTextures.get(kind);
+        if (existing) return existing;
+        const uniform: THREE.IUniform<THREE.Data3DTexture | null> = { value: null };
+        this.waterTextures.set(kind, uniform);
+        void waterVolume(kind).then(data => {
+            if (this.disposed) return;
+            const texture = new THREE.Data3DTexture(data, waterVolumeSize, waterVolumeSize, waterVolumeSlices);
+            texture.format = kind === "normal" ? THREE.RGBAFormat : THREE.RGFormat;
+            texture.wrapS = texture.wrapT = texture.wrapR = THREE.RepeatWrapping;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = kind === "normal";
+            texture.minFilter = texture.generateMipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+            texture.needsUpdate = true;
+            uniform.value = texture;
+            if (kind === "normal") this.refreshHdWater();
+            this.requestRender();
+        });
+        return uniform;
     }
 
     private resize(): void {
@@ -896,14 +1045,29 @@ export class ModelScene {
         }
     }
 
+    private textureDrawModes(textureIds: number[]): { transparent: Set<number>; animated: Set<number> } {
+        const transparent = new Set<number>();
+        const animated = new Set<number>();
+        for (const id of textureIds) {
+            const asset = this.textureImages?.get(id);
+            if (!asset) continue;
+            const hd = this.hdWaterActive && isHdWater(asset.effectId);
+            if (asset.alphaMode === 2 || isFixedWater(asset.effectId) || hd) transparent.add(id);
+            if (hd || isAnimatedFixedWater(asset)) animated.add(id);
+        }
+        return { transparent, animated };
+    }
+
     private assignSurfaceGroups(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
         geometry.clearGroups();
         // Only models with a source ID can update an existing index layout in place.
         surface.sourceIndices = model.sourceId === undefined ? model.indices : Uint32Array.from(model.indices);
         surface.opaqueGroups = [];
         surface.blendedSurfaces = [];
+        surface.animatedWater = false;
         const textureIds = [...this.textures.keys()];
         const textureIndices = new Map(textureIds.map((id, index) => [id, index]));
+        const modes = this.textureDrawModes(textureIds);
         const opaque = new Map<number, number[]>();
         const sourceIndices = surface.sourceIndices;
         const opacities = model.vertexRgba ?? model.opacities;
@@ -918,7 +1082,8 @@ export class ModelScene {
             const textureId = model.textureIds?.[face] ?? -1;
             const textureIndex = textureIndices.get(textureId) ?? -1;
             const material = terrainSurfaceMaterial(textureId, model.terrainBlends, textureIds.length, (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0));
-            const transparent = translucent || (textureIndex >= 0 && this.textureImages?.get(textureId)?.alphaMode === 2);
+            if (modes.animated.has(textureId)) surface.animatedWater = true;
+            const transparent = translucent || modes.transparent.has(textureId);
             if (transparent) {
                 surface.blendedSurfaces.push({ sourceStart: start, material, depth: 0, priority: model.facePriorities?.[face] ?? 0 });
             } else {
@@ -1047,6 +1212,7 @@ function hasSameLayout(surface: MeshSurface, existing: NonNullable<MeshSurface["
 function fillGeometry(geometry: THREE.BufferGeometry, model: ModelGeometry, firstTexel: boolean): void {
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(model.positions, 3));
     if (model.mapPlanes) geometry.setAttribute("mapPlane", new THREE.Uint8BufferAttribute(model.mapPlanes, 1));
+    if (model.mapPlanes && model.waterDepth) geometry.setAttribute("waterDepth", new THREE.Float32BufferAttribute(model.waterDepth, 1));
     geometry.setIndex(ArrayBuffer.isView(model.indices) ? new THREE.BufferAttribute(model.indices.slice(), 1) : Array.from(model.indices));
     if (model.uvs) geometry.setAttribute("uv", floatAttribute(model.uvs, 2));
     if (firstTexel) geometry.setAttribute("cacheFirstTexel", markerAttribute(model.firstTexel));
@@ -1117,12 +1283,6 @@ const clientSpecularHighlight = `
     float cacheSpecularLobe = cacheLobeExponent > 0.0 && cacheLobeFacing > 0.0 ? min(1.0, pow(cacheLobeFacing, cacheLobeExponent) * 400.0 / 255.0) * sampledDiffuseColor.a : 0.0;
     outgoingLight = pow(min(pow(max(outgoingLight, vec3(0.0)), vec3(1.0 / 2.2)) + cacheSpecularLobe, vec3(1.0)), vec3(2.2));
 `;
-
-/** GLSL overriding `cacheSky` with the region environment map. */
-function regionCubeSample(effectId: number): string {
-    // Web Y is inverted client height; the cube is sampled in client space.
-    return "if (cacheEnvironmentEnabled) cacheSky = textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z)).rgb;";
-}
 
 function applyFirstTexelSampling(material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial, asset: ModelTexture): void {
     const compile = material.onBeforeCompile;

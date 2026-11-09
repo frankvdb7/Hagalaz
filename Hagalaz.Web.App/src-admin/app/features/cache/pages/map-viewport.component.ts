@@ -150,6 +150,7 @@ export class MapViewportComponent implements OnDestroy {
             skyRgb: atmosphere?.skyRgb ?? null,
             fog: atmosphere && this.fog() ? mapFogRange(atmosphere.fogValue) : null,
             environmentFaces: atmosphere ? this.environmentFaces() : null,
+            sun: atmosphere,
         };
     });
     readonly snap = model(1);
@@ -192,8 +193,8 @@ export class MapViewportComponent implements OnDestroy {
         effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null)));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));
         effect(() => {
-            const { skyRgb, fog, environmentFaces } = this.environment();
-            this.scene()?.setEnvironment(skyRgb, fog, environmentFaces);
+            const { skyRgb, fog, environmentFaces, sun } = this.environment();
+            this.scene()?.setEnvironment(skyRgb, fog, environmentFaces, sun);
         });
         effect(() => {
             const scene = this.scene(), geometry = this.geometry(), key = this.selectionKey();

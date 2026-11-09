@@ -61,6 +61,9 @@ const c = [
 ];
 const overlayCount = [4, 2, 1, 1, 2, 2, 3, 1, 3, 3, 3, 2, 0];
 
+// Class274.aBooleanArrayArray2805 marks the unrotated shape vertices that skip the underwater height lookup.
+const noSurfaceDepth = [0, 0x107c, 0x3f, 0xe7, 0xe1, 0x3c, 0x103e, 0x10fe, 0x83, 0x31f, 0x3f1, 0xcfd, 0x1fff];
+
 export function mapHeight(regions: readonly MapRenderRegion[], plane: number, worldX: number, worldY: number): number | null {
     for (const region of regions) {
         const x = worldX - region.regionX * 64,
@@ -180,9 +183,11 @@ type SceneGeometry = Omit<MapSceneObjects, "uvs" | "animations"> & {
     terrainBlends: TerrainBlend[];
     terrainWeights: number[];
     mapPlanes: number[];
+    waterDepth?: number[];
 };
 type SceneContext = {
     regions: readonly MapRenderRegion[];
+    hasUnderwater: boolean;
     appearances: ReadonlyMap<string, ObjectRenderAppearance>;
     clips: ReadonlyMap<number, MapObjectClip>;
     animatedParts: Map<GetModelDto, ReturnType<typeof animatePart>>;
@@ -485,6 +490,7 @@ export function buildMapScene(
         : noObjectShadows;
     const context: SceneContext = {
         regions,
+        hasUnderwater: regions.some(region => !!region.planes[underwaterPlaneIndex]),
         appearances,
         clips,
         animatedParts: new Map(),
@@ -506,6 +512,7 @@ export function buildMapScene(
         lightTint,
     };
     const terrain = preparation.terrain(regions, textures, visiblePlanes, filter, atmosphere, shadows.signature, () => {
+        context.geometry.waterDepth = [];
         if (filter.terrain) addTerrain(context);
         context.geometry.indices = sequentialIndices(context.geometry.opacities.length);
         return context.geometry;
@@ -526,11 +533,12 @@ function sequentialIndices(count: number): Uint16Array | Uint32Array {
     return indices;
 }
 
-function addVertex(context: SceneContext, plane: number, point: ScenePoint, color: readonly number[], opacity: number, uv: readonly number[], weights: readonly number[] | null = [], firstTexel = 0): void {
+function addVertex(context: SceneContext, plane: number, point: ScenePoint, color: readonly number[], opacity: number, uv: readonly number[], weights: readonly number[] | null = [], firstTexel = 0, waterDepth = 0, useRegionTint = true): void {
     const output = context.geometry;
     output.positions.push((point.x - context.originX) * 512, point.y, (point.z - context.originY) * 512);
     output.mapPlanes.push(plane);
-    const light = context.lightTint;
+    output.waterDepth?.push(waterDepth);
+    const light = useRegionTint && context.lightTint;
     if (light) output.colors.push(color[0] * light[0], color[1] * light[1], color[2] * light[2]);
     else output.colors.push(color[0], color[1], color[2]);
     if (firstTexel) output.firstTexelVertices.push(output.opacities.length);
@@ -581,7 +589,16 @@ function addFloorTriangle(
         const [rx, ry] = rotateFloor(floorX[point], floorY[point], rotation);
         const wx = region.regionX * 64 + x + rx / 512,
             wy = region.regionY * 64 + y + ry / 512;
-        return { wx, wy, point, height: mapHeight([region], level, wx, wy) };
+        const height = mapHeight([region], level, wx, wy);
+        let waterDepth = 0;
+        if (height !== null && level === 0 && context.hasUnderwater) {
+            const underwater = noSurfaceDepth[shape] & (1 << point)
+                ? null
+                : mapHeight(context.regions, underwaterPlaneIndex, wx, wy);
+            // Class_xa_Sub1 streams the depth array minus one, including its untouched zero entries.
+            waterDepth = (underwater === null ? 0 : underwater - height) - 1;
+        }
+        return { wx, wy, point, height, waterDepth };
     });
     const available = corners.filter((corner): corner is FloorCorner => corner.height !== null);
     if (available.length !== 3) return;
@@ -614,11 +631,13 @@ function isHiddenWater(context: SceneContext, level: number, floor: VisibleFloor
 function addPlainFloor(context: SceneContext, level: number, texture: number, textureScale: number, corners: readonly FloorCorner[], tint: (index: number) => readonly number[]): void {
     context.geometry.textureIds.push(texture);
     context.geometry.facePriorities.push(0);
+    // Effect 2 applies the client ambient term to vertex color in its own program.
+    const useRegionTint = context.textures.get(texture)?.effectId !== 2;
     for (const [index, corner] of corners.entries()) {
         addVertex(context, level, { x: corner.wx, y: -corner.height, z: corner.wy }, tint(index), 1, [
             (corner.wx * 512) / textureScale,
             (-corner.wy * 512) / textureScale,
-        ]);
+        ], undefined, 0, corner.waterDepth, useRegionTint);
     }
 }
 
@@ -639,7 +658,7 @@ function floorShade(context: SceneContext, level: number, worldX: number, worldY
     return { flat: factors.every(factor => factor >= 1) ? fog.color : undefined, apply: (color, index) => mixWaterFog(color, fog, factors[index]) };
 }
 
-type FloorCorner = { wx: number; wy: number; point: number; height: number };
+type FloorCorner = { wx: number; wy: number; point: number; height: number; waterDepth: number };
 
 function addLayeredFloor(context: SceneContext, level: number, corners: readonly FloorCorner[], samples: readonly (readonly FloorSample[])[], shade: FloorShade["apply"]): boolean {
     if (samples.some(sample => !sample.length)) return false;
@@ -664,7 +683,7 @@ function addLayeredFloor(context: SceneContext, level: number, corners: readonly
     corners.forEach((corner, index) => {
         const weights = keys.map(key => samples[index].find(sample => sample.key === key)?.weight ?? 0);
         const color = shade(blendedFloorColor(samples[index]), index);
-        addVertex(context, level, { x: corner.wx, y: -corner.height, z: corner.wy }, color, 1, [corner.wx * 512, -corner.wy * 512], weights);
+        addVertex(context, level, { x: corner.wx, y: -corner.height, z: corner.wy }, color, 1, [corner.wx * 512, -corner.wy * 512], weights, 0, corner.waterDepth);
     });
     return true;
 }

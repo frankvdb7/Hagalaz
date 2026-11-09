@@ -72,7 +72,6 @@ export class MapLightMaterial {
         const programKey = material.customProgramCacheKey();
         material.customProgramCacheKey = () => `${programKey}:map-point-lights`;
         material.onBeforeCompile = (shader, renderer) => {
-            compile.call(material, shader, renderer);
             shader.uniforms["mapLightHeight"] = this.height;
             shader.uniforms["mapLightTiles"] = this.tiles;
             shader.uniforms["mapLightRecords"] = this.records;
@@ -81,6 +80,8 @@ export class MapLightMaterial {
             shader.fragmentShader = `${lightDeclarations}\n${shader.fragmentShader}`
                 // The hardware terrain pass adds light multiplied by the existing framebuffer color.
                 .replace("#include <colorspace_fragment>", "#include <colorspace_fragment>\ngl_FragColor.rgb *= 1.0 + mapLocalLight();");
+            // Water programs replace the colorspace chunk, so the light term must already follow it.
+            compile.call(material, shader, renderer);
         };
     }
 

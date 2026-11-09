@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { ModelScene, type ModelTexture } from "./model-scene";
+import { waterVolume } from "./water-noise";
 
 function required<T>(value: T | undefined, what: string): T {
     if (value === undefined) throw new Error(`Missing ${what}`);
@@ -406,12 +407,12 @@ describe("ModelScene resource ownership", () => {
         vi.stubGlobal("createImageBitmap", decode);
         const face = (width: number): ModelTexture => ({ image: { width, height: width } as ImageBitmap, alphaMode: 0 });
         const faces = [face(64), face(128), face(64), face(64), face(64), face(64)];
-        scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0, effectId: 8 }]]));
-        scene.setGeometry({ ...triangle, preparedLighting: true, textureIds: [8] });
+        scene.setTextures(new Map([[7, { image: {} as ImageBitmap, alphaMode: 0, effectId: 7 }]]));
+        scene.setGeometry({ ...triangle, preparedLighting: true, textureIds: [7] });
         const material = renderAt(0).material[2];
         const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
         material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
-        expect(shader.fragmentShader).toContain("textureCube(cacheEnvironment, vec3(cacheReflection.x, -cacheReflection.y, cacheReflection.z))");
+        expect(shader.fragmentShader).toContain("textureCube(cacheEnvironment, vec3(-cacheReflection.x, cacheReflection.y, -cacheReflection.z))");
         expect(shader.uniforms.cacheEnvironmentEnabled.value).toBe(false);
 
         scene.setEnvironment(0xc8c0a8, null, faces);
@@ -439,7 +440,33 @@ describe("ModelScene resource ownership", () => {
         expect(shader.uniforms.cacheEnvironment.value).toBeNull();
     });
 
-    it("uses the region cube and texture alpha for effect 7 and keeps the sky fallback for effects 8 and 9", () => {
+    it("shares a water texture across materials and releases it once per scene", async () => {
+        scene.setTextures(new Map([
+            [2, { image: {} as ImageBitmap, alphaMode: 0, effectId: 2 }],
+            [4, { image: {} as ImageBitmap, alphaMode: 0, effectId: 4 }],
+        ]));
+        scene.setGeometry({ ...triangle, textureIds: [2] });
+        await waterVolume("ridged");
+        const materials = renderAt(0).material;
+        const noise = (material: THREE.Material) => {
+            const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+            material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+            return shader.uniforms.cacheWaterNoise.value as THREE.Data3DTexture;
+        };
+        const texture = noise(materials[2]);
+        expect(texture).toBeInstanceOf(THREE.Data3DTexture);
+        expect(noise(materials[4])).toBe(texture);
+        expect(texture.format).toBe(THREE.RGFormat);
+        expect([texture.wrapS, texture.wrapT, texture.wrapR]).toEqual(Array(3).fill(THREE.RepeatWrapping));
+        expect(texture.minFilter).toBe(THREE.LinearFilter);
+        expect(texture.generateMipmaps).toBe(false);
+        const dispose = vi.spyOn(texture, "dispose");
+        scene.dispose();
+        scene.dispose();
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+
+    it("uses the region cube and texture alpha for effect 7 and the base material for standalone HD water", () => {
         const compile = (effectId: number) => {
             scene.setTextures(new Map([[effectId, { image: {} as ImageBitmap, alphaMode: 0, effectId }]]));
             scene.setGeometry({ ...triangle, preparedLighting: true, textureIds: [effectId] });
@@ -457,8 +484,77 @@ describe("ModelScene resource ownership", () => {
         expect(reflection).not.toContain("cacheFresnel");
         for (const id of [8, 9]) {
             const shader = compile(id);
-            expect(shader).toContain("cacheSky");
-            expect(shader).toContain("cacheFresnel");
+            expect(shader).not.toContain("cacheSky");
+            expect(shader).not.toContain("cacheWaterNoise");
+        }
+    });
+
+    it("switches HD water on with the region cube and reuses terrain buffers through fallback", async () => {
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ close: vi.fn() })));
+        try {
+            const asset = { image: { width: 16, height: 16 } as ImageBitmap, alphaMode: 0, effectId: 9, effectParameter: 19, effectParameter2: 128 } as const;
+            map.setTextures(new Map([[9, asset]]));
+            map.setSceneGeometry({ terrain: { ...triangle, textureIds: [9], mapPlanes: [0, 0, 0], waterDepth: [0, 95, -1], preparedLighting: true }, objects: null }, false);
+            const mesh = () => {
+                map.captureImage();
+                const rendered = gpu.render.mock.lastCall![0] as THREE.Scene;
+                return rendered.children.find(child => child instanceof THREE.Mesh) as THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>;
+            };
+            const fallback = mesh();
+            expect(fallback.material[2].transparent).toBe(false);
+            expect(Array.from(fallback.geometry.getAttribute("waterDepth").array)).toEqual([0, 95, -1]);
+            map.setEnvironment(0xc8c0a8, { start: 100, end: 500 }, Array(6).fill(asset), {
+                lightRgb: 0xff8000, directionX: 0, directionY: -3, directionZ: 4,
+            });
+            await waterVolume("normal");
+            await new Promise(resolve => setTimeout(resolve));
+            const water = mesh();
+            expect(water.geometry).toBe(fallback.geometry);
+            const material = water.material[2];
+            expect(material.transparent).toBe(true);
+            expect(material.depthWrite).toBe(true);
+            const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+            material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+            expect(shader.uniforms.cacheSunColor.value.toArray()).toEqual([1, 128 / 255, 0]);
+            expect(shader.uniforms.cacheSunDirection.value.y).toBeCloseTo(0.6);
+            const noise = shader.uniforms.cacheWaterNoise.value as THREE.Data3DTexture;
+            expect(noise.format).toBe(THREE.RGBAFormat);
+            expect(noise.minFilter).toBe(THREE.LinearMipmapLinearFilter);
+            expect(shader.uniforms.cacheWaterParams.value.toArray().slice(1)).toEqual([0.125, 128, 0]);
+            expect(shader.fragmentShader).toContain("float waveFactor");
+            expect(shader.uniforms.cacheWaterScroll.value).toBeInstanceOf(THREE.Vector2);
+            expect(shader.vertexShader).toContain("cacheWaterUv = vec2(uv.x, -uv.y) + cacheWaterScroll");
+            expect(shader.fragmentShader).toMatch(/gl_FragColor = clamp\(surfaceColor, 0\.0, 1\.0\);[\s\S]*gl_FragColor\.rgb \*= 1\.0 \+ mapLocalLight\(\);/);
+            map.setEnvironment(null, null);
+            const restored = mesh();
+            expect(restored.geometry).toBe(fallback.geometry);
+            expect(restored.material[2].transparent).toBe(false);
+        } finally {
+            map.dispose();
+        }
+    });
+
+    it("keeps point lights on fixed water and applies the effect 2 ambient only to terrain", () => {
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            map.setTextures(new Map([[2, { image: { width: 16, height: 16 } as ImageBitmap, alphaMode: 0, effectId: 2, effectParameter: 1 }]]));
+            const water = { ...triangle, textureIds: [2], mapPlanes: [0, 0, 0], preparedLighting: true };
+            map.setSceneGeometry({ terrain: { ...water, waterDepth: [0, 0, 0] }, objects: water }, false);
+            map.captureImage();
+            const meshes = (gpu.render.mock.lastCall![0] as THREE.Scene).children.filter(child => child instanceof THREE.Mesh) as THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>[];
+            const compile = (mesh: THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>) => {
+                const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+                mesh.material[2].onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+                return shader;
+            };
+            const terrain = compile(meshes.find(mesh => mesh.geometry.getAttribute("waterDepth"))!);
+            const objects = compile(meshes.find(mesh => !mesh.geometry.getAttribute("waterDepth"))!);
+            expect(terrain.uniforms.cacheWaterFlags.value.y).toBe(1);
+            expect(objects.uniforms.cacheWaterFlags.value.y).toBe(0);
+            expect(terrain.fragmentShader).toMatch(/gl_FragColor = waterColor;[\s\S]*gl_FragColor\.rgb \*= 1\.0 \+ mapLocalLight\(\);/);
+        } finally {
+            map.dispose();
         }
     });
 
@@ -687,20 +783,21 @@ describe("ModelScene resource ownership", () => {
         images.set(9, { image: {} as ImageBitmap, alphaMode: 0 });
         scene.setTextures(new Map(images)); scene.setGeometry(model);
         expect(renderAt(0).material[2]).toBe(material);
-        const initial = shader.uniforms.cachePhase.value.clone();
+        const initial = shader.uniforms.cacheWaterParams.value.clone();
         renderAt(1000);
-        expect(shader.uniforms.cachePhase.value).not.toEqual(initial);
+        expect(shader.uniforms.cacheWaterParams.value).not.toEqual(initial);
         expect(release).not.toHaveBeenCalled();
         images.set(8, { ...water, image: {} as ImageBitmap, alphaMode: 1 });
         scene.setTextures(new Map(images)); scene.setGeometry(model);
         const replacedMesh = renderAt(2000);
         const replacement = replacedMesh.material[replacedMesh.geometry.groups[0].materialIndex ?? 0];
         expect(replacement).not.toBe(material);
-        expect(replacement.alphaTest).toBe(0.5);
+        expect(replacement.transparent).toBe(true);
+        expect(replacement.alphaTest).toBe(0);
         expect(release).toHaveBeenCalledOnce();
-        const previous = shader.uniforms.cachePhase.value.clone();
+        const previous = shader.uniforms.cacheWaterParams.value.clone();
         renderAt(3000);
-        expect(shader.uniforms.cachePhase.value).toEqual(previous);
+        expect(shader.uniforms.cacheWaterParams.value).toEqual(previous);
         scene.dispose(); expect(release).toHaveBeenCalledOnce();
     });
 
@@ -994,7 +1091,7 @@ describe("ModelScene resource ownership", () => {
         expect(gpu.setAnimationLoop).toHaveBeenCalledTimes(1);
     });
 
-    it.each([1, 2, 4, 5, 7, 8, 9])("binds deterministic shader parameters for effect %s and clears old updates", id => {
+    it.each([1, 7])("binds deterministic shader parameters for effect %s and clears old updates", id => {
         scene.setTextures(new Map([[8, {image: {} as ImageBitmap, alphaMode: 0, effectId: id, effectParameter: 19, effectParameter2: 1}]]));
         scene.setGeometry({...triangle, textureIds: [8]});
         const material = renderAt(0).material[2];
@@ -1002,12 +1099,28 @@ describe("ModelScene resource ownership", () => {
         material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
         renderAt(2500);
         const uniforms = shader.uniforms as Record<string, {value: THREE.Vector4}>;
-        expect(uniforms.cachePhase.value.x).toBe(id === 4 ? 0.625 : id === 5 ? 0.75 : id >= 8 ? 0.5 : 0.625);
+        expect(uniforms.cachePhase.value.x).toBe(0.625);
         expect(shader.fragmentShader).toContain("uniform vec4 cachePhase");
-        if ([7,8,9].includes(id)) expect(shader.fragmentShader).toContain("cacheReflection");
-        if ([2,4,5,8,9].includes(id)) expect(shader.fragmentShader).toContain("cachePoint");
+        if (id === 7) expect(shader.fragmentShader).toContain("cacheReflection");
         const previous = uniforms.cachePhase.value.clone();
         scene.setTextures(new Map()); renderAt(3000);
         expect(uniforms.cachePhase.value).toEqual(previous);
     });
+
+    it.each([[2, [0.625, 64, 0.1]], [4, [0.625, 0, 0]], [5, [0.75, -0, 1 / 2048]]] as const)(
+        "updates and retires fixed water effect %s through the same animation path", (id, expected) => {
+            scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0, effectId: id, effectParameter: 19, effectParameter2: 1 }]]));
+            scene.setGeometry({ ...triangle, textureIds: [8] });
+            const material = renderAt(0).material[2];
+            const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+            material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+            renderAt(2500);
+            const parameters = shader.uniforms.cacheWaterParams.value as THREE.Vector4;
+            expect(parameters.toArray().slice(0, 3)).toEqual(expected);
+            const previous = parameters.clone();
+            scene.setTextures(new Map());
+            renderAt(3000);
+            expect(parameters).toEqual(previous);
+        },
+    );
 });

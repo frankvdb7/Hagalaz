@@ -689,6 +689,7 @@ describe("map scene geometry", () => {
         const seabedY = (geometry: ReturnType<typeof build>) => geometry.positions[surfaceVertices * 3 + 1];
         const partial = build(0), opaque = build(255);
         expect(partial.positions.length / 3).toBe(surfaceVertices + 12);
+        expect(partial.waterDepth).toEqual([...Array(surfaceVertices).fill(199), ...Array(12).fill(0)]);
         expect(seabedY(partial)).toBe(partial.positions[1] - 200);
         expect(partial.textureIds?.[4]).toBe(7);
         expect(partial.colors?.[surfaceVertices * 3 + 1]).toBeGreaterThan(0);
@@ -696,6 +697,42 @@ describe("map scene geometry", () => {
         expect(opaque.textureIds?.[4]).toBe(-1);
         expect(opaque.colors?.slice(surfaceVertices * 3, surfaceVertices * 3 + 3)).toEqual([0, 1, 0]);
         expect(build(255, false).positions.length / 3).toBe(surfaceVertices);
+    });
+    it("uses the client zero-array fallback and masks nonqualifying shoreline vertices", () => {
+        const source = region();
+        source.floors.push({ id: 2, overlay: true, rgb: 0x0000ff, textureId: 7, secondaryRgb: null, textureScale: 512 });
+        source.planes[0].overlays[0] = 2;
+        source.planes[0].overlayShapes[0] = 1;
+        const build = (regions: MapRenderRegion[], preparation = new MapScenePreparation()) =>
+            required(buildMapScene(regions, new Map(), new Map(), [true], false, preparation).geometry, "terrain");
+        const dry = build([source]);
+        expect(dry.waterDepth).toEqual(Array(dry.positions.length / 3).fill(0));
+
+        const planes = source.planes;
+        planes.push({ ...planes[0], cornerHeights: planes[0].cornerHeights.map(height => height === null ? null : height + 200) });
+        const regions = [source];
+        const preparation = new MapScenePreparation();
+        const wet = build(regions, preparation);
+        expect(new Set(wet.waterDepth)).toEqual(new Set([-1, 199]));
+        expect(wet.waterDepth).toHaveLength(wet.positions.length / 3);
+        expect(build(regions, preparation).waterDepth).toBe(wet.waterDepth);
+    });
+    it.each([
+        [7, 0, 256],
+        [9, 256, 384],
+    ])("masks the client's shoreline vertex on shape %i at (%i, %i)", (shape, pointX, pointZ) => {
+        const source = region();
+        source.floors.push({ id: 2, overlay: true, rgb: 0x0000ff, textureId: 7, secondaryRgb: null, textureScale: 512 });
+        source.planes[0].overlays[0] = 2;
+        source.planes[0].overlayShapes[0] = shape;
+        source.planes.push({ ...source.planes[0], cornerHeights: source.planes[0].cornerHeights.map(height => height === null ? null : height + 200) });
+        const terrain = required(buildMapScene([source], new Map(), new Map(), [true], false, new MapScenePreparation()).geometry, "terrain");
+        const xs = terrain.positions.filter((_, index) => index % 3 === 0);
+        const zs = terrain.positions.filter((_, index) => index % 3 === 2);
+        const [originX, originZ] = [Math.min(...xs), Math.min(...zs)];
+        const depths = terrain.waterDepth?.filter((_, vertex) => xs[vertex] === originX + pointX && zs[vertex] === originZ + pointZ);
+        expect(depths?.length).toBeGreaterThan(0);
+        expect(new Set(depths)).toEqual(new Set([-1]));
     });
     it("removes only water-effect floors when the water surface is hidden and rebuilds on toggle", () => {
         const source = region();

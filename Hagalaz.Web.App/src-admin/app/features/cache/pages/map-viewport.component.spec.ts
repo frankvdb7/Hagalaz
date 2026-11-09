@@ -117,20 +117,20 @@ describe("MapViewportComponent keyboard controls", () => {
         const page = fixture.componentInstance;
         const atmosphere = { lightRgb: 0xffffff, intensity: 1, positiveResponse: 1, negativeResponse: 1, directionX: 0, directionY: -1, directionZ: 0, skyRgb: 0x8da4c2, fogValue: 600, environmentFaces: null };
         page.fog.set(true);
-        expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null });
+        expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null, sun: null });
         expect(page.fogActive()).toBe(false);
 
         fixture.componentRef.setInput("regionAtmosphere", atmosphere);
         expect(page.fogActive()).toBe(true);
-        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: { start: 10908, end: 14332 }, environmentFaces: null });
+        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: { start: 10908, end: 14332 }, environmentFaces: null, sun: atmosphere });
 
         page.fog.set(false);
-        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: null, environmentFaces: null });
+        expect(page.environment()).toEqual({ skyRgb: 0x8da4c2, fog: null, environmentFaces: null, sun: atmosphere });
 
         page.fog.set(true);
         page.useRegionAtmosphere.set(false);
         expect(page.fogActive()).toBe(false);
-        expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null });
+        expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null, sun: null });
         fixture.destroy();
     });
 

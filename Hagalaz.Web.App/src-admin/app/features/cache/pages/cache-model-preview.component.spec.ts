@@ -246,13 +246,13 @@ describe("CacheModelPreviewComponent playback", () => {
         expect(fixture.componentInstance.textureImages().size).toBe(0);
     });
 
-    it("identifies approximated effects and retries a missing HDR companion", async () => {
+    it("identifies the client water effect and retries a missing HDR companion", async () => {
         vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue({close: vi.fn()}));
         await loadTexturedModel([8], {effectId: 2, effectParameter: 12, scrollU: -1, hasHdr: true});
         http.expectOne(`${baseUrl}textures/8/image?sourceAlpha=true`).flush(new Blob());
         http.expectOne(`${baseUrl}textures/8/hdr`).flush({}, {status: 404, statusText: "Not Found"});
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.textureData.hasValue()).toBe(true); }, {interval: 1});
-        expect(fixture.nativeElement.textContent).toContain("Ordinary water #2: procedural-noise approximation");
+        expect(fixture.nativeElement.textContent).toContain("Ordinary water #2 uses the client turbulence and animated noise stages.");
         expect(fixture.nativeElement.textContent).toContain("HDR companion unavailable; base-image fallback.");
         expect(fixture.componentInstance.textureImages().get(8)?.scrollU).toBe(-1);
         click("Retry textures");
