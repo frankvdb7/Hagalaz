@@ -1112,8 +1112,8 @@ function strokePreviewColors(tiles: readonly number[]): number[] {
  */
 const clientSpecularHighlight = `
     float cacheLobeExponent = cachePhase.w < 0.5 ? 0.0 : cachePhase.w < 1.5 ? 128.0 : cachePhase.w < 2.5 ? 24.0 : 5.0;
-    vec3 cacheReflection = reflect(-normalize(vViewPosition), normal);
-    float cacheLobeFacing = clamp(dot(cacheReflection, normalize(vec3(0.091, 0.899, -0.428))), 0.0, 1.0);
+    // Class49_Sub7 looks its lobe cube up by eye-space normal (GL_NORMAL_MAP), not by reflection.
+    float cacheLobeFacing = clamp(dot(normal, normalize(vec3(0.091, 0.899, -0.428))), 0.0, 1.0);
     float cacheSpecularLobe = cacheLobeExponent > 0.0 && cacheLobeFacing > 0.0 ? min(1.0, pow(cacheLobeFacing, cacheLobeExponent) * 400.0 / 255.0) * sampledDiffuseColor.a : 0.0;
     outgoingLight = pow(min(pow(max(outgoingLight, vec3(0.0)), vec3(1.0 / 2.2)) + cacheSpecularLobe, vec3(1.0)), vec3(2.2));
 `;

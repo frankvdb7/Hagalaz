@@ -812,7 +812,8 @@ describe("ModelScene resource ownership", () => {
         const shader = {uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
         material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
         expect(shader.fragmentShader.indexOf("outgoingLight = diffuseColor.rgb;")).toBeLessThan(shader.fragmentShader.indexOf("cacheSpecularLobe"));
-        expect(shader.fragmentShader).toContain("cacheReflection");
+        expect(shader.fragmentShader).toContain("dot(normal, normalize(vec3(0.091, 0.899, -0.428)))");
+        expect(shader.fragmentShader).not.toContain("cacheReflection");
     });
 
     it("adds the client's specular lobe for effect 1 instead of blending in a sky", () => {
@@ -1003,7 +1004,7 @@ describe("ModelScene resource ownership", () => {
         const uniforms = shader.uniforms as Record<string, {value: THREE.Vector4}>;
         expect(uniforms.cachePhase.value.x).toBe(id === 4 ? 0.625 : id === 5 ? 0.75 : id >= 8 ? 0.5 : 0.625);
         expect(shader.fragmentShader).toContain("uniform vec4 cachePhase");
-        if ([1,7,8,9].includes(id)) expect(shader.fragmentShader).toContain("cacheReflection");
+        if ([7,8,9].includes(id)) expect(shader.fragmentShader).toContain("cacheReflection");
         if ([2,4,5,8,9].includes(id)) expect(shader.fragmentShader).toContain("cachePoint");
         const previous = uniforms.cachePhase.value.clone();
         scene.setTextures(new Map()); renderAt(3000);
