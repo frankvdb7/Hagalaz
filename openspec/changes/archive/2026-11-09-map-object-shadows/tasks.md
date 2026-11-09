@@ -13,4 +13,4 @@
 ## 3. Verification
 
 - [x] 3.1 Run focused backend tests, admin tests, `lint:biome`, the admin build and strict OpenSpec validation.
-- [ ] 3.2 Compare a built-up region against the client after the Cache service provides the new field.
+- [x] 3.2 Compare a built-up region against the client after the Cache service provides the new field.
