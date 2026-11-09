@@ -7,6 +7,22 @@ export interface MaterialEffect {
     scrollV?: number;
 }
 
+/**
+ * Effect 7 (GameClient Class49_Sub3): blend the unlit region cube over the lit base in gamma space.
+ * The client negates the reflection ray with `glScalef(-1, -1, -1)`.
+ */
+export function clientReflection(amount: string, normal = "normal", viewPosition = "vViewPosition"): string {
+    return `
+    if (cacheEnvironmentEnabled) {
+        vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(${viewPosition}), ${normal}), viewMatrix);
+        vec3 cacheCube = textureCube(cacheEnvironment, vec3(-cacheReflection.x, cacheReflection.y, -cacheReflection.z)).rgb;
+        vec3 cacheBaseGamma = pow(max(outgoingLight, vec3(0.0)), vec3(1.0 / 2.2));
+        vec3 cacheCubeGamma = pow(cacheCube, vec3(1.0 / 2.2));
+        outgoingLight = pow(mix(cacheBaseGamma, cacheCubeGamma, ${amount}), vec3(2.2));
+    }
+`;
+}
+
 export function describeMaterialEffect(effect: MaterialEffect): string | null {
     const id = effect.effectId ?? 0;
     switch (id) {
@@ -17,7 +33,7 @@ export function describeMaterialEffect(effect: MaterialEffect): string | null {
         case 4: return "Underwater #4: animated-noise approximation; scene depth and fog unavailable.";
         case 5: return "Lake water #5: generated-coordinate approximation; client noise and scene lighting unavailable.";
         case 6: return "Light absorb #6: unlit material, matching the client lighting-disable state.";
-        case 7: return "Reflection #7: approximation using an inspection sky; client environment unavailable.";
+        case 7: return "Reflection #7 uses the region environment map. No reflection without one.";
         case 8: return "HD water #8: procedural-normal approximation; shoreline and client environment unavailable.";
         case 9: return "HD water wave #9: procedural-normal approximation; shoreline foam unavailable.";
         default: return `Effect #${id} is unsupported; base-material fallback.`;

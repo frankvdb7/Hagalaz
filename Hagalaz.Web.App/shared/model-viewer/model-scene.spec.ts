@@ -439,7 +439,7 @@ describe("ModelScene resource ownership", () => {
         expect(shader.uniforms.cacheEnvironment.value).toBeNull();
     });
 
-    it("keeps effect 1 off the region cube while effect 7 samples it", () => {
+    it("uses the region cube and texture alpha for effect 7 and keeps the sky fallback for effects 8 and 9", () => {
         const compile = (effectId: number) => {
             scene.setTextures(new Map([[effectId, { image: {} as ImageBitmap, alphaMode: 0, effectId }]]));
             scene.setGeometry({ ...triangle, preparedLighting: true, textureIds: [effectId] });
@@ -448,7 +448,18 @@ describe("ModelScene resource ownership", () => {
             return shader.fragmentShader;
         };
         expect(compile(1)).not.toContain("textureCube(cacheEnvironment");
-        expect(compile(7)).toContain("textureCube(cacheEnvironment");
+        const reflection = compile(7);
+        const cubeBranch = reflection.match(/if \(cacheEnvironmentEnabled\) \{([^}]+)\}/)?.[1];
+        expect(cubeBranch).toContain("textureCube(cacheEnvironment, vec3(-cacheReflection.x, cacheReflection.y, -cacheReflection.z))");
+        expect(cubeBranch).toContain("outgoingLight = pow(mix(cacheBaseGamma, cacheCubeGamma, sampledDiffuseColor.a), vec3(2.2));");
+        expect(reflection.replace(cubeBranch ?? "", "")).not.toContain("textureCube(cacheEnvironment");
+        expect(reflection).not.toContain("cacheSky");
+        expect(reflection).not.toContain("cacheFresnel");
+        for (const id of [8, 9]) {
+            const shader = compile(id);
+            expect(shader).toContain("cacheSky");
+            expect(shader).toContain("cacheFresnel");
+        }
     });
 
     it("hands a primary drag to the page and restores orbiting", () => {

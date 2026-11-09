@@ -20,7 +20,9 @@ describe("source material effect semantics", () => {
         expect(sampleMaterialEffect({effectParameter: 19, effectParameter2: packed}, 2.5)).toMatchObject({hdPhase: 0.5, hdScale: 0.125, breakDepth: 1234, breakOffset: 0.25, waveIntensity: [5/16, 3/16], waveExponent: 7});
     });
     it("labels supported approximations and unknown fallbacks", () => {
-        for (const id of [1,2,4,5,7,8,9]) expect(describeMaterialEffect({effectId: id})).toContain("approximation");
+        for (const id of [2,4,5,8,9]) expect(describeMaterialEffect({effectId: id})).toContain("approximation");
+        expect(describeMaterialEffect({effectId: 1})).toContain("client specular highlight");
+        expect(describeMaterialEffect({effectId: 7})).toBe("Reflection #7 uses the region environment map. No reflection without one.");
         expect(describeMaterialEffect({effectId:6})).toContain("unlit");
         expect(describeMaterialEffect({effectId:3})).toContain("unresolved");
         expect(describeMaterialEffect({effectId:42})).toContain("unsupported");

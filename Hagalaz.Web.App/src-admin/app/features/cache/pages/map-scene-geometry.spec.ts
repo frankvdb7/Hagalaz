@@ -614,6 +614,9 @@ describe("map scene geometry", () => {
         const special = buildMapScene([source], new Map(), new Map([[20, effectTexture]]), [true], false).geometry;
         expect(special?.terrainBlends).toEqual([]);
         expect(special?.textureIds).toContain(20);
+        const reflective = buildMapScene([source], new Map(), new Map([[20, { ...effectTexture, effectId: 7 }]]), [true], false).geometry;
+        expect(reflective?.terrainBlends?.[0].layers.map(layer => [layer.textureId, layer.reflective])).toEqual([[10, false], [20, true]]);
+        expect(reflective?.textureIds).toContain(-2);
     });
     it.each([
         { id: 160, rgb: 0x29380f, textureId: 918, tint: [0.05448027644244237, 0.0822827071298148, 0.017641954488384078] },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { terrainMaterial, TerrainMaterial, terrainSurfaceMaterial, applyTerrainMaterials, type TerrainBlend } from "./terrain-material";
+import { terrainMaterial, TerrainMaterial, terrainSurfaceMaterial, applyTerrainMaterials, type TerrainBlend, type TerrainEnvironment } from "./terrain-material";
 
 const blend: TerrainBlend = { id: -2, layers: [
     { textureId: 10, textureScale: 512, color: [0, 1, 0] },
@@ -8,6 +8,26 @@ const blend: TerrainBlend = { id: -2, layers: [
 ] };
 
 describe("opaque terrain texture blending", () => {
+    it("reflects the shared environment by the weight and alpha of reflective layers only", () => {
+        const compile = (target: TerrainBlend, environment?: TerrainEnvironment) => {
+            const material = new TerrainMaterial(target, new Map(), environment);
+            const shader = { uniforms: {} as Record<string, { value: unknown }>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+            material.onBeforeCompile(shader as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+            return { material, shader };
+        };
+        const environment: TerrainEnvironment = { map: { value: null }, enabled: { value: true } };
+        const reflective = compile({ ...blend, layers: [blend.layers[0], { ...blend.layers[1], reflective: true }] }, environment);
+        expect(reflective.shader.uniforms.cacheEnvironment).toBe(environment.map);
+        expect(reflective.shader.uniforms.cacheEnvironmentEnabled).toBe(environment.enabled);
+        expect(reflective.shader.vertexShader).toContain("floorNormal = normalMatrix * normal; floorViewPosition = -mvPosition.xyz;");
+        expect(reflective.shader.fragmentShader).toContain("mix(cacheBaseGamma, cacheCubeGamma, (floorMapEnabled1 ? texture2D(floorMap1, floorUv / floorScale1).a : 0.0) * floorWeightsA[1])");
+        expect(reflective.shader.fragmentShader).not.toContain("texture2D(floorMap0, floorUv / floorScale0).a");
+        const plain = compile(blend);
+        expect(plain.shader.fragmentShader).not.toContain("cacheEnvironment");
+        expect(plain.shader.vertexShader).not.toContain("floorNormal");
+        expect(reflective.material.customProgramCacheKey()).not.toBe(plain.material.customProgramCacheKey());
+        reflective.material.dispose(); plain.material.dispose();
+    });
     it("samples each texture with its scale and interpolated weights in one opaque draw", () => {
         const texture = new THREE.Texture();
         const material = terrainMaterial(blend, new Map([[10, texture]]));

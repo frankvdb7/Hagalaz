@@ -39,7 +39,8 @@ public sealed class TextureMaterialEndpointsTests
     [TestMethod]
     [DataRow((byte)1, (byte)40)]
     [DataRow((byte)2, (byte)255)]
-    public async Task ImageRequest_SourceAlphaKeepsOnlyTheEffectOneHighlightMask(byte effectId, byte expectedAlpha)
+    [DataRow((byte)7, (byte)40)]
+    public async Task ImageRequest_SourceAlphaKeepsMasksForEffectsOneAndSeven(byte effectId, byte expectedAlpha)
     {
         var store = CreateStore(effectId, alphaMode: 0);
         AddImage(store, 9, 1, new Rgba32(10, 20, 30, 40));
@@ -54,7 +55,7 @@ public sealed class TextureMaterialEndpointsTests
         Assert.AreEqual((byte)255, plainImage[0, 0].A);
         Assert.AreEqual(expectedAlpha, sceneImage[0, 0].A);
         Assert.AreEqual(new Rgba32(10, 20, 30, expectedAlpha), sceneImage[0, 0]);
-        Assert.AreEqual(effectId == 1, plain.Headers.ETag!.Tag != scene.Headers.ETag!.Tag);
+        Assert.AreEqual(effectId is 1 or 7, plain.Headers.ETag!.Tag != scene.Headers.ETag!.Tag);
     }
 
     [TestMethod]

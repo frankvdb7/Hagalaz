@@ -645,17 +645,17 @@ function addLayeredFloor(context: SceneContext, level: number, corners: readonly
     if (samples.some(sample => !sample.length)) return false;
     const layers = new Map(samples.flat().map(sample => [sample.key, sample.layer]));
     if (layers.size < 2) return false;
-    // Special/transparent floors keep their existing material/effect path.
+    // Special/transparent floors keep their existing material/effect path. Like the client, reflective floors still blend.
     if ([...layers.values()].some(layer => {
         const material = context.textures.get(layer.textureId);
-        return material && (material.alphaMode !== 0 || (material.effectId ?? 0) !== 0);
+        return material && (material.alphaMode !== 0 || ![0, 7].includes(material.effectId ?? 0));
     })) return false;
     const ordered = [...layers].sort(([left], [right]) => left.localeCompare(right));
     const keys = ordered.map(([key]) => key);
     const key = keys.join("|");
     let blend = context.blends.get(key);
     if (!blend) {
-        blend = { id: -2 - context.blends.size, layers: ordered.map(([, layer]) => layer) };
+        blend = { id: -2 - context.blends.size, layers: ordered.map(([, layer]) => ({ ...layer, reflective: context.textures.get(layer.textureId)?.effectId === 7 })) };
         context.blends.set(key, blend);
         context.geometry.terrainBlends.push(blend);
     }

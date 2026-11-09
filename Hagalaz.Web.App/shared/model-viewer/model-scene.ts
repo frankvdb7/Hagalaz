@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { sampleMaterialEffect, type MaterialEffect } from "./material-effects";
+import { clientReflection, sampleMaterialEffect, type MaterialEffect } from "./material-effects";
 import {ModelParticles, type ModelParticle} from "./model-particles";
 import { OrientationGizmo } from "./orientation-gizmo";
 import { PlacementGizmo, type PlacementGizmoTarget } from "./placement-gizmo";
@@ -573,8 +573,8 @@ export class ModelScene {
             materials.push(create(true));
         }
         applyTerrainMaterials(geometry, materials, retainedGeometry ? undefined : model.terrainWeights, model.terrainBlends, this.textures, blend => {
-            const key = `terrain:${!!model.mapPlanes}:${blend.layers.map(layer => `${layer.textureId}:${layer.textureScale}`).join("|")}`;
-            const material = useMaterial(key, () => new TerrainMaterial(blend, this.textures));
+            const key = `terrain:${!!model.mapPlanes}:${blend.layers.map(layer => `${layer.textureId}:${layer.textureScale}:${!!layer.reflective}`).join("|")}`;
+            const material = useMaterial(key, () => new TerrainMaterial(blend, this.textures, { map: this.environmentMap, enabled: this.environmentEnabled }));
             material.updateTextures(this.textures);
             return material;
         });
@@ -839,6 +839,7 @@ export class ModelScene {
         update(0);
         this.effectUpdates.set(material, update);
         material.customProgramCacheKey = () => `cache-effect-${id}-${preparedLighting}`;
+        const postLightingEffect = id === 1 ? clientSpecularHighlight : id === 7 ? clientReflection("sampledDiffuseColor.a") : null;
         material.onBeforeCompile = shader => {
             shader.uniforms.cachePhase = phase;
             shader.uniforms.cacheWave = wave;
@@ -856,8 +857,8 @@ export class ModelScene {
                     normal = normalize(normal + vec3(sin(cachePoint.x + cachePhase.x * 6.2831853), cos(cachePoint.y + cachePhase.y * 6.2831853), 0.0) * ${id >= 8 ? "0.18" : "cachePhase.z"});
                 `);
             }
-            if (id === 1) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `${clientSpecularHighlight}\n#include <opaque_fragment>`);
-            if ([7, 8, 9].includes(id)) {
+            if (postLightingEffect) shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `${postLightingEffect}\n#include <opaque_fragment>`);
+            if ([8, 9].includes(id)) {
                 shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
                     vec3 cacheReflection = inverseTransformDirection(reflect(-normalize(vViewPosition), normal), viewMatrix);
                     vec3 cacheSky = mix(vec3(0.035, 0.055, 0.08), vec3(0.55, 0.72, 0.9), clamp(cacheReflection.y * 0.5 + 0.5, 0.0, 1.0));

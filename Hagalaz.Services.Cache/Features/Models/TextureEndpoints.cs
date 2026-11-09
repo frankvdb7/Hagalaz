@@ -85,9 +85,9 @@ public static class TextureEndpoints
             material.RepeatV, material.HasHdr, material.EffectParameter2));
     }
 
-    // The client keeps the alpha of effect 1 textures (Class73) and uses it to mask their highlight, so an opaque material's alpha is still data.
+    // The client keeps the alpha of effect 1 and 7 textures (Class73) and uses it to mask their highlight or reflection, so an opaque material's alpha is still data.
     private static int RenderAlphaMode(MaterialDefinitionDecoder.Material material, bool sourceAlpha) =>
-        sourceAlpha && material.AlphaMode == 0 && material.EffectId == 1 ? 2 : material.AlphaMode;
+        sourceAlpha && material.AlphaMode == 0 && material.EffectId is 1 or 7 ? 2 : material.AlphaMode;
 
     private static IResult GetTextureImage(int id, ICacheAPI cache, HttpContext context, bool sourceAlpha = false)
     {
