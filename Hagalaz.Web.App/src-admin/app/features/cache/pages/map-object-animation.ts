@@ -1,4 +1,4 @@
-import { poseFaceAlpha, poseModel } from "../../../../../shared/model-viewer/model-pose";
+import { poseFaceAlpha, poseFaceColors, poseModel } from "../../../../../shared/model-viewer/model-pose";
 import type { GetModelDto } from "../services/dtos";
 import type { GetAnimationFrameDto } from "../services/dtos/get-animation-frame-dto";
 import type { MapObjectClip } from "../services/map-render.models";
@@ -34,7 +34,8 @@ export function poseMapObject(model: GetModelDto, frame: GetAnimationFrameDto): 
     const pose = model.objectAnimation;
     if (!pose) return model;
     const faceAlpha = poseFaceAlpha(model.faceAlpha, model.faceSkins, frame);
-    if (!model.vertexSkins) return { ...model, faceAlpha };
+    const faceColors = poseFaceColors(model.faceColors, model.faceSkins, frame);
+    if (!model.vertexSkins) return { ...model, faceAlpha, faceColors };
     const source = pose.positionsBeforeExtraRotation ?? model.positions;
     const positions = source.map((value, index) => value - pose.offset[index % 3]);
     rotate(positions, (4 - pose.rotation) & 3);
@@ -48,7 +49,7 @@ export function poseMapObject(model: GetModelDto, frame: GetAnimationFrameDto): 
             posed[index + 2] = ((z - x) * 11585) >> 14;
         }
     }
-    return { ...model, positions: posed, faceAlpha };
+    return { ...model, positions: posed, faceAlpha, faceColors };
 }
 
 function rotate(positions: number[], turns: number): void {

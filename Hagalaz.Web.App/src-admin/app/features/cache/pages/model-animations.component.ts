@@ -24,6 +24,7 @@ export class ModelAnimationsComponent {
     readonly clipError = input<string | null>(null);
     readonly frameError = input<string | null>(null);
     readonly poseError = input<string | null>(null);
+    readonly poseWarning = input<string | null>(null);
     readonly frameId = model(0);
     readonly playAnimation = output<number>();
     readonly inspectFrame = output<void>();

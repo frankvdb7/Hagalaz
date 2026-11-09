@@ -18,3 +18,4 @@
 @if (clipError(); as error) { <p role="alert">{{ error }}</p><button mat-stroked-button type="button" (click)="retryClip.emit()">Retry animation</button> }
 @if (frameError(); as error) { <p role="alert">{{ error }}</p><button mat-stroked-button type="button" (click)="retryFrame.emit()">Retry frame</button> }
 @if (poseError(); as error) { <p role="alert">{{ error }}</p> }
+@if (poseWarning(); as warning) { <p role="status">{{ warning }}</p> }

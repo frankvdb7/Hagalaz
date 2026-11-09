@@ -8,7 +8,7 @@ import { describeMaterialEffect } from "../../../../../shared/model-viewer/mater
 import { NgTemplateOutlet } from "@angular/common";
 import { MatButtonModule } from "@angular/material/button";
 import { FormsModule } from "@angular/forms";
-import { poseModel, poseFaceAlpha } from "../../../../../shared/model-viewer/model-pose";
+import { poseFaceAlpha, poseFaceColors, poseModel, unsupportedTransformTypes } from "../../../../../shared/model-viewer/model-pose";
 import { RouterLink } from "@angular/router";
 import { ModelViewerComponent } from "../../../../../shared/model-viewer/model-viewer.component";
 import { environment } from "../../../../environments/environment";
@@ -103,14 +103,28 @@ export class CacheModelPreviewComponent {
     readonly frameId = computed(() => this.manualFrameId());
     readonly frame = httpResource<GetAnimationFrameDto>(() => this.frameId() === null ? undefined : `${environment.cacheApiUrl}animation-frames/${this.frameId()}`);
     readonly frameValue = computed(() => this.frame.hasValue() ? this.frame.value() : undefined);
+    private readonly activeFrame = computed(() => this.animationId() !== null ? this.clipValue()?.[this.frameIndex()] : this.frameValue());
     readonly posed = computed(() => {
         const model = this.modelValue();
-        const frame = this.animationId() !== null ? this.clipValue()?.[this.frameIndex()] : this.frameValue();
-        if (!model || !frame || !model.vertexSkins) return { model, error: null };
-        try { return { model: { ...model, positions: poseModel(model.positions, model.vertexSkins, frame, model.coordinateScale ?? 1), faceAlpha: poseFaceAlpha(model.faceAlpha, model.faceSkins, frame) }, error: null }; }
+        const frame = this.activeFrame();
+        if (!model || !frame) return { model, error: null };
+        try {
+            return { model: {
+                ...model,
+                positions: model.vertexSkins ? poseModel(model.positions, model.vertexSkins, frame, model.coordinateScale ?? 1) : model.positions,
+                faceAlpha: poseFaceAlpha(model.faceAlpha, model.faceSkins, frame),
+                faceColors: poseFaceColors(model.faceColors, model.faceSkins, frame),
+            }, error: null };
+        }
         catch (error) { return { model, error: error instanceof Error ? error.message : "Frame could not be applied." }; }
     });
     readonly poseError = computed(() => this.posed().error);
+    readonly poseWarning = computed(() => {
+        const frame = this.frameValue();
+        const frames = this.animationId() !== null ? this.clipValue() ?? [] : frame ? [frame] : [];
+        const types = new Set(frames.flatMap(unsupportedTransformTypes));
+        return types.size ? `Unsupported animation transform types: ${[...types].join(", ")}.` : null;
+    });
     readonly workspace = input(false);
     readonly inspectionTab = model(0);
     readonly showLookup = computed(() => this.workspace() && !this.modelValue());
@@ -122,7 +136,7 @@ export class CacheModelPreviewComponent {
     readonly appearanceChoices = computed(() => this.appearances.hasValue() ? this.appearances.value().map(choice => ({...choice, label: choice.label + (choice.available ? "" : " (unavailable)")})) : []);
     readonly appearanceModelLabel = computed(() => this.selectedAppearance()?.modelIds.map(id => `#${id}`).join(" ") || "None for this appearance.");
     readonly currentAnimationIds = computed(() => this.modelValue()?.animationIds ?? []);
-    readonly hasSkins = computed(() => !!this.modelValue()?.vertexSkins);
+    readonly hasSkins = computed(() => !!(this.modelValue()?.vertexSkins || this.modelValue()?.faceSkins));
     readonly missingModel = computed(() => !this.definition() && this.itemId() === null && (this.modelId() ?? -1) < 0);
     readonly textureRetryAvailable = computed(() => !!this.textureData.error() || this.hasHdrError());
     readonly height = input(360);
@@ -165,7 +179,7 @@ export class CacheModelPreviewComponent {
             untracked(() => {
                 this.basePose();
                 const firstAnimation = model.animationIds?.[0];
-                if (model.vertexSkins && firstAnimation !== undefined) this.selectAnimation(firstAnimation);
+                if (this.hasSkins() && firstAnimation !== undefined) this.selectAnimation(firstAnimation);
             });
         });
     }

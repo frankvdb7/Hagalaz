@@ -59,18 +59,37 @@ describe("CacheModelPreviewComponent playback", () => {
         expect(button, label).toBeDefined();
         required(button, "the preview button").click(); settle();
     }
-    async function loadAnimation(): Promise<void> {
+    async function loadAnimation(includeUnsupported = false): Promise<void> {
         http.expectOne(`${baseUrl}models/7`).flush(model);
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.animationId()).toBe(66); }, { interval: 1 });
         http.expectOne(`${baseUrl}types/animations/66/sequence`).flush({ id: 66, frameIds: [65536, 65537, 65538], frameDurations: [2, 3, 1], loop: 2, isTweened: false });
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.sequence.hasValue()).toBe(true); }, { interval: 1 });
-        for (let index = 0; index < 3; index++)
+        for (let index = 0; index < 3; index++) {
+            const unsupported = includeUnsupported && index === 2;
             http.expectOne(`${baseUrl}animation-frames/${65536 + index}`).flush({
-                skeleton: { types: [1], groups: [[0]] },
-                frame: { skeletonId: 1, transforms: [{ slot: 0, x: index + 1, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }] },
+                skeleton: unsupported ? { types: [1, 9], groups: [[0], [0]] } : { types: [1], groups: [[0]] },
+                frame: { skeletonId: 1, transforms: [
+                    { slot: 0, x: index + 1, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+                    ...(unsupported ? [{ slot: 1, x: 4096, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }] : []),
+                ] },
             });
+        }
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.clip.hasValue()).toBe(true); }, { interval: 1 });
     }
+
+    it("warns for the whole clip and keeps playback usable when a later frame has an unsupported transform", async () => {
+        await loadAnimation(true);
+        const warning = "Unsupported animation transform types: 9.";
+        expect(fixture.componentInstance.frameIndex()).toBe(0);
+        expect(fixture.nativeElement.textContent).toContain(warning);
+        vi.advanceTimersByTime(40); settle();
+        expect(fixture.componentInstance.posed().model?.positions).toEqual([2, 0, 0]);
+        expect(fixture.nativeElement.textContent).toContain(warning);
+        vi.advanceTimersByTime(60); settle();
+        expect(fixture.componentInstance.posed()).toMatchObject({ model: { positions: [3, 0, 0] }, error: null });
+        click("Pause");
+        expect(fixture.componentInstance.playing()).toBe(false);
+    });
 
     it("autoplays, pauses, steps and loops using the sequence's frame durations", async () => {
         await loadAnimation();

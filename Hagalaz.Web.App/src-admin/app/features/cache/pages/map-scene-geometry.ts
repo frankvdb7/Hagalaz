@@ -1,4 +1,5 @@
 import { modelFaceWinding, prepareCacheModel, type CacheModelGeometry } from "../../../../../shared/model-viewer/cache-model-geometry";
+import { unsupportedTransformTypes } from "../../../../../shared/model-viewer/model-pose";
 import type { ModelGeometry, ModelTexture, ModelAnimationRange } from "../../../../../shared/model-viewer/model-scene";
 import { mapAppearanceKey, underwaterPlaneIndex, type MapAtmosphere, type MapLandscapeSave, type MapObjectClip, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import type { GetModelDto } from "../services/dtos";
@@ -782,6 +783,11 @@ function animationForPart(context: SceneContext, model: GetModelDto, base: Prepa
     if (!clip) return undefined;
     const existing = context.animatedParts.get(model);
     if (existing) return existing;
+    const unsupported = new Set<number>();
+    for (const frame of clip.frames.values()) {
+        for (const type of unsupportedTransformTypes(frame)) unsupported.add(type);
+    }
+    if (unsupported.size) context.warnings.add(`Animation ${animationId}: unsupported transform types ${[...unsupported].join(", ")}.`);
     const animation = animatePart(model, base, clip, context);
     context.animatedParts.set(model, animation);
     return animation;

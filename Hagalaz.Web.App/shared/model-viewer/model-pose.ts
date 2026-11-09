@@ -25,9 +25,9 @@ export function poseModel(positions: readonly number[], skins: readonly number[]
     };
     for (const transform of data.frame.transforms) {
         const type = data.skeleton.types[transform.slot];
-        if (type === 5) continue; // Face alpha is handled by poseFaceAlpha.
-        if (type < 0 || type > 3) throw new Error(`Animation transform type ${type} is not supported yet.`);
+        // Model.method4453 applies the pivot before dispatching on the transform type.
         if (transform.pivotSlot >= 0) { ensurePrecision(); setPivot(transform.pivotSlot, [0, 0, 0]); }
+        if (type !== 0 && type !== 1 && type !== 2 && type !== 3) continue;
         const values = [transform.x, transform.y, transform.z];
         if (type === 0) { ensurePrecision(); setPivot(transform.slot, values.map(value => value * 16)); continue; }
         if (type === 1) ensurePrecision();
@@ -57,13 +57,35 @@ export function poseModel(positions: readonly number[], skins: readonly number[]
 }
 
 export function poseFaceAlpha(alpha: readonly number[], faceSkins: readonly number[] | null | undefined, data: AnimationFrameData): number[] {
-    const result = Array.from(alpha);
+    return poseFaces(alpha, faceSkins, data, 5, (value, transform) => Math.min(255, Math.max(0, value + transform.x * 8)));
+}
+
+export function poseFaceColors(colors: readonly number[], faceSkins: readonly number[] | null | undefined, data: AnimationFrameData): number[] {
+    return poseFaces(colors, faceSkins, data, 7, (value, { x, y, z }) => {
+        const hue = ((value >> 10) + x) & 0x3f;
+        // The OpenGL models divide this delta by 4. Only the software Model_Sub3 adds it directly.
+        const saturation = Math.min(7, Math.max(0, ((value >> 7) & 0x7) + Math.trunc(y / 4)));
+        const lightness = Math.min(127, Math.max(0, (value & 0x7f) + z));
+        return (hue << 10) | (saturation << 7) | lightness;
+    });
+}
+
+export function unsupportedTransformTypes(data: AnimationFrameData): number[] {
+    const types = data.frame.transforms.map(transform => data.skeleton.types[transform.slot]);
+    return [...new Set(types.filter(type => ![0, 1, 2, 3, 5, 7].includes(type)))];
+}
+
+function poseFaces(
+    values: readonly number[], faceSkins: readonly number[] | null | undefined, data: AnimationFrameData,
+    type: number, apply: (value: number, transform: AnimationFrameData["frame"]["transforms"][number]) => number,
+): number[] {
+    const result = Array.from(values);
     if (!faceSkins) return result;
     for (const transform of data.frame.transforms) {
-        if (data.skeleton.types[transform.slot] !== 5) continue;
+        if (data.skeleton.types[transform.slot] !== type) continue;
         const groups = new Set(data.skeleton.groups[transform.slot] ?? []);
         for (let face = 0; face < result.length; face++)
-            if (groups.has(faceSkins[face])) result[face] = Math.min(255, Math.max(0, result[face] + transform.x * 8));
+            if (groups.has(faceSkins[face])) result[face] = apply(result[face], transform);
     }
     return result;
 }

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { poseModel, poseFaceAlpha, type AnimationFrameData } from "./model-pose";
+import { poseModel, poseFaceAlpha, poseFaceColors, unsupportedTransformTypes, type AnimationFrameData } from "./model-pose";
 import { readFileSync } from "node:fs";
 import { prepareCacheModel } from "./cache-model-geometry";
 
@@ -34,4 +34,58 @@ it("animates face-group transparency without moving vertices and clamps the resu
     const frame: AnimationFrameData = { skeleton: { types: [5], groups: [[0]] }, frame: { skeletonId: 1, transforms: [{ slot: 0, x: 3, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }] } };
     expect(poseModel([0, 0, 0], [0], frame)).toEqual([0, 0, 0]);
     expect(poseFaceAlpha([10, 250, 80], [0, 0, 1], frame)).toEqual([34, 255, 80]);
+});
+
+it("matches the compiled client's packed HSL results and relights the posed faces", () => {
+    const data: AnimationFrameData = {
+        skeleton: { types: [7, 7], groups: [[0], [1]] },
+        frame: { skeletonId: 1, transforms: [
+            { slot: 0, x: 2, y: 4, z: 5, pivotSlot: -1, tweenFlags: 0 },
+            { slot: 1, x: -3, y: -4, z: -5, pivotSlot: -1, tweenFlags: 0 },
+        ] },
+    };
+    const base = [65406, 1154, 128];
+    const posed = poseFaceColors(base, [0, 1, 2], data);
+    // Compiled client values. These faces clamp saturation the same way in every renderer.
+    expect(posed).toEqual([2047, 63488, 128]);
+    const model = { positions: [0, 0, 0, 128, 0, 0, 0, 0, 128], indices: [0, 1, 2], ambient: 64, contrast: 768 };
+    const lit = prepareCacheModel({ ...model, faceColors: [posed[0]] });
+    expect(lit.preparedLighting).toBe(true);
+    expect(lit.colors).not.toEqual(prepareCacheModel({ ...model, faceColors: [base[0]] }).colors);
+    expect(lit.colors).not.toEqual(prepareCacheModel({ positions: model.positions, indices: model.indices, faceColors: [posed[0]] }).colors);
+});
+
+it("divides the saturation delta like the client's OpenGL models, truncating toward zero", () => {
+    const data: AnimationFrameData = {
+        skeleton: { types: [7, 7, 7], groups: [[0], [1], [2]] },
+        frame: { skeletonId: 1, transforms: [
+            { slot: 0, x: 0, y: 4, z: 0, pivotSlot: -1, tweenFlags: 0 },
+            { slot: 1, x: 0, y: -5, z: 0, pivotSlot: -1, tweenFlags: 0 },
+            { slot: 2, x: 0, y: 3, z: 0, pivotSlot: -1, tweenFlags: 0 },
+        ] },
+    };
+    expect(poseFaceColors([0, 3 << 7, 0], [0, 1, 2], data)).toEqual([1 << 7, 2 << 7, 0]);
+});
+
+it("applies a pivot from a transform that does not move vertices", () => {
+    const data: AnimationFrameData = {
+        skeleton: { types: [0, 5, 2], groups: [[0], [2], [1]] },
+        frame: { skeletonId: 1, transforms: [
+            { slot: 1, x: 0, y: 0, z: 0, pivotSlot: 0, tweenFlags: 0 },
+            { slot: 2, x: 0, y: 8192, z: 0, pivotSlot: -1, tweenFlags: 0 },
+        ] },
+    };
+    expect(poseModel([10, 0, 0, 20, 0, 0], [0, 1], data)).toEqual([10, 0, 0, 0, 0, 0]);
+});
+
+it("reports unsupported transforms while applying the supported transforms in the same frame", () => {
+    const data: AnimationFrameData = {
+        skeleton: { types: [11, 1], groups: [[0], [0]] },
+        frame: { skeletonId: 1, transforms: [
+            { slot: 0, x: 20, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+            { slot: 1, x: 4, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+        ] },
+    };
+    expect(unsupportedTransformTypes(data)).toEqual([11]);
+    expect(poseModel([0, 0, 0], [0], data)).toEqual([4, 0, 0]);
 });

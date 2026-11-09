@@ -22,18 +22,25 @@ it("poses a rotated placement with cache timing while preserving its base vertic
         frames: new Map([
             [10, { frame: { skeletonId: 1, transforms: [] }, skeleton: { types: [], groups: [], enabled: [], masks: [] } }],
             [11, {
-                frame: { skeletonId: 1, transforms: [{ slot: 0, x: 32, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }, { slot: 1, x: 10, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }] },
-                skeleton: { types: [1, 5], groups: [[0], [1]], enabled: [], masks: [] },
+                frame: { skeletonId: 1, transforms: [
+                    { slot: 0, x: 32, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+                    { slot: 1, x: 10, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+                    { slot: 2, x: 2, y: 4, z: 5, pivotSlot: -1, tweenFlags: 0 },
+                    { slot: 3, x: 4096, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+                ] },
+                skeleton: { types: [1, 5, 7, 9], groups: [[0], [1], [1], [1]], enabled: [], masks: [] },
             }],
         ]),
     };
     const appearances = new Map([[mapAppearanceKey(placement), asset]]);
-    const draw = (clips: ReadonlyMap<number, MapObjectClip>) => required(buildLayers(
+    const draw = (clips: ReadonlyMap<number, MapObjectClip>) => buildLayers(
         [source], appearances, new Map(), [true], true, new MapScenePreparation(), null, undefined, undefined, false, clips,
-    ).geometry?.objects, "map objects");
-    expect(draw(new Map()).animations).toBeUndefined();
+    );
+    expect(required(draw(new Map()).geometry?.objects, "map objects").animations).toBeUndefined();
     const reads = vi.spyOn(clip.frames, "get");
-    const objects = draw(new Map([[42, clip]]));
+    const animated = draw(new Map([[42, clip]]));
+    expect(animated.warnings).toContain("Animation 42: unsupported transform types 9.");
+    const objects = required(animated.geometry?.objects, "map objects");
     expect(objects.placements[0].placement).toBe(placement);
     expect(objects.mapPlanes).toEqual([0, 0, 0, 0, 0, 0]);
     const animations = required(objects.animations, "animated ranges");
@@ -41,11 +48,13 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     const first = animations[0];
     const initial = required(first.sample(0).pose, "first frame");
     expect(Array.from(initial.positions)).toEqual(objects.positions.slice(0, 9));
+    const initialRgb = Array.from(initial.rgba.slice(0, 3));
     expect(first.sample(39, 0)).toEqual({ delay: 1 });
     const moved = required(first.sample(40, 39).pose, "second frame");
     expect(moved.positions[0]).toBe(objects.positions[0]);
     expect(moved.positions[2]).toBe(objects.positions[2] - 32);
     expect(moved.rgba[3]).toBeCloseTo(175 / 255);
+    expect(Array.from(moved.rgba.slice(0, 3))).not.toEqual(initialRgb);
     expect(objects.vertexRgba?.[3]).toBe(1);
     expect(first.alphaFaces).toEqual([true]);
     const nextLoop = required(first.sample(100, 99).pose, "first frame of the next loop");
