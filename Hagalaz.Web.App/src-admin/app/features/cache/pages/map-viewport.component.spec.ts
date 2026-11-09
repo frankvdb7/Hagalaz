@@ -1,5 +1,7 @@
 import { ApplicationRef } from "@angular/core";
+import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { TestBed } from "@angular/core/testing";
+import { MatMenuHarness } from "@angular/material/menu/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mapObjectDragType, MapViewportComponent } from "./map-viewport.component";
 
@@ -129,6 +131,27 @@ describe("MapViewportComponent keyboard controls", () => {
         page.useRegionAtmosphere.set(false);
         expect(page.fogActive()).toBe(false);
         expect(page.environment()).toEqual({ skyRgb: null, fog: null, environmentFaces: null });
+        fixture.destroy();
+    });
+
+    it("shows and updates the point lights checkbox independently of the region atmosphere", async () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const page = fixture.componentInstance;
+        const field = { width: 1, height: 1, tiles: new Float32Array(16), lights: [{ x: 256, y: 128, z: 256, radius: 256, rgb: 0xffffff }] };
+        expect(page.pointLightsActive()).toBe(false);
+        fixture.componentRef.setInput("pointLights", field);
+        page.useRegionAtmosphere.set(false);
+        const view = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness.with({ triggerText: /View/ }));
+        await view.open();
+        const [lighting] = await view.getItems({ text: /Lighting:/ });
+        const submenu = (await lighting.getSubmenu())!;
+        await submenu.open();
+        const [pointLights] = await submenu.getItems({ text: /Point lights/ });
+        expect(await pointLights.getText()).toContain("check_box");
+        expect(await (await pointLights.host()).getAttribute("aria-checked")).toBe("true");
+        await pointLights.click();
+        expect(await pointLights.getText()).toContain("check_box_outline_blank");
+        expect(await (await pointLights.host()).getAttribute("aria-checked")).toBe("false");
         fixture.destroy();
     });
 

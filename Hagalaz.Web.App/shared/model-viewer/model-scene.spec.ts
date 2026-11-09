@@ -10,7 +10,7 @@ function required<T>(value: T | undefined, what: string): T {
 const gpu = vi.hoisted(() => ({
     setSize: vi.fn(), setAnimationLoop: vi.fn(), dispose: vi.fn(), remove: vi.fn(),
     disconnect: vi.fn(), controlsDispose: vi.fn(), render: vi.fn(),
-    controlsListen: vi.fn(), controlsUnlisten: vi.fn(),
+    controlsListen: vi.fn(), controlsUnlisten: vi.fn(), controlsCreated: vi.fn(),
     gizmoRender: vi.fn(), gizmoDispose: vi.fn(),
     placementShow: vi.fn(), placementDispose: vi.fn(), placementCreated: vi.fn(), placementFit: vi.fn(),
 }));
@@ -19,15 +19,17 @@ vi.mock("three", async importOriginal => {
     const actual = await importOriginal<typeof import("three")>();
     return { ...actual, WebGLRenderer: class {
         autoClear = true;
-        domElement = { setAttribute: vi.fn(), remove: gpu.remove, toDataURL: () => "data:image/png;base64,frame" };
+        domElement = { setAttribute: vi.fn(), addEventListener: vi.fn(), remove: gpu.remove, toDataURL: () => "data:image/png;base64,frame" };
         setPixelRatio = vi.fn(); setSize = gpu.setSize; setAnimationLoop = gpu.setAnimationLoop;
         render = gpu.render; dispose = gpu.dispose;
     } };
 });
 vi.mock("three/addons/controls/OrbitControls.js", () => ({ OrbitControls: class {
     target = new THREE.Vector3(); update = vi.fn(); dispose = gpu.controlsDispose;
+    zoomToCursor = false;
     mouseButtons = {}; touches = {};
     addEventListener = gpu.controlsListen; removeEventListener = gpu.controlsUnlisten;
+    constructor() { gpu.controlsCreated(this); }
 } }));
 vi.mock("./orientation-gizmo", () => ({ OrientationGizmo: class {
     render = gpu.gizmoRender;
@@ -100,6 +102,38 @@ describe("ModelScene resource ownership", () => {
             const timers = vi.getTimerCount();
             vi.useRealTimers();
             expect(timers).toBe(0);
+        }
+    });
+
+    it("renders camera zooms between animation frames without resampling object poses", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            const sample = vi.fn(() => ({ delay: 40 }));
+            map.setSceneGeometry({ terrain: null, objects: {
+                ...triangle, vertexRgba: new Float32Array(12).fill(1),
+                animations: [{ startVertex: 0, vertexCount: 3, alphaFaces: [false], sample }],
+            } }, true);
+            const frame = (time: number) => vi.mocked(requestAnimationFrame).mock.lastCall![0](time);
+            frame(0);
+            expect(sample).toHaveBeenCalledExactlyOnceWith(0, undefined);
+            const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+            const before = camera.position.clone();
+
+            map.zoom(0.8);
+            frame(10);
+            expect(camera.position).not.toEqual(before);
+            expect(gpu.render).toHaveBeenCalledTimes(2);
+            expect(sample).toHaveBeenCalledTimes(1);
+            expect(vi.getTimerCount()).toBe(1);
+
+            vi.advanceTimersByTime(40);
+            frame(40);
+            expect(sample).toHaveBeenLastCalledWith(40, 0);
+            expect(gpu.render).toHaveBeenCalledTimes(3);
+        } finally {
+            map.dispose();
+            vi.useRealTimers();
         }
     });
 
@@ -220,6 +254,16 @@ describe("ModelScene resource ownership", () => {
         expect(Array.from(geometry.index!.array)).toEqual(layered.indices);
     });
 
+    it("anchors wheel zoom to the pointer in map scenes", () => {
+        expect(gpu.controlsCreated.mock.lastCall![0].zoomToCursor).toBe(false);
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            expect(gpu.controlsCreated.mock.lastCall![0].zoomToCursor).toBe(true);
+        } finally {
+            map.dispose();
+        }
+    });
+
     it("preserves a navigated map camera on visibility updates and reframes a new selection", () => {
         scene.setSceneGeometry({ terrain: null, objects: triangle }, true);
         renderAt(0);
@@ -312,6 +356,45 @@ describe("ModelScene resource ownership", () => {
             expect(rendered().background).toBeNull();
             expect(rendered().fog).toBeNull();
             expect(gpu.render).toHaveBeenCalledTimes(4);
+        } finally {
+            map.dispose();
+        }
+    });
+
+    it("binds point lights to both map surfaces and toggles them without replacing their geometry", () => {
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            const model = { ...triangle, preparedLighting: true, mapPlanes: [2, 2, 2] };
+            const field = { width: 1, height: 1, tiles: new Float32Array(16), lights: [{ x: 256, y: 128, z: 256, radius: 256, rgb: 0xc08040 }] };
+            field.tiles[8] = 1;
+            map.setMapPointLights(field, true);
+            map.setSceneGeometry({ terrain: model, objects: model }, false);
+            const renderMeshes = () => {
+                map.captureImage();
+                return (gpu.render.mock.lastCall![0] as THREE.Scene).children.filter(child => child instanceof THREE.Mesh) as THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>[];
+            };
+            const meshes = renderMeshes();
+            expect(meshes).toHaveLength(2);
+            const uniforms = meshes.map(mesh => {
+                expect(mesh.geometry.getAttribute("mapPlane").getX(0)).toBe(2);
+                const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+                mesh.material[0].onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+                expect(shader.vertexShader).toContain("mapLightPlane = int(mapPlane)");
+                expect(shader.fragmentShader).toContain("#include <colorspace_fragment>\ngl_FragColor.rgb *= 1.0 + mapLocalLight()");
+                expect(shader.uniforms.mapLightHeight.value).toBe(1);
+                return shader.uniforms;
+            });
+            const texture = uniforms[0].mapLightTiles.value as THREE.DataTexture;
+            const records = uniforms[0].mapLightRecords.value as THREE.DataTexture;
+            expect(records.image.data.slice(4, 8)).toEqual(Float32Array.of(192 / 255, 128 / 255, 64 / 255, 0));
+            const release = vi.spyOn(texture, "dispose");
+            expect(uniforms[1].mapLightTiles.value).toBe(texture);
+            map.setMapPointLights(field, false);
+            expect(uniforms[0].mapLightHeight.value).toBe(0);
+            expect(renderMeshes()).toEqual(meshes);
+            expect(release).not.toHaveBeenCalled();
+            map.setMapPointLights(null, true);
+            expect(release).toHaveBeenCalledOnce();
         } finally {
             map.dispose();
         }
@@ -619,19 +702,22 @@ describe("ModelScene resource ownership", () => {
         expect(mesh.material[1]).toMatchObject({transparent: true, depthWrite: false, depthTest: true});
     });
 
-    it("reorders equal-priority faces on camera reversal and retains source order for depth ties", () => {
+    it("skips transparent sorting during a pan and reorders on camera reversal", () => {
         scene.setGeometry(layered);
         const mesh = renderAt(0);
         expect(faceOrder(mesh)).toEqual([0, 2, 1]);
         expect(mesh.geometry.groups).toEqual([{ start: 0, count: 9, materialIndex: 1 }]);
         const index = mesh.geometry.index!;
         const version = index.version;
+        const rebuildGroups = vi.spyOn(mesh.geometry, "clearGroups");
         const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
         camera.position.addScalar(1);
         renderAt(8);
+        expect(rebuildGroups).not.toHaveBeenCalled();
         expect(index.version).toBe(version);
         camera.position.set(0, 0, -20); camera.lookAt(0, 0, 0);
         renderAt(16);
+        expect(rebuildGroups).toHaveBeenCalledOnce();
         expect(faceOrder(mesh)).toEqual([1, 0, 2]);
         expect(index.version).toBeGreaterThan(version);
         expect(mesh.geometry.groups).toEqual([{ start: 0, count: 9, materialIndex: 1 }]);

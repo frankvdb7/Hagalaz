@@ -35,6 +35,7 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     const reads = vi.spyOn(clip.frames, "get");
     const objects = draw(new Map([[42, clip]]));
     expect(objects.placements[0].placement).toBe(placement);
+    expect(objects.mapPlanes).toEqual([0, 0, 0, 0, 0, 0]);
     const animations = required(objects.animations, "animated ranges");
     expect(animations.map(range => range.startVertex)).toEqual([0, 3]);
     const first = animations[0];

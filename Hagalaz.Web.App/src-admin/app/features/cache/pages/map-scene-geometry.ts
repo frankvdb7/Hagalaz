@@ -9,6 +9,7 @@ import { overlayPriority, overlaySample, overlaySpreads, spreadSample, type Spre
 import type { TerrainBlend } from "../../../../../shared/model-viewer/terrain-material";
 import type { TerrainEdits } from "./map-terrain-edit";
 import { noObjectShadows, objectShadowField, shadowedFloorColor, type ObjectShadowField, type ShadowSource } from "./map-object-shadows";
+import { mapSceneOrigin } from "./map-point-lights";
 
 // Revision-742 ordinary floor topology, Class274's floor vertex and triangle tables.
 const floorX = [0, 256, 512, 512, 512, 256, 0, 0, 128, 256, 128, 384, 256];
@@ -178,6 +179,7 @@ type SceneGeometry = Omit<MapSceneObjects, "uvs" | "animations"> & {
     preparedLighting: boolean;
     terrainBlends: TerrainBlend[];
     terrainWeights: number[];
+    mapPlanes: number[];
 };
 type SceneContext = {
     regions: readonly MapRenderRegion[];
@@ -398,7 +400,7 @@ function sameValues<T>(left: readonly T[], right: readonly T[]): boolean {
 }
 
 function emptySceneGeometry(): SceneGeometry {
-    return { placements: [], firstTexelVertices: [], positions: [], indices: [], colors: [], opacities: [], uvs: [], textureIds: [], facePriorities: [], preparedLighting: true, terrainBlends: [], terrainWeights: [] };
+    return { placements: [], firstTexelVertices: [], positions: [], indices: [], colors: [], opacities: [], uvs: [], textureIds: [], facePriorities: [], preparedLighting: true, terrainBlends: [], terrainWeights: [], mapPlanes: [] };
 }
 
 function buildObjects(context: SceneContext, draft: MapSceneDraft | undefined): SceneObjects {
@@ -474,6 +476,7 @@ export function buildMapScene(
         return linear * (atmosphere.intensity / 1.1523438);
     });
     const geometry = emptySceneGeometry();
+    const origin = mapSceneOrigin(regions);
     let sampler: ReturnType<typeof terrainSampler> | undefined;
     let spreads: SpreadLookup | undefined;
     let waterFog: ReturnType<typeof waterFogLookup> | undefined;
@@ -490,8 +493,8 @@ export function buildMapScene(
         visiblePlanes,
         geometry,
         warnings: new Set(),
-        originX: Math.min(...regions.map((region) => region.regionX)) * 64,
-        originY: Math.min(...regions.map((region) => region.regionY)) * 64,
+        originX: origin.x,
+        originY: origin.y,
         sampleTerrain: (...args) => { sampler ??= preparation.sampleTerrain(regions); return sampler(...args); },
         filter,
         shadows,
@@ -523,9 +526,10 @@ function sequentialIndices(count: number): Uint16Array | Uint32Array {
     return indices;
 }
 
-function addVertex(context: SceneContext, point: ScenePoint, color: readonly number[], opacity: number, uv: readonly number[], weights: readonly number[] | null = [], firstTexel = 0): void {
+function addVertex(context: SceneContext, plane: number, point: ScenePoint, color: readonly number[], opacity: number, uv: readonly number[], weights: readonly number[] | null = [], firstTexel = 0): void {
     const output = context.geometry;
     output.positions.push((point.x - context.originX) * 512, point.y, (point.z - context.originY) * 512);
+    output.mapPlanes.push(plane);
     const light = context.lightTint;
     if (light) output.colors.push(color[0] * light[0], color[1] * light[1], color[2] * light[2]);
     else output.colors.push(color[0], color[1], color[2]);
@@ -589,12 +593,12 @@ function addFloorTriangle(
     });
     const shade = floorShade(context, level, region.regionX * 64 + x, region.regionY * 64 + y, available);
     if (shade.flat) {
-        addPlainFloor(context, -1, floor.textureScale, available, () => shade.flat as readonly number[]);
+        addPlainFloor(context, level, -1, floor.textureScale, available, () => shade.flat as readonly number[]);
         return;
     }
-    if (addLayeredFloor(context, available, cornerSamples, shade.apply)) return;
+    if (addLayeredFloor(context, level, available, cornerSamples, shade.apply)) return;
     // Floor textures modulate the client palette tint, not raw definition RGB or white.
-    addPlainFloor(context, floor.textureId, floor.textureScale, available, index => {
+    addPlainFloor(context, level, floor.textureId, floor.textureScale, available, index => {
         const samples = cornerSamples[index];
         return shade.apply(samples.length ? blendedFloorColor(samples) : linearFloorColor(floor.rgb), index);
     });
@@ -607,11 +611,11 @@ function isHiddenWater(context: SceneContext, level: number, floor: VisibleFloor
     return !context.filter.waterSurface && level !== underwaterPlaneIndex && waterEffects.includes(context.textures.get(floor.textureId)?.effectId ?? 0);
 }
 
-function addPlainFloor(context: SceneContext, texture: number, textureScale: number, corners: readonly FloorCorner[], tint: (index: number) => readonly number[]): void {
+function addPlainFloor(context: SceneContext, level: number, texture: number, textureScale: number, corners: readonly FloorCorner[], tint: (index: number) => readonly number[]): void {
     context.geometry.textureIds.push(texture);
     context.geometry.facePriorities.push(0);
     for (const [index, corner] of corners.entries()) {
-        addVertex(context, { x: corner.wx, y: -corner.height, z: corner.wy }, tint(index), 1, [
+        addVertex(context, level, { x: corner.wx, y: -corner.height, z: corner.wy }, tint(index), 1, [
             (corner.wx * 512) / textureScale,
             (-corner.wy * 512) / textureScale,
         ]);
@@ -637,7 +641,7 @@ function floorShade(context: SceneContext, level: number, worldX: number, worldY
 
 type FloorCorner = { wx: number; wy: number; point: number; height: number };
 
-function addLayeredFloor(context: SceneContext, corners: readonly FloorCorner[], samples: readonly (readonly FloorSample[])[], shade: FloorShade["apply"]): boolean {
+function addLayeredFloor(context: SceneContext, level: number, corners: readonly FloorCorner[], samples: readonly (readonly FloorSample[])[], shade: FloorShade["apply"]): boolean {
     if (samples.some(sample => !sample.length)) return false;
     const layers = new Map(samples.flat().map(sample => [sample.key, sample.layer]));
     if (layers.size < 2) return false;
@@ -660,7 +664,7 @@ function addLayeredFloor(context: SceneContext, corners: readonly FloorCorner[],
     corners.forEach((corner, index) => {
         const weights = keys.map(key => samples[index].find(sample => sample.key === key)?.weight ?? 0);
         const color = shade(blendedFloorColor(samples[index]), index);
-        addVertex(context, { x: corner.wx, y: -corner.height, z: corner.wy }, color, 1, [corner.wx * 512, -corner.wy * 512], weights);
+        addVertex(context, level, { x: corner.wx, y: -corner.height, z: corner.wy }, color, 1, [corner.wx * 512, -corner.wy * 512], weights);
     });
     return true;
 }
@@ -745,7 +749,7 @@ function appendPlacementPart(
 ): void {
     const offset = decorationOffset(region, projection.placement, context.appearances, partIndex);
     const start = context.geometry.positions.length / 3;
-    appendPart(context, part, projected, offset);
+    appendPart(context, projection.placement.plane, part, projected, offset);
     const animation = animationForPart(context, projection.appearance.parts[partIndex], part);
     if (!animation || !part.indices.length) return;
     context.geometry.animations ??= [];
@@ -831,7 +835,7 @@ function writeProjectedPoint(projected: ScenePoint[], vertex: number, x: number,
     } else projected[vertex] = { x, y, z };
 }
 
-function appendPart(context: SceneContext, part: PreparedMapPart, projected: readonly ScenePoint[], offset: readonly number[]): void {
+function appendPart(context: SceneContext, plane: number, part: PreparedMapPart, projected: readonly ScenePoint[], offset: readonly number[]): void {
     appendFaceData(context, part);
     const vertex: ScenePoint = { x: 0, y: 0, z: 0 };
     const uv = [0, 0], color = [1, 1, 1];
@@ -844,7 +848,7 @@ function appendPart(context: SceneContext, part: PreparedMapPart, projected: rea
         uv[0] = part.uvs?.[source * 2] ?? 0;
         uv[1] = part.uvs?.[source * 2 + 1] ?? 0;
         for (let channel = 0; channel < 3; channel++) color[channel] = part.colors?.[source * 3 + channel] ?? 1;
-        addVertex(context, vertex, color, part.opacities?.[source] ?? 1, uv, null, part.firstTexel?.[source] ?? 0);
+        addVertex(context, plane, vertex, color, part.opacities?.[source] ?? 1, uv, null, part.firstTexel?.[source] ?? 0);
     }
 }
 

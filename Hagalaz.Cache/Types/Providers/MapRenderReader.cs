@@ -19,7 +19,7 @@ public sealed class MapRenderReader(ICacheAPI cache)
         if ((cache.ReadReferenceTable(5).Flags & ReferenceTableFlags.Identifiers) == 0)
             throw new NotSupportedException("The map index has no named reference metadata.");
         var warnings = new List<string>();
-        var terrain = ReadTerrain(id, warnings, cancellationToken, out var terrainStatus, out var atmosphere, readAtmosphere: true);
+        var terrain = ReadTerrain(id, warnings, cancellationToken, out var terrainStatus, out var trailer, readTrailer: true);
         var objects = Array.Empty<MapRenderPlacement>();
         var landscapeStatus = "absent";
         cancellationToken.ThrowIfCancellationRequested();
@@ -74,7 +74,7 @@ public sealed class MapRenderReader(ICacheAPI cache)
             ReadFloors(surfaces.SelectMany(p => p.Underlays), false, floors, warnings, cancellationToken);
             ReadFloors(surfaces.SelectMany(p => p.Overlays), true, floors, warnings, cancellationToken);
         }
-        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, atmosphere, underwaterPlane, underwaterObjects);
+        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, trailer.Atmosphere, underwaterPlane, underwaterObjects, trailer.PointLights);
     }
 
     /// <summary>Every floor a terrain tile can store; underlay opcodes end at 174 and overlay IDs are one byte.</summary>
@@ -150,9 +150,9 @@ public sealed class MapRenderReader(ICacheAPI cache)
     }
 
     private TerrainRenderPlane[]? ReadTerrain(int id, List<string> warnings, CancellationToken cancellationToken, out string status,
-        out MapAtmosphere? atmosphere, bool readAtmosphere = false)
+        out (MapAtmosphere? Atmosphere, IReadOnlyList<MapPointLight>? PointLights) trailer, bool readTrailer = false)
     {
-        atmosphere = null;
+        trailer = default;
         cancellationToken.ThrowIfCancellationRequested();
         var file = cache.GetFileId(5, $"m{id >> 8}_{id & 255}");
         status = "absent";
@@ -161,10 +161,10 @@ public sealed class MapRenderReader(ICacheAPI cache)
         {
             using var container = cache.ReadContainer(5, file);
             var terrain = MapRenderDecoder.DecodeTerrain(container.Data, id, cancellationToken);
-            if (readAtmosphere)
+            if (readTrailer)
             {
-                try { atmosphere = MapRenderDecoder.DecodeAtmosphere(container.Data, cancellationToken); }
-                catch (EndOfStreamException) { warnings.Add($"Region {id} atmosphere is truncated; using default lighting."); }
+                try { trailer = MapRenderDecoder.DecodeTerrainTrailer(container.Data, cancellationToken); }
+                catch (EndOfStreamException) { warnings.Add($"Region {id} lighting data is truncated; using default lighting."); }
             }
             status = "available";
             return terrain;

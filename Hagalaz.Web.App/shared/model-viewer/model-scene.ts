@@ -5,6 +5,8 @@ import {ModelParticles, type ModelParticle} from "./model-particles";
 import { OrientationGizmo } from "./orientation-gizmo";
 import { PlacementGizmo, type PlacementGizmoTarget } from "./placement-gizmo";
 import { applyTerrainMaterials, TerrainMaterial, terrainSurfaceMaterial, type TerrainBlend } from "./terrain-material";
+import { MapLightMaterial, type MapLightField } from "./map-light-material";
+import { MapPointerNavigation } from "./map-pointer-navigation";
 
 type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
 
@@ -22,6 +24,7 @@ export interface ModelGeometry {
     textureIds?: readonly number[];
     terrainBlends?: readonly TerrainBlend[];
     terrainWeights?: readonly number[];
+    mapPlanes?: readonly number[];
     facePriorities?: readonly number[];
     particles?: readonly ModelParticle[];
     particleScale?: number;
@@ -82,12 +85,14 @@ export class ModelScene {
     private readonly scene = new THREE.Scene();
     private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100000);
     private readonly controls: OrbitControls;
+    private readonly mapNavigation?: MapPointerNavigation;
     private readonly resizeObserver: ResizeObserver;
     /** Holds the model, or a map scene's objects. */
     private readonly primary = createMeshSurface();
     /** Only map scenes use it, so strokes can replace the ground without touching objects. */
     private readonly terrain = createMeshSurface();
-    private readonly viewMatrix = new THREE.Matrix4();
+    private readonly mapLighting = new MapLightMaterial();
+    private readonly viewDepthAxis = new THREE.Vector3(0, 0, -1);
     private readonly centroid = new THREE.Vector3();
     private epoch?: number;
     private lastTime?: number;
@@ -109,6 +114,7 @@ export class ModelScene {
     private objectAnimationsEnabled = true;
     private objectAnimationEpoch?: number;
     private lastObjectAnimationTime?: number;
+    private nextObjectAnimationTime = 0;
     private environmentFaces?: readonly ModelTexture[];
     // Shared by every reflective effect program; an empty sampler keeps the procedural sky.
     private readonly environmentMap = { value: null as THREE.CubeTexture | null };
@@ -385,7 +391,17 @@ export class ModelScene {
         this.renderer.domElement.setAttribute("aria-label", label);
         host.appendChild(this.renderer.domElement);
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        if (this.framing === "map") this.controls.addEventListener("change", this.requestRender);
+        if (this.framing === "map") {
+            this.controls.zoomToCursor = true;
+            this.controls.addEventListener("change", this.requestRender);
+            this.mapNavigation = new MapPointerNavigation(this.renderer.domElement, this.camera, this.controls, () => {
+                const ground = this.terrain.mesh?.geometry;
+                if (!ground) return undefined;
+                if (!ground.boundingBox) ground.computeBoundingBox();
+                const box = ground.boundingBox!;
+                return box.isEmpty() ? undefined : (box.min.y + box.max.y) / 2;
+            });
+        }
         this.scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 2));
         const light = new THREE.DirectionalLight(0xffffff, 3);
         light.position.set(1, 2, 3);
@@ -429,13 +445,17 @@ export class ModelScene {
     }
 
     private renderObjectAnimations(time: number): void {
-        clearTimeout(this.animationTimer);
         const surface = this.primary;
         const model = surface.currentModel;
         const mesh = surface.mesh;
         const animations = model?.animations;
+        if (animations && this.objectAnimationsEnabled && this.lastObjectAnimationTime !== undefined &&
+            time < this.nextObjectAnimationTime) return;
+        clearTimeout(this.animationTimer);
+        this.animationTimer = undefined;
         if (!animations || !model.vertexRgba || !mesh) {
             this.objectAnimationEpoch = undefined;
+            this.lastObjectAnimationTime = undefined;
             return;
         }
         if (!this.objectAnimationsEnabled) {
@@ -448,7 +468,12 @@ export class ModelScene {
         const elapsed = Math.max(time - this.objectAnimationEpoch, 0);
         const next = this.updateObjectAnimationRanges(mesh, animations, model.positions, model.vertexRgba, elapsed);
         this.lastObjectAnimationTime = elapsed;
-        if (next < Infinity) this.animationTimer = setTimeout(this.requestRender, next);
+        this.nextObjectAnimationTime = time + next;
+        if (next < Infinity) this.animationTimer = setTimeout(() => {
+            // A frame timestamp can precede a timer callback in the same browser frame.
+            this.nextObjectAnimationTime = 0;
+            this.requestRender();
+        }, next);
     }
 
     private updateObjectAnimationRanges(
@@ -520,12 +545,13 @@ export class ModelScene {
                 this.effectUpdates.delete(existing.material);
             }
             const material = create();
+            if (model.mapPlanes) this.mapLighting.apply(material);
             surface.materials.set(key, { material, texture, asset });
             return material;
         };
         const colorSize = model.vertexRgba || model.opacities ? 4 : model.colors ? 3 : 0;
         const options = { vertexColors: colorSize !== 0, ...(model.preparedLighting ? {} : {roughness: 0.8}) };
-        const surfaceKey = `${!!model.preparedLighting}:${colorSize}`;
+        const surfaceKey = `${!!model.preparedLighting}:${colorSize}:${!!model.mapPlanes}`;
         const OrdinaryMaterial = model.preparedLighting ? THREE.MeshBasicMaterial : THREE.MeshStandardMaterial;
         const materials: (THREE.MeshStandardMaterial | THREE.MeshBasicMaterial)[] = [
             useMaterial(`plain:${surfaceKey}:false`, () => new OrdinaryMaterial({ ...options, transparent: false, depthWrite: true })),
@@ -547,7 +573,7 @@ export class ModelScene {
             materials.push(create(true));
         }
         applyTerrainMaterials(geometry, materials, retainedGeometry ? undefined : model.terrainWeights, model.terrainBlends, this.textures, blend => {
-            const key = `terrain:${blend.layers.map(layer => `${layer.textureId}:${layer.textureScale}`).join("|")}`;
+            const key = `terrain:${!!model.mapPlanes}:${blend.layers.map(layer => `${layer.textureId}:${layer.textureScale}`).join("|")}`;
             const material = useMaterial(key, () => new TerrainMaterial(blend, this.textures));
             material.updateTextures(this.textures);
             return material;
@@ -603,6 +629,11 @@ export class ModelScene {
         this.setSurface(this.terrain, terrain);
         this.setSurface(this.primary, objects);
         if (fitCamera) this.resetCamera();
+    }
+
+    setMapPointLights(field: MapLightField | null, enabled: boolean): void {
+        this.mapLighting.set(field, enabled);
+        this.requestRender();
     }
 
     private setSurface(surface: MeshSurface, model: ModelGeometry | null): void {
@@ -739,6 +770,7 @@ export class ModelScene {
         if (this.pendingFrame !== undefined) cancelAnimationFrame(this.pendingFrame);
         clearTimeout(this.animationTimer);
         this.resizeObserver.disconnect();
+        this.mapNavigation?.dispose();
         this.controls.dispose();
         this.orientationGizmo?.dispose();
         this.placementGizmo?.dispose();
@@ -755,6 +787,7 @@ export class ModelScene {
         this.textures.clear();
         this.environmentFaces = undefined;
         this.releaseEnvironmentMap();
+        this.mapLighting.dispose();
         this.renderer.dispose();
         this.renderer.domElement.remove();
     }
@@ -849,10 +882,14 @@ export class ModelScene {
 
     private orderSurfaces(): void {
         this.camera.updateMatrixWorld();
-        const moved = !this.viewMatrix.equals(this.camera.matrixWorldInverse);
-        if (moved) this.viewMatrix.copy(this.camera.matrixWorldInverse);
+        const view = this.camera.matrixWorldInverse.elements;
+        const x = -view[2], y = -view[6], z = -view[10];
+        // Translation adds the same depth to every face. Ignore roundoff in the axis during a pan.
+        const axis = this.viewDepthAxis;
+        const turned = Math.max(Math.abs(x - axis.x), Math.abs(y - axis.y), Math.abs(z - axis.z)) > 1e-10;
+        if (turned) axis.set(x, y, z);
         for (const surface of this.surfaces) {
-            if (!surface.mesh || !surface.currentModel || (!moved && !surface.orderingDirty)) continue;
+            if (!surface.mesh || !surface.currentModel || (!turned && !surface.orderingDirty)) continue;
             surface.orderingDirty = false;
             this.orderBlendedSurfaces(surface.mesh.geometry, surface.currentModel, surface);
         }
@@ -915,8 +952,7 @@ export class ModelScene {
                 this.centroid.y += positions.getY(vertex) / 3;
                 this.centroid.z += positions.getZ(vertex) / 3;
             }
-            this.centroid.applyMatrix4(this.viewMatrix);
-            face.depth = -this.centroid.z;
+            face.depth = this.centroid.dot(this.viewDepthAxis);
         }
         // Groups share one object/depth in Three's stable transparent render list.
         surface.blendedSurfaces.sort((a, b) => a.priority - b.priority || b.depth - a.depth || a.sourceStart - b.sourceStart);
@@ -1009,6 +1045,7 @@ function hasSameLayout(surface: MeshSurface, existing: NonNullable<MeshSurface["
 
 function fillGeometry(geometry: THREE.BufferGeometry, model: ModelGeometry, firstTexel: boolean): void {
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(model.positions, 3));
+    if (model.mapPlanes) geometry.setAttribute("mapPlane", new THREE.Uint8BufferAttribute(model.mapPlanes, 1));
     geometry.setIndex(ArrayBuffer.isView(model.indices) ? new THREE.BufferAttribute(model.indices.slice(), 1) : Array.from(model.indices));
     if (model.uvs) geometry.setAttribute("uv", floatAttribute(model.uvs, 2));
     if (firstTexel) geometry.setAttribute("cacheFirstTexel", markerAttribute(model.firstTexel));

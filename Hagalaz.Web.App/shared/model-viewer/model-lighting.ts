@@ -62,6 +62,12 @@ export function lightModel(model: LightingModel, light?: ModelLight): number[] {
 
 export function clampLight(value: number): number { return Math.max(2, Math.min(126, value)); }
 
+/** Revision-742 hardware point-light palette with the inspection gamma. */
+export function pointLightRgb(packed: number): number {
+    const [r, g, b] = paletteColor(packed, false);
+    return (r << 16) | (g << 8) | b;
+}
+
 /** Model_Sub3.method4549 + Class356.method4187 + the fixed-gamma client palettes. */
 export function litFaceColor(packed: number, intensity: number, textured: boolean, ambient = 64): number[] {
     if (textured) return paletteColor((packed & 0xff80) | clampLight((packed & 127) * intensity >> 7), false);

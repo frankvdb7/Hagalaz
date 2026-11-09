@@ -5,6 +5,7 @@ import { MatIconModule } from "@angular/material/icon";
 import { type MatMenu, MatMenuModule } from "@angular/material/menu";
 import { MatTooltipModule } from "@angular/material/tooltip";
 import type { ModelScene, ModelTexture, StrokePreviewGeometry } from "../../../../../shared/model-viewer/model-scene";
+import type { MapLightField } from "../../../../../shared/model-viewer/map-light-material";
 import { type MapAtmosphere, mapFogRange } from "../services/map-render.models";
 import type { PlacementGizmoMode, PlacementGizmoResult } from "../../../../../shared/model-viewer/placement-gizmo";
 import type { MapObjectRange, MapObjectTransform, MapSceneGeometry } from "./map-scene-geometry";
@@ -70,6 +71,9 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="regionLightingActive()" [disabled]="!hasRegionAtmosphere()" (click)="useRegionAtmosphere.set(true)">Region atmosphere</button>
             <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="!regionLightingActive()" (click)="useRegionAtmosphere.set(false)">Default lighting</button>
             <mat-divider />
+            <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="pointLightsActive()" [disabled]="!pointLights()" (click)="$event.stopPropagation(); showPointLights.set(!showPointLights())">
+                <mat-icon>{{ pointLightsActive() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Point lights
+            </button>
             <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="fogActive()" [disabled]="!regionLightingActive()" (click)="fog.set(!fog())">Client fog</button>
         </mat-menu>
         <mat-menu #displayMenu="matMenu">
@@ -130,6 +134,9 @@ export class MapViewportComponent implements OnDestroy {
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly selectionKey = input("");
     readonly regionAtmosphere = input<MapAtmosphere | null>(null);
+    readonly pointLights = input<MapLightField | null>(null);
+    readonly showPointLights = signal(true);
+    readonly pointLightsActive = computed(() => this.pointLights() !== null && this.showPointLights());
     readonly environmentFaces = input<readonly ModelTexture[] | null>(null);
     readonly hasRegionAtmosphere = computed(() => this.regionAtmosphere() !== null);
     readonly useRegionAtmosphere = model(true);
@@ -180,6 +187,7 @@ export class MapViewportComponent implements OnDestroy {
         });
         effect(() => this.scene()?.setDisplay(this.grid(), this.wireframe()));
         effect(() => this.scene()?.setObjectAnimationsEnabled(this.animateObjects()));
+        effect(() => this.scene()?.setMapPointLights(this.pointLights(), this.pointLightsActive()));
         effect(() => this.scene()?.setPrimaryDragEnabled(!this.brushActive()));
         effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null)));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));

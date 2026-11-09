@@ -25,6 +25,7 @@ import { CacheMapSceneStore } from "../../stores/cache-map-scene.store";
 import { injectCacheDefinitionId } from "../cache-definition-id";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 import { buildMapScene, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapObjectRange, type MapObjectTransform, type MapSceneDraft, type MapSceneFilter } from "../map-scene-geometry";
+import { mapLightField } from "../map-point-lights";
 import { regionDetails, sceneGroups, scenePlacements, shapeLabel, terrainDetails, type SceneSelection } from "../map-scene-tree";
 import { MapAssetPanelComponent } from "../map-asset-panel.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
@@ -88,6 +89,7 @@ export class MapsDetailPageComponent {
     private readonly floorCatalog = computed(() => new Map(this.store.floors().map(floor => [floorKey(floor.overlay, floor.id), floor])));
     /** What the scene draws; the store keeps the regions as stored. */
     private readonly previewRegions = computed(() => applyTerrainEdits(this.store.regions(), this.terrainEdits(), this.floorCatalog()));
+    readonly pointLights = computed(() => mapLightField(this.previewRegions()));
     readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0 });
     readonly brushPoint = signal<BrushPoint | null>(null);
     readonly strokePoints = signal<readonly BrushPoint[] | null>(null);

@@ -495,6 +495,29 @@ The map preview SHALL initially use the selected anchor region's decoded atmosph
 - **THEN** the viewer updates the shading while preserving the camera and current region selection
 
 
+### Requirement: Region point light preview
+
+The admin map editor SHALL preview cached surface point lights by default using their position, color, radius, tile footprint and plane coverage. The preview uses steady intensity and radial falloff.
+
+#### Scenario: Lights affect loaded surface geometry
+
+- **GIVEN** a loaded region contains a point light
+- **WHEN** point lights are enabled
+- **THEN** nearby terrain and objects on covered tiles and planes receive its color, including in an adjacent loaded region
+- **AND** lights follow the terrain height at their source tile.
+
+#### Scenario: Preview can be toggled independently
+
+- **WHEN** the operator toggles Point lights in View > Lighting
+- **THEN** the preview switches independently of region atmosphere and preserves the camera and selection.
+- **AND** the menu shows whether point lights are enabled.
+
+#### Scenario: Terrain data has no usable light records
+
+- **GIVEN** a region has no light records or its terrain trailer is truncated
+- **WHEN** the editor loads the region
+- **THEN** the terrain remains available and the region contributes no lights.
+
 ### Requirement: Admin Maps lists available regions before opening a detail scene
 
 The admin Maps type MUST show a paginated table of all normal regions with terrain or landscape files in the cache. Each region MUST appear once with its ID, coordinates and separate file-presence indicators. Region links and an Open map action MUST open a read-only 3D detail view within shared Cache Studio navigation. Browsing the table MUST NOT load scene data or initialize a renderer.
@@ -622,6 +645,21 @@ The Maps workspace MUST provide orbit, pan, zoom, reset-to-selection, independen
 - **THEN** region inputs, status and visibility controls remain reachable
 - **AND** the viewport stays within the page width
 - **AND** errors and retry controls are not hidden behind the scene
+
+### Requirement: Pointer depth controls map navigation
+
+The perspective map editor SHALL account for the depth under the pointer during wheel zoom and right-button pan.
+
+#### Scenario: Navigate a near or far tile
+
+- **GIVEN** the pointer intersects the map's ground reference plane
+- **WHEN** the operator uses the wheel or drags with the right mouse button
+- **THEN** wheel zoom scales by the same proportion at either depth, and a right drag moves the reference point with the pointer.
+
+#### Scenario: The pointer has no usable ground depth
+
+- **WHEN** the pointer looks away from the ground or its intersection is too far away
+- **THEN** the existing camera controls handle the gesture.
 
 ### Requirement: Applied selections and scene resources have a single lifecycle
 

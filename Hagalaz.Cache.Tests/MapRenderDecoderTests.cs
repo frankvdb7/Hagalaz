@@ -64,9 +64,15 @@ public sealed class MapRenderDecoderTests
     {
         using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "terrain-12850.dat"));
         var terrain = MapRenderDecoder.DecodeTerrain(input, 12850);
-        var atmosphere = MapRenderDecoder.DecodeAtmosphere(input);
+        var (atmosphere, lights) = MapRenderDecoder.DecodeTerrainTrailer(input);
+        Assert.NotNull(atmosphere);
         Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600, null), atmosphere with { EnvironmentFaces = null });
-        Assert.Equal([682, 683, 684, 685, 686, 687], atmosphere!.EnvironmentFaces);
+        Assert.Equal([682, 683, 684, 685, 686, 687], atmosphere.EnvironmentFaces);
+        Assert.NotNull(lights);
+        Assert.Equal(55, lights.Count);
+        var firstLight = lights[0];
+        Assert.Equal(new MapPointLight(2904, 13060, 880, 768, 0x1790, 0, 0, 0, firstLight.Rows), firstLight);
+        Assert.Equal([0x0102, 0x0102, 0x0102], firstLight.Rows);
         using var semantic = new MemoryStream();
         foreach (var p in terrain)
         for (var tile = 0; tile < 4096; tile++)
@@ -85,7 +91,7 @@ public sealed class MapRenderDecoderTests
     [InlineData(new byte[] { 0, 0x60, 0xff, 0x12, 0x34, 0x56, 0x02, 0x58 }, 0x123456, 600)]
     public void AtmosphereProjection_ReadsSkyColourAndRawFogValue(byte[] record, int skyRgb, int fogValue)
     {
-        var atmosphere = MapRenderDecoder.DecodeAtmosphere(new MemoryStream(record));
+        var (atmosphere, _) = MapRenderDecoder.DecodeTerrainTrailer(new MemoryStream(record));
         Assert.NotNull(atmosphere);
         Assert.Equal(skyRgb, atmosphere.SkyRgb);
         Assert.Equal(fogValue, atmosphere.FogValue);
@@ -97,10 +103,35 @@ public sealed class MapRenderDecoderTests
     public void AtmosphereProjection_ReadsEnvironmentFacesInCubeOrderBeforeLaterRecords()
     {
         // Faces 1..6 and 65535, then an HDR record (opcode 2) and a terminating unknown opcode.
-        var atmosphere = MapRenderDecoder.DecodeAtmosphere(new MemoryStream([0, 0x80, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0xff, 0xff, 2, 9, 9, 9, 255]));
+        var (atmosphere, _) = MapRenderDecoder.DecodeTerrainTrailer(new MemoryStream([0, 0x80, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0xff, 0xff, 2, 9, 9, 9, 255]));
         Assert.NotNull(atmosphere);
         Assert.Equal([1, 2, 3, 4, 5, 65535], atmosphere.EnvironmentFaces);
         Assert.Equal(0xc8c0a8, atmosphere.SkyRgb);
+    }
+
+    [Fact]
+    public void TerrainTrailer_ReadsLightCoverageAndResumesAtAtmosphereAfterCustomFlicker()
+    {
+        using var stream = new MemoryStream([
+            1, 2,
+            0x1a, 0x01, 0x20, 0x00, 0xa0, 0x00, 0x10, 1, 1, 1, 0, 3, 1, 1, 0xab, 0xcd, 0xff, 0x12, 0x34,
+            0x01, 0x00, 0x40, 0x00, 0x60, 0x00, 0x08, 0, 0, 1, 0x12, 0x34, 0,
+            0, 0,
+        ]);
+        var (atmosphere, lights) = MapRenderDecoder.DecodeTerrainTrailer(stream);
+        Assert.NotNull(atmosphere);
+        Assert.NotNull(lights);
+        Assert.Collection(lights,
+            light =>
+            {
+                Assert.Equal(new MapPointLight(1152, 640, 64, 768, 0xabcd, 2, 0, 3, light.Rows), light);
+                Assert.Equal([0x0101, 0x0003, 0x0101], light.Rows);
+            },
+            light =>
+            {
+                Assert.Equal(new MapPointLight(256, 384, 32, 256, 0x1234, 1, 1, 1, light.Rows), light);
+                Assert.Equal([1], light.Rows);
+            });
     }
 
     [Fact]

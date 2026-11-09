@@ -14,6 +14,9 @@ public sealed record OverlayRenderProperties(int Priority, bool SpreadsToNeighbo
 public sealed record FloorRenderDefinition(int Id, bool Overlay, int? Rgb, int TextureId, int? SecondaryRgb, int TextureScale, OverlayRenderProperties? OverlayProperties);
 public sealed record MapAtmosphere(int LightRgb, float Intensity, float PositiveResponse, float NegativeResponse, int DirectionX, int DirectionY, int DirectionZ,
     int SkyRgb, int FogValue, IReadOnlyList<int>? EnvironmentFaces);
+// Position, height offset and radius use 512 units per tile. Each row packs a tile offset and count.
+public sealed record MapPointLight(int X, int Y, int Height, int Radius, int PackedColor, int Plane, int MinPlane, int MaxPlane, IReadOnlyList<int> Rows);
 public sealed record MapRenderRegion(int Id, int RegionX, int RegionY, string TerrainStatus, string LandscapeStatus,
     IReadOnlyList<MapRenderPlane> Planes, IReadOnlyList<MapRenderPlacement> Objects, IReadOnlyList<FloorRenderDefinition> Floors, IReadOnlyList<string> Warnings,
-    MapAtmosphere? Atmosphere = null, MapRenderPlane? UnderwaterPlane = null, IReadOnlyList<MapRenderPlacement>? UnderwaterObjects = null);
+    MapAtmosphere? Atmosphere = null, MapRenderPlane? UnderwaterPlane = null, IReadOnlyList<MapRenderPlacement>? UnderwaterObjects = null,
+    IReadOnlyList<MapPointLight>? PointLights = null);

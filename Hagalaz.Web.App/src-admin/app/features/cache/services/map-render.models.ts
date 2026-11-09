@@ -45,8 +45,14 @@ export interface MapRenderRegion {
     landscapeStatus: "available" | "absent" | "failed";
     planes: MapRenderPlane[]; objects: MapPlacement[]; floors: MapFloor[]; warnings: string[];
     atmosphere?: MapAtmosphere | null;
+    pointLights?: readonly MapPointLight[] | null;
     underwaterPlane?: MapRenderPlane | null;
     underwaterObjects?: MapPlacement[] | null;
+}
+export interface MapPointLight {
+    x: number; y: number; height: number; radius: number; packedColor: number;
+    plane: number; minPlane: number; maxPlane: number;
+    rows: readonly number[];
 }
 /** The client's second, underwater scene layer occupies the plane slot after the four surface planes. */
 export const underwaterPlaneIndex = 4;

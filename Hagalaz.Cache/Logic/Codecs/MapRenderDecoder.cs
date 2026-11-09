@@ -76,9 +76,10 @@ public static class MapRenderDecoder
         return plane;
     }
 
-    public static MapAtmosphere? DecodeAtmosphere(Stream stream, CancellationToken cancellationToken = default)
+    public static (MapAtmosphere? Atmosphere, IReadOnlyList<MapPointLight>? PointLights) DecodeTerrainTrailer(Stream stream, CancellationToken cancellationToken = default)
     {
         MapAtmosphere? atmosphere = null;
+        List<MapPointLight>? pointLights = null;
         // Revision 742 Map.decode consumes these records after the last terrain tile.
         for (var opcode = stream.ReadByte(); opcode >= 0; opcode = stream.ReadByte())
         {
@@ -110,10 +111,19 @@ public static class MapRenderDecoder
                     var lights = ReadByte(stream);
                     for (var i = 0; i < lights; i++)
                     {
-                        SkipBytes(stream, 7);
+                        var lightFlags = ReadByte(stream);
+                        var lightX = ReadShort(stream) << 2;
+                        var lightY = ReadShort(stream) << 2;
+                        var height = ReadShort(stream) << 2;
                         var radius = ReadByte(stream);
-                        SkipBytes(stream, 2 * (radius * 2 + 1) + 2);
+                        var rows = new int[radius * 2 + 1];
+                        for (var row = 0; row < rows.Length; row++) rows[row] = ReadShort(stream);
+                        var packedColor = ReadShort(stream);
                         if ((ReadByte(stream) & 31) == 31) SkipBytes(stream, 2);
+                        var plane = lightFlags & 7;
+                        if (plane < 4 && lightX < 64 * 512 && lightY < 64 * 512)
+                            (pointLights ??= []).Add(new MapPointLight(lightX, lightY, height, radius * 512 + 256, packedColor, plane,
+                                (lightFlags & 16) != 0 ? 0 : plane, (lightFlags & 8) != 0 ? 3 : plane, rows));
                     }
                     break;
                 case 2:
@@ -127,10 +137,10 @@ public static class MapRenderDecoder
                         if (ReadByte(stream) == 1) SkipBytes(stream, 256);
                     break;
                 default:
-                    return atmosphere;
+                    return (atmosphere, pointLights);
             }
         }
-        return atmosphere;
+        return (atmosphere, pointLights);
     }
 
     private static void SkipBytes(Stream stream, int count)
