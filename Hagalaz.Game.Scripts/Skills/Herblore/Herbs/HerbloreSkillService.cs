@@ -182,6 +182,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return true;
             }
 
+            var requiredIngredientCount = ingredient.Id == HerbloreConstants.Grenwallspikes ? 5 : 1;
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId];
             dialogue.PerformMakeProductCallback = (itemID, count) =>
@@ -191,7 +192,6 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                     2,
                     () =>
                     {
-                        var requiredIngredientCount = ingredient.Id == HerbloreConstants.Grenwallspikes ? 5 : 1;
                         using var transaction = ItemContainerTransaction.Begin(character.Inventory);
 
                         var inventoryVial = character.Inventory.Items.GetById(vial.Id);
@@ -232,7 +232,6 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return true;
             };
 
-            var requiredIngredientCount = ingredient.Id == HerbloreConstants.Grenwallspikes ? 5 : 1;
             var availableIngredientCount = character.Inventory.Items.GetCountById(ingredient.Id) / requiredIngredientCount;
             var availableVialCount = character.Inventory.Items.GetCountById(vial.Id);
             var resCount = Math.Min(availableIngredientCount, availableVialCount);

@@ -175,7 +175,7 @@ public sealed class HerbloreSkillServiceTests
         RequiredLevel: 92,
         Experience: 260,
         PrimaryItemIds: [],
-        SecondaryItemIds: [12539]);
+        SecondaryItemIds: []);
 
     private static Scenario CreateScenario(params (int Id, int Count)[] itemSpecs)
     {
