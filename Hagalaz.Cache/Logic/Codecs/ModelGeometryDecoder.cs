@@ -8,7 +8,9 @@ namespace Hagalaz.Cache.Logic.Codecs;
 public static class ModelGeometryDecoder
 {
     public sealed record EmitterAttachment(int EmitterId, int Face);
-    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null, int[]? FacePriorities = null, int[]? FaceShadingTypes = null, int[]? FirstTexelFaces = null);
+    public sealed record EffectorAttachment(int EffectorId, int Vertex);
+    public sealed record BillboardAttachment(int DefinitionId, int Face, int Group, int DepthOffset);
+    public sealed record Geometry(int[] Positions, int[] Indices, int[] FaceColors, int[] FaceAlpha, int[]? VertexSkins, int Version = 12, int[]? FaceSkins = null, int[]? FaceTextureIds = null, int[]? FaceTextureVertices = null, float[]? FaceTextureUvs = null, EmitterAttachment[]? Emitters = null, int[]? FacePriorities = null, int[]? FaceShadingTypes = null, int[]? FirstTexelFaces = null, BillboardAttachment[]? Billboards = null, EffectorAttachment[]? Effectors = null);
 
     public static Geometry Decode(byte[] data, bool allowFirstTexelFallback = false)
     {
@@ -148,9 +150,11 @@ public static class ModelGeometryDecoder
             for (var face = 0; face < faces; face++) shadingTypes[face] = shading.Byte();
         }
         EmitterAttachment[]? emitters = null;
+        EffectorAttachment[]? effectors = null;
+        BillboardAttachment[]? billboards = null;
+        var attachments = new Reader(data, attachmentOffset, data.Length - ((flags & 8) != 0 ? 24 : 23));
         if ((flags & 2) != 0)
         {
-            var attachments = new Reader(data, attachmentOffset);
             emitters = new EmitterAttachment[attachments.Byte()];
             for (var emitter = 0; emitter < emitters.Length; emitter++)
             {
@@ -158,10 +162,28 @@ public static class ModelGeometryDecoder
                 if (face >= faces) throw new InvalidDataException("Particle emitter references a missing face.");
                 emitters[emitter] = new(emitterId, face);
             }
-            var effectors = attachments.Byte();
-            for (var effector = 0; effector < effectors; effector++) { attachments.Short(); attachments.Short(); }
+            effectors = new EffectorAttachment[attachments.Byte()];
+            for (var index = 0; index < effectors.Length; index++)
+            {
+                var definition = attachments.Short();
+                var vertex = attachments.Short();
+                if (vertex >= vertices) throw new InvalidDataException("Particle effector references a missing vertex.");
+                effectors[index] = new(definition, vertex);
+            }
         }
-        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters, FaceShadingTypes = shadingTypes, FirstTexelFaces = firstTexelFaces };
+        if ((flags & 4) != 0)
+        {
+            billboards = new BillboardAttachment[attachments.Byte()];
+            for (var index = 0; index < billboards.Length; index++)
+            {
+                var definition = attachments.Short();
+                var face = attachments.Short();
+                if (face >= faces) throw new InvalidDataException("Model billboard references a missing face.");
+                var group = (flags & 0x40) != 0 ? attachments.NullableSmart() : attachments.Byte();
+                billboards[index] = new(definition, face, (flags & 0x40) == 0 && group == 255 ? -1 : group, attachments.SignedByte());
+            }
+        }
+        return result with { Version = version, FaceTextureIds = textureIds, FaceTextureVertices = textureVertices, FaceTextureUvs = textureUvs, Emitters = emitters, FaceShadingTypes = shadingTypes, FirstTexelFaces = firstTexelFaces, Billboards = billboards, Effectors = effectors };
 
         void Copy(int offset, int length)
         {
@@ -301,16 +323,16 @@ public static class ModelGeometryDecoder
             FaceTextureUvs: textures == 0 ? null : ModelTextureCoordinates.Generate(positions, indices, faceTextureIds, texturePointers, textureMappings, out _));
     }
 
-    private sealed class Reader(byte[] data, int position)
+    private sealed class Reader(byte[] data, int position, int end = int.MaxValue)
     {
         public int Byte()
         {
-            if ((uint)position >= data.Length) throw new InvalidDataException("Model stream is truncated.");
+            if ((uint)position >= Math.Min(end, data.Length)) throw new InvalidDataException("Model stream is truncated.");
             return data[position++];
         }
         public int Short()
         {
-            if (position < 0 || position > data.Length - 2) throw new InvalidDataException("Model stream is truncated.");
+            if (position < 0 || position > Math.Min(end, data.Length) - 2) throw new InvalidDataException("Model stream is truncated.");
             var value = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(position, 2));
             position += 2;
             return value;
@@ -321,6 +343,11 @@ public static class ModelGeometryDecoder
             return data[position] < 128 ? Byte() - 64 : Short() - 49152;
         }
         public int SignedByte() => (sbyte)Byte();
+        public int NullableSmart()
+        {
+            var first = Byte();
+            return first < 128 ? first - 1 : ((first << 8) | Byte()) - 32769;
+        }
         public int Medium() => (Byte() << 16) | (Byte() << 8) | Byte();
     }
 }

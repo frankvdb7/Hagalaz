@@ -8,7 +8,8 @@ import { describeMaterialEffect } from "../../../../../shared/model-viewer/mater
 import { NgTemplateOutlet } from "@angular/common";
 import { MatButtonModule } from "@angular/material/button";
 import { FormsModule } from "@angular/forms";
-import { poseFaceAlpha, poseFaceColors, poseModel, unsupportedTransformTypes } from "../../../../../shared/model-viewer/model-pose";
+import { poseBillboards, poseFaceAlpha, poseFaceColors, poseModel, unsupportedTransformTypes } from "../../../../../shared/model-viewer/model-pose";
+import { animationFrameDelay, animationTickMs, nextAnimationFrame, tweenAnimationFrame } from "../../../../../shared/model-viewer/animation-tween";
 import { RouterLink } from "@angular/router";
 import { ModelViewerComponent } from "../../../../../shared/model-viewer/model-viewer.component";
 import { environment } from "../../../../environments/environment";
@@ -34,10 +35,11 @@ export class CacheModelPreviewComponent {
     readonly textureIds = computed(() => [...new Set([
         ...(this.modelValue()?.faceTextureIds ?? []),
         ...(this.modelValue()?.particles?.map(particle => particle.definition?.textureId ?? -1) ?? []),
+        ...(this.modelValue()?.billboards?.map(billboard => billboard.definition?.textureId ?? -1) ?? []),
     ].filter(id => id >= 0))]);
     readonly particleWarnings = computed(() => [...new Set((this.modelValue()?.particles ?? []).flatMap(particle => [
         ...(particle.warning ? [particle.warning] : []),
-        ...(particle.definition ? [`Particle emitter #${particle.emitterId}: textured ballistic preview; HDR sprite brightness is bounded for inspection; client forces, collision, prewarm, bloom and advanced lifecycle curves are unverified.${particle.definition.unsupportedOpcodes.length ? ` Unsupported settings: ${particle.definition.unsupportedOpcodes.join(", ")}.` : ""}`] : []),
+        ...(particle.definition ? [`Particle emitter #${particle.emitterId}: textured preview with model-local forces; HDR sprite brightness is bounded for inspection. Global forces, collision, prewarm, bloom and advanced lifecycle curves remain unverified.${particle.definition.unsupportedOpcodes.length ? ` Unsupported settings: ${particle.definition.unsupportedOpcodes.join(", ")}.` : ""}`] : []),
     ]))]);
     readonly textureData = rxResource({
         params: () => this.textureIds(),
@@ -86,6 +88,7 @@ export class CacheModelPreviewComponent {
     readonly manualFrameId = signal<number | null>(null);
     readonly animationId = signal<number | null>(null);
     readonly frameIndex = signal(0);
+    private readonly frameTick = signal(0);
     readonly playing = signal(false);
     readonly sequence = httpResource<GetAnimationSequenceDto>(() => this.animationId() === null ? undefined : `${environment.cacheApiUrl}types/animations/${this.animationId()}/sequence`);
     readonly sequenceValue = computed(() => this.sequence.hasValue() ? this.sequence.value() : undefined);
@@ -103,7 +106,16 @@ export class CacheModelPreviewComponent {
     readonly frameId = computed(() => this.manualFrameId());
     readonly frame = httpResource<GetAnimationFrameDto>(() => this.frameId() === null ? undefined : `${environment.cacheApiUrl}animation-frames/${this.frameId()}`);
     readonly frameValue = computed(() => this.frame.hasValue() ? this.frame.value() : undefined);
-    private readonly activeFrame = computed(() => this.animationId() !== null ? this.clipValue()?.[this.frameIndex()] : this.frameValue());
+    private readonly activeFrame = computed(() => {
+        if (this.animationId() === null) return this.frameValue();
+        const clip = this.clipValue();
+        const index = this.frameIndex();
+        const frame = clip?.[index];
+        const sequence = this.sequenceValue();
+        if (!frame || !clip || !sequence?.isTweened) return frame;
+        const next = clip[nextAnimationFrame(index, clip.length, sequence.loop)];
+        return tweenAnimationFrame(frame, next, this.frameTick(), animationFrameDelay(sequence.frameDurations, index));
+    });
     readonly posed = computed(() => {
         const model = this.modelValue();
         const frame = this.activeFrame();
@@ -114,6 +126,7 @@ export class CacheModelPreviewComponent {
                 positions: model.vertexSkins ? poseModel(model.positions, model.vertexSkins, frame, model.coordinateScale ?? 1) : model.positions,
                 faceAlpha: poseFaceAlpha(model.faceAlpha, model.faceSkins, frame),
                 faceColors: poseFaceColors(model.faceColors, model.faceSkins, frame),
+                billboards: model.billboards && poseBillboards(model.billboards, frame),
             }, error: null };
         }
         catch (error) { return { model, error: error instanceof Error ? error.message : "Frame could not be applied." }; }
@@ -129,14 +142,19 @@ export class CacheModelPreviewComponent {
     readonly inspectionTab = model(0);
     readonly showLookup = computed(() => this.workspace() && !this.modelValue());
     readonly selectedTexture = linkedSignal(() => { this.modelId(); return -1; });
-    readonly previewNotes = computed(() => [...(this.modelValue()?.warnings ?? []), ...this.particleWarnings(), ...this.materialWarnings()]);
+    readonly previewNotes = computed(() => [
+        ...(this.modelValue()?.warnings ?? []),
+        ...(this.modelValue()?.billboards ?? []).flatMap(billboard => billboard.warning ? [billboard.warning] : []),
+        ...(this.modelValue()?.effectors ?? []).flatMap(effector => effector.warning ? [effector.warning] : []),
+        ...this.particleWarnings(), ...this.materialWarnings(),
+    ]);
     readonly sequenceErrorMessage = computed(() => this.sequence.error() ? this.errorMessage(this.sequence.error()) : null);
     readonly clipErrorMessage = computed(() => this.clip.error() ? this.errorMessage(this.clip.error()) : null);
     readonly frameErrorMessage = computed(() => this.frame.error() ? this.errorMessage(this.frame.error()) : null);
     readonly appearanceChoices = computed(() => this.appearances.hasValue() ? this.appearances.value().map(choice => ({...choice, label: choice.label + (choice.available ? "" : " (unavailable)")})) : []);
     readonly appearanceModelLabel = computed(() => this.selectedAppearance()?.modelIds.map(id => `#${id}`).join(" ") || "None for this appearance.");
     readonly currentAnimationIds = computed(() => this.modelValue()?.animationIds ?? []);
-    readonly hasSkins = computed(() => !!(this.modelValue()?.vertexSkins || this.modelValue()?.faceSkins));
+    readonly hasSkins = computed(() => !!(this.modelValue()?.vertexSkins || this.modelValue()?.faceSkins || this.modelValue()?.billboards?.some(billboard => billboard.group >= 0)));
     readonly missingModel = computed(() => !this.definition() && this.itemId() === null && (this.modelId() ?? -1) < 0);
     readonly textureRetryAvailable = computed(() => !!this.textureData.error() || this.hasHdrError());
     readonly height = input(360);
@@ -168,8 +186,11 @@ export class CacheModelPreviewComponent {
         effect((cleanup) => {
             const sequence = this.sequenceValue();
             if (!this.playing() || !sequence || !this.clipValue()?.length || this.clip.isLoading() || this.poseError()) return;
-            const duration = sequence.frameDurations[this.frameIndex()] ?? 1;
-            const timer = setTimeout(() => this.advance(), Math.max(duration, 1) * 20);
+            const duration = animationFrameDelay(sequence.frameDurations, this.frameIndex());
+            const tick = this.frameTick();
+            const timer = sequence.isTweened
+                ? setTimeout(() => this.advanceTween(tick, duration), animationTickMs)
+                : setTimeout(() => this.advance(), duration * animationTickMs);
             cleanup(() => clearTimeout(timer));
         });
         effect(() => { this.modelId(); this.itemId(); this.definition(); this.appearance(); this.basePose(); });
@@ -184,15 +205,20 @@ export class CacheModelPreviewComponent {
         });
     }
 
-    selectAnimation(id: number): void { this.frameIndex.set(0); this.manualFrameId.set(null); this.animationId.set(id); this.playing.set(true); }
+    selectAnimation(id: number): void { this.frameIndex.set(0); this.frameTick.set(0); this.manualFrameId.set(null); this.animationId.set(id); this.playing.set(true); }
     inspectFrame(): void { this.basePose(); if (Number.isSafeInteger(this.draftFrame) && this.draftFrame >= 0) this.manualFrameId.set(this.draftFrame); }
-    basePose(): void { this.playing.set(false); this.animationId.set(null); this.manualFrameId.set(null); this.frameIndex.set(0); }
+    basePose(): void { this.playing.set(false); this.animationId.set(null); this.manualFrameId.set(null); this.frameIndex.set(0); this.frameTick.set(0); }
     advance(): void {
         const sequence = this.sequenceValue();
         if (!sequence?.frameIds.length) return;
-        const next = this.frameIndex() + 1;
-        if (next < sequence.frameIds.length) this.frameIndex.set(next);
-        else if (sequence.loop > 0 && sequence.loop <= sequence.frameIds.length) this.frameIndex.set(sequence.frameIds.length - sequence.loop);
-        else this.frameIndex.set(0);
+        this.frameIndex.update(index => nextAnimationFrame(index, sequence.frameIds.length, sequence.loop));
+        this.frameTick.set(0);
+    }
+
+    private advanceTween(tick: number, duration: number): void {
+        if (tick >= duration) {
+            this.advance();
+            this.frameTick.set(1);
+        } else this.frameTick.set(tick + 1);
     }
 }

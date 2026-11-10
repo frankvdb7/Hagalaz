@@ -15,6 +15,15 @@ import {
     type ObjectRenderAppearance,
 } from "../services/map-render.models";
 import { getCacheErrorMessage } from "./cache-error";
+import type { GetModelDto } from "../services/dtos";
+
+function addModelTextures(part: GetModelDto, textures: Set<number>): void {
+    for (const id of part.faceTextureIds ?? []) if (id >= 0) textures.add(id);
+    for (const billboard of part.billboards ?? []) {
+        const id = billboard.definition?.textureId ?? -1;
+        if (id >= 0) textures.add(id);
+    }
+}
 
 export interface MapSceneState {
     regions: MapRenderRegion[];
@@ -164,7 +173,7 @@ export class MapSceneLoad {
         let ids = this.appearanceTextureIds.get(appearance);
         if (!ids) {
             const unique = new Set<number>();
-            for (const part of appearance.parts) for (const id of part.faceTextureIds ?? []) if (id >= 0) unique.add(id);
+            for (const part of appearance.parts) addModelTextures(part, unique);
             ids = [...unique];
             this.appearanceTextureIds.set(appearance, ids);
         }

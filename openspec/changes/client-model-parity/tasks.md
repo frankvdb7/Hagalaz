@@ -8,18 +8,18 @@ Work in order. Verify each phase before advancing. Record verified zero usage an
 
 ## 1. Transform types
 
-- [ ] 1.1 Trace the active client transform and draw paths. Port used types 7–10 with client rounding, packed HSL relighting, and verified Class94 attachment data where needed. Warn on skipped transforms when the client continues playback.
-- [ ] 1.2 Verify client-derived transform values and relighting with focused tests and real assets.
+- [x] 1.1 Trace the active client transform and draw paths. Port used types 7–10 with client rounding, packed HSL relighting, and verified Class94 attachment data where needed. Warn on skipped transforms when the client continues playback.
+- [x] 1.2 Verify client-derived transform values and relighting with focused tests and real assets.
 
 ## 2. Tweening
 
-- [ ] 2.1 Share client interpolation, flags and delay semantics between preview and map, preserving stepped playback.
-- [ ] 2.2 Verify numeric tween values, flag cases and map buffer writes. Measure the existing render path on the heaviest test region.
+- [x] 2.1 Share client interpolation, flags and delay semantics between preview and map, preserving stepped playback.
+- [x] 2.2 Verify numeric tween values, flag cases and map buffer writes. Measure the existing render path on the heaviest test region.
 
 ## 3. Effectors
 
-- [ ] 3.1 Preserve effector data through decoding, assembly and DTOs. Apply verified client forces using posed attachments.
-- [ ] 3.2 Verify decode alignment, attachment remapping and animated effectors.
+- [x] 3.1 Preserve effector data through decoding, assembly and DTOs. Apply verified client forces using posed attachments.
+- [x] 3.2 Verify decode alignment, attachment remapping and animated effectors.
 
 ## 4. Emitter settings
 

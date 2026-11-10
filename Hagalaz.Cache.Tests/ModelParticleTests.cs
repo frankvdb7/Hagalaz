@@ -8,6 +8,35 @@ namespace Hagalaz.Cache.Tests;
 public class ModelParticleTests
 {
     [Theory]
+    [InlineData(1, 250, -6)]
+    [InlineData(2, 6, 6)]
+    public void Decode_SpeedDragReadsSignedStrengthWithoutConsumingNextOpcode(byte mode, byte strength, int signedStrength)
+    {
+        var emitter = ParticleEmitterDecoder.Decode([4, mode, strength, 15, 0, 44, 0]);
+        Assert.Equal(new ParticleEmitterDecoder.Drag(mode, signedStrength), emitter.SpeedDrag);
+        Assert.Equal(44, emitter.TextureId);
+        Assert.Empty(emitter.UnsupportedOpcodes);
+    }
+
+    [Fact]
+    public void Decode_EmitterReadsLocalEffectorIdsAndKeepsFollowingOpcodesAligned()
+    {
+        var emitter = ParticleEmitterDecoder.Decode([9, 2, 0, 17, 1, 2, 15, 0, 44, 10, 1, 0, 6, 0]);
+        Assert.Equal(new[] { 17, 258 }, emitter.LocalEffectorIds);
+        Assert.Equal(44, emitter.TextureId);
+        Assert.Equal(new[] { 10 }, emitter.UnsupportedOpcodes);
+        Assert.Throws<InvalidDataException>(() => ParticleEmitterDecoder.Decode([9, 2, 0, 17, 0]));
+    }
+
+    [Fact]
+    public void Decode_EffectorRetainsSignedVectorAndModeFlags()
+    {
+        using var bytes = new MemoryStream([1, 3, 255, 2, 123, 3, 0, 1, 64, 0, 255, 255, 255, 254, 0, 0, 0, 7, 4, 2, 0, 0, 2, 106, 6, 1, 8, 9, 10, 0]);
+        Assert.Equal(new ParticleEffectorDecoder.Definition(81920, -2, 7, 1023, 2, 618, 1, true, true, true), ParticleEffectorDecoder.Decode(bytes));
+        Assert.Equal(bytes.Length, bytes.Position);
+    }
+
+    [Theory]
     [InlineData(65297,785)]
     [InlineData(65316,782)]
     public void Decode_RealCompletionistCapeRetainsSevenFaceAttachments(int model, int firstFace)

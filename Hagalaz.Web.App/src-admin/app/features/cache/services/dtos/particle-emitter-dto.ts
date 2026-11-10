@@ -12,4 +12,6 @@ export interface ParticleEmitterDto {
     speedMax: number;
     angles: number[];
     unsupportedOpcodes: number[];
+    localEffectorIds?: number[] | null;
+    speedDrag?: { mode: number; strength: number } | null;
 }

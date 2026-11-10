@@ -59,17 +59,17 @@ describe("CacheModelPreviewComponent playback", () => {
         expect(button, label).toBeDefined();
         required(button, "the preview button").click(); settle();
     }
-    async function loadAnimation(includeUnsupported = false): Promise<void> {
+    async function loadAnimation(includeUnsupported = false, isTweened = false): Promise<void> {
         http.expectOne(`${baseUrl}models/7`).flush(model);
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.animationId()).toBe(66); }, { interval: 1 });
-        http.expectOne(`${baseUrl}types/animations/66/sequence`).flush({ id: 66, frameIds: [65536, 65537, 65538], frameDurations: [2, 3, 1], loop: 2, isTweened: false });
+        http.expectOne(`${baseUrl}types/animations/66/sequence`).flush({ id: 66, frameIds: [65536, 65537, 65538], frameDurations: [2, 3, 1], loop: 2, isTweened });
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.sequence.hasValue()).toBe(true); }, { interval: 1 });
         for (let index = 0; index < 3; index++) {
             const unsupported = includeUnsupported && index === 2;
             http.expectOne(`${baseUrl}animation-frames/${65536 + index}`).flush({
-                skeleton: unsupported ? { types: [1, 9], groups: [[0], [0]] } : { types: [1], groups: [[0]] },
+                skeleton: unsupported ? { types: [1, 11], groups: [[0], [0]] } : { types: [1], groups: [[0]] },
                 frame: { skeletonId: 1, transforms: [
-                    { slot: 0, x: index + 1, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+                    { slot: 0, x: (index + 1) * (isTweened ? 12 : 1), y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
                     ...(unsupported ? [{ slot: 1, x: 4096, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 }] : []),
                 ] },
             });
@@ -77,9 +77,27 @@ describe("CacheModelPreviewComponent playback", () => {
         await vi.waitFor(() => { settle(); expect(fixture.componentInstance.clip.hasValue()).toBe(true); }, { interval: 1 });
     }
 
+    it("poses intermediate cache ticks and preserves the tween when playback is paused", async () => {
+        await loadAnimation(false, true);
+        const component = fixture.componentInstance;
+        expect(component.posed().model?.positions).toEqual([12, 0, 0]);
+        vi.advanceTimersByTime(20); settle();
+        expect(component.posed().model?.positions).toEqual([18, 0, 0]);
+        click("Pause");
+        vi.advanceTimersByTime(200); settle();
+        expect(component.posed().model?.positions).toEqual([18, 0, 0]);
+        click("Play");
+        vi.advanceTimersByTime(20); settle();
+        expect(component.frameIndex()).toBe(0);
+        expect(component.posed().model?.positions).toEqual([24, 0, 0]);
+        vi.advanceTimersByTime(20); settle();
+        expect(component.frameIndex()).toBe(1);
+        expect(component.posed().model?.positions).toEqual([28, 0, 0]);
+    });
+
     it("warns for the whole clip and keeps playback usable when a later frame has an unsupported transform", async () => {
         await loadAnimation(true);
-        const warning = "Unsupported animation transform types: 9.";
+        const warning = "Unsupported animation transform types: 11.";
         expect(fixture.componentInstance.frameIndex()).toBe(0);
         expect(fixture.nativeElement.textContent).toContain(warning);
         vi.advanceTimersByTime(40); settle();
@@ -223,7 +241,7 @@ describe("CacheModelPreviewComponent playback", () => {
         expect(fixture.componentInstance.geometry()?.particles?.[0].emitterId).toBe(403);
         expect(fixture.nativeElement.textContent).toContain("Particle emitter #403");
         expect(fixture.nativeElement.textContent).toContain("Unsupported settings: 10, 18");
-        expect(fixture.nativeElement.textContent).toContain("client forces, collision, prewarm");
+        expect(fixture.nativeElement.textContent).toContain("Global forces, collision, prewarm");
     });
 
     it("inspects a referenced texture using its actual material mode", async () => {
@@ -301,6 +319,10 @@ describe("Model inspection workspace", () => {
         faceTextureUvs: null,
         scale: null,
         particles: [],
+        effectors: [
+            { effectorId: 1, vertex: 0, definition: { x: 0, y: -16, z: 0, coneAngle: 0, falloff: 0, attenuation: 1, scope: 0, directDisplacement: false, radial: false, reverse: false }, warning: null },
+            { effectorId: 2, vertex: 1, definition: null, warning: "Particle effector #2 is unavailable." },
+        ],
     };
     beforeEach(async () => {
         TestBed.configureTestingModule({
@@ -338,6 +360,7 @@ describe("Model inspection workspace", () => {
         expect(writes).toHaveLength(2);
         expect(writes.every((button) => button.disabled)).toBe(true);
         expect(host.textContent).toContain("Transforms affect this preview only.");
+        expect(host.textContent).toContain("Particle effector #2 is unavailable.");
         const alpha = Array.from(host.querySelectorAll("mat-checkbox")).find(control => control.textContent?.includes("Uses alpha"));
         expect(alpha?.querySelector<HTMLInputElement>("input")?.checked).toBe(true);
     });
@@ -355,6 +378,11 @@ describe("Model inspection workspace", () => {
         await fixture.whenStable();
         expect(preview.workspaceGeometry()?.positions[0]).toBeCloseTo(7);
         expect(preview.workspaceGeometry()?.positions[1]).toBeCloseTo(4);
+        const rendered = required(preview.workspaceGeometry(), "workspace geometry");
+        const effector = required(rendered.effectors, "workspace effectors")[0];
+        expect(effector.position).toEqual(rendered.positions.slice(0, 3));
+        expect(effector.definition?.x).toBeCloseTo(-16);
+        expect(effector.definition?.y).toBeCloseTo(0);
         const before = preview.transform();
         for (const value of [null, Number.NaN, Number.POSITIVE_INFINITY, -1, 1025]) preview.updateTransform("scale", 0, value);
         expect(preview.transform()).toBe(before);

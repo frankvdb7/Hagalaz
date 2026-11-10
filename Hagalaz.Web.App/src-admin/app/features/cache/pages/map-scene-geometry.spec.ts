@@ -16,19 +16,22 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     Object.assign(asset.parts[0], {
         objectAnimation: { rotation: 1, offset: [0, 0, 0], positionsBeforeExtraRotation: null },
         vertexSkins: [0, 0, 0], faceSkins: [1], animationIds: [42],
+        billboards: [{ face: 0, group: 1, depthOffset: 0, definition: { textureId: 42, halfWidth: 8, halfHeight: 8, blendMode: 1 } }],
     });
+    const skeleton = { types: [1, 5, 7, 9, 11], groups: [[0], [1], [1], [1], [1]], enabled: [], masks: [] };
     const clip: MapObjectClip = {
         sequence: { id: 42, frameIds: [10, 11], frameDurations: [2, 3], loop: 2, isTweened: false },
         frames: new Map([
-            [10, { frame: { skeletonId: 1, transforms: [] }, skeleton: { types: [], groups: [], enabled: [], masks: [] } }],
+            [10, { frame: { skeletonId: 1, transforms: [] }, skeleton }],
             [11, {
                 frame: { skeletonId: 1, transforms: [
                     { slot: 0, x: 32, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
                     { slot: 1, x: 10, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
                     { slot: 2, x: 2, y: 4, z: 5, pivotSlot: -1, tweenFlags: 0 },
                     { slot: 3, x: 4096, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
+                    { slot: 4, x: 0, y: 0, z: 0, pivotSlot: -1, tweenFlags: 0 },
                 ] },
-                skeleton: { types: [1, 5, 7, 9], groups: [[0], [1], [1], [1]], enabled: [], masks: [] },
+                skeleton,
             }],
         ]),
     };
@@ -39,7 +42,7 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     expect(required(draw(new Map()).geometry?.objects, "map objects").animations).toBeUndefined();
     const reads = vi.spyOn(clip.frames, "get");
     const animated = draw(new Map([[42, clip]]));
-    expect(animated.warnings).toContain("Animation 42: unsupported transform types 9.");
+    expect(animated.warnings).toContain("Animation 42: unsupported transform types 11.");
     const objects = required(animated.geometry?.objects, "map objects");
     expect(objects.placements[0].placement).toBe(placement);
     expect(objects.mapPlanes).toEqual([0, 0, 0, 0, 0, 0]);
@@ -51,12 +54,14 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     const initialRgb = Array.from(initial.rgba.slice(0, 3));
     expect(first.sample(39, 0)).toEqual({ delay: 1 });
     const moved = required(first.sample(40, 39).pose, "second frame");
+    expect(moved.billboards?.[0]).toMatchObject({ face: 0, angle: 4096, opacity: 175 / 255 });
     expect(moved.positions[0]).toBe(objects.positions[0]);
     expect(moved.positions[2]).toBe(objects.positions[2] - 32);
     expect(moved.rgba[3]).toBeCloseTo(175 / 255);
     expect(Array.from(moved.rgba.slice(0, 3))).not.toEqual(initialRgb);
     expect(objects.vertexRgba?.[3]).toBe(1);
     expect(first.alphaFaces).toEqual([true]);
+    expect(animations[1].sample(40).pose?.billboards?.[0]).toMatchObject({ face: 1, angle: 4096 });
     const nextLoop = required(first.sample(100, 99).pose, "first frame of the next loop");
     expect(Array.from(nextLoop.positions)).toEqual(objects.positions.slice(0, 9));
     for (let elapsed = 100; elapsed < 2000; elapsed += 100) {
@@ -67,6 +72,18 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     expect(reads).toHaveBeenCalledTimes(2);
     expect(animations[1].sample(2000).pose?.positions).toBe(nextLoop.positions);
     expect(mapLandscapeSaves([source], undefined)).toEqual([]);
+
+    const tweened = draw(new Map([[42, { ...clip, sequence: { ...clip.sequence, isTweened: true } }]]));
+    const tweenedObjects = required(required(tweened.geometry, "tweened scene").objects, "tweened objects");
+    const range = required(tweenedObjects.animations, "tweened ranges")[0];
+    expect(range.sample(19, 0)).toEqual({ delay: 1 });
+    const halfway = required(range.sample(20, 19).pose, "halfway pose");
+    expect(halfway.positions[2]).toBe(objects.positions[2] - 16);
+    expect(halfway.rgba[3]).toBeCloseTo(215 / 255);
+    expect(required(halfway.billboards, "tweened billboards")[0]).toMatchObject({ angle: 2048 });
+    expect(range.sample(39, 20)).toEqual({ delay: 1 });
+    expect(required(range.sample(40, 39).pose, "last tick").positions[2]).toBe(objects.positions[2] - 32);
+    expect(required(range.sample(60, 40).pose, "next frame's first tick").positions[2]).toBe(objects.positions[2] - 22);
 });
 
 describe("rebuilding after terrain edits", () => {

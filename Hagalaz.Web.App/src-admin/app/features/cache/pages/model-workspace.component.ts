@@ -66,18 +66,29 @@ export class ModelWorkspaceComponent {
         const [rx, ry, rz] = rotation.map((degrees) => (degrees * Math.PI) / 180);
         const [sx, sy, sz] = [Math.sin(rx), Math.sin(ry), Math.sin(rz)];
         const [cx, cy, cz] = [Math.cos(rx), Math.cos(ry), Math.cos(rz)];
-        const positions: number[] = [];
-        for (let i = 0; i < geometry.positions.length; i += 3) {
-            const x = (geometry.positions[i] * scale[0]) / 128;
-            const y = (geometry.positions[i + 1] * scale[1]) / 128;
-            const z = (geometry.positions[i + 2] * scale[2]) / 128;
+        const rotate = (x: number, y: number, z: number): [number, number, number] => {
             const y1 = y * cx - z * sx,
                 z1 = y * sx + z * cx;
             const x2 = x * cy + z1 * sy,
                 z2 = -x * sy + z1 * cy;
-            positions.push(x2 * cz - y1 * sz + offset[0], x2 * sz + y1 * cz + offset[1], z2 + offset[2]);
+            return [x2 * cz - y1 * sz, x2 * sz + y1 * cz, z2];
+        };
+        const place = (x: number, y: number, z: number): [number, number, number] => {
+            const point = rotate(x * scale[0] / 128, y * scale[1] / 128, z * scale[2] / 128);
+            return [point[0] + offset[0], point[1] + offset[1], point[2] + offset[2]];
+        };
+        const positions: number[] = [];
+        for (let i = 0; i < geometry.positions.length; i += 3) {
+            positions.push(...place(geometry.positions[i], geometry.positions[i + 1], geometry.positions[i + 2]));
         }
-        return { ...geometry, positions };
+        const effectors = geometry.effectors?.map(effector => {
+            const definition = effector.definition;
+            const position = place(...effector.position);
+            if (!definition) return { ...effector, position };
+            const [x, y, z] = rotate(definition.x, -definition.y, definition.z);
+            return { ...effector, position, definition: { ...definition, x, y: -y, z } };
+        });
+        return { ...geometry, positions, effectors };
     });
 
     updateTransform(key: "scale" | "rotation" | "offset", axis: number, value: number | null): void {

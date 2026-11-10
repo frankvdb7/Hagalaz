@@ -3,7 +3,31 @@ export interface AnimationFrameData {
     skeleton: { types: number[]; groups: number[][] };
 }
 
-/** Applies a discrete frame in cache coordinates, always starting from the base pose. */
+export interface BillboardPose {
+    x: number;
+    y: number;
+    angle: number;
+    scaleX: number;
+    scaleY: number;
+}
+
+export function poseBillboards<T extends { group: number }>(billboards: readonly T[], data: AnimationFrameData): (T & { pose: BillboardPose })[] {
+    return billboards.map(billboard => {
+        const pose = { x: 0, y: 0, angle: 0, scaleX: 128, scaleY: 128 };
+        for (const transform of data.frame.transforms) {
+            if (billboard.group < 0 || !data.skeleton.groups[transform.slot]?.includes(billboard.group)) continue;
+            const { x, y } = transform;
+            switch (data.skeleton.types[transform.slot]) {
+                case 8: pose.x += x; pose.y += y; break;
+                case 9: pose.angle = (pose.angle + x) & 0x3fff; break;
+                case 10: pose.scaleX = (pose.scaleX * x) >> 7; pose.scaleY = (pose.scaleY * y) >> 7; break;
+            }
+        }
+        return { ...billboard, pose };
+    });
+}
+
+/** Applies a frame in cache coordinates, always starting from the base pose. */
 export function poseModel(positions: readonly number[], skins: readonly number[], data: AnimationFrameData, coordinateScale = 1): number[] {
     if (skins.length !== positions.length / 3) throw new Error("The model has no compatible vertex skin groups.");
     // Work in the client's normalized units; legacy raw models use coordinateScale 1/4.
@@ -15,10 +39,7 @@ export function poseModel(positions: readonly number[], skins: readonly number[]
         highPrecision = true;
     };
     let pivot = [0, 0, 0];
-    const verticesFor = (slot: number) => {
-        const groups = new Set(data.skeleton.groups[slot] ?? []);
-        return skins.flatMap((skin, vertex) => groups.has(skin) ? [vertex * 3] : []);
-    };
+    const verticesFor = verticesBySlot(skins, data.skeleton.groups);
     const setPivot = (slot: number, offsets: number[]) => {
         const vertices = verticesFor(slot);
         pivot = offsets.map((offset, axis) => offset + (vertices.length ? Math.trunc(vertices.reduce((sum, vertex) => sum + result[vertex + axis], 0) / vertices.length) : 0));
@@ -56,6 +77,23 @@ export function poseModel(positions: readonly number[], skins: readonly number[]
     return result.map(value => (highPrecision ? (value + 7) >> 4 : value) * coordinateScale);
 }
 
+function verticesBySlot(skins: readonly number[], slots: readonly number[][]): (slot: number) => number[] {
+    const bySkin = new Map<number, number[]>();
+    for (const [vertex, skin] of skins.entries()) {
+        const group = bySkin.get(skin);
+        if (group) group.push(vertex * 3);
+        else bySkin.set(skin, [vertex * 3]);
+    }
+    return slot => {
+        const vertices: number[] = [];
+        for (const skin of new Set(slots[slot])) {
+            const group = bySkin.get(skin);
+            if (group) vertices.push(...group);
+        }
+        return vertices;
+    };
+}
+
 export function poseFaceAlpha(alpha: readonly number[], faceSkins: readonly number[] | null | undefined, data: AnimationFrameData): number[] {
     return poseFaces(alpha, faceSkins, data, 5, (value, transform) => Math.min(255, Math.max(0, value + transform.x * 8)));
 }
@@ -72,7 +110,7 @@ export function poseFaceColors(colors: readonly number[], faceSkins: readonly nu
 
 export function unsupportedTransformTypes(data: AnimationFrameData): number[] {
     const types = data.frame.transforms.map(transform => data.skeleton.types[transform.slot]);
-    return [...new Set(types.filter(type => ![0, 1, 2, 3, 5, 7].includes(type)))];
+    return [...new Set(types.filter(type => ![0, 1, 2, 3, 5, 7, 8, 9, 10].includes(type)))];
 }
 
 function poseFaces(

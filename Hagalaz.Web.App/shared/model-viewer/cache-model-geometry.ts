@@ -1,8 +1,14 @@
-import { clampLight, lightModel, litFaceColor, type ModelLight } from "./model-lighting";
+import { clampLight, lightModel, litFaceColor, pointLightRgb, type ModelLight } from "./model-lighting";
 import type { ModelGeometry } from "./model-scene";
-import type {ModelParticle} from "./model-particles";
+import type {ModelEffector, ModelParticle, PosedEffector} from "./model-particles";
+import type { ModelBillboard, RenderBillboard } from "./model-billboards";
 
 export const modelFaceWinding = [0, 2, 1] as const;
+const linearChannels = Array.from({ length: 256 }, (_, channel) => toLinear(channel / 255));
+
+function toLinear(srgb: number): number {
+    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+}
 
 export interface CacheModelGeometry {
     id?: number;
@@ -19,12 +25,17 @@ export interface CacheModelGeometry {
     faceTextureUvs?: readonly number[] | null;
     firstTexelFaces?: readonly number[] | null;
     particles?: readonly ModelParticle[];
+    effectors?: readonly ModelEffector[] | null;
+    billboards?: readonly ModelBillboard[] | null;
     coordinateScale?: number;
 }
 
+type FaceMaterial = { colorBlend?: number; brightness?: number; effectId?: number };
+
 /** Converts the cache's downward Y axis and reverses winding exactly once. */
-export function prepareCacheModel(model: CacheModelGeometry, materials?: ReadonlyMap<number, { colorBlend?: number; brightness?: number; effectId?: number }>, light?: ModelLight): ModelGeometry {
+export function prepareCacheModel(model: CacheModelGeometry, materials?: ReadonlyMap<number, FaceMaterial>, light?: ModelLight): ModelGeometry {
     const coordinate = (index: number) => model.scale ? Math.floor(model.positions[index] * model.scale[index % 3]) : model.positions[index];
+    const effectors = prepareEffectors(model.effectors, coordinate);
     if (model.faceColors) {
         const preparedLighting = model.ambient !== undefined || model.faceShadingTypes !== undefined;
         const shades = preparedLighting ? lightModel({...model, positions: model.positions.map((_, index) => Math.trunc(coordinate(index) / (model.coordinateScale ?? 1)))}, light) : [];
@@ -36,28 +47,22 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
         const textureIds: number[] = [];
         const firstTexelFaces = new Set(model.firstTexelFaces ?? []);
         const firstTexel: number[] = [];
+        const { billboards, hiddenFaces } = prepareBillboards(model, model.faceColors);
         for (let face = 0; face < model.indices.length / 3; face++) {
             const decodedUvs = model.faceTextureUvs?.slice(face * 6, face * 6 + 6);
             const textured = (model.faceTextureIds?.[face] ?? -1) >= 0 && decodedUvs?.length === 6;
             textureIds.push(textured ? model.faceTextureIds![face] : -1);
             const material = textured ? materials?.get(model.faceTextureIds![face]) : undefined;
-            const rgb = textured && !material ? [1, 1, 1] : packedHslColor(model.faceColors[face], material);
+            const rgb = preparedLighting ? [] : textured && !material ? [1, 1, 1] : packedHslColor(model.faceColors[face], material);
             const alpha = model.faceAlpha?.[face] ?? 0;
             // Client alpha -1 hides helper faces; -2 uses constant shading rather than transparency.
             const type = alpha === 255 ? 2 : alpha === 254 ? 3 : model.faceShadingTypes?.[face] ?? 0;
-            const opacity = alpha === 255 || type === 2 || (preparedLighting && textured && type === 3) ? 0 : alpha === 254 ? 1 : (255 - alpha) / 255;
+            const opacity = faceOpacity(hiddenFaces, face, alpha, type, preparedLighting && textured);
             for (const corner of modelFaceWinding) {
                 const vertex = model.indices[face * 3 + corner] * 3;
                 positions.push(coordinate(vertex), -coordinate(vertex + 1), coordinate(vertex + 2));
                 if (preparedLighting) {
-                    const intensity = material?.effectId === 6 ? 127 : textured ? clampLight(shades[face * 3 + corner] >> 1) : shades[face * 3 + corner];
-                    let channels = type === 3 ? [0, 0, 0] : litFaceColor(model.faceColors[face], intensity, textured, model.ambient);
-                    if (textured && material) channels = channels.map(channel => {
-                        const blend = material.colorBlend ?? 0;
-                        const mixed = (channel * (256 - blend) + 2 * intensity * blend) >> 8;
-                        return Math.min(65535, mixed * (256 + (material.brightness ?? 0))) >> 8;
-                    });
-                    colors.push(...channels.map(channel => { const value = channel / 255; return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4; }));
+                    appendLitCorner(colors, model.faceColors[face], shades[face * 3 + corner], textured, material, type, model.ambient);
                 } else colors.push(...rgb);
                 indices.push(indices.length);
                 opacities.push(opacity);
@@ -65,15 +70,64 @@ export function prepareCacheModel(model: CacheModelGeometry, materials?: Readonl
                 uvs.push(...(textured ? decodedUvs!.slice(corner * 2, corner * 2 + 2) : [0, 0]));
             }
         }
-        return { preparedLighting, sourceId: model.id, facePriorities: model.facePriorities ?? undefined, positions, indices, colors, opacities, uvs, textureIds, firstTexel: firstTexelFaces.size ? firstTexel : undefined, particles: model.particles, particleScale: model.coordinateScale ?? 1 };
+        return { preparedLighting, sourceId: model.id, facePriorities: model.facePriorities ?? undefined, positions, indices, colors, opacities, uvs, textureIds, firstTexel: firstTexelFaces.size ? firstTexel : undefined, particles: model.particles, effectors, particleScale: model.coordinateScale ?? 1, billboards };
     }
     return {
         sourceId: model.id, facePriorities: model.facePriorities ?? undefined,
         particles: model.particles,
+        effectors,
         particleScale: model.coordinateScale ?? 1,
         positions: model.positions.map((_, index) => index % 3 === 1 ? -coordinate(index) : coordinate(index)),
         indices: model.indices.flatMap((_, index, source) => index % 3 === 0 ? [source[index], source[index + 2], source[index + 1]] : []),
     };
+}
+
+function prepareEffectors(effectors: CacheModelGeometry["effectors"], coordinate: (index: number) => number): PosedEffector[] | undefined {
+    return effectors?.map(({ effectorId, vertex, definition }) => ({
+        effectorId, definition, position: [coordinate(vertex * 3), -coordinate(vertex * 3 + 1), coordinate(vertex * 3 + 2)],
+    }));
+}
+
+function appendLitCorner(colors: number[], packed: number, shade: number, textured: boolean, material: FaceMaterial | undefined, type: number, ambient: number | undefined): void {
+    const intensity = material?.effectId === 6 ? 127 : textured ? clampLight(shade >> 1) : shade;
+    const channels = type === 3 ? [0, 0, 0] : litFaceColor(packed, intensity, textured, ambient);
+    if (material) appendMaterialChannels(colors, channels, material, intensity);
+    else colors.push(linearChannels[channels[0]], linearChannels[channels[1]], linearChannels[channels[2]]);
+}
+
+function appendMaterialChannels(colors: number[], channels: readonly number[], material: FaceMaterial, intensity: number): void {
+    const blend = material.colorBlend ?? 0;
+    const brightness = material.brightness ?? 0;
+    for (const channel of channels) {
+        const mixed = (channel * (256 - blend) + 2 * intensity * blend) >> 8;
+        const value = Math.min(65535, mixed * (256 + brightness)) >> 8;
+        colors.push(linearChannels[value] ?? toLinear(value / 255));
+    }
+}
+
+function faceOpacity(hiddenFaces: ReadonlySet<number>, face: number, alpha: number, type: number, litTexture: boolean | undefined): number {
+    if (hiddenFaces.has(face) || alpha === 255 || type === 2 || (litTexture && type === 3)) return 0;
+    return alpha === 254 ? 1 : (255 - alpha) / 255;
+}
+
+const baseBillboardPose = { x: 0, y: 0, angle: 0, scaleX: 128, scaleY: 128 };
+
+function prepareBillboards(model: CacheModelGeometry, colors: readonly number[]) {
+    const hiddenFaces = new Set<number>();
+    const scale = model.coordinateScale ?? 1;
+    const billboards = model.billboards?.flatMap(({ face, definition, pose = baseBillboardPose, depthOffset }): RenderBillboard[] => {
+        if (!definition) return [];
+        if (definition.hideFace) hiddenFaces.add(face);
+        return [{
+            face, textureId: definition.textureId, blendMode: definition.blendMode,
+            halfWidth: ((definition.halfWidth * pose.scaleX) >> 7) * scale,
+            halfHeight: ((definition.halfHeight * pose.scaleY) >> 7) * scale,
+            x: pose.x * scale, y: pose.y * scale, angle: pose.angle,
+            depthOffset: depthOffset * scale, rgb: pointLightRgb(colors[face]),
+            opacity: (255 - (model.faceAlpha?.[face] ?? 0)) / 255,
+        }];
+    });
+    return { billboards, hiddenFaces };
 }
 
 /** Decodes the cache's 6-bit hue, 3-bit saturation and 7-bit lightness. */
@@ -91,6 +145,6 @@ function packedHslColor(value: number, material?: { colorBlend?: number; brightn
             const blend = (material.colorBlend ?? 0) / 256;
             srgb = Math.min(1, (srgb * (1 - blend) + (254 / 255) * blend) * (1 + (material.brightness ?? 0) / 256));
         }
-        return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+        return toLinear(srgb);
     });
 }

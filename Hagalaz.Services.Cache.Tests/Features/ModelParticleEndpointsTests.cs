@@ -16,11 +16,12 @@ public class ModelParticleEndpointsTests
     [DataRow("valid")]
     [DataRow("missing")]
     [DataRow("unsupported")]
+    [DataRow("truncated")]
     public async Task RawCape_RetainsAttachmentsAndReportsEmitterAvailability(string state)
     {
         var store=new MemoryFileStore();
         store.Set(7,65297,ContainerBytes(Fixture("model-65297.dat")));
-        if(state!="missing") Seed(store,27,403,state=="valid"?Fixture("emitter-403.dat"):[99,0]);
+        if(state!="missing") Seed(store,27,403,state switch { "valid" => Fixture("emitter-403.dat"), "truncated" => [9, 2, 0, 17, 0], _ => [99, 0] });
         await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
         using var client=CacheServiceTestHost.CreateClient(app);
         var result=await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/models/65297");
@@ -50,13 +51,40 @@ public class ModelParticleEndpointsTests
         var faces=ModelGeometryDecoder.Decode(bytes).FaceColors.Length;
         CollectionAssert.AreEqual(Enumerable.Range(785,7).Concat(Enumerable.Range(faces+785,7)).ToArray(),result.Particles!.Select(p=>p.Face).ToArray());
     }
+
+    [TestMethod]
+    public async Task ItemAssembly_RemapsEffectorVerticesAndResolvesSparseDefinitions()
+    {
+        var store = new MemoryFileStore();
+        Seed(store, 19, 0, [23, 0, 0, 24, 0, 1, 0]);
+        Seed(store, 27, 17, [3, 0, 1, 64, 0, 0, 1, 64, 0, 0, 1, 64, 0, 8, 9, 10, 0], archiveId: 1);
+        byte[] bytes = [
+            0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 1, 0, 17, 0, 2,
+            0, 3, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255,
+        ];
+        store.Set(7, 0, ContainerBytes(bytes));
+        store.Set(7, 1, ContainerBytes(bytes));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var result = await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/types/items/0/model?appearance=male-equipped");
+        Assert.IsNotNull(result);
+        Assert.IsNotNull(result.Effectors);
+        CollectionAssert.AreEqual(new[] { 2, 5 }, result.Effectors.Select(effector => effector.Vertex).ToArray());
+        foreach (var effector in result.Effectors)
+        {
+            Assert.AreEqual(17, effector.EffectorId);
+            Assert.IsNull(effector.Warning);
+            Assert.AreEqual(new ParticleEffectorDto(81920, 81920, 81920, 0, 0, 1, 0, true, true, true), effector.Definition);
+        }
+    }
     private static byte[] Fixture(string name)=>File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures/particles",name));
     private static byte[] ContainerBytes(byte[] data) {using var container=new Container(new MemoryStream(data));return container.Encode();}
-    private static void Seed(MemoryFileStore store,int index,int child,byte[] data)
+    private static void Seed(MemoryFileStore store,int index,int child,byte[] data,int archiveId=0)
     {
-        var table=new ReferenceTable(7,1,(ReferenceTableFlags)0,1);var archive=new ReferenceTableEntry(0);
-        archive.InitializeEntries(1);archive.AddEntry(child,new ReferenceTableChildEntry(0));table.AddEntry(0,archive);
+        var table=new ReferenceTable(7,1,(ReferenceTableFlags)0,archiveId+1);var archive=new ReferenceTableEntry(archiveId);
+        archive.InitializeEntries(1);archive.AddEntry(child,new ReferenceTableChildEntry(0));table.AddEntry(archiveId,archive);
         using var encoded=new ReferenceTableCodec().Encode(table);
-        store.Set(255,index,ContainerBytes(encoded.ToArray()));store.Set(index,0,ContainerBytes(data));
+        store.Set(255,index,ContainerBytes(encoded.ToArray()));store.Set(index,archiveId,ContainerBytes(data));
     }
 }

@@ -12,7 +12,7 @@
 <ng-container [ngTemplateOutlet]="workspace() ? workspaceView : compactView" />
 
 <ng-template #compactView>
-    @for (warning of previewNotes(); track $index) { <p class="supporting-text text-xs">{{warning}}</p> }
+    <ng-container [ngTemplateOutlet]="modelNotes" />
     @if (modelValue()) { <hagalaz-model-viewer [height]="height()" [geometry]="geometry()" [textures]="textureImages()" /><ng-container [ngTemplateOutlet]="animationControls" /> }
     @if (missingModel()) { <p>No inventory model is available.</p> }
     @if (textureIds().length) { <section cache-model-textures [ids]="textureIds()" [materials]="textureImages()" [(selected)]="selectedTexture"></section> }
@@ -26,8 +26,13 @@
             <div modelLookup><ng-container [ngTemplateOutlet]="modelLookup" /></div>
             <div textureErrors><ng-container [ngTemplateOutlet]="textureErrors" /></div>
             <div animationControls><ng-container [ngTemplateOutlet]="animationControls" /></div>
+            <div modelNotes><ng-container [ngTemplateOutlet]="modelNotes" /></div>
         </cache-model-workspace>
     }
+</ng-template>
+
+<ng-template #modelNotes>
+    @for (warning of previewNotes(); track $index) { <p class="supporting-text text-xs">{{warning}}</p> }
 </ng-template>
 
 <ng-template #textureErrors>

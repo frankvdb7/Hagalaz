@@ -36,6 +36,7 @@
                         <p class="supporting-text text-xs">Drag to orbit · Scroll to zoom · Right-drag to pan</p>
                     </footer>
                 </section>
+                <ng-content select="[modelNotes]" />
                 @if (tab() === 0 || tab() === 1) {
                     <section cache-model-textures class="studio-surface p-4 texture-panel mt-3" aria-label="Texture images" [ids]="textureIds()" [materials]="textureImages()" [(selected)]="selectedTexture"><ng-content select="[textureErrors]" /></section>
                 }

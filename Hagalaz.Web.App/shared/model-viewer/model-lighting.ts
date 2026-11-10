@@ -25,21 +25,26 @@ const negative = Math.trunc(Math.fround(1.2) * 65535);
 export function lightModel(model: LightingModel, light?: ModelLight): number[] {
     const sums = Array.from({length: model.positions.length / 3}, () => [0, 0, 0, 0]);
     const normals: number[][] = [];
-    for (let face = 0; face < model.indices.length / 3; face++) {
-        const [a, b, c] = model.indices.slice(face * 3, face * 3 + 3).map(vertex => vertex * 3);
-        const ab = [0, 1, 2].map(axis => model.positions[b + axis] - model.positions[a + axis]);
-        const ac = [0, 1, 2].map(axis => model.positions[c + axis] - model.positions[a + axis]);
-        let x = (ab[1] * ac[2] - ac[1] * ab[2]) | 0;
-        let y = (ab[2] * ac[0] - ac[2] * ab[0]) | 0;
-        let z = (ab[0] * ac[1] - ac[0] * ab[1]) | 0;
+    const { positions, indices } = model;
+    for (let corner = 0; corner < indices.length; corner += 3) {
+        const a = indices[corner] * 3, b = indices[corner + 1] * 3, c = indices[corner + 2] * 3;
+        const abX = positions[b] - positions[a], acX = positions[c] - positions[a];
+        const abY = positions[b + 1] - positions[a + 1], acY = positions[c + 1] - positions[a + 1];
+        const abZ = positions[b + 2] - positions[a + 2], acZ = positions[c + 2] - positions[a + 2];
+        let x = (abY * acZ - acY * abZ) | 0;
+        let y = (abZ * acX - acZ * abX) | 0;
+        let z = (abX * acY - acX * abY) | 0;
         while (Math.max(Math.abs(x), Math.abs(y), Math.abs(z)) > 8192) { x >>= 1; y >>= 1; z >>= 1; }
         const length = Math.max(1, Math.trunc(Math.sqrt(x * x + y * y + z * z)));
-        const normal = [x, y, z].map(value => Math.trunc(value * 256 / length));
+        const normal = [Math.trunc(x * 256 / length), Math.trunc(y * 256 / length), Math.trunc(z * 256 / length)];
         normals.push(normal);
-        if ((model.faceShadingTypes?.[face] ?? 0) === 0) {
-            for (const vertex of [a / 3, b / 3, c / 3]) {
-                for (let axis = 0; axis < 3; axis++) sums[vertex][axis] += normal[axis];
-                sums[vertex][3]++;
+        if ((model.faceShadingTypes?.[corner / 3] ?? 0) === 0) {
+            for (let index = corner; index < corner + 3; index++) {
+                const sum = sums[indices[index]];
+                sum[0] += normal[0];
+                sum[1] += normal[1];
+                sum[2] += normal[2];
+                sum[3]++;
             }
         }
     }
@@ -116,7 +121,23 @@ function softwareHsv(packed: number): number {
     return (hue << 10 | (hsvSaturation >> 4) << 7 | value) & 65535;
 }
 
+// The inspection gamma is fixed. Store the same 16-bit palette entries the client looks up.
+const hslPalette = new Uint32Array(65536);
+const hsvPalette = new Uint32Array(65536);
+
 function paletteColor(packed: number, hsv: boolean): number[] {
+    const index = packed & 0xffff;
+    const palette = hsv ? hsvPalette : hslPalette;
+    let rgb = palette[index];
+    if (rgb === 0) {
+        const [red, green, blue] = computePaletteColor(index, hsv);
+        rgb = 0x1000000 | (red << 16) | (green << 8) | blue;
+        palette[index] = rgb;
+    }
+    return [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
+}
+
+function computePaletteColor(packed: number, hsv: boolean): number[] {
     const hue = (packed >> 10 & 63) / 64 + 1 / 128;
     const saturation = (packed >> 7 & 7) / 8 + 1 / 16;
     const value = (packed & 127) / 128;

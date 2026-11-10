@@ -7,6 +7,37 @@ namespace Hagalaz.Cache.Tests;
 public class ModelGeometryDecoderTests
 {
     [Theory]
+    [InlineData(false, 255, -1)]
+    [InlineData(false, 7, 7)]
+    [InlineData(true, 0, -1)]
+    [InlineData(true, 0x80, 256)]
+    public void Decode_PreservesBillboardAfterParticleAttachments(bool smartGroup, byte group, int expectedGroup)
+    {
+        byte[] geometry = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84];
+        byte[] attachments = [1, 0, 9, 0, 0, 1, 0, 3, 0, 2, 1, 0, 42, 0, 0, group];
+        byte[] footer = [0, 3, 0, 1, 0, (byte)(smartGroup ? 0x46 : 6), 0, 0, 0, 0, 0,
+            0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
+        byte[] data = smartGroup && group == 0x80
+            ? [.. geometry, .. attachments.AsSpan(0, attachments.Length - 1), 0x81, 1, 253, .. footer]
+            : [.. geometry, .. attachments, 253, .. footer];
+
+        var decoded = ModelGeometryDecoder.Decode(data);
+
+        Assert.Equal(new ModelGeometryDecoder.EmitterAttachment(9, 0), Assert.Single(decoded.Emitters!));
+        Assert.Equal(new ModelGeometryDecoder.EffectorAttachment(3, 2), Assert.Single(decoded.Effectors!));
+        Assert.Equal(new ModelGeometryDecoder.BillboardAttachment(42, 0, expectedGroup, -3), Assert.Single(decoded.Billboards!));
+        Assert.Equal(new[] { 0, 1, 2 }, decoded.Indices);
+    }
+
+    [Fact]
+    public void DecodeBillboard_PreservesDimensionsTextureBlendAndFlags()
+    {
+        using var data = new MemoryStream([3, 255, 1, 1, 7, 2, 0, 10, 0, 20, 5, 31, 4, 1, 6, 7, 0]);
+        Assert.Equal(new ModelBillboardDecoder.Definition(263, 11, 21, 1, true, true), ModelBillboardDecoder.Decode(data));
+        Assert.Equal(data.Length, data.Position);
+    }
+
+    [Theory]
     [InlineData(false, 0)]
     [InlineData(false, 1)]
     [InlineData(true, 0)]

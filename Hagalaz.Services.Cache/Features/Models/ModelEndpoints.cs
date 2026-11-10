@@ -133,7 +133,11 @@ public static class ModelEndpoints
         using var container = cache.ReadContainer(7, id);
         var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
         return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
-                new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }.Concat(ProjectionWarnings(geometry.FirstTexelFaces)).ToArray(), CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes, FirstTexelFaces: geometry.FirstTexelFaces));
+                new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }.Concat(ProjectionWarnings(geometry.FirstTexelFaces)).ToArray(), CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes, FirstTexelFaces: geometry.FirstTexelFaces)
+        {
+            Billboards = ReadBillboards(cache, geometry.Billboards ?? []),
+            Effectors = ReadEffectors(cache, geometry.Effectors ?? []),
+        });
     }
 
     private static IResult GetNpcModel(int id, ICacheAPI cache, ITypeProvider<INpcType> npcs)
@@ -301,6 +305,8 @@ public static class ModelEndpoints
         var textureUvs = new List<float>();
         var firstTexelFaces = new List<int>();
         var emitters = new List<ModelGeometryDecoder.EmitterAttachment>();
+        var effectors = new List<ModelGeometryDecoder.EffectorAttachment>();
+        var billboards = new List<ModelGeometryDecoder.BillboardAttachment>();
         {
             foreach (var modelId in modelIds.Where(modelId => modelId >= 0))
             {
@@ -311,6 +317,8 @@ public static class ModelEndpoints
                 var faceOffset = colors.Count;
                 if (placement is { } transform) PrepareObjectPart(part.Positions, part.Indices, part.FaceTextureUvs, transform, part.Version < 13 ? 4 : 1);
                 emitters.AddRange((part.Emitters ?? []).Select(emitter => emitter with { Face = emitter.Face + faceOffset }));
+                effectors.AddRange((part.Effectors ?? []).Select(effector => effector with { Vertex = effector.Vertex + vertexOffset }));
+                billboards.AddRange((part.Billboards ?? []).Select(billboard => billboard with { Face = billboard.Face + faceOffset }));
                 for (var coordinate = 0; coordinate < part.Positions.Length; coordinate++)
                 {
                     var axis = coordinate % 3;
@@ -331,7 +339,7 @@ public static class ModelEndpoints
                 skins.AddRange(part.VertexSkins ?? Enumerable.Repeat(-1, part.Positions.Length / 3).ToArray());
             }
             var objectAnimation = placement is { } placed && animationIds.Any(animationId => animationId >= 0)
-                && (skins.Any(skin => skin >= 0) || faceSkins.Any(skin => skin >= 0))
+                && (skins.Any(skin => skin >= 0) || faceSkins.Any(skin => skin >= 0) || billboards.Any(billboard => billboard.Group >= 0))
                 ? new ObjectAnimationPoseDto(placed.Orientation & 3, [offsetX * 4, offsetY * 4, offsetZ * 4], extraRotation ? positions.ToArray() : null)
                 : null;
             if (extraRotation)
@@ -350,6 +358,8 @@ public static class ModelEndpoints
                 new[] { warning }.Concat(ProjectionWarnings(firstTexelFaces.ToArray())).ToArray(), animationIds.Where(animationId => animationId >= 0).Distinct().ToArray(), 1, faceSkins.ToArray(), textureIds.ToArray(), textureVertices.ToArray(), textureUvs.ToArray(), scale, ReadParticles(cache, emitters), priorities.ToArray(), shadingTypes.ToArray(), ambient, contrast, firstTexelFaces.ToArray())
             {
                 ObjectAnimation = objectAnimation,
+                Billboards = ReadBillboards(cache, billboards),
+                Effectors = ReadEffectors(cache, effectors),
             };
         }
     }
@@ -400,6 +410,34 @@ public static class ModelEndpoints
         return cache.Read(indexId, fileId, member.Index);
     }
 
+    private static ModelBillboardDto[]? ReadBillboards(ICacheAPI cache, IReadOnlyList<ModelGeometryDecoder.BillboardAttachment> attachments)
+    {
+        if (attachments.Count == 0) return null;
+        var definitions = new Dictionary<int, (ModelBillboardDefinitionDto? Definition, string? Warning)>();
+        var result = new ModelBillboardDto[attachments.Count];
+        for (var i = 0; i < result.Length; i++)
+        {
+            var attachment = attachments[i];
+            if (!definitions.TryGetValue(attachment.DefinitionId, out var resolved))
+            {
+                try
+                {
+                    using var data = ReadMember(cache, 29, 0, attachment.DefinitionId);
+                    var definition = ModelBillboardDecoder.Decode(data);
+                    resolved = (new(definition.TextureId, definition.HalfWidth, definition.HalfHeight, definition.BlendMode,
+                        definition.HideFace, definition.HideInSpecialPass), null);
+                }
+                catch (Exception exception) when (exception is System.IO.IOException or System.IO.InvalidDataException)
+                {
+                    resolved = (null, $"Model billboard #{attachment.DefinitionId} is unavailable: {exception.Message}");
+                }
+                definitions.Add(attachment.DefinitionId, resolved);
+            }
+            result[i] = new(attachment.DefinitionId, attachment.Face, attachment.Group, attachment.DepthOffset, resolved.Definition, resolved.Warning);
+        }
+        return result;
+    }
+
     private static ModelParticleDto[] ReadParticles(ICacheAPI cache, IEnumerable<ModelGeometryDecoder.EmitterAttachment> attachments)
     {
         var result = new List<ModelParticleDto>();
@@ -412,14 +450,42 @@ public static class ModelEndpoints
                 using var data = ReadMember(cache, 27, 0, group.Key);
                 var decoded = ParticleEmitterDecoder.Decode(data.ToArray());
                 definition = new ParticleEmitterDto(decoded.TextureId, decoded.ColorMin, decoded.ColorMax, decoded.LifeMin, decoded.LifeMax,
-                    decoded.RateMin, decoded.RateMax, decoded.SizeMin, decoded.SizeMax, decoded.SpeedMin, decoded.SpeedMax, decoded.Angles, decoded.UnsupportedOpcodes);
+                    decoded.RateMin, decoded.RateMax, decoded.SizeMin, decoded.SizeMax, decoded.SpeedMin, decoded.SpeedMax, decoded.Angles, decoded.UnsupportedOpcodes,
+                    decoded.LocalEffectorIds, decoded.SpeedDrag is { } drag ? new ParticleDragDto(drag.Mode, drag.Strength) : null);
             }
-            catch (Exception exception) when (exception is System.IO.IOException or NotSupportedException)
+            catch (Exception exception) when (exception is System.IO.IOException or System.IO.InvalidDataException or NotSupportedException)
             {
                 warning = $"Particle emitter #{group.Key} is unavailable: {exception.Message}";
             }
             result.AddRange(group.Select(attachment => new ModelParticleDto(attachment.EmitterId, attachment.Face, definition, warning)));
         }
         return result.ToArray();
+    }
+
+    private static ModelEffectorDto[]? ReadEffectors(ICacheAPI cache, IReadOnlyList<ModelGeometryDecoder.EffectorAttachment> attachments)
+    {
+        if (attachments.Count == 0) return null;
+        var definitions = attachments.Select(attachment => attachment.EffectorId).Distinct()
+            .ToDictionary(id => id, id => ReadEffector(cache, id));
+        return attachments.Select(attachment =>
+        {
+            var (definition, warning) = definitions[attachment.EffectorId];
+            return new ModelEffectorDto(attachment.EffectorId, attachment.Vertex, definition, warning);
+        }).ToArray();
+    }
+
+    private static (ParticleEffectorDto? Definition, string? Warning) ReadEffector(ICacheAPI cache, int id)
+    {
+        try
+        {
+            using var data = ReadMember(cache, 27, 1, id);
+            var d = ParticleEffectorDecoder.Decode(data);
+            var warning = d.Scope == 0 ? null : $"Particle effector #{id} uses an unsupported scope ({d.Scope}).";
+            return (new(d.X, d.Y, d.Z, d.ConeAngle, d.Falloff, d.Attenuation, d.Scope, d.DirectDisplacement, d.Radial, d.Reverse), warning);
+        }
+        catch (Exception exception) when (exception is System.IO.IOException or System.IO.InvalidDataException)
+        {
+            return (null, $"Particle effector #{id} is unavailable: {exception.Message}");
+        }
     }
 }

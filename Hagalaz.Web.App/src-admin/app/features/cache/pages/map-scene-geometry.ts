@@ -1,9 +1,10 @@
 import { modelFaceWinding, prepareCacheModel, type CacheModelGeometry } from "../../../../../shared/model-viewer/cache-model-geometry";
 import { unsupportedTransformTypes } from "../../../../../shared/model-viewer/model-pose";
+import type { RenderBillboard } from "../../../../../shared/model-viewer/model-billboards";
 import type { ModelGeometry, ModelTexture, ModelAnimationRange } from "../../../../../shared/model-viewer/model-scene";
 import { mapAppearanceKey, underwaterPlaneIndex, type MapAtmosphere, type MapLandscapeSave, type MapObjectClip, type MapPlacement, type MapRenderRegion, type ObjectRenderAppearance } from "../services/map-render.models";
 import type { GetModelDto } from "../services/dtos";
-import { mapAnimatedAlphaFaces, mapAnimationTimeline, poseMapObject } from "./map-object-animation";
+import { mapAnimatedAlphaFaces, mapAnimationFrame, mapAnimationTimeline, poseMapObject } from "./map-object-animation";
 import { terrainSampler, linearFloorColor, isVisibleFloor, type VisibleFloor, type FloorSample } from "./terrain-blending";
 import { mixWaterFog, waterFogFactor, waterFogLookup, type WaterFog } from "./underwater-fog";
 import { overlayPriority, overlaySample, overlaySpreads, spreadSample, type SpreadLookup } from "./overlay-spreading";
@@ -170,8 +171,9 @@ export interface MapSceneGeometry {
 type SceneObjects = { geometry: MapSceneObjects | null; warnings: string[] };
 type CornerHeights = readonly (number | null)[];
 
-type SceneGeometry = Omit<MapSceneObjects, "uvs" | "animations"> & {
+type SceneGeometry = Omit<MapSceneObjects, "uvs" | "animations" | "billboards"> & {
     animations?: ModelAnimationRange[];
+    billboards?: RenderBillboard[];
     placements: MapObjectRange[];
     firstTexelVertices: number[];
     positions: number[];
@@ -230,6 +232,7 @@ interface PreparedMapPart {
     firstTexel?: Uint8Array;
     facePriorities?: readonly number[];
     maxHeight: number;
+    billboards?: readonly RenderBillboard[];
 }
 
 // Limit retained frame arrays across the landscape, regardless of clip size or placement count.
@@ -237,28 +240,29 @@ const maxCachedPoseBytes = 16 * 1024 * 1024;
 
 function animatePart(model: GetModelDto, base: PreparedMapPart, clip: MapObjectClip, { textures, atmosphere, poseBudget }: SceneContext) {
     const sample = mapAnimationTimeline(clip);
-    const poses = new Map<number, PreparedMapPart>();
+    const poses = new Map<number | string, PreparedMapPart>();
     const projected: ScenePoint[] = [];
     let output: { positions: Float32Array; rgba: Float32Array } | undefined;
-    let previous: { id: number; part: PreparedMapPart } | undefined;
+    let previous: { key: number | string; part: PreparedMapPart } | undefined;
     return {
         sample,
         projected,
         alphaFaces: mapAnimatedAlphaFaces(model, clip),
         output: () => output ??= { positions: new Float32Array(base.indices.length * 3), rgba: new Float32Array(base.indices.length * 4) },
-        pose(id: number): PreparedMapPart {
-            if (previous?.id === id) return previous.part;
-            const cached = poses.get(id);
+        pose(sampled: ReturnType<typeof sample>): PreparedMapPart {
+            const { key } = sampled;
+            if (previous?.key === key) return previous.part;
+            const cached = poses.get(key);
             if (cached) return cached;
-            const frame = clip.frames.get(id);
+            const frame = mapAnimationFrame(clip, sampled);
             const posed = frame ? poseMapObject(model, frame) : model;
             const part = packAnimatedPart(base, prepareCacheModel({ ...posed, particles: [] }, textures, atmosphere));
             const bytes = animatedPartBytes(part);
             if (bytes <= poseBudget.remainingBytes) {
                 poseBudget.remainingBytes -= bytes;
-                poses.set(id, part);
+                poses.set(key, part);
             }
-            previous = { id, part };
+            previous = { key, part };
             return part;
         },
     };
@@ -277,7 +281,7 @@ function packAnimatedPart(base: PreparedMapPart, prepared: ModelGeometry): Prepa
     }
     let maxHeight = 1;
     for (let coordinate = 1; coordinate < positions.length; coordinate += 3) maxHeight = Math.max(maxHeight, positions[coordinate]);
-    return { ...base, positions, maxHeight, colors: prepared.colors && Float64Array.from(prepared.colors), opacities: prepared.opacities && Float64Array.from(prepared.opacities) };
+    return { ...base, positions, maxHeight, colors: prepared.colors && Float64Array.from(prepared.colors), opacities: prepared.opacities && Float64Array.from(prepared.opacities), billboards: prepared.billboards };
 }
 
 function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | "faceColors">, prepared: ModelGeometry): PreparedMapPart {
@@ -314,6 +318,7 @@ function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | 
         textureIds: prepared.textureIds && Int32Array.from(prepared.textureIds),
         firstTexel: prepared.firstTexel && Uint8Array.from(prepared.firstTexel),
         facePriorities: prepared.facePriorities,
+        billboards: prepared.billboards,
     };
 }
 
@@ -770,10 +775,29 @@ function appendPlacementPart(
     const offset = decorationOffset(region, projection.placement, context.appearances, partIndex);
     const start = context.geometry.positions.length / 3;
     appendPart(context, projection.placement.plane, part, projected, offset);
-    const animation = animationForPart(context, projection.appearance.parts[partIndex], part);
+    const model = projection.appearance.parts[partIndex];
+    const startBillboard = appendBillboards(context, model, part, start, projection);
+    const animation = animationForPart(context, model, part);
     if (!animation || !part.indices.length) return;
     context.geometry.animations ??= [];
-    context.geometry.animations.push(placementAnimation(context, projection, part, projected, offset, start, animation));
+    context.geometry.animations.push(placementAnimation(context, projection, part, projected, offset, start, animation, startBillboard));
+}
+
+function appendBillboards(context: SceneContext, model: GetModelDto, part: PreparedMapPart, start: number, projection: PlacementProjection): number {
+    for (const billboard of model.billboards ?? []) if (billboard.warning) context.warnings.add(billboard.warning);
+    if (!part.billboards?.length) return 0;
+    context.geometry.billboards ??= [];
+    const startBillboard = context.geometry.billboards.length;
+    context.geometry.billboards.push(...placeBillboards(part.billboards, start, projection.transform?.scale ?? 1));
+    return startBillboard;
+}
+
+function placeBillboards(billboards: readonly RenderBillboard[], start: number, scale: number): RenderBillboard[] {
+    return billboards.map(billboard => ({
+        ...billboard, face: billboard.face + start / 3,
+        halfWidth: billboard.halfWidth * scale, halfHeight: billboard.halfHeight * scale,
+        depthOffset: billboard.depthOffset * scale,
+    }));
 }
 
 function animationForPart(context: SceneContext, model: GetModelDto, base: PreparedMapPart) {
@@ -796,22 +820,27 @@ function animationForPart(context: SceneContext, model: GetModelDto, base: Prepa
 function placementAnimation(
     { regions, originX, originY, lightTint }: Pick<SceneContext, "regions" | "originX" | "originY" | "lightTint">,
     placement: PlacementProjection, basePart: PreparedMapPart, baseProjection: readonly ScenePoint[], offset: readonly number[],
-    startVertex: number, animation: ReturnType<typeof animatePart>,
+    startVertex: number, animation: ReturnType<typeof animatePart>, startBillboard: number,
 ): ModelAnimationRange {
     return {
         startVertex,
         vertexCount: basePart.indices.length,
         alphaFaces: animation.alphaFaces,
+        startBillboard: basePart.billboards?.length ? startBillboard : undefined,
+        billboardCount: basePart.billboards?.length,
         sample(elapsed, previousElapsed) {
-            const { id, delay } = animation.sample(elapsed);
-            if (previousElapsed !== undefined && animation.sample(previousElapsed).id === id) return { delay };
-            let part = animation.pose(id);
+            const sampled = animation.sample(elapsed);
+            const { key, delay } = sampled;
+            if (previousElapsed !== undefined && animation.sample(previousElapsed).key === key) return { delay };
+            let part = animation.pose(sampled);
             const projection = projectPart(regions, placement, part, animation.projected);
             if (!projection) part = basePart;
             const projected = projection ?? baseProjection;
             const pose = animation.output();
             writePlacedAnimationPose(pose, part, projected, originX, originY, offset, lightTint);
-            return { delay, pose };
+            return { delay, pose: part.billboards?.length ? {
+                ...pose, billboards: placeBillboards(part.billboards, startVertex, placement.transform?.scale ?? 1),
+            } : pose };
         },
     };
 }

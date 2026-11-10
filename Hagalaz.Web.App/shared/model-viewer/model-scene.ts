@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { clientFixedWater, clientHdWater, clientReflection, fixedWaterParameters, isFixedWater, sampleMaterialEffect, type MaterialEffect } from "./material-effects";
-import {ModelParticles, type ModelParticle} from "./model-particles";
+import {ModelParticles, type ModelParticle, type PosedEffector} from "./model-particles";
+import { ModelBillboards, type RenderBillboard } from "./model-billboards";
 import { OrientationGizmo } from "./orientation-gizmo";
 import { PlacementGizmo, type PlacementGizmoTarget } from "./placement-gizmo";
 import { applyTerrainMaterials, TerrainMaterial, terrainSurfaceMaterial, type TerrainBlend } from "./terrain-material";
@@ -29,6 +30,8 @@ export interface ModelGeometry {
     waterDepth?: readonly number[];
     facePriorities?: readonly number[];
     particles?: readonly ModelParticle[];
+    effectors?: readonly PosedEffector[];
+    billboards?: readonly RenderBillboard[];
     particleScale?: number;
     animations?: readonly ModelAnimationRange[];
     /** This geometry equals `base` except for the vertices in `ranges`, as [start, end) pairs. */
@@ -40,8 +43,10 @@ export interface ModelAnimationRange {
     startVertex: number;
     vertexCount: number;
     alphaFaces: readonly boolean[];
+    startBillboard?: number;
+    billboardCount?: number;
     /** The renderer copies the pose before sampling another range. */
-    sample(elapsed: number, previousElapsed?: number): { delay: number; pose?: { positions: Float32Array; rgba: Float32Array } };
+    sample(elapsed: number, previousElapsed?: number): { delay: number; pose?: { positions: Float32Array; rgba: Float32Array; billboards?: readonly RenderBillboard[] } };
 }
 
 /** Unindexed triangles drawn over a scene: six vertices and one sRGB colour per tile. */
@@ -124,6 +129,7 @@ export class ModelScene {
     private epoch?: number;
     private lastTime?: number;
     private particles?: ModelParticles;
+    private billboards?: ModelBillboards;
     private readonly effectUpdates = new Map<THREE.Material, (seconds: number) => void>();
     private disposed = false;
     private textureImages?: ReadonlyMap<number, ModelTexture>;
@@ -482,6 +488,7 @@ export class ModelScene {
         this.lastTime = time;
         if (this.framing === "map") this.renderObjectAnimations(time);
         this.controls.update();
+        this.updateBillboards();
         this.placementGizmo?.fitToCamera();
         this.orderSurfaces();
         this.renderer.render(this.scene, this.camera);
@@ -552,9 +559,11 @@ export class ModelScene {
                 if (!pose) continue;
                 positions.array.set(pose.positions, start * 3);
                 colors.array.set(pose.rgba, start * 4);
+                this.writeBillboards(animation, pose.billboards);
             } else {
                 positions.array.set(basePositions.slice(start * 3, end * 3), start * 3);
                 colors.array.set(baseColors.subarray(start * 4, end * 4), start * 4);
+                this.writeBillboards(animation);
             }
             positions.addUpdateRange(start * 3, animation.vertexCount * 3);
             colors.addUpdateRange(start * 4, animation.vertexCount * 4);
@@ -650,7 +659,29 @@ export class ModelScene {
         surface.texturesDirty = false;
         this.fitGrid();
         if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
+        this.setBillboards(model, surface);
         if (fitCamera) this.resetCamera();
+    }
+
+    private setBillboards(model: ModelGeometry, surface: MeshSurface): void {
+        if (surface !== this.primary) return;
+        if (!model.billboards?.length) {
+            this.billboards?.dispose();
+            this.billboards = undefined;
+            return;
+        }
+        this.billboards ??= new ModelBillboards(this.scene, this.textures);
+        this.billboards.reset(model.billboards);
+    }
+
+    private updateBillboards(): void {
+        if (this.billboards && this.primary.mesh) this.billboards.update(this.primary.mesh.geometry.getAttribute("position") as THREE.BufferAttribute, this.camera);
+    }
+
+    private writeBillboards({ startBillboard, billboardCount }: ModelAnimationRange, pose?: readonly RenderBillboard[]): void {
+        if (!this.billboards || startBillboard === undefined) return;
+        const base = this.primary.currentModel?.billboards ?? [];
+        this.billboards.write(startBillboard, pose ?? base.slice(startBillboard, startBillboard + (billboardCount ?? 0)));
     }
 
     private createTexturedMaterial(texture: THREE.Texture, asset: ModelTexture | undefined, model: ModelGeometry, vertexColors: boolean, transparent: boolean, firstTexel: boolean): SurfaceMaterial {
@@ -704,6 +735,7 @@ export class ModelScene {
         existing.geometry.computeVertexNormals();
         existing.geometry.computeBoundingSphere();
         if (existing.geometry.boundingBox) existing.geometry.computeBoundingBox();
+        this.setBillboards(model, surface);
         return true;
     }
 
@@ -899,6 +931,8 @@ export class ModelScene {
         if (surface === this.primary) {
             this.particles?.dispose();
             this.particles = undefined;
+            this.billboards?.dispose();
+            this.billboards = undefined;
         }
         if (!preserveMaterials) {
             for (const entry of surface.materials.values()) entry.material.dispose();

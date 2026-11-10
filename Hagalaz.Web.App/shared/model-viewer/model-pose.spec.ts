@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { poseModel, poseFaceAlpha, poseFaceColors, unsupportedTransformTypes, type AnimationFrameData } from "./model-pose";
+import { poseModel, poseBillboards, poseFaceAlpha, poseFaceColors, unsupportedTransformTypes, type AnimationFrameData } from "./model-pose";
 import { readFileSync } from "node:fs";
 import { prepareCacheModel } from "./cache-model-geometry";
 
@@ -88,4 +88,17 @@ it("reports unsupported transforms while applying the supported transforms in th
     };
     expect(unsupportedTransformTypes(data)).toEqual([11]);
     expect(poseModel([0, 0, 0], [0], data)).toEqual([4, 0, 0]);
+});
+
+it("matches compiled OpenGL billboard translation, angle wrap and successive integer scales", () => {
+    const types = [8, 9, 9, 10, 10];
+    const xy = [[-11, 19], [16380, 0], [8, 0], [65, 193], [65, 67]];
+    const data: AnimationFrameData = {
+        skeleton: { types, groups: types.map(() => [0]) },
+        frame: { skeletonId: 1, transforms: xy.map(([x, y], slot) => ({ slot, x, y, z: 0, pivotSlot: -1, tweenFlags: 0 })) },
+    };
+    expect(poseBillboards([{ group: 0 }, { group: 1 }], data)).toEqual([
+        { group: 0, pose: { x: -11, y: 19, angle: 4, scaleX: 33, scaleY: 101 } },
+        { group: 1, pose: { x: 0, y: 0, angle: 0, scaleX: 128, scaleY: 128 } },
+    ]);
 });
