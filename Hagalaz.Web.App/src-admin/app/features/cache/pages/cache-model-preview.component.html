@@ -49,14 +49,12 @@
 </ng-template>
 
 <ng-template #particleControls>
-    @if (modelValue()?.particles?.length) {
-        <label>
-            Particle playback speed
-            <select #playbackSpeedSelect (change)="particlePlaybackSpeed.set(+playbackSpeedSelect.value)" [value]="particlePlaybackSpeed()">
-                <option value="1">100%</option>
-                <option value="0.5">50%</option>
-                <option value="0.25">25%</option>
-            </select>
-        </label>
-    }
+    <label [hidden]="!modelValue()?.particles?.length">
+        Particle playback speed
+        <select #playbackSpeedSelect (change)="particlePlaybackSpeed.set(+playbackSpeedSelect.value)" [value]="particlePlaybackSpeed()">
+            <option value="1">100%</option>
+            <option value="0.5">50%</option>
+            <option value="0.25">25%</option>
+        </select>
+    </label>
 </ng-template>

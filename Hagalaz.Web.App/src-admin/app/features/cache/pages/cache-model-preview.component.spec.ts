@@ -1,3 +1,4 @@
+import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { provideHttpClient } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
 import { Component, input } from "@angular/core";
@@ -6,7 +7,6 @@ import { provideRouter } from "@angular/router";
 import { By } from "@angular/platform-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ModelViewerComponent } from "../../../../../shared/model-viewer/model-viewer.component";
-import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { environment } from "../../../../environments/environment";
 import { CacheModelPreviewComponent } from "./cache-model-preview.component";
 import { ModelWorkspaceComponent } from "./model-workspace.component";
@@ -241,6 +241,14 @@ describe("CacheModelPreviewComponent playback", () => {
         http.expectOne(`${baseUrl}textures/744/image?sourceAlpha=true`).flush(new Blob());
         await vi.waitFor(()=>{settle();expect(fixture.componentInstance.textureData.hasValue()).toBe(true);},{interval:1});
         expect(fixture.componentInstance.geometry()?.particles?.[0].emitterId).toBe(403);
+        const playback = fixture.nativeElement.querySelector("select") as HTMLSelectElement;
+        playback.value = "0.25";
+        playback.dispatchEvent(new Event("change"));
+        settle();
+        const renderer = fixture.debugElement.query(By.directive(RendererBoundary)).componentInstance as RendererBoundary;
+        expect(renderer.particlePlaybackSpeed()).toBe(0.25);
+        expect(renderer.height()).toBe(fixture.componentInstance.height());
+        expect(renderer.textures().has(744)).toBe(true);
         expect(fixture.componentInstance.geometry()?.particles?.[0].definition?.angles).toEqual(definition.angles);
         expect(fixture.componentInstance.geometry()?.particles?.[0].definition?.constantEffectors).toEqual(definition.constantEffectors);
         expect(fixture.nativeElement.textContent).toContain("Particle emitter #403");

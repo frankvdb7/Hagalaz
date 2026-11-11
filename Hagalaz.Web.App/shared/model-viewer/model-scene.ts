@@ -88,7 +88,7 @@ export interface ModelTexture extends MaterialEffect {
     hdr?: {width: number; height: number; rgba: number[]};
 }
 
-interface RegionSun {
+export interface RegionSun {
     lightRgb: number;
     directionX: number;
     directionY: number;
@@ -504,14 +504,7 @@ export class ModelScene {
         if (this.framing === "model") this.renderer.setAnimationLoop(this.renderFrame);
     }
 
-    private readonly renderFrame = (time: number): void => {
-        this.epoch ??= time;
-        const seconds = (time - this.epoch) / 1000;
-        for (const [id, texture] of this.textures) {
-            const phase = sampleMaterialEffect(this.textureImages?.get(id) ?? {}, seconds);
-            texture.offset.set(phase.u, phase.v);
-        }
-        for (const update of this.effectUpdates.values()) update(seconds);
+    private updateParticles(time: number): void {
         if (this.particles && this.primary.currentModel) {
             const elapsed = this.lastTime === undefined ? 0 : Math.min(100, Math.max(0, time - this.lastTime));
             const ticks = this.particleTickRemainder + elapsed * this.particlePlaybackSpeed / animationTickMs;
@@ -521,6 +514,17 @@ export class ModelScene {
             this.particles.update(wholeTicks / 1000, this.primary.currentModel,
                 this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
         }
+    }
+
+    private readonly renderFrame = (time: number): void => {
+        this.epoch ??= time;
+        const seconds = (time - this.epoch) / 1000;
+        for (const [id, texture] of this.textures) {
+            const phase = sampleMaterialEffect(this.textureImages?.get(id) ?? {}, seconds);
+            texture.offset.set(phase.u, phase.v);
+        }
+        for (const update of this.effectUpdates.values()) update(seconds);
+        this.updateParticles(time);
         this.lastTime = time;
         if (this.framing === "map") this.renderObjectAnimations(time);
         this.controls.update();
@@ -549,19 +553,12 @@ export class ModelScene {
         const model = surface.currentModel;
         const mesh = surface.mesh;
         const animations = model?.animations;
-        if (animations && this.objectAnimationsEnabled && this.lastObjectAnimationTime !== undefined &&
-            time < this.nextObjectAnimationTime) return;
+        if (animations && this.waitingForObjectAnimation(time)) return;
         clearTimeout(this.animationTimer);
         this.animationTimer = undefined;
-        if (!animations || !model.vertexRgba || !mesh) {
-            this.objectAnimationEpoch = undefined;
-            this.lastObjectAnimationTime = undefined;
-            return;
-        }
+        if (!animations || !model.vertexRgba || !mesh) return this.resetObjectAnimationTime();
         if (!this.objectAnimationsEnabled) {
-            if (this.lastObjectAnimationTime !== undefined) this.updateObjectAnimationRanges(mesh, animations, model.positions, model.vertexRgba, null);
-            this.lastObjectAnimationTime = undefined;
-            this.objectAnimationEpoch = undefined;
+            this.restoreObjectAnimationPose(mesh, animations, model.positions, model.vertexRgba);
             return;
         }
         this.objectAnimationEpoch ??= time;
@@ -569,11 +566,29 @@ export class ModelScene {
         const next = this.updateObjectAnimationRanges(mesh, animations, model.positions, model.vertexRgba, elapsed);
         this.lastObjectAnimationTime = elapsed;
         this.nextObjectAnimationTime = time + next;
+        this.scheduleObjectAnimation(next);
+    }
+
+    private scheduleObjectAnimation(next: number): void {
         if (next < Infinity) this.animationTimer = setTimeout(() => {
             // A frame timestamp can precede a timer callback in the same browser frame.
             this.nextObjectAnimationTime = 0;
             this.requestRender();
         }, next);
+    }
+
+    private waitingForObjectAnimation(time: number): boolean {
+        return this.objectAnimationsEnabled && this.lastObjectAnimationTime !== undefined && time < this.nextObjectAnimationTime;
+    }
+
+    private resetObjectAnimationTime(): void {
+        this.objectAnimationEpoch = undefined;
+        this.lastObjectAnimationTime = undefined;
+    }
+
+    private restoreObjectAnimationPose(mesh: NonNullable<MeshSurface["mesh"]>, animations: readonly ModelAnimationRange[], positions: readonly number[], colors: Float32Array): void {
+        if (this.lastObjectAnimationTime !== undefined) this.updateObjectAnimationRanges(mesh, animations, positions, colors, null);
+        this.resetObjectAnimationTime();
     }
 
     private updateObjectAnimationRanges(
@@ -620,7 +635,7 @@ export class ModelScene {
     setGeometry(model: ModelGeometry, fitCamera = true, surface = this.primary): void {
         if (this.disposed) throw new Error("The model scene has been disposed.");
         const previousModel = surface.currentModel;
-        if (previousModel === model && surface.mesh && !surface.texturesDirty) return;
+        if (this.isCurrentSurface(surface, model)) return;
         if (this.applyPositionPatch(surface, model)) return;
         surface.currentModel = model;
         surface.orderingDirty = true;
@@ -629,6 +644,16 @@ export class ModelScene {
         const firstTexel = model.firstTexel?.some(value => value !== 0) ?? false;
         if (this.updateInPlace(surface, model, previousModel, firstTexel)) return;
         const retainedGeometry = previousModel === model ? existing?.geometry : undefined;
+        const { geometry, materials } = this.rebuildSurface(model, surface, firstTexel, retainedGeometry);
+        this.attachSurface(geometry, materials, model, surface, firstTexel);
+        if (fitCamera) this.resetCamera();
+    }
+
+    private isCurrentSurface(surface: MeshSurface, model: ModelGeometry): boolean {
+        return surface.currentModel === model && !!surface.mesh && !surface.texturesDirty;
+    }
+
+    private rebuildSurface(model: ModelGeometry, surface: MeshSurface, firstTexel: boolean, retainedGeometry?: THREE.BufferGeometry): { geometry: THREE.BufferGeometry; materials: SurfaceMaterial[] } {
         this.clear(true, !!retainedGeometry, surface);
         if (surface === this.primary) {
             this.epoch = undefined;
@@ -638,21 +663,31 @@ export class ModelScene {
         }
         const geometry = retainedGeometry ?? new THREE.BufferGeometry();
         if (!retainedGeometry) fillGeometry(geometry, model, firstTexel);
+        const materials = this.prepareSurfaceMaterials(geometry, model, surface, firstTexel, !!retainedGeometry);
+        return { geometry, materials };
+    }
+
+    private attachSurface(geometry: THREE.BufferGeometry, materials: SurfaceMaterial[], model: ModelGeometry, surface: MeshSurface, firstTexel: boolean): void {
+        this.assignSurfaceGroups(geometry, model, surface);
+        surface.mesh = new THREE.Mesh(geometry, materials);
+        surface.mesh.frustumCulled = !hasObjectAnimations(model);
+        // Translucent ground draws first, then translucent objects sort among themselves.
+        if (surface === this.terrain) surface.mesh.renderOrder = -1;
+        surface.mesh.userData["preparedLighting"] = !!model.preparedLighting;
+        surface.mesh.userData["firstTexel"] = firstTexel;
+        this.applyWireframe();
+        surface.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
+        this.scene.add(surface.mesh);
+        surface.texturesDirty = false;
+        this.fitGrid();
+        if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
+        this.setBillboards(model, surface);
+    }
+
+    private prepareSurfaceMaterials(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface, firstTexel: boolean, retainGeometry: boolean): SurfaceMaterial[] {
         const usedMaterials = new Set<string>();
-        const useMaterial = <T extends SurfaceMaterial>(key: string, create: () => T, texture?: THREE.Texture, asset?: ModelTexture): T => {
-            usedMaterials.add(key);
-            const existing = surface.materials.get(key);
-            if (existing && existing.texture === texture && existing.asset === asset) return existing.material as T;
-            if (existing) {
-                existing.material.dispose();
-                this.effectUpdates.delete(existing.material);
-            }
-            const material = create();
-            if (model.mapPlanes) this.mapLighting.apply(material);
-            surface.materials.set(key, { material, texture, asset });
-            return material;
-        };
-        const colorSize = model.vertexRgba || model.opacities ? 4 : model.colors ? 3 : 0;
+        const useMaterial = this.surfaceMaterialCache(surface, model, usedMaterials);
+        const colorSize = surfaceColorSize(model);
         const options = { vertexColors: colorSize !== 0, ...(model.preparedLighting ? {} : {roughness: 0.8}) };
         const surfaceKey = `${!!model.preparedLighting}:${colorSize}:${!!model.mapPlanes}`;
         const OrdinaryMaterial = model.preparedLighting ? THREE.MeshBasicMaterial : THREE.MeshStandardMaterial;
@@ -671,33 +706,39 @@ export class ModelScene {
             materials.push(create(asset?.alphaMode === 2));
             materials.push(create(true));
         }
-        applyTerrainMaterials(geometry, materials, retainedGeometry ? undefined : model.terrainWeights, model.terrainBlends, this.textures, blend => {
+        applyTerrainMaterials(geometry, materials, retainGeometry ? undefined : model.terrainWeights, model.terrainBlends, this.textures, blend => {
             const key = `terrain:${!!model.mapPlanes}:${blend.layers.map(layer => `${layer.textureId}:${layer.textureScale}:${!!layer.reflective}`).join("|")}`;
             const material = useMaterial(key, () => new TerrainMaterial(blend, this.textures, { map: this.environmentMap, enabled: this.environmentEnabled }));
             material.updateTextures(this.textures);
             return material;
         });
+        this.pruneSurfaceMaterials(surface, usedMaterials);
+        return materials;
+    }
+
+    private surfaceMaterialCache(surface: MeshSurface, model: ModelGeometry, usedMaterials: Set<string>) {
+        return <T extends SurfaceMaterial>(key: string, create: () => T, texture?: THREE.Texture, asset?: ModelTexture): T => {
+            usedMaterials.add(key);
+            const existing = surface.materials.get(key);
+            if (existing && existing.texture === texture && existing.asset === asset) return existing.material as T;
+            if (existing) {
+                existing.material.dispose();
+                this.effectUpdates.delete(existing.material);
+            }
+            const material = create();
+            if (model.mapPlanes) this.mapLighting.apply(material);
+            surface.materials.set(key, { material, texture, asset });
+            return material;
+        };
+    }
+
+    private pruneSurfaceMaterials(surface: MeshSurface, usedMaterials: ReadonlySet<string>): void {
         for (const [key, entry] of surface.materials) {
             if (usedMaterials.has(key)) continue;
             entry.material.dispose();
             this.effectUpdates.delete(entry.material);
             surface.materials.delete(key);
         }
-        this.assignSurfaceGroups(geometry, model, surface);
-        surface.mesh = new THREE.Mesh(geometry, materials);
-        surface.mesh.frustumCulled = !hasObjectAnimations(model);
-        // Translucent ground draws first, then translucent objects sort among themselves.
-        if (surface === this.terrain) surface.mesh.renderOrder = -1;
-        surface.mesh.userData["preparedLighting"] = !!model.preparedLighting;
-        surface.mesh.userData["firstTexel"] = firstTexel;
-        this.applyWireframe();
-        surface.mesh.name = model.sourceId === undefined ? "" : String(model.sourceId);
-        this.scene.add(surface.mesh);
-        surface.texturesDirty = false;
-        this.fitGrid();
-        if (model.particles?.length) this.particles = new ModelParticles(this.scene, model.particles, this.textures);
-        this.setBillboards(model, surface);
-        if (fitCamera) this.resetCamera();
     }
 
     private setBillboards(model: ModelGeometry, surface: MeshSurface): void {
@@ -1137,29 +1178,38 @@ export class ModelScene {
         const textureIndices = new Map(textureIds.map((id, index) => [id, index]));
         const modes = this.textureDrawModes(textureIds);
         const opaque = new Map<number, number[]>();
+        this.collectSurfaceFaces(model, surface, textureIndices, modes, opaque);
+        this.writeOpaqueGroups(geometry, surface, opaque);
+    }
+
+    private collectSurfaceFaces(model: ModelGeometry, surface: MeshSurface, textureIndices: ReadonlyMap<number, number>,
+        modes: ReturnType<ModelScene["textureDrawModes"]>, opaque: Map<number, number[]>): void {
         const sourceIndices = surface.sourceIndices;
-        const opacities = model.vertexRgba ?? model.opacities;
-        const animatedAlpha = animatedAlphaFaces(model);
-        const stride = model.vertexRgba ? 4 : 1, offset = model.vertexRgba ? 3 : 0;
+        const isTranslucent = faceTranslucency(model);
         for (let start = 0; start < model.indices.length; start += 3) {
             const face = start / 3;
             const a = sourceIndices[start];
             const b = sourceIndices[start + 1];
             const c = sourceIndices[start + 2];
-            const translucent = animatedAlpha.has(face) || hasTranslucentVertex(opacities, stride, offset, a, b, c);
+            const translucent = isTranslucent(face, a, b, c);
             const textureId = model.textureIds?.[face] ?? -1;
-            const textureIndex = textureIndices.get(textureId) ?? -1;
-            const material = terrainSurfaceMaterial(textureId, model.terrainBlends, textureIds.length, (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0));
+            const material = this.faceMaterial(model, textureIndices, textureId, translucent);
             if (modes.animated.has(textureId)) surface.animatedWater = true;
             const transparent = translucent || modes.transparent.has(textureId);
             if (transparent) {
                 surface.blendedSurfaces.push({ sourceStart: start, material, depth: 0, priority: model.facePriorities?.[face] ?? 0 });
             } else {
-                let indices = opaque.get(material);
-                if (!indices) { indices = []; opaque.set(material, indices); }
-                indices.push(a, b, c);
+                appendOpaqueFace(opaque, material, a, b, c);
             }
         }
+    }
+
+    private faceMaterial(model: ModelGeometry, textureIndices: ReadonlyMap<number, number>, textureId: number, translucent: boolean): number {
+        const textureIndex = textureIndices.get(textureId) ?? -1;
+        return terrainSurfaceMaterial(textureId, model.terrainBlends, textureIndices.size, (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0));
+    }
+
+    private writeOpaqueGroups(geometry: THREE.BufferGeometry, surface: MeshSurface, opaque: ReadonlyMap<number, number[]>): void {
         // Only the renderer's draw index is permuted. Animation and particles retain source face IDs.
         const index = geometry.index!;
         let cursor = 0;
@@ -1172,11 +1222,7 @@ export class ModelScene {
         // The next frame writes the transparent tail using its final camera transform.
     }
 
-    private orderBlendedSurfaces(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
-        // Opaque/cutout draw ranges are camera-independent; never rescan them during an orbit.
-        if (!surface.blendedSurfaces.length && geometry.groups.length) return;
-        geometry.clearGroups();
-        for (const group of surface.opaqueGroups) geometry.addGroup(group.start, group.count, group.materialIndex);
+    private updateBlendedDepths(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
         const positions = geometry.getAttribute("position");
         for (const face of surface.blendedSurfaces) {
             this.centroid.set(0, 0, 0);
@@ -1188,8 +1234,16 @@ export class ModelScene {
             }
             face.depth = this.centroid.dot(this.viewDepthAxis);
         }
+    }
+
+    private orderBlendedSurfaces(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
+        // Opaque/cutout draw ranges are camera-independent; never rescan them during an orbit.
+        if (!surface.blendedSurfaces.length && geometry.groups.length) return;
+        geometry.clearGroups();
+        for (const group of surface.opaqueGroups) geometry.addGroup(group.start, group.count, group.materialIndex);
+        this.updateBlendedDepths(geometry, model, surface);
         // Groups share one object/depth in Three's stable transparent render list.
-        surface.blendedSurfaces.sort((a, b) => a.priority - b.priority || b.depth - a.depth || a.sourceStart - b.sourceStart);
+        surface.blendedSurfaces.sort(compareBlendedFaces);
         const index = geometry.index!;
         const drawIndices = index.array;
         let cursor = surface.opaqueGroups.reduce((count, group) => count + group.count, 0);
@@ -1197,23 +1251,60 @@ export class ModelScene {
         let previous = geometry.groups[geometry.groups.length - 1];
         for (const face of surface.blendedSurfaces) {
             const start = cursor;
-            for (let corner = 0; corner < 3; corner++) {
-                const vertex = surface.sourceIndices[face.sourceStart + corner];
-                if (drawIndices[cursor] !== vertex) {
-                    drawIndices[cursor] = vertex;
-                    changed = true;
-                }
-                cursor++;
-            }
-            if (previous && previous.materialIndex === face.material && previous.start + previous.count === start)
-                previous.count += 3;
-            else {
-                geometry.addGroup(start, 3, face.material);
-                previous = geometry.groups[geometry.groups.length - 1];
-            }
+            changed = this.writeBlendedFace(drawIndices, cursor, surface.sourceIndices, face.sourceStart) || changed;
+            cursor += 3;
+            previous = extendBlendedGroup(geometry, previous, start, face.material);
         }
         if (changed) index.needsUpdate = true;
     }
+
+    private writeBlendedFace(drawIndices: ArrayLike<number> & { [index: number]: number }, cursor: number, sourceIndices: ArrayLike<number>, start: number): boolean {
+        let changed = false;
+        for (let corner = 0; corner < 3; corner++) {
+            const vertex = sourceIndices[start + corner];
+            if (drawIndices[cursor + corner] !== vertex) {
+                drawIndices[cursor + corner] = vertex;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+}
+
+function extendBlendedGroup(geometry: THREE.BufferGeometry, previous: THREE.BufferGeometry["groups"][number] | undefined,
+    start: number, material: number): THREE.BufferGeometry["groups"][number] {
+    if (previous && previous.materialIndex === material && previous.start + previous.count === start) {
+        previous.count += 3;
+        return previous;
+    }
+    geometry.addGroup(start, 3, material);
+    return geometry.groups[geometry.groups.length - 1];
+}
+
+function compareBlendedFaces(a: MeshSurface["blendedSurfaces"][number], b: MeshSurface["blendedSurfaces"][number]): number {
+    return a.priority - b.priority || b.depth - a.depth || a.sourceStart - b.sourceStart;
+}
+
+function faceTranslucency(model: ModelGeometry): (face: number, a: number, b: number, c: number) => boolean {
+    const opacities = model.vertexRgba ?? model.opacities;
+    const animatedAlpha = animatedAlphaFaces(model);
+    const stride = model.vertexRgba ? 4 : 1;
+    const offset = model.vertexRgba ? 3 : 0;
+    return (face, a, b, c) => animatedAlpha.has(face) || hasTranslucentVertex(opacities, stride, offset, a, b, c);
+}
+
+function appendOpaqueFace(opaque: Map<number, number[]>, material: number, a: number, b: number, c: number): void {
+    let indices = opaque.get(material);
+    if (!indices) {
+        indices = [];
+        opaque.set(material, indices);
+    }
+    indices.push(a, b, c);
+}
+
+function surfaceColorSize(model: ModelGeometry): number {
+    if (model.vertexRgba || model.opacities) return 4;
+    return model.colors ? 3 : 0;
 }
 
 function hasObjectAnimations(model: ModelGeometry): boolean {

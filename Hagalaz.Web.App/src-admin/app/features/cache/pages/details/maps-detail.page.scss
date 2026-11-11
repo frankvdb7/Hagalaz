@@ -1,3 +1,5 @@
+@use "../map-inspector-heading" as inspector;
+
 :host { display: block; }
 .region-editor { display: grid; gap: 12px; }
 .region-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -30,22 +32,8 @@
 h3 mat-icon { color: var(--mat-sys-primary); }
 aside section { padding: 16px; }
 section + section { border-top: 1px solid var(--mat-sys-outline-variant); }
-.region-inspector h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font: var(--mat-sys-label-large); letter-spacing: .07em; text-transform: uppercase; }
-.region-stats { display: grid; gap: 6px; margin: 0; }
-.region-stats div { display: flex; justify-content: space-between; gap: 8px; }
-.region-stats dt { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--mat-sys-on-surface-variant); }
-.region-stats dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: end; font-variant-numeric: tabular-nums; }
-.position-mode {
-    display: flex;
-    margin-bottom: 12px;
-}
-.position-mode mat-button-toggle { flex: 1 1 0; }
-.transform-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 4px; }
-.transform-fields mat-form-field { min-width: 0; }
-.active-field { outline: 1px solid var(--mat-sys-primary); border-radius: 6px; }
-.property-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.open-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.open-actions a { min-width: 0; }
+.region-inspector h3 { @include inspector.heading; }
+
 
 
 @media (width > 920px) {

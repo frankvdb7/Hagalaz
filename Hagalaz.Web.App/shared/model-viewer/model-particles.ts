@@ -63,11 +63,10 @@ function localEffectors(model: ModelGeometry, ids: readonly number[] | null | un
 }
 
 /** Class325_Sub3_Sub1_Sub1 applies local forces in cache coordinates per millisecond. */
-function applyParticleForces(slot: ParticleSlot, { effectors, constants, scale }: ParticleMotion, dt: number): void {
+function applyLocalParticleForces(slot: ParticleSlot, { effectors, scale }: ParticleMotion, milliseconds: number): [number, number, number] {
     const x = Math.floor(slot.position.x / scale);
     const y = Math.floor(-slot.position.y / scale);
     const z = Math.floor(slot.position.z / scale);
-    const milliseconds = dt * 1000;
     let forceX = 0, forceY = 0, forceZ = 0;
     for (const effector of effectors) {
         const force = sampleEffector(effector, x, y, z);
@@ -80,6 +79,13 @@ function applyParticleForces(slot: ParticleSlot, { effectors, constants, scale }
             forceZ += force[2];
         }
     }
+    return [forceX, forceY, forceZ];
+}
+
+function applyParticleForces(slot: ParticleSlot, motion: ParticleMotion, dt: number): void {
+    const { constants, scale } = motion;
+    const milliseconds = dt * 1000;
+    let [forceX, forceY, forceZ] = applyLocalParticleForces(slot, motion, milliseconds);
     for (const force of constants) {
         if (force.directDisplacement) {
             displaceParticle(slot.position, force.x, force.y, force.z, scale, milliseconds);
@@ -153,25 +159,30 @@ function advanceParticle(slot: ParticleSlot, motion: ParticleMotion, dt: number)
     const { effectors, constants, scale, drag, size, speed, color } = motion;
     slot.age += dt;
     if (slot.age >= slot.life) return;
-    if (color) {
-        const age = Math.round(slot.age * 1000);
-        const milliseconds = Math.round(dt * 1000);
-        for (let channel = 0; channel < colorShifts.length; channel++) {
-            if (age <= (channel === 3 ? color.alphaDuration : color.rgbDuration)) {
-                slot.color[channel] = THREE.MathUtils.clamp(slot.color[channel] + color.steps[channel] * milliseconds, 0, 65535);
-            }
-        }
-    }
+    if (color) advanceParticleColor(slot, color, dt);
     if (size && Math.round(slot.age * 1000) <= size.duration) slot.size += size.changePerMillisecond * Math.round(dt * 1000);
-    if (speed && slot.direction && Math.round(slot.age * 1000) <= speed.duration) {
-        const unit = scale * 1000 / 262144;
-        const next = (Math.round(slot.speed / unit) + speed.rawChangePerMillisecond * Math.round(dt * 1000)) | 0;
-        slot.speed = next * unit;
-        setFixedPointVelocity(slot.velocity, slot.direction, next, scale);
-    }
+    if (speed) advanceParticleSpeed(slot, speed, scale, dt);
     if (drag) applySpeedDrag(slot, drag, scale, dt);
     if (effectors.length || constants.length) applyParticleForces(slot, motion, dt);
     slot.position.addScaledVector(slot.velocity, dt);
+}
+
+function advanceParticleSpeed(slot: ParticleSlot, speed: NonNullable<ParticleMotion["speed"]>, scale: number, dt: number): void {
+    if (!slot.direction || Math.round(slot.age * 1000) > speed.duration) return;
+    const unit = scale * 1000 / 262144;
+    const next = (Math.round(slot.speed / unit) + speed.rawChangePerMillisecond * Math.round(dt * 1000)) | 0;
+    slot.speed = next * unit;
+    setFixedPointVelocity(slot.velocity, slot.direction, next, scale);
+}
+
+function advanceParticleColor(slot: ParticleSlot, color: NonNullable<ParticleMotion["color"]>, dt: number): void {
+    const age = Math.round(slot.age * 1000);
+    const milliseconds = Math.round(dt * 1000);
+    for (let channel = 0; channel < colorShifts.length; channel++) {
+        if (age <= (channel === 3 ? color.alphaDuration : color.rgbDuration)) {
+            slot.color[channel] = THREE.MathUtils.clamp(slot.color[channel] + color.steps[channel] * milliseconds, 0, 65535);
+        }
+    }
 }
 
 /** Class325_Sub3_Sub1_Sub1 damps raw speed using distance to the current emitter centroid. */
@@ -198,23 +209,26 @@ function advanceBirth(slot: ParticleSlot, motion: ParticleMotion, dt: number, bi
     if (age > 256) advanceParticle(slot, motion, (age >> 8) / 1000);
 }
 
+function particleColorCurve(definition: ParticleDefinition): ParticleMotion["color"] {
+    if (!definition.colorOverLife) return;
+    const { targetArgb, rgbLifetimePercent, alphaLifetimePercent } = definition.colorOverLife;
+    const maxLife = Math.round(definition.lifeMax * 1000);
+    const rgbDuration = Math.trunc(maxLife * rgbLifetimePercent / 100) || 1;
+    const alphaDuration = Math.trunc(maxLife * alphaLifetimePercent / 100) || 1;
+    const steps = colorShifts.map((shift, channel) => {
+        const min = (definition.colorMin >>> shift) & 255;
+        const max = (definition.colorMax >>> shift) & 255;
+        const midpoint = min + Math.trunc((max - min) / 2);
+        const target = (targetArgb >>> shift) & 255;
+        const step = Math.trunc(((target - midpoint) << 8) / (channel === 3 ? alphaDuration : rgbDuration));
+        return step + (step > 0 ? -4 : 4);
+    });
+    return { rgbDuration, alphaDuration, steps };
+}
+
 function particleMotion(model: ModelGeometry, definition: ParticleDefinition, scale: number, a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3): ParticleMotion {
     const motion: ParticleMotion = { scale, effectors: localEffectors(model, definition.localEffectorIds, scale), constants: definition.constantEffectors ?? [] };
-    if (definition.colorOverLife) {
-        const { targetArgb, rgbLifetimePercent, alphaLifetimePercent } = definition.colorOverLife;
-        const maxLife = Math.round(definition.lifeMax * 1000);
-        const rgbDuration = Math.trunc(maxLife * rgbLifetimePercent / 100) || 1;
-        const alphaDuration = Math.trunc(maxLife * alphaLifetimePercent / 100) || 1;
-        const steps = colorShifts.map((shift, channel) => {
-            const min = (definition.colorMin >>> shift) & 255;
-            const max = (definition.colorMax >>> shift) & 255;
-            const midpoint = min + Math.trunc((max - min) / 2);
-            const target = (targetArgb >>> shift) & 255;
-            const step = Math.trunc(((target - midpoint) << 8) / (channel === 3 ? alphaDuration : rgbDuration));
-            return step + (step > 0 ? -4 : 4);
-        });
-        motion.color = { rgbDuration, alphaDuration, steps };
-    }
+    motion.color = particleColorCurve(definition);
     if (definition.speedOverLife) {
         const { rawTarget, lifetimePercent } = definition.speedOverLife;
         const duration = Math.trunc(Math.round(definition.lifeMax * 1000) * lifetimePercent / 100) || 1;
@@ -241,9 +255,11 @@ function particleMotion(model: ModelGeometry, definition: ParticleDefinition, sc
     return motion;
 }
 
+type ParticleSurface = {attachment: ModelParticle; points: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>; slots: ParticleSlot[]; credit: number; next: number; seed: number};
+
 /** One model's bounded particle surfaces; ModelScene owns timing and texture lifetime. */
 export class ModelParticles {
-    private readonly surfaces: {attachment: ModelParticle; points: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>; slots: ParticleSlot[]; credit: number; next: number; seed: number}[] = [];
+    private readonly surfaces: ParticleSurface[] = [];
     constructor(private readonly scene: THREE.Scene, particles: readonly ModelParticle[], textures: ReadonlyMap<number, THREE.Texture>) {
         for (const [index, attachment] of particles.slice(0,4096).entries()) {
             const d = attachment.definition;
@@ -291,57 +307,8 @@ export class ModelParticles {
             const motion = particleMotion(model, d, scale, a, b, c);
             const tint = new THREE.Color();
             advanceParticles(surface.slots, motion, dt);
-            const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
-            const forceDirection = new THREE.Vector3();
-            for (const force of motion.constants) {
-                if (force.directDisplacement) continue;
-                forceDirection.x += force.x;
-                forceDirection.y -= force.y;
-                forceDirection.z += force.z;
-            }
-            forceDirection.normalize();
-            for (let birth = 0; birth < births; birth++) {
-                const slot = surface.slots[surface.next++ % surface.slots.length];
-                let u = random(), v = random(); if (u + v > 1) {u = 1-u; v = 1-v;}
-                slot.position.copy(a).multiplyScalar(1-u-v).addScaledVector(b, u).addScaledVector(c, v);
-                if (motion.drag) quantizeBirthPosition(slot.position, scale);
-                launchDirection(slot.velocity, normal, d.angles, random);
-                if (forceDirection.lengthSq()) slot.velocity.copy(forceDirection);
-                slot.speed = sample(d.speedMin,d.speedMax) * scale;
-                slot.direction = motion.speed ? [
-                    Math.trunc(slot.velocity.x * 32768),
-                    Math.trunc(-slot.velocity.y * 32768),
-                    Math.trunc(slot.velocity.z * 32768),
-                ] : undefined;
-                slot.velocity.multiplyScalar(slot.speed);
-                slot.life = sample(d.lifeMin,d.lifeMax); slot.age = 0; slot.size = sample(d.sizeMin,d.sizeMax) * scale;
-                const mix = random();
-                const alphaMix = motion.color ? random() : mix;
-                slot.color = colorShifts.map((shift, channel) => {
-                    const value = ((d.colorMin >>> shift) & 255) + (channel === 3 ? alphaMix : mix)
-                        * (((d.colorMax >>> shift) & 255) - ((d.colorMin >>> shift) & 255));
-                    return motion.color ? Math.trunc(value) << 8 : value / 255;
-                });
-                if (!motion.color) {
-                    tint.setRGB(slot.color[0], slot.color[1], slot.color[2]).convertSRGBToLinear();
-                    slot.color[0] = tint.r; slot.color[1] = tint.g; slot.color[2] = tint.b;
-                }
-                advanceBirth(slot, motion, dt, birth, births);
-            }
-            const positions = surface.points.geometry.getAttribute("position"), colors = surface.points.geometry.getAttribute("particleColor"), sizes = surface.points.geometry.getAttribute("particleSize");
-            surface.slots.forEach((slot, index) => {
-                positions.setXYZ(index, slot.position.x, slot.position.y, slot.position.z);
-                const alive = slot.age < slot.life;
-                const [r, g, b, alpha] = slot.color;
-                if (motion.color) {
-                    tint.setRGB((r >> 8) / 255, (g >> 8) / 255, (b >> 8) / 255).convertSRGBToLinear();
-                    colors.setXYZW(index, tint.r, tint.g, tint.b, alive ? (alpha >> 8) / 255 : 0);
-                } else {
-                    colors.setXYZW(index, r, g, b, alive ? alpha * (1-slot.age/slot.life) : 0);
-                }
-                sizes.setX(index, alive ? Math.max(0, slot.size) : 0);
-            });
-            positions.needsUpdate = colors.needsUpdate = sizes.needsUpdate = true;
+            emitParticles(surface, [a, b, c], motion, dt, births, random, sample, tint);
+            writeParticleBuffers(surface, tint, motion.color !== undefined);
             surface.points.material.uniforms.pixelScale.value = pixelScale;
         }
     }
@@ -350,6 +317,70 @@ export class ModelParticles {
         for (const {points} of this.surfaces) {this.scene.remove(points); points.geometry.dispose(); points.material.dispose();}
         this.surfaces.length = 0;
     }
+}
+
+function emitParticles(surface: ParticleSurface, [a, b, c]: readonly THREE.Vector3[], motion: ParticleMotion,
+    dt: number, births: number, random: () => number, sample: (min: number, max: number) => number, tint: THREE.Color): void {
+    const d = surface.attachment.definition!;
+    const { scale } = motion;
+    const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
+    const forceDirection = new THREE.Vector3();
+    for (const force of motion.constants) {
+        if (force.directDisplacement) continue;
+        forceDirection.x += force.x;
+        forceDirection.y -= force.y;
+        forceDirection.z += force.z;
+    }
+    forceDirection.normalize();
+    for (let birth = 0; birth < births; birth++) {
+        const slot = surface.slots[surface.next++ % surface.slots.length];
+        let u = random(), v = random(); if (u + v > 1) {u = 1-u; v = 1-v;}
+        slot.position.copy(a).multiplyScalar(1-u-v).addScaledVector(b, u).addScaledVector(c, v);
+        if (motion.drag) quantizeBirthPosition(slot.position, scale);
+        launchDirection(slot.velocity, normal, d.angles, random);
+        if (forceDirection.lengthSq()) slot.velocity.copy(forceDirection);
+        slot.speed = sample(d.speedMin,d.speedMax) * scale;
+        slot.direction = motion.speed ? [
+            Math.trunc(slot.velocity.x * 32768),
+            Math.trunc(-slot.velocity.y * 32768),
+            Math.trunc(slot.velocity.z * 32768),
+        ] : undefined;
+        slot.velocity.multiplyScalar(slot.speed);
+        slot.life = sample(d.lifeMin,d.lifeMax); slot.age = 0; slot.size = sample(d.sizeMin,d.sizeMax) * scale;
+        initializeParticleColor(slot, d, random, tint, motion.color !== undefined);
+        advanceBirth(slot, motion, dt, birth, births);
+    }
+}
+
+function initializeParticleColor(slot: ParticleSlot, d: ParticleDefinition, random: () => number, tint: THREE.Color, hasColorCurve: boolean): void {
+    const mix = random();
+    const alphaMix = hasColorCurve ? random() : mix;
+    slot.color = colorShifts.map((shift, channel) => {
+        const value = ((d.colorMin >>> shift) & 255) + (channel === 3 ? alphaMix : mix)
+            * (((d.colorMax >>> shift) & 255) - ((d.colorMin >>> shift) & 255));
+        return hasColorCurve ? Math.trunc(value) << 8 : value / 255;
+    });
+    if (!hasColorCurve) {
+        tint.setRGB(slot.color[0], slot.color[1], slot.color[2]).convertSRGBToLinear();
+        slot.color[0] = tint.r; slot.color[1] = tint.g; slot.color[2] = tint.b;
+    }
+}
+
+function writeParticleBuffers(surface: ParticleSurface, tint: THREE.Color, hasColorCurve: boolean): void {
+    const positions = surface.points.geometry.getAttribute("position"), colors = surface.points.geometry.getAttribute("particleColor"), sizes = surface.points.geometry.getAttribute("particleSize");
+    surface.slots.forEach((slot, index) => {
+        positions.setXYZ(index, slot.position.x, slot.position.y, slot.position.z);
+        const alive = slot.age < slot.life;
+        const [r, g, b, alpha] = slot.color;
+        if (hasColorCurve) {
+            tint.setRGB((r >> 8) / 255, (g >> 8) / 255, (b >> 8) / 255).convertSRGBToLinear();
+            colors.setXYZW(index, tint.r, tint.g, tint.b, alive ? (alpha >> 8) / 255 : 0);
+        } else {
+            colors.setXYZW(index, r, g, b, alive ? alpha * (1-slot.age/slot.life) : 0);
+        }
+        sizes.setX(index, alive ? Math.max(0, slot.size) : 0);
+    });
+    positions.needsUpdate = colors.needsUpdate = sizes.needsUpdate = true;
 }
 
 function quantizeBirthPosition(position: THREE.Vector3, scale: number): void {

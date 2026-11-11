@@ -206,9 +206,9 @@ export function applyBrushStroke(regions: readonly MapRenderRegion[], edits: Ter
     const next = new Map(edits);
     let changed = false;
     for (const [wx, wy] of strokeTiles(world, brush)) {
-        const region = regions.find(candidate => candidate.regionX === wx >> 6 && candidate.regionY === wy >> 6 && candidate.terrainStatus === "available");
-        const patch = region && brushPatch(region, brush, wx & 63, wy & 63, flatten);
-        if (!region || !patch) continue;
+        const target = brushTarget(regions, brush, wx, wy, flatten);
+        if (!target) continue;
+        const { region, patch } = target;
         const tiles = new Map(next.get(region.id));
         const key = tileKey(brush.plane, wx & 63, wy & 63);
         tiles.set(key, { ...tiles.get(key), ...patch });
@@ -216,6 +216,13 @@ export function applyBrushStroke(regions: readonly MapRenderRegion[], edits: Ter
         changed = true;
     }
     return changed ? next : edits;
+}
+
+function brushTarget(regions: readonly MapRenderRegion[], brush: TerrainBrush, wx: number, wy: number, flatten: number | null) {
+    const region = regions.find(region => region.regionX === wx >> 6 && region.regionY === wy >> 6 && region.terrainStatus === "available");
+    if (!region) return;
+    const patch = brushPatch(region, brush, wx & 63, wy & 63, flatten);
+    return patch ? { region, patch } : undefined;
 }
 
 function worldOrigin(regions: readonly MapRenderRegion[]): { x: number; y: number } | null {

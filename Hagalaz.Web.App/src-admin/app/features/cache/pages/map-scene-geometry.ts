@@ -284,7 +284,7 @@ function packAnimatedPart(base: PreparedMapPart, prepared: ModelGeometry): Prepa
     return { ...base, positions, maxHeight, colors: prepared.colors && Float64Array.from(prepared.colors), opacities: prepared.opacities && Float64Array.from(prepared.opacities), billboards: prepared.billboards };
 }
 
-function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | "faceColors">, prepared: ModelGeometry): PreparedMapPart {
+function packPartPositions(source: Pick<CacheModelGeometry, "positions" | "indices" | "faceColors">, prepared: ModelGeometry): Pick<PreparedMapPart, "positions" | "positionIndices"> {
     let positions: Float64Array;
     let positionIndices: PreparedMapPart["positionIndices"];
     if (source.faceColors && source.positions.length < prepared.positions.length) {
@@ -307,6 +307,11 @@ function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | 
         positions = Float64Array.from(compact);
         positionIndices = mapping;
     } else positions = Float64Array.from(prepared.positions);
+    return { positions, positionIndices };
+}
+
+function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | "faceColors">, prepared: ModelGeometry): PreparedMapPart {
+    const { positions, positionIndices } = packPartPositions(source, prepared);
     let maxHeight = 1;
     for (let vertex = 1; vertex < positions.length; vertex += 3) maxHeight = Math.max(maxHeight, positions[vertex]);
     const indices = prepared.positions.length / 3 <= 65536 ? Uint16Array.from(prepared.indices) : Uint32Array.from(prepared.indices);
@@ -472,6 +477,21 @@ function touchesChangedGround(context: SceneContext, region: MapRenderRegion, so
     return false;
 }
 
+function atmosphereLightTint(atmosphere: MapAtmosphere | undefined): number[] | undefined {
+    return atmosphere && [16, 8, 0].map(shift => {
+        const value = ((atmosphere.lightRgb >> shift) & 255) / 255;
+        const linear = value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        return linear * (atmosphere.intensity / 1.1523438);
+    });
+}
+
+function finishMapScene(terrain: SceneGeometry, objects: SceneObjects): { geometry: MapSceneGeometry | null; warnings: string[] } {
+    const drawnTerrain = terrain.positions.length ? terrain : null;
+    const drawnObjects = objects.geometry?.positions.length ? objects.geometry : null;
+    if (!drawnTerrain && !drawnObjects) return { geometry: null, warnings: objects.warnings };
+    return { geometry: { terrain: drawnTerrain, objects: drawnObjects, placements: drawnObjects?.placements ?? [] }, warnings: objects.warnings };
+}
+
 export function buildMapScene(
     regions: readonly MapRenderRegion[],
     appearances: ReadonlyMap<string, ObjectRenderAppearance>,
@@ -487,11 +507,7 @@ export function buildMapScene(
 ): { geometry: MapSceneGeometry | null; warnings: string[] } {
     if (!regions.length) return { geometry: null, warnings: [] };
     const atmosphere = regions.find(region => region.id === atmosphereRegionId)?.atmosphere ?? undefined;
-    const lightTint = atmosphere && [16, 8, 0].map(shift => {
-        const value = ((atmosphere.lightRgb >> shift) & 255) / 255;
-        const linear = value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-        return linear * (atmosphere.intensity / 1.1523438);
-    });
+    const lightTint = atmosphereLightTint(atmosphere);
     const geometry = emptySceneGeometry();
     const origin = mapSceneOrigin(regions);
     let sampler: ReturnType<typeof terrainSampler> | undefined;
@@ -532,10 +548,7 @@ export function buildMapScene(
     const objects = landscape
         ? preparation.landscape(regions, visiblePlanes, appearances, textures, atmosphere, draft, filter, clips, () => buildObjects(context, draft), (previous, changed) => refitObjects(context, draft, previous, changed))
         : { geometry: null, warnings: [...context.warnings] };
-    const drawnTerrain = terrain.positions.length ? terrain : null;
-    const drawnObjects = objects.geometry?.positions.length ? objects.geometry : null;
-    if (!drawnTerrain && !drawnObjects) return { geometry: null, warnings: objects.warnings };
-    return { geometry: { terrain: drawnTerrain, objects: drawnObjects, placements: drawnObjects?.placements ?? [] }, warnings: objects.warnings };
+    return finishMapScene(terrain, objects);
 }
 
 function sequentialIndices(count: number): Uint16Array | Uint32Array {
@@ -739,15 +752,10 @@ function addPlacement(context: SceneContext, region: MapRenderRegion, source: Ma
     // Rotation selects the server-rotated appearance, so footprint and decor offsets follow it.
     let placement = transform ? { ...source, x: transform.x, y: transform.y, plane: transform.plane, rotation: transform.rotation } : source;
     if (!context.visiblePlanes[placement.plane]) return;
-    let key = mapAppearanceKey(placement),
-        appearance = context.appearances.get(key);
-    // Keep an edited object drawn (and selectable) at its source rotation until the rotated appearance arrives.
-    if (!appearance && placement.rotation !== source.rotation) {
-        placement = { ...placement, rotation: source.rotation };
-        key = mapAppearanceKey(placement);
-        appearance = context.appearances.get(key);
-    }
-    if (!appearance) return;
+    const resolved = placementAppearance(context.appearances, placement, source.rotation);
+    if (!resolved.appearance) return;
+    const { key, appearance } = resolved;
+    placement = resolved.placement;
     if (appearance.contourMode > 2) {
         context.warnings.add(`Object ${placement.id}: unsupported contour mode ${appearance.contourMode}.`);
         return;
@@ -761,7 +769,24 @@ function addPlacement(context: SceneContext, region: MapRenderRegion, source: Ma
         return;
     }
     const startVertex = context.geometry.positions.length / 3;
-    const projection = { placement, appearance, center, base, transform };
+    appendPlacementParts(context, region, { placement, appearance, center, base, transform }, parts);
+    const endVertex = context.geometry.positions.length / 3;
+    if (endVertex > startVertex) context.geometry.placements.push({ regionId: region.id, placement: source, startVertex, endVertex });
+}
+
+function placementAppearance(appearances: ReadonlyMap<string, ObjectRenderAppearance>, placement: MapPlacement, sourceRotation: number) {
+    let key = mapAppearanceKey(placement),
+        appearance = appearances.get(key);
+    // Keep an edited object drawn (and selectable) at its source rotation until the rotated appearance arrives.
+    if (!appearance && placement.rotation !== sourceRotation) {
+        placement = { ...placement, rotation: sourceRotation };
+        key = mapAppearanceKey(placement);
+        appearance = appearances.get(key);
+    }
+    return { key, appearance, placement };
+}
+
+function appendPlacementParts(context: SceneContext, region: MapRenderRegion, projection: PlacementProjection, parts: readonly PreparedMapPart[]): void {
     for (const [partIndex, part] of parts.entries()) {
         const projected = projectPart(context.regions, projection, part);
         if (!projected) {
@@ -770,8 +795,6 @@ function addPlacement(context: SceneContext, region: MapRenderRegion, source: Ma
         }
         appendPlacementPart(context, region, projection, partIndex, part, projected);
     }
-    const endVertex = context.geometry.positions.length / 3;
-    if (endVertex > startVertex) context.geometry.placements.push({ regionId: region.id, placement: source, startVertex, endVertex });
 }
 
 function appendPlacementPart(
@@ -877,13 +900,16 @@ function projectPart(
         const height = appearance.contourMode ? mapHeight(regions, placement.plane, x, y) : base;
         if (height === null && !transform) return null;
         let delta = base - (height ?? base);
-        if (appearance.contourMode === 2) {
-            const fraction = Math.trunc((up * 65536) / part.maxHeight);
-            delta = fraction < appearance.contourParameter ? Math.trunc((delta * (appearance.contourParameter - fraction)) / appearance.contourParameter) : 0;
-        }
+        delta = contourDelta(delta, up, part.maxHeight, appearance);
         writeProjectedPoint(projected, index / 3, x, up * scale - base + delta, y);
     }
     return projected;
+}
+
+function contourDelta(delta: number, up: number, maxHeight: number, appearance: ObjectRenderAppearance): number {
+    if (appearance.contourMode !== 2) return delta;
+    const fraction = Math.trunc((up * 65536) / maxHeight);
+    return fraction < appearance.contourParameter ? Math.trunc((delta * (appearance.contourParameter - fraction)) / appearance.contourParameter) : 0;
 }
 
 function writeProjectedPoint(projected: ScenePoint[], vertex: number, x: number, y: number, z: number): void {
@@ -905,11 +931,15 @@ function appendPart(context: SceneContext, plane: number, part: PreparedMapPart,
         vertex.x = point.x + offsetX;
         vertex.y = point.y;
         vertex.z = point.z + offsetZ;
-        uv[0] = part.uvs?.[source * 2] ?? 0;
-        uv[1] = part.uvs?.[source * 2 + 1] ?? 0;
-        for (let channel = 0; channel < 3; channel++) color[channel] = part.colors?.[source * 3 + channel] ?? 1;
+        readPartVertexAttributes(part, source, uv, color);
         addVertex(context, plane, vertex, color, part.opacities?.[source] ?? 1, uv, null, part.firstTexel?.[source] ?? 0);
     }
+}
+
+function readPartVertexAttributes(part: PreparedMapPart, source: number, uv: number[], color: number[]): void {
+    uv[0] = part.uvs?.[source * 2] ?? 0;
+    uv[1] = part.uvs?.[source * 2 + 1] ?? 0;
+    for (let channel = 0; channel < 3; channel++) color[channel] = part.colors?.[source * 3 + channel] ?? 1;
 }
 
 function appendFaceData(context: SceneContext, part: PreparedMapPart): void {

@@ -100,7 +100,7 @@ export const mapAppearanceKey = (placement: Pick<MapPlacement, "id" | "shape" | 
 
 export function selectedMapIds(selection: MapSelection): number[] {
     const { id, width, height } = selection;
-    if (![id, width, height].every(Number.isSafeInteger) || id < 0 || id > 65535 || width < 1 || width > 3 || height < 1 || height > 3) return [];
+    if (![id, width, height].every(Number.isSafeInteger) || id < 0 || id > 65535 || ![width, height].every(size => size >= 1 && size <= 3)) return [];
     const x = id >> 8, y = id & 255;
     if (x + width > 256 || y + height > 256) return [];
     return Array.from({ length: width * height }, (_, index) => id + Math.floor(index / height) * 256 + index % height);

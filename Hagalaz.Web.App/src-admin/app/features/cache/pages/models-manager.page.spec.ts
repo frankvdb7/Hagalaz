@@ -1,9 +1,10 @@
+import type { ModelGeometry, ModelTexture } from "../../../../../shared/model-viewer/model-scene";
+import { Component, input } from "@angular/core";
 import {Location} from "@angular/common";
 import {provideLocationMocks} from "@angular/common/testing";
 import {TestbedHarnessEnvironment} from "@angular/cdk/testing/testbed";
 import {provideHttpClient} from "@angular/common/http";
 import {HttpTestingController, provideHttpClientTesting} from "@angular/common/http/testing";
-import {Component, input} from "@angular/core";
 import {TestBed} from "@angular/core/testing";
 import {MatMenuHarness} from "@angular/material/menu/testing";
 import {MatInputHarness} from "@angular/material/input/testing";
@@ -12,22 +13,22 @@ import {provideRouter, Router} from "@angular/router";
 import {RouterTestingHarness} from "@angular/router/testing";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {ModelViewerComponent} from "../../../../../shared/model-viewer/model-viewer.component";
-import type {ModelGeometry, ModelTexture} from "../../../../../shared/model-viewer/model-scene";
 import {environment} from "../../../../environments/environment";
 import {ModelsManagerPageComponent} from "./models-manager.page";
 import {ModelsDetailPageComponent} from "./details/models-detail.page";
 import {ModelWorkspaceComponent} from "./model-workspace.component";
 
-@Component({selector:"hagalaz-model-viewer",template:""})
+@Component({ selector: "hagalaz-model-viewer", template: "" })
 class RendererBoundary {
+    readonly height = input(360);
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
-    readonly height = input(360);
     readonly grid = input(false);
     readonly wireframe = input(false);
     readonly showReset = input(true);
-    reset = vi.fn();
+    readonly particlePlaybackSpeed = input(1);
 }
+
 const baseUrl = environment.cacheApiUrl;
 const model = {id:666, positions:[0,0,0,10,0,0,0,10,0], indices:[0,1,2], faceColors:[127],faceAlpha:[0],warnings:[],animationIds:[],particles:[],coordinateScale:1};
 
@@ -73,6 +74,15 @@ describe("Model detail routing", () => {
         await open("/cache/models");
         await lookup("666");
         await loaded(666);
+        const renderer = harness.fixture.debugElement.query(By.directive(RendererBoundary)).componentInstance as RendererBoundary;
+        expect(renderer.geometry()).toBe(workspace().workspaceGeometry());
+        expect(renderer.textures()).toBe(workspace().textureImages());
+        expect(renderer.height()).toBe(430);
+        expect(renderer.grid()).toBe(workspace().showGrid());
+        expect(renderer.wireframe()).toBe(workspace().wireframe());
+        expect(renderer.showReset()).toBe(false);
+        expect(renderer.particlePlaybackSpeed()).toBe(1);
+
         expect(TestBed.inject(Router).url).toBe("/cache/models/666?offset=0&limit=10");
         expect(workspace().modelId()).toBe(666);
         await lookup("666"); await loaded(666);

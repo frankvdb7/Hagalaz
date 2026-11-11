@@ -1,20 +1,15 @@
+import { MatButtonModule } from "@angular/material/button";
 import { Component, computed, DestroyRef, effect, inject, linkedSignal, signal, untracked } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
-import { MatButtonModule } from "@angular/material/button";
-import { MatButtonToggleModule } from "@angular/material/button-toggle";
 import { MatCardModule } from "@angular/material/card";
-import { MatCheckboxModule } from "@angular/material/checkbox";
 import { MatDialog } from "@angular/material/dialog";
 import { MatDividerModule } from "@angular/material/divider";
-import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
-import { MatInputModule } from "@angular/material/input";
 import { MatMenuModule } from "@angular/material/menu";
-import { MatSelectModule } from "@angular/material/select";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { MatTabsModule } from "@angular/material/tabs";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import { ActivatedRoute, RouterLink } from "@angular/router";
+import { ActivatedRoute } from "@angular/router";
 import { firstValueFrom } from "rxjs";
 import type { PlacementGizmoMode, PlacementGizmoResult } from "../../../../../../shared/model-viewer/placement-gizmo";
 import { PortalBreadcrumbDirective } from "../../../../layout/portal-breadcrumb.directive";
@@ -26,9 +21,10 @@ import { injectCacheDefinitionId } from "../cache-definition-id";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 import { buildMapScene, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapObjectRange, type MapObjectTransform, type MapSceneDraft, type MapSceneFilter } from "../map-scene-geometry";
 import { mapLightField } from "../map-point-lights";
-import { regionDetails, sceneGroups, scenePlacements, shapeLabel, terrainDetails, type SceneSelection } from "../map-scene-tree";
+import { regionDetails, sceneGroups, scenePlacements, terrainDetails, type SceneSelection } from "../map-scene-tree";
 import { MapAssetPanelComponent } from "../map-asset-panel.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
+import { MapObjectInspectorComponent } from "../map-object-inspector.component";
 import { MapRegionDetailsComponent } from "../map-region-details.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
 import { tileFlag } from "../map-tile-flags";
@@ -39,7 +35,7 @@ import { MapViewportComponent } from "../map-viewport.component";
 
 @Component({
     selector: "cache-maps-detail-page",
-    imports: [PortalBreadcrumbDirective, MapViewportComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatButtonModule, MatButtonToggleModule, MatCardModule, MatCheckboxModule, MatDividerModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatSelectModule, MatTabsModule, MatTooltipModule, RouterLink],
+    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
     providers: [CacheMapSceneStore],
     templateUrl: "./maps-detail.page.html",
     styleUrl: "./maps-detail.page.scss",
@@ -59,6 +55,16 @@ export class MapsDetailPageComponent {
     readonly waterSurface = signal(true);
     readonly objectShadows = signal(true);
     readonly walkability = signal(false);
+    readonly layerIcon = (visible: boolean) => visible ? "check_box" : "check_box_outline_blank";
+    readonly regionLabel = computed(() => this.id() ?? "Invalid ID");
+    readonly layerToggles = [
+        { label: "Underwater terrain", visible: this.underwater },
+        { label: "Water surface", visible: this.waterSurface },
+        { label: "Landscape objects", visible: this.landscape },
+        { label: "Object shadows", visible: this.objectShadows },
+        { label: "Walkability (flags, drawn objects)", visible: this.walkability },
+    ];
+
     readonly terrainVisible = signal(true);
     readonly hiddenGroups = signal<ReadonlySet<string>>(new Set());
     readonly hiddenPlacements = linkedSignal<ReadonlySet<MapPlacement>>(() => { this.selectionKey(); return new Set(); });
@@ -129,7 +135,6 @@ export class MapsDetailPageComponent {
     readonly selectedAsset = signal<ObjectCatalogEntry | null>(null);
     private readonly pendingSelection = linkedSignal<MapPlacement | null>(() => { this.selectionKey(); return null; });
     readonly positionMode = signal<"tile" | "world">("tile");
-    readonly shapeLabel = shapeLabel;
     readonly objectTransform = computed(() => {
         const placement = this.selectedObject()?.placement;
         return placement ? this.edits()?.transforms.get(placement) ?? { ...placement, scale: 1 } : null;
