@@ -1,12 +1,13 @@
 import { underwaterPlaneIndex, type MapFloor, type MapRenderPlane, type MapRenderRegion, type MapTerrainSave, type MapTerrainTileChange } from "../services/map-render.models";
 import type { StrokePreviewGeometry } from "../../../../../shared/model-viewer/model-scene";
 import { mapHeight } from "./map-scene-geometry";
+import { isStorableFlags, tileFlagOptions } from "./map-tile-flags";
 
-/** Stored values: height counts steps of 32 above the plane below; floor 0 means none. */
-export interface TerrainTileEdit { height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; }
+/** Stored values: height counts steps of 32 above the plane below; floor 0 means none; flags is the whole flag value. */
+export interface TerrainTileEdit { height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; flags?: number; }
 /** Region ID, then tile key, to the tile's edited values. */
 export type TerrainEdits = ReadonlyMap<number, ReadonlyMap<number, TerrainTileEdit>>;
-export type TerrainBrushTool = "raise" | "lower" | "flatten" | "underlay" | "overlay" | "clear-overlay";
+export type TerrainBrushTool = "raise" | "lower" | "flatten" | "underlay" | "overlay" | "clear-overlay" | "set-flag" | "clear-flag";
 export interface TerrainBrush {
     tool: TerrainBrushTool;
     plane: number;
@@ -16,6 +17,8 @@ export interface TerrainBrush {
     overlay: number | null;
     overlayShape: number;
     overlayRotation: number;
+    /** The flag bit the flag tools set or clear. */
+    flag: number;
 }
 /** A viewport position in scene units, 512 to a tile. */
 export interface BrushPoint { x: number; z: number; }
@@ -49,18 +52,26 @@ function cornerOwners(region: MapRenderRegion, edits: TerrainEdits): CornerOwner
 function previewRegion(region: MapRenderRegion, edits: TerrainEdits, catalog: ReadonlyMap<string, MapFloor>): MapRenderRegion {
     const owners = cornerOwners(region, edits);
     if (!owners.length) return region;
-    const editsHeights = owners.some(owner => [...owner.edits.values()].some(edit => edit.height !== undefined));
-    const planes = region.planes.map(plane => copyPlane(plane, editsHeights));
-    for (const owner of owners) applyOwnerHeights(region, planes, owner);
     const own = edits.get(region.id);
+    const ownEdits = [...own?.values() ?? []];
+    const touched: TouchedValues = {
+        heights: owners.some(owner => [...owner.edits.values()].some(edit => edit.height !== undefined)),
+        floors: ownEdits.some(edit => edit.underlay !== undefined || edit.overlay !== undefined),
+        flags: ownEdits.some(edit => edit.flags !== undefined),
+    };
+    const planes = region.planes.map(plane => copyPlane(plane, touched));
+    for (const owner of owners) applyOwnerHeights(region, planes, owner);
     if (!own) return { ...region, planes };
-    applyFloors(planes, own);
+    applyTileValues(planes, own);
     return { ...region, planes, floors: withPaintedFloors(region.floors, own, catalog) };
 }
 
-// A floor edit keeps the height arrays themselves, which tells the scene that objects need no refit.
-function copyPlane(plane: MapRenderPlane, editsHeights: boolean): MapRenderPlane {
-    return { ...plane, cornerHeights: editsHeights ? [...plane.cornerHeights] : plane.cornerHeights, underlays: [...plane.underlays], overlays: [...plane.overlays], overlayShapes: [...plane.overlayShapes], overlayRotations: [...plane.overlayRotations] };
+interface TouchedValues { heights: boolean; floors: boolean; flags: boolean; }
+
+// An array no edit touches keeps its identity, which tells the scene what it need not rebuild or refit.
+function copyPlane(plane: MapRenderPlane, touched: TouchedValues): MapRenderPlane {
+    const floors = touched.floors ? { underlays: [...plane.underlays], overlays: [...plane.overlays], overlayShapes: [...plane.overlayShapes], overlayRotations: [...plane.overlayRotations] } : {};
+    return { ...plane, ...floors, cornerHeights: touched.heights ? [...plane.cornerHeights] : plane.cornerHeights, flags: touched.flags ? [...plane.flags] : plane.flags };
 }
 
 function applyOwnerHeights(region: MapRenderRegion, planes: MapRenderPlane[], owner: CornerOwner): void {
@@ -94,10 +105,11 @@ function shiftUnderwater(planes: MapRenderPlane[], corner: number, delta: number
     if (heights && height !== null && height !== undefined) heights[corner] = height + delta;
 }
 
-function applyFloors(planes: MapRenderPlane[], edits: ReadonlyMap<number, TerrainTileEdit>): void {
+function applyTileValues(planes: MapRenderPlane[], edits: ReadonlyMap<number, TerrainTileEdit>): void {
     for (const [key, edit] of edits) {
         const { plane: level, x, y } = splitKey(key);
         const plane = planes[level], tile = x * 64 + y;
+        if (edit.flags !== undefined) plane.flags[tile] = edit.flags;
         if (edit.underlay !== undefined) plane.underlays[tile] = edit.underlay;
         if (edit.overlay === undefined) continue;
         plane.overlays[tile] = edit.overlay;
@@ -115,9 +127,10 @@ function paintedFloorKeys(edits: Iterable<TerrainTileEdit>): Set<string> {
     return keys;
 }
 
-function withPaintedFloors(known: readonly MapFloor[], edits: ReadonlyMap<number, TerrainTileEdit>, catalog: ReadonlyMap<string, MapFloor>): MapFloor[] {
+function withPaintedFloors(known: MapFloor[], edits: ReadonlyMap<number, TerrainTileEdit>, catalog: ReadonlyMap<string, MapFloor>): MapFloor[] {
     const present = new Set(known.map(floor => floorKey(floor.overlay, floor.id)));
-    return [...known, ...[...paintedFloorKeys(edits.values())].flatMap(key => present.has(key) ? [] : catalog.get(key) ?? [])];
+    const added = [...paintedFloorKeys(edits.values())].flatMap(key => present.has(key) ? [] : catalog.get(key) ?? []);
+    return added.length ? [...known, ...added] : known;
 }
 
 /** Texture IDs of painted floors, which the scene loader cannot find in the stored terrain. */
@@ -143,7 +156,7 @@ export function mapTerrainSaves(regions: readonly MapRenderRegion[], edits: Terr
 function tileChange(region: MapRenderRegion, key: number, edit: TerrainTileEdit): MapTerrainTileChange[] {
     const { plane, x, y } = splitKey(key);
     const stored = region.planes[plane], tile = x * 64 + y;
-    const changed = { ...heightChange(region, plane, x, y, edit), ...underlayChange(stored, tile, edit), ...overlayChange(stored, tile, edit) };
+    const changed = { ...heightChange(region, plane, x, y, edit), ...underlayChange(stored, tile, edit), ...overlayChange(stored, tile, edit), ...flagsChange(stored, tile, edit) };
     return Object.keys(changed).length ? [{ plane, x, y, ...changed }] : [];
 }
 
@@ -158,6 +171,10 @@ function underlayChange(stored: MapRenderPlane, tile: number, edit: TerrainTileE
 function overlayChange(stored: MapRenderPlane, tile: number, edit: TerrainTileEdit): Partial<MapTerrainTileChange> {
     if (edit.overlay === undefined || !overlayDiffers(stored, tile, edit)) return {};
     return edit.overlay ? { overlay: edit.overlay, overlayShape: edit.overlayShape ?? 0, overlayRotation: edit.overlayRotation ?? 0 } : { overlay: 0 };
+}
+
+function flagsChange(stored: MapRenderPlane, tile: number, edit: TerrainTileEdit): Partial<MapTerrainTileChange> {
+    return edit.flags === undefined || edit.flags === stored.flags[tile] ? {} : { flags: edit.flags };
 }
 
 function overlayDiffers(stored: MapRenderPlane, tile: number, edit: TerrainTileEdit): boolean {
@@ -234,9 +251,19 @@ function strokeTiles(world: readonly { x: number; y: number }[], brush: TerrainB
 function brushPatch(region: MapRenderRegion, brush: TerrainBrush, x: number, y: number, flatten: number | null): TerrainTileEdit | null {
     if (usesCorners(brush)) return heightPatch(region, brush, x, y, flatten);
     if (!region.planes[brush.plane]) return null;
+    if (isFlagTool(brush.tool)) return flagPatch(region.planes[brush.plane], brush, x * 64 + y);
     if (brush.tool === "clear-overlay") return { overlay: 0 };
     if (brush.tool === "underlay") return brush.underlay === null ? null : { underlay: brush.underlay };
     return brush.overlay === null ? null : { overlay: brush.overlay, overlayShape: brush.overlayShape, overlayRotation: brush.overlayRotation };
+}
+
+const isFlagTool = (tool: TerrainBrushTool): boolean => tool === "set-flag" || tool === "clear-flag";
+
+// The format stores one value per tile, so a tile whose result has no stored form is left alone.
+function flagPatch(plane: MapRenderPlane, brush: TerrainBrush, tile: number): TerrainTileEdit | null {
+    const current = plane.flags[tile] ?? 0;
+    const flags = brush.tool === "set-flag" ? current | brush.flag : current & ~brush.flag;
+    return isStorableFlags(flags) ? { flags } : null;
 }
 
 function heightPatch(region: MapRenderRegion, brush: TerrainBrush, x: number, y: number, flatten: number | null): TerrainTileEdit | null {
@@ -283,6 +310,12 @@ function groundOutline(regions: readonly MapRenderRegion[], plane: number, origi
 
 /** Height strokes draw over the ground in this colour, so the raised area stands out. */
 const heightPreviewRgb = 0xffb800;
+/** Flag strokes draw over the ground, so the floor stays readable beneath them. */
+const flagPreviewOpacity = 0.6;
+/** A cleared flag shows as a pale wash, distinct from every flag colour. */
+const clearedFlagRgb = 0xffffff;
+const flagPreviewRgb = (brush: TerrainBrush): number =>
+    (brush.tool === "set-flag" ? tileFlagOptions.find(option => option.bit === brush.flag)?.rgb : undefined) ?? clearedFlagRgb;
 /** Approximates the region lighting that the finished ground bakes into its textures. */
 const litTextureTint = 0xa0a0a0;
 const previewTileVertices: readonly (readonly [number, number])[] = [[0, 0], [1, 0], [0, 1], [0, 1], [1, 0], [1, 1]];
@@ -297,7 +330,7 @@ export function terrainStrokePreview(regions: readonly MapRenderRegion[], brush:
     if (!origin || !stroke) return null;
     const after = applyTerrainEdits(regions, stroke, floors);
     const texture = paintedFloor(brush, floors);
-    const preview: StrokePreviewGeometry = { positions: [], rgb: [], uvs: [], textureId: texture && texture.textureId >= 0 ? texture.textureId : null, opacity: usesCorners(brush) ? 0.45 : 1 };
+    const preview: StrokePreviewGeometry = { positions: [], rgb: [], uvs: [], textureId: texture && texture.textureId >= 0 ? texture.textureId : null, opacity: usesCorners(brush) ? 0.45 : isFlagTool(brush.tool) ? flagPreviewOpacity : 1 };
     for (const [wx, wy] of previewTiles(regions, stroke, brush)) addPreviewTile(preview, after, brush, origin, wx, wy, texture);
     return preview.positions.length ? preview : null;
 }
@@ -336,6 +369,7 @@ function addPreviewTile(preview: StrokePreviewGeometry, regions: readonly MapRen
 
 function previewTileRgb(regions: readonly MapRenderRegion[], brush: TerrainBrush, wx: number, wy: number, floor: MapFloor | undefined): number {
     if (usesCorners(brush)) return heightPreviewRgb;
+    if (isFlagTool(brush.tool)) return flagPreviewRgb(brush);
     if (floor) return floor.textureId >= 0 ? litTextureTint : floor.rgb ?? 0;
     const region = regions.find(candidate => candidate.regionX === wx >> 6 && candidate.regionY === wy >> 6);
     const underlay = region?.planes[brush.plane]?.underlays[(wx & 63) * 64 + (wy & 63)];
@@ -344,6 +378,6 @@ function previewTileRgb(regions: readonly MapRenderRegion[], brush: TerrainBrush
 
 /** What a terrain save leaves as it was, phrased for the save confirmation. */
 export function terrainEditNotes(edits: TerrainEdits | undefined): string[] {
-    for (const region of edits?.values() ?? []) for (const edit of region.values()) if (edit.height !== undefined) return ["Walkability and other tile flags are not changed."];
+    for (const region of edits?.values() ?? []) for (const edit of region.values()) if (edit.flags !== undefined) return ["Tile flag changes reach a running game world only after it reloads the region."];
     return [];
 }

@@ -223,13 +223,77 @@ describe("MapsDetailPageComponent", () => {
             expect(page.edits()?.terrain?.get(258)?.get((1 << 6) | 1)?.height).toBe(22);
         });
 
-        it("saves terrain then objects with the flags note and reloads", async () => {
+        it("keeps walkability off until asked, then follows flag strokes and undo without rebuilding the scene geometry", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            expect(page.walkability()).toBe(false);
+            expect(viewport.tileOverlay()).toBeNull();
+            const terrain = page.scene().geometry?.terrain;
+            page.walkability.set(true);
+            harness.detectChanges();
+            expect(viewport.tileOverlay()).toBeNull();
+            expect(page.scene().geometry?.terrain).toBe(terrain);
+            page.changeBrush({ ...page.brush(), tool: "set-flag", flag: 1 });
+            viewport.brushStroke.emit([{ x: 512, z: 512 }, { x: 1536, z: 512 }]);
+            harness.detectChanges();
+            expect(viewport.tileOverlay()?.rgb).toEqual([0xff2d2d, 0xff2d2d, 0xff2d2d]);
+            expect(page.scene().geometry?.terrain).toBe(terrain);
+            page.togglePlane(0, false);
+            harness.detectChanges();
+            expect(viewport.tileOverlay()).toBeNull();
+            page.togglePlane(0, true);
+            viewport.undo.emit();
+            harness.detectChanges();
+            expect(viewport.tileOverlay()).toBeNull();
+            page.walkability.set(false);
+            harness.detectChanges();
+            expect(viewport.tileOverlay()).toBeNull();
+        });
+
+        it("lists walkability with the other layer options", async () => {
+            const { page, viewport } = await loadTerrain();
+            // The menu renders lazily, so its template is drawn here as opening it would.
+            const view = required(viewport.layersMenu(), "the layers menu").templateRef.createEmbeddedView({});
+            view.detectChanges();
+            const panel = document.createElement("div");
+            panel.append(...view.rootNodes as Node[]);
+            const items = [...panel.querySelectorAll<HTMLButtonElement>("button[mat-menu-item]")];
+            const labels = items.map(item => item.textContent?.replace(/check_box(_outline_blank)?/, "").trim());
+            expect(labels.slice(-2)).toEqual(["Object shadows", "Walkability (flags, drawn objects)"]);
+            const item = required(items.at(-1), "the walkability item");
+            expect(item.getAttribute("aria-checked")).toBe("false");
+            item.click();
+            expect(page.walkability()).toBe(true);
+            view.destroy();
+        });
+
+        it("saves a flag stroke with the running game world note", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            const open = vi.spyOn(TestBed.inject(MatDialog), "open").mockReturnValue({ afterClosed: () => of(true) } as MatDialogRef<unknown>);
+            page.changeBrush({ ...page.brush(), tool: "set-flag", flag: 4 });
+            viewport.brushStroke.emit([{ x: 512, z: 512 }]);
+            const saving = page.saveChanges();
+            await harness.fixture.whenStable();
+            expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? Tile flag changes reach a running game world only after it reloads the region. World map areas other than the main map are not updated.");
+            const request = http.expectOne(`${base}258/terrain`);
+            expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, flags: 4 }] });
+            request.flush({});
+            (await vi.waitFor(() => http.expectOne(worldMapUrl))).flush({ refreshed: [258], unchanged: [], skipped: [] });
+            await saving;
+            const stored = planes();
+            stored[0].flags[65] = 4;
+            http.expectOne(`${base}258/render`).flush({ ...region(258), terrainStatus: "available", planes: stored });
+            harness.detectChanges();
+            expect(page.edits()).toBeUndefined();
+            expect(page.store.regions()[0].planes[0].flags[65]).toBe(4);
+        });
+
+        it("saves terrain then objects and reloads", async () => {
             const { harness, page, viewport } = await loadTerrain();
             const open = vi.spyOn(TestBed.inject(MatDialog), "open").mockReturnValue({ afterClosed: () => of(true) } as MatDialogRef<unknown>);
             viewport.brushStroke.emit([{ x: 512, z: 512 }]);
             const saving = page.saveChanges();
             await harness.fixture.whenStable();
-            expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? Walkability and other tile flags are not changed. World map areas other than the main map are not updated.");
+            expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? World map areas other than the main map are not updated.");
             const request = http.expectOne(`${base}258/terrain`);
             expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, height: 22 }] });
             request.flush({});

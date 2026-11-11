@@ -660,6 +660,40 @@ describe("ModelScene resource ownership", () => {
         expect(preview.visible).toBe(false);
     });
 
+    it("draws a tile overlay under the stroke preview without touching the terrain, and releases it when removed", () => {
+        type TileMesh = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+        const internals = scene as unknown as { tileOverlay?: TileMesh; strokePreview?: TileMesh; scene: THREE.Scene };
+        const tile = { positions: Array(18).fill(1), uvs: Array(12).fill(0), rgb: [0xff2d2d], textureId: null, opacity: 0.55 };
+        scene.setTileOverlay(null);
+        expect(internals.tileOverlay).toBeUndefined();
+        const before = [...internals.scene.children];
+        scene.setTileOverlay(tile);
+        const overlay = internals.tileOverlay as TileMesh;
+        expect(internals.scene.children.filter(child => !before.includes(child))).toEqual([overlay]);
+        expect(overlay.material.transparent).toBe(true);
+        expect(overlay.material.depthWrite).toBe(false);
+        expect([...overlay.geometry.getAttribute("color").array].slice(0, 3)).toEqual([...new THREE.Color(0xff2d2d).toArray()].map(Math.fround));
+        scene.setStrokePreview(tile);
+        expect(overlay.renderOrder).toBeLessThan((internals.strokePreview as TileMesh).renderOrder);
+        scene.setTileOverlay({ ...tile, positions: Array(36).fill(1), uvs: Array(24).fill(0), rgb: [1, 2] });
+        expect(internals.tileOverlay).toBe(overlay);
+        expect(overlay.geometry.getAttribute("position").count).toBe(12);
+        const geometry = vi.spyOn(overlay.geometry, "dispose"), material = vi.spyOn(overlay.material, "dispose");
+        scene.setTileOverlay(null);
+        expect(internals.tileOverlay).toBeUndefined();
+        expect(internals.scene.children).not.toContain(overlay);
+        expect(geometry).toHaveBeenCalledOnce();
+        expect(material).toHaveBeenCalledOnce();
+    });
+
+    it("releases a shown tile overlay on dispose", () => {
+        scene.setTileOverlay({ positions: Array(18).fill(1), uvs: Array(12).fill(0), rgb: [1], textureId: null, opacity: 0.55 });
+        const overlay = (scene as unknown as { tileOverlay: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> }).tileOverlay;
+        const release = vi.spyOn(overlay.material, "dispose");
+        scene.dispose();
+        expect(release).toHaveBeenCalledOnce();
+    });
+
     it("uses a loaded texture for a stroke preview and releases the preview on dispose", () => {
         scene.setTextures(new Map([[8, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
         const tile = { positions: Array(18).fill(1), uvs: Array(12).fill(0), rgb: [0xffffff], textureId: 8, opacity: 1 };

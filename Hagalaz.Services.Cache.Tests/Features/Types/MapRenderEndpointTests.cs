@@ -201,6 +201,43 @@ public sealed class MapRenderEndpointTests
     }
 
     [TestMethod]
+    public async Task UpdateTerrain_StoresAFlagValueAndKeepsItThroughOtherChanges()
+    {
+        byte[] trailing = [2, 9, 8, 7];
+        var store = Store(TerrainRegion([.. new byte[16384], .. trailing]));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var flagged = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 1, x = 2, y = 3, flags = 5 } } });
+        using var raised = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 1, x = 2, y = 3, height = 8 } } });
+
+        flagged.EnsureSuccessStatusCode();
+        raised.EnsureSuccessStatusCode();
+        using var render = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
+        var planes = (await render.Content.ReadFromJsonAsync<MapRenderRegion>())!.Planes;
+        Assert.AreEqual(5, planes[1].Flags[2 * 64 + 3]);
+        Assert.AreEqual(1, planes.Take(4).Sum(plane => plane.Flags.Count(flags => flags != 0)));
+        CollectionAssert.AreEqual(trailing, Stored(store, 0)[^4..]);
+    }
+
+    [TestMethod]
+    [DataRow(-1)]
+    [DataRow(33)]
+    public async Task UpdateTerrain_RejectsAFlagValueWithNoStoredFormWithoutWriting(int flags)
+    {
+        var store = Store(TerrainRegion(new byte[16384]));
+        var before = Stored(store, 0);
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 1, y = 1, underlay = 3 }, new { plane = 0, x = 0, y = 0, flags } } });
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        StringAssert.Contains(await response.Content.ReadAsStringAsync(), "between 0 and 32");
+        CollectionAssert.AreEqual(before, Stored(store, 0));
+    }
+
+    [TestMethod]
     public async Task UpdateTerrain_WritesNothingWithoutEffectiveChanges()
     {
         var store = Store(TerrainRegion(new byte[16384]));

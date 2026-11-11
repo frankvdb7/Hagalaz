@@ -72,7 +72,7 @@ public sealed class MapTerrainWriter(ICacheAPI cache)
         var overlayShape = change?.Overlay switch { null => old.OverlayShapes[tile], 0 => 0, _ => change.OverlayShape ?? 0 };
         var overlayRotation = change?.Overlay switch { null => old.OverlayRotations[tile], 0 => 0, _ => change.OverlayRotation ?? 0 };
         return RelativeHeight(after, plane, tile) == (change?.Height is { } height ? -(height == 1 ? 0 : height) * 32 : RelativeHeight(before, plane, tile))
-            && updated.Flags[tile] == old.Flags[tile]
+            && updated.Flags[tile] == (change?.Flags ?? old.Flags[tile])
             && updated.Underlays[tile] == (change?.Underlay ?? old.Underlays[tile])
             && updated.Overlays[tile] == (change?.Overlay ?? old.Overlays[tile])
             && updated.OverlayShapes[tile] == overlayShape

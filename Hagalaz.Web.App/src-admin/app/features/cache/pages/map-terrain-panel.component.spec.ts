@@ -7,7 +7,7 @@ import { MapFloorPickerComponent } from "./map-floor-picker.component";
 import type { TerrainBrush } from "./map-terrain-edit";
 import { MapTerrainPanelComponent } from "./map-terrain-panel.component";
 
-const brush: TerrainBrush = { tool: "underlay", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0 };
+const brush: TerrainBrush = { tool: "underlay", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: 1 };
 const floor = (id: number, overlay: boolean, textureId = -1): MapFloor => ({ id, overlay, rgb: 0x102030, textureId, secondaryRgb: null, textureScale: 512 });
 const text = (fixture: { nativeElement: unknown }) => (fixture.nativeElement as HTMLElement).textContent ?? "";
 
@@ -74,6 +74,35 @@ describe("MapTerrainPanelComponent", () => {
         const panel = create().componentInstance;
         panel.chooseFloor(12);
         expect(panel.brush().underlay).toBe(12);
+    });
+
+    it("offers the flag tools and switches to them", async () => {
+        const fixture = create({ tool: "raise" });
+        const root = fixture.nativeElement as HTMLElement;
+        root.querySelector<HTMLButtonElement>('button[aria-label="Set tile flag"]')?.click();
+        await fixture.whenStable();
+        expect(fixture.componentInstance.brush().tool).toBe("set-flag");
+        root.querySelector<HTMLButtonElement>('button[aria-label="Clear tile flag"]')?.click();
+        await fixture.whenStable();
+        expect(fixture.componentInstance.brush().tool).toBe("clear-flag");
+        expect(root.querySelector('button[aria-label="Clear tile flag"]')?.getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("shows the flag choice and colour legend only for the flag tools", async () => {
+        const fixture = create({ tool: "set-flag" });
+        const root = fixture.nativeElement as HTMLElement;
+        expect(fixture.componentInstance.visibleFields().map(field => field.key)).toEqual(["plane", "size", "flag"]);
+        expect(text(fixture)).toContain("Flag");
+        expect([...root.querySelectorAll(".flag-legend li")].map(item => item.textContent?.trim())).toEqual(["Blocked", "Bridge", "Roof", "Draw on plane 0", "Hidden on minimap"]);
+        expect(root.querySelector<HTMLElement>(".flag-swatch")?.style.backgroundColor).toBe("rgb(255, 45, 45)");
+        expect(text(fixture)).not.toContain("Strength");
+        expect(text(fixture)).not.toContain("Find a floor");
+        fixture.componentInstance.setField("flag", 4);
+        expect(fixture.componentInstance.brush().flag).toBe(4);
+        fixture.componentInstance.update({ tool: "underlay" });
+        await fixture.whenStable();
+        expect(root.querySelector(".flag-legend")).toBeNull();
+        expect(fixture.componentInstance.visibleFields().map(field => field.key)).toEqual(["plane", "size"]);
     });
 
     it("updates one brush field at a time", () => {

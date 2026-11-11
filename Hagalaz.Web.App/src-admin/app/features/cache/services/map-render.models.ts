@@ -17,7 +17,7 @@ export interface MapRenderPlane {
 }
 export interface MapPlacement { id: number; shape: number; rotation: number; x: number; y: number; plane: number; }
 export interface MapLandscapeSave { kind: "landscape"; regionId: number; objects: readonly MapPlacement[]; }
-export interface MapTerrainTileChange { plane: number; x: number; y: number; height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; }
+export interface MapTerrainTileChange { plane: number; x: number; y: number; height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; flags?: number; }
 export interface MapTerrainSave { kind: "terrain"; regionId: number; tiles: readonly MapTerrainTileChange[]; }
 export type MapRegionSave = MapLandscapeSave | MapTerrainSave;
 export interface MapWorldMapRefreshResult { refreshed: number[]; unchanged: number[]; skipped: { id: number; reason: string }[]; }
@@ -69,6 +69,10 @@ export interface ObjectRenderAppearance {
     contourMode: number; contourParameter: number; parts: GetModelDto[]; warnings: string[];
     /** Floor darkening for ground objects; zero or absent casts no shadow. */
     shadowStrength?: number;
+    /** Collision inputs of the placed definition, as the game server reads them. */
+    clipType?: number;
+    solid?: boolean;
+    gateway?: boolean;
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }

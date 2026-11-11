@@ -151,6 +151,7 @@ export class ModelScene {
     private placementGizmo?: PlacementGizmo;
     private brushOutline?: THREE.LineLoop<THREE.BufferGeometry, THREE.LineBasicMaterial>;
     private strokePreview?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+    private tileOverlay?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
     private wireframe = false;
     private pendingFrame?: number;
     private animationTimer?: ReturnType<typeof setTimeout>;
@@ -285,29 +286,54 @@ export class ModelScene {
             }
             return;
         }
-        this.strokePreview ??= this.createStrokePreview();
-        const { geometry, material } = this.strokePreview;
-        geometry.setAttribute("position", new THREE.Float32BufferAttribute(preview.positions, 3));
-        geometry.setAttribute("uv", new THREE.Float32BufferAttribute(preview.uvs, 2));
-        geometry.setAttribute("color", new THREE.Float32BufferAttribute(strokePreviewColors(preview.rgb), 3));
-        const map = (preview.textureId === null ? undefined : this.textures.get(preview.textureId)) ?? null;
-        if (material.map !== map) {
-            material.map = map;
-            material.needsUpdate = true;
-        }
-        material.opacity = preview.opacity;
-        material.transparent = preview.opacity < 1;
+        this.strokePreview ??= this.createTileMesh(1, -4);
+        this.fillTileMesh(this.strokePreview, preview);
         this.strokePreview.visible = true;
         this.requestRender();
     }
 
-    private createStrokePreview(): THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> {
-        const material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    /**
+     * Draws per-tile markers over the ground, under any stroke preview, or removes them and releases their
+     * buffers. It is separate from the terrain, so showing or changing it rebuilds nothing else.
+     */
+    setTileOverlay(overlay: StrokePreviewGeometry | null): void {
+        if (!overlay) {
+            if (!this.tileOverlay) return;
+            this.releaseTileMesh(this.tileOverlay);
+            this.tileOverlay = undefined;
+        } else {
+            this.tileOverlay ??= this.createTileMesh(0.5, -2);
+            this.fillTileMesh(this.tileOverlay, overlay);
+        }
+        this.requestRender();
+    }
+
+    private createTileMesh(renderOrder: number, polygonOffset: number): THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> {
+        const material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: polygonOffset, polygonOffsetUnits: polygonOffset });
         const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
         mesh.frustumCulled = false;
-        mesh.renderOrder = 1;
+        mesh.renderOrder = renderOrder;
         this.scene.add(mesh);
         return mesh;
+    }
+
+    private fillTileMesh({ geometry, material }: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>, tiles: StrokePreviewGeometry): void {
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(tiles.positions, 3));
+        geometry.setAttribute("uv", new THREE.Float32BufferAttribute(tiles.uvs, 2));
+        geometry.setAttribute("color", new THREE.BufferAttribute(strokePreviewColors(tiles.rgb), 3));
+        const map = (tiles.textureId === null ? undefined : this.textures.get(tiles.textureId)) ?? null;
+        if (material.map !== map) {
+            material.map = map;
+            material.needsUpdate = true;
+        }
+        material.opacity = tiles.opacity;
+        material.transparent = tiles.opacity < 1;
+    }
+
+    private releaseTileMesh(mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>): void {
+        this.scene.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
     }
 
     /** While off, a primary drag or one-finger touch is left to the page instead of orbiting. */
@@ -931,11 +957,8 @@ export class ModelScene {
             this.scene.remove(this.selectionBounds);
             this.selectionBounds.dispose();
         }
-        if (this.strokePreview) {
-            this.scene.remove(this.strokePreview);
-            this.strokePreview.geometry.dispose();
-            this.strokePreview.material.dispose();
-        }
+        if (this.strokePreview) this.releaseTileMesh(this.strokePreview);
+        if (this.tileOverlay) this.releaseTileMesh(this.tileOverlay);
     }
 
     private clear(preserveMaterials = false, preserveGeometry = false, surface = this.primary): void {
@@ -1308,12 +1331,15 @@ function vertexVisibility(model: ModelGeometry | undefined): (vertex: number) =>
     return vertex => !opacities || opacities[vertex] > 0;
 }
 
-function strokePreviewColors(tiles: readonly number[]): number[] {
+/** Six vertices share each tile's colour. */
+function strokePreviewColors(tiles: readonly number[]): Float32Array {
     const color = new THREE.Color();
-    return tiles.flatMap(rgb => {
+    const colors = new Float32Array(tiles.length * 18);
+    tiles.forEach((rgb, tile) => {
         color.setHex(rgb);
-        return Array.from({ length: 6 }, () => [color.r, color.g, color.b]).flat();
+        for (let vertex = 0; vertex < 6; vertex++) colors.set([color.r, color.g, color.b], tile * 18 + vertex * 3);
     });
+    return colors;
 }
 
 /**

@@ -5,7 +5,7 @@ import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTer
 
 const plane = (height: number): MapRenderPlane => ({ cornerHeights: Array(4225).fill(height), flags: Array(4096).fill(0), underlays: Array(4096).fill(1), overlays: Array(4096).fill(0), overlayShapes: Array(4096).fill(0), overlayRotations: Array(4096).fill(0) });
 const region = (regionX = 1, regionY = 2, heights = [-640, -1600, -2560, -3520]): MapRenderRegion => ({ id: (regionX << 8) | regionY, regionX, regionY, terrainStatus: "available", landscapeStatus: "available", planes: heights.map(plane), objects: [], floors: [], warnings: [] });
-const brush = (change: Partial<TerrainBrush> = {}): TerrainBrush => ({ tool: "raise", plane: 0, size: 1, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, ...change });
+const brush = (change: Partial<TerrainBrush> = {}): TerrainBrush => ({ tool: "raise", plane: 0, size: 1, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: 1, ...change });
 const key = (plane: number, x: number, y: number) => (plane << 12) | (x << 6) | y;
 const at = (x: number, y: number) => ({ x: x * 512, z: y * 512 });
 const corner = (x: number, y: number) => x * 65 + y;
@@ -158,6 +158,91 @@ describe("applyTerrainEdits", () => {
     });
 });
 
+describe("flag brushes", () => {
+    const flagged = (value: number) => {
+        const start = region();
+        start.planes[1].flags[3 * 64 + 4] = value;
+        return start;
+    };
+
+    it("sets a flag and keeps the tile's other flags", () => {
+        const start = flagged(4);
+        const stroke = applyBrushStroke([start], undefined, brush({ tool: "set-flag", plane: 1, flag: 1 }), [at(3.5, 4.5)]);
+        expect([...required(stroke?.get(start.id), "the region's edits")]).toEqual([[key(1, 3, 4), { flags: 5 }]]);
+    });
+
+    it("clears a flag and keeps the tile's other flags", () => {
+        const start = flagged(13);
+        const stroke = applyBrushStroke([start], undefined, brush({ tool: "clear-flag", plane: 1, flag: 4 }), [at(3.5, 4.5)]);
+        expect(stroke?.get(start.id)?.get(key(1, 3, 4))).toEqual({ flags: 9 });
+    });
+
+    it("covers the brush area by tile and keeps earlier edits to the same tile", () => {
+        const start = region();
+        const earlier = edits(start.id, [key(0, 5, 5), { underlay: 7 }]);
+        const stroke = applyBrushStroke([start], earlier, brush({ tool: "set-flag", size: 3, flag: 2 }), [at(5.5, 5.5)]);
+        expect(stroke?.get(start.id)?.size).toBe(9);
+        expect(stroke?.get(start.id)?.get(key(0, 5, 5))).toEqual({ underlay: 7, flags: 2 });
+    });
+
+    it("leaves a tile alone when the result has no stored form", () => {
+        const start = flagged(32);
+        expect(applyBrushStroke([start], undefined, brush({ tool: "set-flag", plane: 1, flag: 1 }), [at(3.5, 4.5)])).toBeUndefined();
+        expect(applyBrushStroke([start], undefined, brush({ tool: "clear-flag", plane: 1, flag: 1 }), [at(3.5, 4.5)])?.get(start.id)?.get(key(1, 3, 4))).toEqual({ flags: 32 });
+    });
+
+    it("builds on flags already edited in the same session", () => {
+        const start = region();
+        const first = applyBrushStroke([start], undefined, brush({ tool: "set-flag", flag: 1 }), [at(2.5, 2.5)]);
+        const second = applyBrushStroke(applyTerrainEdits([start], first, none), first, brush({ tool: "set-flag", flag: 4 }), [at(2.5, 2.5)]);
+        expect(second?.get(start.id)?.get(key(0, 2, 2))).toEqual({ flags: 5 });
+    });
+
+    it("previews flags without touching the ground arrays", () => {
+        const start = region();
+        const [edited] = applyTerrainEdits([start], edits(start.id, [key(2, 6, 7), { flags: 17 }]), none);
+        expect(edited.planes[2].flags[6 * 64 + 7]).toBe(17);
+        expect(start.planes[2].flags[6 * 64 + 7]).toBe(0);
+        expect(edited.planes[2].flags).not.toBe(start.planes[2].flags);
+        expect(edited.floors).toBe(start.floors);
+        for (const field of ["cornerHeights", "underlays", "overlays", "overlayShapes", "overlayRotations"] as const) expect(edited.planes[2][field]).toBe(start.planes[2][field]);
+    });
+
+    it("keeps the flag array itself through a floor edit", () => {
+        const start = region();
+        const [edited] = applyTerrainEdits([start], edits(start.id, [key(0, 1, 1), { underlay: 3 }]), none);
+        expect(edited.planes[0].flags).toBe(start.planes[0].flags);
+        expect(edited.planes[0].underlays).not.toBe(start.planes[0].underlays);
+    });
+
+    it("submits a flag only when it differs from what is stored", () => {
+        const start = flagged(5);
+        expect(mapTerrainSaves([start], edits(start.id, [key(1, 3, 4), { flags: 5 }]))).toEqual([]);
+        expect(mapTerrainSaves([start], edits(start.id, [key(1, 3, 4), { flags: 4 }], [key(0, 0, 0), { flags: 0 }]))).toEqual([
+            { kind: "terrain", regionId: start.id, tiles: [{ plane: 1, x: 3, y: 4, flags: 4 }] },
+        ]);
+    });
+
+    it("marks the brushed tiles in the flag's colour, or a pale wash when clearing", () => {
+        const start = region();
+        const set = required(terrainStrokePreview([start], brush({ tool: "set-flag", size: 3, flag: 4 }), [at(5.5, 5.5)], none), "the set preview");
+        expect(set.positions).toHaveLength(9 * 18);
+        expect(new Set(set.rgb)).toEqual(new Set([0xc040ff]));
+        expect(set.textureId).toBeNull();
+        expect(set.opacity).toBeGreaterThan(0.45);
+        expect(set.opacity).toBeLessThan(1);
+        const cleared = required(terrainStrokePreview([start], brush({ tool: "clear-flag", flag: 4 }), [at(5.5, 5.5)], none), "the clear preview");
+        expect(cleared.rgb).toEqual([0xffffff]);
+        const unknown = required(terrainStrokePreview([start], brush({ tool: "set-flag", flag: 0 }), [at(5.5, 5.5)], none), "a preview without a known flag");
+        expect(unknown.rgb).toEqual([0xffffff]);
+    });
+
+    it("outlines whole tiles for a flag brush", () => {
+        const outline = terrainBrushOutline([region()], brush({ tool: "set-flag" }), { x: 3.5 * 512, z: 4.5 * 512 });
+        expect(outline?.slice(0, 3)).toEqual([3 * 512, 640, 4 * 512]);
+    });
+});
+
 describe("mapTerrainSaves", () => {
     it("omits tiles and regions left equal to what is stored", () => {
         const start = region();
@@ -244,11 +329,12 @@ describe("terrain edit helpers", () => {
         expect(paintedFloorTextures(edits(start.id, [1, { underlay: 1 }], [2, { underlay: 2 }], [3, { overlay: 3 }], [4, { underlay: 1 }]), catalog)).toEqual([5, 8]);
     });
 
-    it("notes that flags stay as they are only for height edits", () => {
+    it("warns about a running game world only for flag edits", () => {
         const start = region();
         expect(terrainEditNotes(undefined)).toEqual([]);
         expect(terrainEditNotes(edits(start.id, [1, { underlay: 2 }]))).toEqual([]);
-        expect(terrainEditNotes(edits(start.id, [1, { height: 2 }]))).toEqual(["Walkability and other tile flags are not changed."]);
+        expect(terrainEditNotes(edits(start.id, [1, { height: 2 }]))).toEqual([]);
+        expect(terrainEditNotes(edits(start.id, [1, { height: 2 }], [2, { flags: 1 }]))).toEqual(["Tile flag changes reach a running game world only after it reloads the region."]);
     });
 
     it("outlines the brush at ground height in scene units", () => {

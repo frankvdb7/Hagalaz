@@ -325,7 +325,7 @@ function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | 
 /** Selection-scoped reuse; no global model/terrain cache. */
 export class MapScenePreparation {
     private shadows?: ObjectShadowField;
-    private ground?: { regions: readonly MapRenderRegion[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: SceneGeometry };
+    private ground?: { inputs: readonly unknown[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: SceneGeometry };
     private sampling?: { regions: readonly MapRenderRegion[]; sample: ReturnType<typeof terrainSampler> };
     private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; atmosphere?: MapAtmosphere; parts: PreparedMapPart[] }>();
     private objects?: { inputs: readonly unknown[]; heights: readonly CornerHeights[]; result: SceneObjects };
@@ -343,9 +343,10 @@ export class MapScenePreparation {
             return `${texture?.alphaMode ?? 0}:${texture?.effectId ?? 0}`;
         }));
         const key = `${planes.join()}:${filter.terrain}:${filter.waterSurface}:${shadows}`;
-        if (this.ground?.regions === regions && this.ground.planes === key && this.ground.atmosphere === atmosphere && sameValues(this.ground.modes, modes)) return this.ground.geometry;
+        const inputs = terrainInputs(regions);
+        if (this.ground && sameValues(this.ground.inputs, inputs) && this.ground.planes === key && this.ground.atmosphere === atmosphere && sameValues(this.ground.modes, modes)) return this.ground.geometry;
         const geometry = build();
-        this.ground = { regions, planes: key, modes, atmosphere, geometry };
+        this.ground = { inputs, planes: key, modes, atmosphere, geometry };
         return geometry;
     }
 
@@ -382,6 +383,11 @@ export class MapScenePreparation {
         this.objects = { inputs, heights, result };
         return result;
     }
+}
+
+// Tile flags and objects do not shape the ground, so an edit to either leaves these as they were.
+function terrainInputs(regions: readonly MapRenderRegion[]): readonly unknown[] {
+    return regions.flatMap(region => [region.id, region.floors, ...region.planes.flatMap(plane => [plane.cornerHeights, plane.underlays, plane.overlays, plane.overlayShapes, plane.overlayRotations])]);
 }
 
 // An empty edit list means the same as none, and a terrain stroke creates one.

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,10 +18,18 @@ public static class MapTerrainPatcher
     private const int LastOverlayOpcode = 49;
     private const int LastFlagsOpcode = 81;
 
+    /// <summary>One opcode carries the whole flag value, so only 0 (no token) to 32 can be stored.</summary>
+    public static bool IsStorableFlags(int flags) => flags is >= 0 and <= LastFlagsOpcode - LastOverlayOpcode;
+
     public static byte[] Patch(byte[] stored, IEnumerable<MapTerrainTileChange> changes)
     {
         var byTile = new Dictionary<int, MapTerrainTileChange>();
-        foreach (var change in changes) byTile[TileKey(change.Plane, change.X, change.Y)] = change;
+        foreach (var change in changes)
+        {
+            if (change.Flags is { } flags && !IsStorableFlags(flags))
+                throw new ArgumentOutOfRangeException(nameof(changes), flags, "A tile flag value must be between 0 and 32.");
+            byTile[TileKey(change.Plane, change.X, change.Y)] = change;
+        }
 
         using var output = new MemoryStream(stored.Length + byTile.Count * 4);
         var offset = 0;
@@ -65,6 +74,9 @@ public static class MapTerrainPatcher
 
     private static void WriteTile(MemoryStream output, byte[] stored, int start, int end, MapTerrainTileChange change)
     {
+        // An equal value keeps its stored tokens, so a save that changes nothing changes no bytes.
+        var flags = change.Flags is { } submitted && submitted != StoredFlags(stored, start) ? submitted : (int?)null;
+        var flagsWritten = false;
         var offset = start;
         while (true)
         {
@@ -73,13 +85,39 @@ public static class MapTerrainPatcher
             if (opcode <= ExplicitHeight)
             {
                 WriteFloors(output, change);
+                if (!flagsWritten) WriteFlags(output, flags);
                 if (change.Height is { } height) output.Write([ExplicitHeight, (byte)height]);
                 else output.Write(stored, offset, end - offset);
                 return;
             }
-            var replaced = opcode <= LastOverlayOpcode ? change.Overlay is not null : opcode > LastFlagsOpcode && change.Underlay is not null;
+            var isFlags = opcode is > LastOverlayOpcode and <= LastFlagsOpcode;
+            var replaced = opcode <= LastOverlayOpcode ? change.Overlay is not null : isFlags ? flags is not null : change.Underlay is not null;
             if (!replaced) output.Write(stored, offset, length);
+            else if (isFlags && !flagsWritten)
+            {
+                // The new value takes the first stored token's place; any later flag token is dropped.
+                WriteFlags(output, flags);
+                flagsWritten = true;
+            }
             offset += length;
+        }
+    }
+
+    private static void WriteFlags(MemoryStream output, int? flags)
+    {
+        if (flags is > 0) output.WriteByte((byte)(flags.Value + LastOverlayOpcode));
+    }
+
+    /// <summary>The value of the tile's last flag token, which is the one the client keeps.</summary>
+    private static int StoredFlags(byte[] stored, int offset)
+    {
+        var flags = 0;
+        while (true)
+        {
+            int opcode = stored[offset];
+            if (opcode <= ExplicitHeight) return flags;
+            if (opcode is > LastOverlayOpcode and <= LastFlagsOpcode) flags = opcode - LastOverlayOpcode;
+            offset += TokenLength(opcode);
         }
     }
 

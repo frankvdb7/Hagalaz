@@ -124,6 +124,8 @@ export class MapViewportComponent implements OnDestroy {
     /** The stroke so far, or null when one was cancelled. */
     readonly brushPreview = output<readonly BrushPoint[] | null>();
     readonly strokePreview = input<StrokePreviewGeometry | null>(null);
+    /** Per-tile markers drawn over the ground, such as walkability. */
+    readonly tileOverlay = input<StrokePreviewGeometry | null>(null);
     readonly canRebuildWorldMap = input(false);
     readonly rebuildWorldMap = output<void>();
     readonly canSave = input(false);
@@ -192,6 +194,7 @@ export class MapViewportComponent implements OnDestroy {
         effect(() => this.scene()?.setPrimaryDragEnabled(!this.brushActive()));
         effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null)));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));
+        effect(() => this.scene()?.setTileOverlay(this.tileOverlay()));
         effect(() => {
             const { skyRgb, fog, environmentFaces, sun } = this.environment();
             this.scene()?.setEnvironment(skyRgb, fog, environmentFaces, sun);

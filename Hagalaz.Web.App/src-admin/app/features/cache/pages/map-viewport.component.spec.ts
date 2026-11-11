@@ -28,6 +28,23 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.destroy();
     });
 
+    it("hands the tile overlay to the scene and removes it again", () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const setTileOverlay = vi.fn();
+        const scene = new Proxy({ setTileOverlay } as Record<string | symbol, unknown>, { get: (target, name) => target[name] ?? vi.fn() });
+        (fixture.componentInstance as unknown as { scene: { set(value: unknown): void } }).scene.set(scene);
+        const overlay = { positions: Array(18).fill(0), uvs: Array(12).fill(0), rgb: [0xff2d2d], textureId: null, opacity: 0.55 };
+        fixture.detectChanges();
+        expect(setTileOverlay).toHaveBeenLastCalledWith(null);
+        fixture.componentRef.setInput("tileOverlay", overlay);
+        fixture.detectChanges();
+        expect(setTileOverlay).toHaveBeenLastCalledWith(overlay);
+        fixture.componentRef.setInput("tileOverlay", null);
+        fixture.detectChanges();
+        expect(setTileOverlay).toHaveBeenLastCalledWith(null);
+        fixture.destroy();
+    });
+
     describe("dragging an object over the viewport", () => {
         function setup(hit: { x: number; z: number } | null) {
             const fixture = TestBed.createComponent(MapViewportComponent);

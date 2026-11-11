@@ -163,6 +163,26 @@ public sealed class ModelAppearanceTests
     }
 
     [TestMethod]
+    public async Task ObjectRenderAppearance_ReportsThePlacedDefinitionCollisionInputs()
+    {
+        var store=new MemoryFileStore();
+        byte[] model=[1,1,10,1,0,0];
+        SeedDefinitions(store,16,(1,[..model,0]),(2,[..model,17,0]),(3,[..model,27,0]),(4,[..model,18,0]));
+        store.Set(7,0,ContainerBytes(LegacyModel));
+        await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
+        using var client=CacheServiceTestHost.CreateClient(app);
+        async Task<(int ClipType,bool Solid,bool Gateway)> Collision(int id)
+        {
+            var appearance=(await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>($"/api/v1/cache/types/objects/{id}/render-appearance?shape=10&rotation=0"))!;
+            return (appearance.ClipType,appearance.Solid,appearance.Gateway);
+        }
+        Assert.AreEqual((2,true,false),await Collision(1));
+        Assert.AreEqual((0,false,false),await Collision(2));
+        Assert.AreEqual((1,true,false),await Collision(3));
+        Assert.AreEqual((2,false,false),await Collision(4));
+    }
+
+    [TestMethod]
     [DataRow(true,false)]
     [DataRow(false,false)]
     [DataRow(true,true)]

@@ -107,6 +107,13 @@ describe("rebuilding after terrain edits", () => {
         expect(painted.terrain).not.toBe(first.terrain);
     });
 
+    it("keeps terrain and object geometry across a flag stroke", () => {
+        const { source, draw, first } = scene();
+        const flagged = draw(applyTerrainEdits([source], edit(source.id, tileKey(5, 5), { flags: 1 }), new Map()));
+        expect(flagged.terrain).toBe(first.terrain);
+        expect(flagged.objects).toBe(first.objects);
+    });
+
     it("treats an empty edit list like no edits", () => {
         const { source, draw, first } = scene();
         expect(draw([source], { transforms: new Map(), additions: [] }).objects).toBe(first.objects);

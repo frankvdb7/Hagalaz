@@ -100,6 +100,82 @@ public sealed class MapTerrainPatcherTests
     }
 
     [Fact]
+    public void Patch_SetsReplacesAndClearsAFlagValue()
+    {
+        var stored = Terrain([90, 1, 8]);
+
+        var set = MapTerrainPatcher.Patch(stored, [new MapTerrainTileChange(0, 0, 0, Flags: 1)]);
+        Assert.Equal(1, Decode(set)[0].Flags[0]);
+        Assert.Equal(9, Decode(set)[0].Underlays[0]);
+        Assert.Equal(-256, Decode(set)[0].Heights[0]);
+
+        var replaced = MapTerrainPatcher.Patch(set, [new MapTerrainTileChange(0, 0, 0, Flags: 32)]);
+        Assert.Equal(32, Decode(replaced)[0].Flags[0]);
+        Assert.Equal(set.Length, replaced.Length);
+
+        var cleared = MapTerrainPatcher.Patch(replaced, [new MapTerrainTileChange(0, 0, 0, Flags: 0)]);
+        Assert.Equal(stored, cleared);
+    }
+
+    [Fact]
+    public void Patch_ReplacesRepeatedFlagTokensWithOne()
+    {
+        var stored = Terrain([50, 53, 0]);
+        Assert.Equal(4, Decode(stored)[0].Flags[0]);
+
+        var patched = MapTerrainPatcher.Patch(stored, [new MapTerrainTileChange(0, 0, 0, Flags: 5)]);
+
+        Assert.Equal(5, Decode(patched)[0].Flags[0]);
+        Assert.Equal(stored.Length - 1, patched.Length);
+    }
+
+    [Fact]
+    public void Patch_ChangesOnlyTheFlaggedTileOfARealRegion()
+    {
+        var stored = Fixture();
+        var before = Decode(stored);
+        var tile = Array.FindIndex(before[0].Flags, flags => flags == 1);
+        Assert.True(tile >= 0);
+
+        var patched = MapTerrainPatcher.Patch(stored, [new MapTerrainTileChange(0, tile / 64, tile % 64, Flags: 4)]);
+
+        var after = Decode(patched);
+        Assert.Equal(stored.Length, patched.Length);
+        Assert.Equal(1, stored.Zip(patched).Count(pair => pair.First != pair.Second));
+        for (var plane = 0; plane < 4; plane++)
+        for (var other = 0; other < 4096; other++)
+        {
+            Assert.Equal(plane == 0 && other == tile ? 4 : before[plane].Flags[other], after[plane].Flags[other]);
+            Assert.Equal(before[plane].Heights[other], after[plane].Heights[other]);
+            Assert.Equal(before[plane].Underlays[other], after[plane].Underlays[other]);
+            Assert.Equal(before[plane].Overlays[other], after[plane].Overlays[other]);
+        }
+    }
+
+    [Fact]
+    public void Patch_SubmittingStoredFlagValuesReproducesARealRegionExactly()
+    {
+        var stored = Fixture();
+        var planes = Decode(stored);
+        var changes = Enumerable.Range(0, 4).SelectMany(plane => Enumerable.Range(0, 4096)
+            .Select(tile => new MapTerrainTileChange(plane, tile / 64, tile % 64, Flags: planes[plane].Flags[tile])));
+
+        Assert.Equal(stored, MapTerrainPatcher.Patch(stored, changes));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(33)]
+    [InlineData(255)]
+    public void Patch_RefusesAFlagValueWithNoStoredForm(int flags)
+    {
+        Assert.False(MapTerrainPatcher.IsStorableFlags(flags));
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            MapTerrainPatcher.Patch(Fixture(), [new MapTerrainTileChange(0, 1, 1, Underlay: 3), new MapTerrainTileChange(0, 0, 0, Flags: flags)]));
+        Assert.Contains("between 0 and 32", error.Message);
+    }
+
+    [Fact]
     public void Patch_RefusesTruncatedTerrain()
     {
         Assert.Throws<EndOfStreamException>(() => MapTerrainPatcher.Patch([51], []));

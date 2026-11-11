@@ -31,6 +31,8 @@ import { MapAssetPanelComponent } from "../map-asset-panel.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapRegionDetailsComponent } from "../map-region-details.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
+import { tileFlag } from "../map-tile-flags";
+import { buildWalkabilityOverlay } from "../map-walkability";
 import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type BrushPoint, type TerrainBrush } from "../map-terrain-edit";
 import { MapTerrainPanelComponent } from "../map-terrain-panel.component";
 import { MapViewportComponent } from "../map-viewport.component";
@@ -56,6 +58,7 @@ export class MapsDetailPageComponent {
     readonly underwater = signal(true);
     readonly waterSurface = signal(true);
     readonly objectShadows = signal(true);
+    readonly walkability = signal(false);
     readonly terrainVisible = signal(true);
     readonly hiddenGroups = signal<ReadonlySet<string>>(new Set());
     readonly hiddenPlacements = linkedSignal<ReadonlySet<MapPlacement>>(() => { this.selectionKey(); return new Set(); });
@@ -90,7 +93,7 @@ export class MapsDetailPageComponent {
     /** What the scene draws; the store keeps the regions as stored. */
     private readonly previewRegions = computed(() => applyTerrainEdits(this.store.regions(), this.terrainEdits(), this.floorCatalog()));
     readonly pointLights = computed(() => mapLightField(this.previewRegions()));
-    readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0 });
+    readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: tileFlag.blocked });
     readonly brushPoint = signal<BrushPoint | null>(null);
     readonly strokePoints = signal<readonly BrushPoint[] | null>(null);
     readonly dropPoint = signal<BrushPoint | null>(null);
@@ -104,6 +107,12 @@ export class MapsDetailPageComponent {
     readonly strokePreview = computed(() => {
         const points = this.strokePoints();
         return points && terrainStrokePreview(this.previewRegions(), this.brush(), points, this.floorCatalog());
+    });
+    /** Built only while shown, from the regions as edited, and never part of the terrain build. */
+    readonly walkabilityOverlay = computed(() => {
+        if (!this.walkability()) return null;
+        const placements = new Map(mapLandscapeSaves(this.store.regions(), this.edits()).map(save => [save.regionId, save.objects]));
+        return buildWalkabilityOverlay(this.previewRegions(), this.planes(), this.landscape() ? { appearances: this.store.appearances(), placements } : undefined);
     });
     readonly brushOutline = computed(() => {
         const point = this.brushPoint();

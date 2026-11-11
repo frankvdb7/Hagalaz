@@ -229,6 +229,7 @@ public static class ModelEndpoints
         var name = definition.Name;
         // The client reads these from the placed definition, before any transform variant is chosen.
         var castsShadow = definition.CastsShadow;
+        var (clipType, solid, gateway) = (definition.ClipType, definition.Solid, definition.Gateway);
         var isStatic = definition is { AnimationIDs: null, HasAnimation: false, TransformToIDs: null, ABoolean835: false };
         var modelShape = shape is >= 4 and <= 8 ? 4 : shape == 11 ? 10 : shape;
         var warnings = new List<string>();
@@ -240,7 +241,7 @@ public static class ModelEndpoints
             var state = hasSelector ? "assumed zero-valued varp/varbit state" : "the definition's default transform fallback";
             if (selected == -1)
                 return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
-                    definition.GroundContoured, definition.AnInt780, [], [$"Hidden for {state}; live game state is unavailable."], name, ShadowStrength(castsShadow, isStatic, null)));
+                    definition.GroundContoured, definition.AnInt780, [], [$"Hidden for {state}; live game state is unavailable."], name, ShadowStrength(castsShadow, isStatic, null), clipType, solid, gateway));
             definition = (ObjectType)objects.Get(selected);
             warnings.Add($"Preview uses object {selected} for {state}; live game state is unavailable.");
         }
@@ -266,7 +267,7 @@ public static class ModelEndpoints
             warnings.AddRange(ProjectionWarnings(model.FirstTexelFaces));
         }
         return TypedResults.Ok(new GetObjectRenderAppearanceDto(id, shape, rotation, definition.SizeX, definition.SizeY, definition.DecorDisplacement,
-            definition.GroundContoured, definition.AnInt780, parts.ToArray(), warnings.ToArray(), name, ShadowStrength(castsShadow, isStatic, parts[0])));
+            definition.GroundContoured, definition.AnInt780, parts.ToArray(), warnings.ToArray(), name, ShadowStrength(castsShadow, isStatic, parts[0]), clipType, solid, gateway));
     }
 
     // Map.addToClip: a ground object's floor shadow is its horizontal radius over 4, capped at 30, or 15 when it can animate or transform.
@@ -449,9 +450,13 @@ public static class ModelEndpoints
             {
                 using var data = ReadMember(cache, 27, 0, group.Key);
                 var decoded = ParticleEmitterDecoder.Decode(data.ToArray());
+                var constants = ReadConstantEffectors(cache, decoded.ConstantEffectorIds, out warning);
                 definition = new ParticleEmitterDto(decoded.TextureId, decoded.ColorMin, decoded.ColorMax, decoded.LifeMin, decoded.LifeMax,
                     decoded.RateMin, decoded.RateMax, decoded.SizeMin, decoded.SizeMax, decoded.SpeedMin, decoded.SpeedMax, decoded.Angles, decoded.UnsupportedOpcodes,
-                    decoded.LocalEffectorIds, decoded.SpeedDrag is { } drag ? new ParticleDragDto(drag.Mode, drag.Strength) : null);
+                    decoded.LocalEffectorIds, decoded.SpeedDrag is { } drag ? new ParticleDragDto(drag.Mode, drag.Strength) : null, decoded.ConstantEffectorIds, constants,
+                    decoded.SizeOverLife is { } size ? new ParticleSizeCurveDto(size.Target, size.LifetimePercent) : null,
+                    decoded.SpeedOverLife is { } speed ? new ParticleSpeedCurveDto(speed.RawTarget, speed.LifetimePercent) : null,
+                    decoded.ColorOverLife is { } color ? new ParticleColorCurveDto(color.TargetArgb, color.RgbLifetimePercent, color.AlphaLifetimePercent) : null);
             }
             catch (Exception exception) when (exception is System.IO.IOException or System.IO.InvalidDataException or NotSupportedException)
             {
