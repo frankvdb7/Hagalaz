@@ -11,6 +11,7 @@ export class ModelViewerComponent implements OnDestroy {
     readonly showReset = input(true);
     readonly grid = input(false);
     readonly wireframe = input(false);
+    readonly particlePlaybackSpeed = input(1);
     readonly geometry = input<ModelGeometry | null>(null);
     readonly textures = input<ReadonlyMap<number, ModelTexture>>(new Map());
     readonly error = signal<string | null>(null);
@@ -30,6 +31,10 @@ export class ModelViewerComponent implements OnDestroy {
         effect(() => {
             const scene = this.scene();
             scene?.setDisplay(this.grid(), this.wireframe());
+        });
+        effect(() => {
+            const scene = this.scene();
+            if (scene) scene.particlePlaybackSpeed = this.particlePlaybackSpeed();
         });
         effect(() => {
             const scene = this.scene();

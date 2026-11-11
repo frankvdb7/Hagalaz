@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { clientFixedWater, clientHdWater, clientReflection, fixedWaterParameters, isFixedWater, sampleMaterialEffect, type MaterialEffect } from "./material-effects";
 import {ModelParticles, type ModelParticle, type PosedEffector} from "./model-particles";
 import { ModelBillboards, type RenderBillboard } from "./model-billboards";
+import { animationTickMs } from "./animation-tween";
 import { OrientationGizmo } from "./orientation-gizmo";
 import { PlacementGizmo, type PlacementGizmoTarget } from "./placement-gizmo";
 import { applyTerrainMaterials, TerrainMaterial, terrainSurfaceMaterial, type TerrainBlend } from "./terrain-material";
@@ -113,6 +114,7 @@ function hasBakedRegionTint(model: ModelGeometry): boolean {
 
 /** Owns the canvas and GPU resources for a single model inspection surface. */
 export class ModelScene {
+    particlePlaybackSpeed = 1;
     private readonly renderer: THREE.WebGLRenderer;
     private readonly scene = new THREE.Scene();
     private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100000);
@@ -128,6 +130,7 @@ export class ModelScene {
     private readonly centroid = new THREE.Vector3();
     private epoch?: number;
     private lastTime?: number;
+    private particleTickRemainder = 0;
     private particles?: ModelParticles;
     private billboards?: ModelBillboards;
     private readonly effectUpdates = new Map<THREE.Material, (seconds: number) => void>();
@@ -483,8 +486,15 @@ export class ModelScene {
             texture.offset.set(phase.u, phase.v);
         }
         for (const update of this.effectUpdates.values()) update(seconds);
-        if (this.primary.currentModel) this.particles?.update(this.lastTime === undefined ? 0 : (time-this.lastTime)/1000, this.primary.currentModel,
-            this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
+        if (this.particles && this.primary.currentModel) {
+            const elapsed = this.lastTime === undefined ? 0 : Math.min(100, Math.max(0, time - this.lastTime));
+            const ticks = this.particleTickRemainder + elapsed * this.particlePlaybackSpeed / animationTickMs;
+            const wholeTicks = Math.floor(ticks);
+            this.particleTickRemainder = ticks - wholeTicks;
+            // Particle definitions use client ticks normalized to seconds in the preview DTO.
+            this.particles.update(wholeTicks / 1000, this.primary.currentModel,
+                this.host.clientHeight * Math.min(window.devicePixelRatio,2) * this.camera.projectionMatrix.elements[5] / 2);
+        }
         this.lastTime = time;
         if (this.framing === "map") this.renderObjectAnimations(time);
         this.controls.update();
@@ -597,6 +607,7 @@ export class ModelScene {
         if (surface === this.primary) {
             this.epoch = undefined;
             this.lastTime = undefined;
+            this.particleTickRemainder = 0;
             this.lastObjectAnimationTime = undefined;
         }
         const geometry = retainedGeometry ?? new THREE.BufferGeometry();

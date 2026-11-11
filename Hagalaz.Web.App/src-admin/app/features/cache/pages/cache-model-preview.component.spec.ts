@@ -22,6 +22,7 @@ class RendererBoundary {
     readonly grid = input(false);
     readonly wireframe = input(false);
     readonly showReset = input(true);
+    readonly particlePlaybackSpeed = input(1);
     reset = vi.fn();
 }
 
@@ -230,18 +231,21 @@ describe("CacheModelPreviewComponent playback", () => {
         await vi.waitFor(() => { settle(); expect(close).toHaveBeenCalledTimes(1); }, { interval: 1 });
     });
 
-    it("loads emitter-only textures and displays particle fidelity warnings", async () => {
+    it("loads emitter textures and preserves the cache launch and force data", async () => {
         vi.stubGlobal("createImageBitmap",vi.fn().mockResolvedValue({close:vi.fn()}));
-        const definition = {textureId:744,colorMin:0x1effffff,colorMax:0x5acccccc,lifeMin:0.05,lifeMax:0.06,rateMin:296.875,rateMax:500,sizeMin:40,sizeMax:48,speedMin:800,speedMax:1200,angles:[0,64,4080,3920],unsupportedOpcodes:[10,18]};
+        const definition = {textureId:744,colorMin:0x1effffff,colorMax:0x5acccccc,lifeMin:0.05,lifeMax:0.06,rateMin:296.875,rateMax:500,sizeMin:40,sizeMax:48,speedMin:800,speedMax:1200,angles:[0,64,4080,3920],unsupportedOpcodes:[18],
+            constantEffectors: [{x: 0, y: 984, z: 0}]};
         http.expectOne(`${baseUrl}models/7`).flush({...model,vertexSkins:null,animationIds:[],particles:[{emitterId:403,face:0,definition,warning:null}]});
         await vi.waitFor(()=>{settle();expect(fixture.componentInstance.textureIds()).toEqual([744]);},{interval:1});
         http.expectOne(`${baseUrl}textures/744/material`).flush({alphaMode:2,effectId:0,hasHdr:false,scrollU:0,scrollV:0});
         http.expectOne(`${baseUrl}textures/744/image?sourceAlpha=true`).flush(new Blob());
         await vi.waitFor(()=>{settle();expect(fixture.componentInstance.textureData.hasValue()).toBe(true);},{interval:1});
         expect(fixture.componentInstance.geometry()?.particles?.[0].emitterId).toBe(403);
+        expect(fixture.componentInstance.geometry()?.particles?.[0].definition?.angles).toEqual(definition.angles);
+        expect(fixture.componentInstance.geometry()?.particles?.[0].definition?.constantEffectors).toEqual(definition.constantEffectors);
         expect(fixture.nativeElement.textContent).toContain("Particle emitter #403");
-        expect(fixture.nativeElement.textContent).toContain("Unsupported settings: 10, 18");
-        expect(fixture.nativeElement.textContent).toContain("Global forces, collision, prewarm");
+        expect(fixture.nativeElement.textContent).toContain("Unsupported settings: 18");
+        expect(fixture.nativeElement.textContent).toContain("Scene-wide forces, collision, prewarm");
     });
 
     it("inspects a referenced texture using its actual material mode", async () => {

@@ -30,6 +30,7 @@ type CacheTexture = ModelTexture & GetTextureMaterialDto & {hdrError?: boolean};
     host: { class: "block min-w-0" },
 })
 export class CacheModelPreviewComponent {
+    readonly particlePlaybackSpeed = signal(1);
     private readonly http = inject(HttpClient);
     readonly errorMessage = getCacheErrorMessage;
     readonly textureIds = computed(() => [...new Set([
@@ -39,7 +40,7 @@ export class CacheModelPreviewComponent {
     ].filter(id => id >= 0))]);
     readonly particleWarnings = computed(() => [...new Set((this.modelValue()?.particles ?? []).flatMap(particle => [
         ...(particle.warning ? [particle.warning] : []),
-        ...(particle.definition ? [`Particle emitter #${particle.emitterId}: textured preview with model-local forces; HDR sprite brightness is bounded for inspection. Global forces, collision, prewarm, bloom and advanced lifecycle curves remain unverified.${particle.definition.unsupportedOpcodes.length ? ` Unsupported settings: ${particle.definition.unsupportedOpcodes.join(", ")}.` : ""}`] : []),
+        ...(particle.definition ? [`Particle emitter #${particle.emitterId}: textured preview with local and constant forces; HDR sprite brightness is bounded for inspection. Scene-wide forces, collision, prewarm, bloom and advanced lifecycle curves remain unverified.${particle.definition.unsupportedOpcodes.length ? ` Unsupported settings: ${particle.definition.unsupportedOpcodes.join(", ")}.` : ""}`] : []),
     ]))]);
     readonly textureData = rxResource({
         params: () => this.textureIds(),

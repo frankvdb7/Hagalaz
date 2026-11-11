@@ -8,6 +8,156 @@ const attachment = {emitterId:403,face:1,definition};
 const model = {positions:[0,0,0,1,0,0,0,1,0, 100,0,0,101,0,0,100,1,0],indices:[0,1,2,3,4,5],faceColors:[127,20287],faceAlpha:[0,255],particles:[attachment]};
 
 describe("model-attached particles",()=>{
+    it("derives the falling launch direction from the cached constant force", () => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, rateMin: 50, rateMax: 50, speedMin: 1000, speedMax: 1000,
+            constantEffectors: [{ x: 0, y: 984, z: 0, coneAngle: 0, falloff: 0, attenuation: 1,
+                scope: 2, directDisplacement: false, radial: false, reverse: false }],
+        } };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            const geometry = { positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], indices: [0, 1, 2] };
+            const positions = (scene.children[0] as THREE.Points).geometry.getAttribute("position");
+            particles.update(0.02, geometry, 200);
+            const birthY = positions.getY(0);
+            particles.update(0.02, geometry, 200);
+            expect(positions.getY(0) - birthY).toBeLessThan(-20);
+            expect(positions.getZ(0)).toBe(0);
+        } finally {
+            particles.dispose();
+        }
+    });
+
+    it("wraps the client launch vector when a component exceeds signed-short range", () => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, rateMin: 50, rateMax: 50, speedMin: 1000, speedMax: 1000, angles: [0, 0, 4096, 4096],
+        } };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            const geometry = { positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], indices: [0, 1, 2] };
+            const positions = (scene.children[0] as THREE.Points).geometry.getAttribute("position");
+            particles.update(0.02, geometry, 200);
+            const birthX = positions.getX(0);
+            particles.update(0.02, geometry, 200);
+            expect(positions.getX(0) - birthX).toBeCloseTo(-20);
+        } finally {
+            particles.dispose();
+        }
+    });
+
+    it("updates tint and opacity on separate lifetime windows", () => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, rateMin: 50, rateMax: 50, lifeMin: 0.1, lifeMax: 0.1,
+            colorMin: 0xff000000, colorMax: 0xff000000,
+            colorOverLife: { targetArgb: 0x00ffffff, rgbLifetimePercent: 40, alphaLifetimePercent: 80 },
+        } };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            const geometry = { positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], indices: [0, 1, 2] };
+            const colors = (scene.children[0] as THREE.Points).geometry.getAttribute("particleColor");
+            particles.update(0.02, geometry, 200);
+            expect(colors.getX(0)).toBe(0);
+            expect(colors.getW(0)).toBe(1);
+            particles.update(0.02, geometry, 200);
+            expect(colors.getX(0)).toBeCloseTo(new THREE.Color().setRGB(127 / 255, 0, 0).convertSRGBToLinear().r);
+            expect(colors.getW(0)).toBeCloseTo(191 / 255);
+            particles.update(0.02, geometry, 200);
+            const tint = colors.getX(0);
+            expect(tint).toBeGreaterThan(0.98);
+            particles.update(0.02, geometry, 200);
+            expect(colors.getX(0)).toBe(tint);
+            expect(colors.getW(0)).toBeCloseTo(64 / 255);
+        } finally {
+            particles.dispose();
+        }
+    });
+
+    it("ramps travel speed from rest and holds it after the configured window", () => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, rateMin: 50, rateMax: 50, lifeMin: 0.1, lifeMax: 0.1,
+            speedOverLife: { rawTarget: 262144, lifetimePercent: 40 },
+        } };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            const geometry = { positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], indices: [0, 1, 2] };
+            const positions = (scene.children[0] as THREE.Points).geometry.getAttribute("position");
+            particles.update(0.02, geometry, 200);
+            expect(positions.getZ(0)).toBe(0);
+            particles.update(0.02, geometry, 200);
+            expect(positions.getZ(0)).toBeCloseTo(10, 1);
+            particles.update(0.02, geometry, 200);
+            expect(positions.getZ(0)).toBeCloseTo(30, 1);
+            particles.update(0.02, geometry, 200);
+            expect(positions.getZ(0)).toBeCloseTo(50, 1);
+        } finally {
+            particles.dispose();
+        }
+    });
+
+    it.each([undefined, [20287]])("uses the cache normal with cape emitter 403 after geometry preparation (%j)", faceColors => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, rateMin: 50, rateMax: 50, speedMin: 1000, speedMax: 1000,
+            angles: [0, 64, 4080, 3920],
+        } };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            const geometry = prepareCacheModel({ positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], indices: [0, 1, 2], faceColors });
+            const positions = (scene.children[0] as THREE.Points).geometry.getAttribute("position");
+            particles.update(0.02, geometry, 200);
+            const startX = positions.getX(0);
+            particles.update(0.02, geometry, 200);
+            expect(positions.getX(0) - startX).toBeGreaterThan(19);
+            expect(Math.abs(positions.getZ(0))).toBeLessThan(1);
+        } finally {
+            particles.dispose();
+        }
+    });
+
+    it("shrinks cape sprites over their lifetime without changing the birth rate", () => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, sizeMin: 44, sizeMax: 44, lifeMin: 0.06, lifeMax: 0.06,
+            rateMin: 50, rateMax: 50, sizeOverLife: { target: 4, lifetimePercent: 100 },
+        } };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            const geometry = { positions: Array<number>(9).fill(0), indices: [0, 1, 2] };
+            const sizes = (scene.children[0] as THREE.Points).geometry.getAttribute("particleSize");
+            particles.update(0.02, geometry, 200);
+            expect(sizes.getX(0)).toBe(44);
+            expect(sizes.getX(1)).toBe(0);
+            particles.update(0.02, geometry, 200);
+            expect(sizes.getX(0)).toBeCloseTo(30.669921875);
+            expect(sizes.getX(1)).toBe(44);
+        } finally {
+            particles.dispose();
+        }
+    });
+
+    it.each([[true, -80], [false, -900 / 4096]] as const)("applies a constant force without an attachment (direct=%s)", (directDisplacement, expected) => {
+        const scene = new THREE.Scene();
+        const emitter = { emitterId: 403, face: 0, definition: {
+            ...definition, lifeMin: 1, lifeMax: 1, rateMin: 50, rateMax: 50, speedMin: 1, speedMax: 1,
+            constantEffectors: [{ x: 0, y: 16384, z: 0, coneAngle: 0, falloff: 2, attenuation: 1, scope: 2,
+                directDisplacement, radial: true, reverse: true }],
+        } };
+        const geometry = { positions: Array<number>(9).fill(0), indices: [0, 1, 2] };
+        const particles = new ModelParticles(scene, [emitter], new Map());
+        try {
+            particles.update(0.02, geometry, 200);
+            particles.update(0.02, geometry, 200);
+            const positions = (scene.children[0] as THREE.Points).geometry.getAttribute("position");
+            expect(positions.getY(0)).toBeCloseTo(expected);
+        } finally {
+            particles.dispose();
+        }
+    });
+
     it.each([
         [1, 1000 - 500 * 6 * 125 * 50 / 262144],
         [2, 1000 - 500 * 6 * 250000 * 50 / 268435456],

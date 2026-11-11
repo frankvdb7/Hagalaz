@@ -474,13 +474,27 @@ public static class ModelEndpoints
         }).ToArray();
     }
 
-    private static (ParticleEffectorDto? Definition, string? Warning) ReadEffector(ICacheAPI cache, int id)
+    private static ParticleEffectorDto[] ReadConstantEffectors(ICacheAPI cache, int[] ids, out string? warning)
+    {
+        var result = new List<ParticleEffectorDto>();
+        var warnings = new List<string>();
+        foreach (var id in ids)
+        {
+            var (definition, unavailable) = ReadEffector(cache, id, expectedScope: 2);
+            if (unavailable is not null) warnings.Add(unavailable);
+            else if (definition is not null) result.Add(definition);
+        }
+        warning = warnings.Count == 0 ? null : string.Join(" ", warnings);
+        return result.ToArray();
+    }
+
+    private static (ParticleEffectorDto? Definition, string? Warning) ReadEffector(ICacheAPI cache, int id, int expectedScope = 0)
     {
         try
         {
             using var data = ReadMember(cache, 27, 1, id);
             var d = ParticleEffectorDecoder.Decode(data);
-            var warning = d.Scope == 0 ? null : $"Particle effector #{id} uses an unsupported scope ({d.Scope}).";
+            var warning = d.Scope == expectedScope ? null : $"Particle effector #{id} uses an unsupported scope ({d.Scope}).";
             return (new(d.X, d.Y, d.Z, d.ConeAngle, d.Falloff, d.Attenuation, d.Scope, d.DirectDisplacement, d.Radial, d.Reverse), warning);
         }
         catch (Exception exception) when (exception is System.IO.IOException or System.IO.InvalidDataException)

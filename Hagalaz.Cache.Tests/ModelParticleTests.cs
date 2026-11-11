@@ -24,7 +24,8 @@ public class ModelParticleTests
         var emitter = ParticleEmitterDecoder.Decode([9, 2, 0, 17, 1, 2, 15, 0, 44, 10, 1, 0, 6, 0]);
         Assert.Equal(new[] { 17, 258 }, emitter.LocalEffectorIds);
         Assert.Equal(44, emitter.TextureId);
-        Assert.Equal(new[] { 10 }, emitter.UnsupportedOpcodes);
+        Assert.Equal(new[] { 6 }, emitter.ConstantEffectorIds);
+        Assert.Empty(emitter.UnsupportedOpcodes);
         Assert.Throws<InvalidDataException>(() => ParticleEmitterDecoder.Decode([9, 2, 0, 17, 0]));
     }
 
@@ -65,8 +66,18 @@ public class ModelParticleTests
         Assert.Equal(0.05f,d.LifeMin); Assert.Equal(0.06f,d.LifeMax);
         Assert.Equal(296.875f,d.RateMin); Assert.Equal(500f,d.RateMax);
         Assert.Equal(48,d.SizeMin); Assert.Equal(40,d.SizeMax);
+        Assert.Equal(new ParticleEmitterDecoder.SizeCurve(4, 100), d.SizeOverLife);
+        Assert.Equal(new ParticleEmitterDecoder.SpeedCurve(734003, 100), d.SpeedOverLife);
+        Assert.DoesNotContain(22, d.UnsupportedOpcodes);
+        Assert.DoesNotContain(23, d.UnsupportedOpcodes);
+        Assert.DoesNotContain(27, d.UnsupportedOpcodes);
+        Assert.DoesNotContain(28, d.UnsupportedOpcodes);
         Assert.InRange(d.SpeedMin,799,801); Assert.InRange(d.SpeedMax,1199,1201);
-        Assert.Contains(10,d.UnsupportedOpcodes); Assert.Contains(18,d.UnsupportedOpcodes);
+        Assert.NotEmpty(d.ConstantEffectorIds); Assert.DoesNotContain(10,d.UnsupportedOpcodes);
+        Assert.Equal(new ParticleEmitterDecoder.ColorCurve(0x00ffffff, 100, 100), d.ColorOverLife);
+        Assert.DoesNotContain(18, d.UnsupportedOpcodes);
+        Assert.DoesNotContain(20, d.UnsupportedOpcodes);
+        Assert.DoesNotContain(21, d.UnsupportedOpcodes);
         Assert.Equal(new[]{0,64,4080,3920},d.Angles);
     }
     [Fact]

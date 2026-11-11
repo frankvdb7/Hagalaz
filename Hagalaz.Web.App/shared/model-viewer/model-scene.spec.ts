@@ -1080,12 +1080,14 @@ describe("ModelScene resource ownership", () => {
     it("animates attached particles on the existing loop and releases them on model replacement", () => {
         const definition = {textureId: -1, colorMin: 0xffffffff, colorMax: 0xffffffff, lifeMin: 0.05, lifeMax: 0.06, rateMin: 500, rateMax: 500, sizeMin: 40, sizeMax: 48, speedMin: 0, speedMax: 0, angles: [0,0,0,0], unsupportedOpcodes: []};
         scene.setGeometry({...triangle, particles: [{emitterId: 403, face: 0, definition}]});
-        renderAt(0); renderAt(16);
+        renderAt(0); renderAt(16); renderAt(39);
         const rendered = gpu.render.mock.lastCall![0] as THREE.Scene;
         const points = rendered.children.find(child => child instanceof THREE.Points) as THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>;
+        expect(points.geometry.getAttribute("particleColor").getW(0)).toBe(0);
+        renderAt(40);
         expect(points.geometry.getAttribute("particleColor").getW(0)).toBeGreaterThan(0);
         const releaseGeometry = vi.spyOn(points.geometry,"dispose"), releaseMaterial = vi.spyOn(points.material,"dispose");
-        scene.setGeometry({...triangle,sourceId: 2}); renderAt(32);
+        scene.setGeometry({...triangle,sourceId: 2}); renderAt(60);
         expect(rendered.children.some(child => child instanceof THREE.Points)).toBe(false);
         expect(releaseGeometry).toHaveBeenCalledTimes(1); expect(releaseMaterial).toHaveBeenCalledTimes(1);
         expect(gpu.setAnimationLoop).toHaveBeenCalledTimes(1);

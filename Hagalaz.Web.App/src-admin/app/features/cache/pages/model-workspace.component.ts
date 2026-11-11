@@ -29,6 +29,7 @@ import { ModelTexturesComponent } from "./model-textures.component";
     styleUrl: "./model-workspace.component.scss",
 })
 export class ModelWorkspaceComponent {
+    readonly particlePlaybackSpeed = input(1);
     readonly modelData = input.required<GetModelDto>();
     readonly modelId = input<number | null>(null);
     readonly geometry = input<ModelGeometry | null>(null);

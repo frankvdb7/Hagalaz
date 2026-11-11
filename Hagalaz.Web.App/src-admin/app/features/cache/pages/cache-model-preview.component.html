@@ -13,7 +13,11 @@
 
 <ng-template #compactView>
     <ng-container [ngTemplateOutlet]="modelNotes" />
-    @if (modelValue()) { <hagalaz-model-viewer [height]="height()" [geometry]="geometry()" [textures]="textureImages()" /><ng-container [ngTemplateOutlet]="animationControls" /> }
+    @if (modelValue()) {
+        <ng-container [ngTemplateOutlet]="particleControls" />
+        <hagalaz-model-viewer [height]="height()" [geometry]="geometry()" [textures]="textureImages()" [particlePlaybackSpeed]="particlePlaybackSpeed()" />
+        <ng-container [ngTemplateOutlet]="animationControls" />
+    }
     @if (missingModel()) { <p>No inventory model is available.</p> }
     @if (textureIds().length) { <section cache-model-textures [ids]="textureIds()" [materials]="textureImages()" [(selected)]="selectedTexture"></section> }
     <ng-container [ngTemplateOutlet]="textureErrors" />
@@ -22,10 +26,11 @@
 
 <ng-template #workspaceView>
     @if (modelValue(); as value) {
-        <cache-model-workspace [modelData]="value" [(tab)]="inspectionTab" [modelId]="modelId()" [geometry]="geometry()" [textureIds]="textureIds()" [textureImages]="textureImages()" (reload)="model.reload()">
+        <cache-model-workspace [modelData]="value" [particlePlaybackSpeed]="particlePlaybackSpeed()" [(tab)]="inspectionTab" [modelId]="modelId()" [geometry]="geometry()" [textureIds]="textureIds()" [textureImages]="textureImages()" (reload)="model.reload()">
             <div modelLookup><ng-container [ngTemplateOutlet]="modelLookup" /></div>
             <div textureErrors><ng-container [ngTemplateOutlet]="textureErrors" /></div>
             <div animationControls><ng-container [ngTemplateOutlet]="animationControls" /></div>
+            <div particleControls><ng-container [ngTemplateOutlet]="particleControls" /></div>
             <div modelNotes><ng-container [ngTemplateOutlet]="modelNotes" /></div>
         </cache-model-workspace>
     }
@@ -41,4 +46,17 @@
 </ng-template>
 <ng-template #animationControls>
     <cache-model-animations [animations]="currentAnimationIds()" [hasSkins]="hasSkins()" [sequence]="sequenceValue()" [frameIndex]="frameIndex()" [playing]="playing()" [loading]="clip.isLoading()" [sequenceError]="sequenceErrorMessage()" [clipError]="clipErrorMessage()" [frameError]="frameErrorMessage()" [poseError]="poseError()" [poseWarning]="poseWarning()" [(frameId)]="draftFrame" (playAnimation)="selectAnimation($event)" (inspectFrame)="inspectFrame()" (basePose)="basePose()" (togglePlayback)="playing.set(!playing())" (nextFrame)="advance()" (retryClip)="clip.reload()" (retryFrame)="frame.reload()" />
+</ng-template>
+
+<ng-template #particleControls>
+    @if (modelValue()?.particles?.length) {
+        <label>
+            Particle playback speed
+            <select #playbackSpeedSelect (change)="particlePlaybackSpeed.set(+playbackSpeedSelect.value)" [value]="particlePlaybackSpeed()">
+                <option value="1">100%</option>
+                <option value="0.5">50%</option>
+                <option value="0.25">25%</option>
+            </select>
+        </label>
+    }
 </ng-template>

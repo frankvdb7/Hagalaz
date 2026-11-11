@@ -22,15 +22,16 @@
                     @for (item of inspectionTabs(); track item.label) { <mat-tab><ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2">{{item.icon}}</mat-icon>{{item.label}}</ng-template></mat-tab> }
                 </mat-tab-group>
                 <section class="model-stage studio-surface mt-3" [hidden]="tab() !== 0 && tab() !== 4" aria-label="Model viewport">
-                    <div class="viewport-toolbar flex items-center justify-between gap-2">
+                    <div class="viewport-toolbar flex flex-wrap items-center justify-between gap-2">
                         <span class="camera-label studio-control-surface">Perspective</span>
+                        <ng-content select="[particleControls]" />
                         <div class="flex items-center gap-1">
                             <button mat-icon-button type="button" aria-label="Toggle grid" [attr.aria-pressed]="showGrid()" [class.active-tool]="showGrid()" matTooltip="Toggle grid" (click)="showGrid.set(!showGrid())"><mat-icon>grid_on</mat-icon></button>
                             <button mat-icon-button type="button" aria-label="Toggle wireframe" [attr.aria-pressed]="wireframe()" [class.active-tool]="wireframe()" matTooltip="Toggle wireframe" (click)="wireframe.set(!wireframe())"><mat-icon>deployed_code</mat-icon></button>
                             <button mat-icon-button type="button" aria-label="Focus model" matTooltip="Focus model" (click)="viewer()?.reset()"><mat-icon>center_focus_strong</mat-icon></button>
                         </div>
                     </div>
-                    <hagalaz-model-viewer [height]="430" [geometry]="workspaceGeometry()" [textures]="textureImages()" [grid]="showGrid()" [wireframe]="wireframe()" [showReset]="false" />
+                    <hagalaz-model-viewer [height]="430" [geometry]="workspaceGeometry()" [textures]="textureImages()" [grid]="showGrid()" [wireframe]="wireframe()" [showReset]="false" [particlePlaybackSpeed]="particlePlaybackSpeed()" />
                     <footer class="viewport-footer flex flex-wrap items-end justify-between gap-3">
                         <dl class="model-stats studio-control-surface"><div><dt>Objects</dt><dd>1</dd></div><div><dt>Vertices</dt><dd>{{ value.positions.length / 3 }}</dd></div><div><dt>Triangles</dt><dd>{{ value.indices.length / 3 }}</dd></div></dl>
                         <p class="supporting-text text-xs">Drag to orbit · Scroll to zoom · Right-drag to pan</p>
