@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -27,7 +28,44 @@ public static class ObjectDefinitionsEndpoints
         types.MapGet("/objects/range", GetObjectTypeRange).WithSummary("List object definitions in a range").Produces<GetObjectDefinitionDto[]>();
         types.MapGet("/objects/catalog", GetObjectCatalog).WithSummary("Search the object catalog by name or ID").Produces<SearchDefinitionsDto<GetObjectCatalogEntryDto>>();
         types.MapPost("/objects/{id:int}/name", SetObjectName).WithSummary("Rename an object").Produces<UpdateObjectNameResultDto>();
+        types.MapPost("/objects/collision", GetObjectCollision)
+            .WithSummary("Read collision fields for 1 to 256 placed object definition IDs")
+            .Produces<GetObjectCollisionResultDto[]>()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
         return types;
+    }
+
+    private static IResult GetObjectCollision(
+        GetObjectCollisionDto request, ICacheAPI cache, ITypeProvider<IObjectType> provider, CancellationToken cancellationToken)
+    {
+        if (request.Ids is not { Length: >= 1 and <= 256 } ids)
+            return TypedResults.BadRequest(EndpointErrors.Validation("ids must contain 1 to 256 object definition IDs."));
+
+        var data = new ObjectTypeData();
+        var table = cache.ReadReferenceTable(data.IndexId);
+        var results = new GetObjectCollisionResultDto[ids.Length];
+        for (var i = 0; i < ids.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var id = ids[i];
+            if (id < 0 || table.GetEntry(data.GetArchiveId(id), data.GetArchiveEntryId(id)) is null)
+            {
+                results[i] = new(id, "not-found", null);
+                continue;
+            }
+
+            try
+            {
+                var definition = provider.Get(id);
+                results[i] = new(id, "ok", new(definition.SizeX, definition.SizeY, definition.ClipType, definition.Solid, definition.Gateway));
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException or NotSupportedException)
+            {
+                results[i] = new(id, "unavailable", null);
+            }
+        }
+
+        return TypedResults.Ok(results);
     }
 
     private static IResult GetObjectType(int id, ITypeProvider<IObjectType> provider) => TypedResults.Ok(MapObject(provider.Get(id)));

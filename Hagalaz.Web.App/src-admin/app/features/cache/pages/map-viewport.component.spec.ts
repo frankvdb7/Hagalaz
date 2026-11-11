@@ -7,7 +7,10 @@ import { mapObjectDragType, MapViewportComponent } from "./map-viewport.componen
 
 describe("MapViewportComponent keyboard controls", () => {
     beforeEach(() => TestBed.configureTestingModule({ imports: [MapViewportComponent] }));
-    afterEach(() => vi.restoreAllMocks());
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
 
     it("suppresses click jitter, passes through camera drags, and clears selection on Escape", () => {
         const fixture = TestBed.createComponent(MapViewportComponent);
@@ -42,6 +45,64 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.componentRef.setInput("tileOverlay", null);
         fixture.detectChanges();
         expect(setTileOverlay).toHaveBeenLastCalledWith(null);
+        fixture.destroy();
+    });
+
+    it("batches clipping raycasts, skips drags, and emits only when the hovered tile changes", () => {
+        vi.useFakeTimers();
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const viewport = fixture.componentInstance;
+        const pickSurface = vi.fn((x: number) => ({ x, z: 1024, vertex: 0 }));
+        const scene = new Proxy({ pickSurface } as Record<string | symbol, unknown>, { get: (target, name) => target[name] ?? vi.fn() });
+        (viewport as unknown as { scene: { set(value: unknown): void } }).scene.set(scene);
+        fixture.componentRef.setInput("geometry", { terrain: { mapPlanes: [2] }, objects: null, placements: [] });
+        const hovers: unknown[] = [];
+        viewport.brushHover.subscribe(point => hovers.push(point));
+        const move = (clientX: number, buttons = 0) => viewport.movePick(new PointerEvent("pointermove", { clientX, buttons }));
+        move(500);
+        vi.advanceTimersByTime(75);
+        expect(pickSurface).not.toHaveBeenCalled();
+        fixture.componentRef.setInput("collisionHover", true);
+        move(500);
+        move(520);
+        expect(pickSurface).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(75);
+        expect(pickSurface).toHaveBeenCalledExactlyOnceWith(520, 0);
+        expect(hovers).toEqual([{ x: 512, z: 1024, plane: 2 }]);
+        move(550);
+        vi.advanceTimersByTime(75);
+        expect(hovers).toHaveLength(1);
+        move(1100);
+        viewport.startPick(new PointerEvent("pointerdown", { buttons: 1 }));
+        move(1300, 1);
+        vi.advanceTimersByTime(75);
+        expect(pickSurface).toHaveBeenCalledTimes(2);
+        viewport.finishPick(new PointerEvent("pointerup", { clientX: 1300 }));
+        vi.advanceTimersByTime(75);
+        expect(hovers.at(-1)).toEqual({ x: 1024, z: 1024, plane: 2 });
+        viewport.leaveBrush();
+        expect(hovers.at(-1)).toBeNull();
+        fixture.destroy();
+    });
+
+    it("keeps the collision readout out of the canvas layout as hover changes", () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        fixture.componentRef.setInput("collisionReadout", {
+            x: 65, y: 129, plane: 0, collisionPlane: 0, bits: ["FloorBlock", "WallNorth"],
+        });
+        fixture.detectChanges();
+        const host: HTMLElement = fixture.nativeElement;
+        const canvas = host.querySelector(".map-canvas");
+        const readout = host.querySelector(".collision-readout");
+        if (!canvas || !readout || !canvas.parentElement) throw new Error("Missing map canvas or readout");
+        expect(readout.parentElement).toBe(canvas.parentElement);
+        expect(getComputedStyle(canvas.parentElement).position).toBe("relative");
+        expect(getComputedStyle(readout).position).toBe("absolute");
+        expect(getComputedStyle(readout).pointerEvents).toBe("none");
+        fixture.componentRef.setInput("collisionReadout", null);
+        fixture.detectChanges();
+        expect(host.querySelector(".map-canvas")).toBe(canvas);
+        expect(host.querySelector(".collision-readout")).toBeNull();
         fixture.destroy();
     });
 

@@ -1,3 +1,5 @@
+import type { MapPlacement } from "../../services/map-render.models";
+import { ApplicationRef } from "@angular/core";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
@@ -13,6 +15,7 @@ import { CachePendingChangesService } from "../../cache-pending-changes.service"
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
 import { MapViewportComponent } from "../map-viewport.component";
+import { projectileObjectRgb, walkableRgb } from "../map-walkability";
 import { MapsDetailPageComponent } from "./maps-detail.page";
 import { CacheObjectsService } from "../../services/cache-objects.service";
 import { required } from "../../../../../testing/required";
@@ -149,10 +152,10 @@ describe("MapsDetailPageComponent", () => {
     });
     describe("editing terrain", () => {
         const planes = () => Array.from({ length: 4 }, () => ({ cornerHeights: Array(4225).fill(-640), flags: Array(4096).fill(0), underlays: Array(4096).fill(1), overlays: Array(4096).fill(0), overlayShapes: Array(4096).fill(0), overlayRotations: Array(4096).fill(0) }));
-        const loadTerrain = async () => {
+        const loadTerrain = async (objects: readonly MapPlacement[] = []) => {
             const harness = await RouterTestingHarness.create();
             const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
-            http.expectOne(`${base}258/render`).flush({ ...region(258), terrainStatus: "available", landscapeStatus: "available", planes: planes() });
+            http.expectOne(`${base}258/render`).flush({ ...region(258), terrainStatus: "available", landscapeStatus: "available", planes: planes(), objects });
             harness.detectChanges();
             page.brush.update(brush => ({ ...brush, size: 1 }));
             const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(MapViewportComponent)).componentInstance as MapViewportComponent;
@@ -230,12 +233,13 @@ describe("MapsDetailPageComponent", () => {
             const terrain = page.scene().geometry?.terrain;
             page.walkability.set(true);
             harness.detectChanges();
-            expect(viewport.tileOverlay()).toBeNull();
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === walkableRgb)).toHaveLength(4096);
             expect(page.scene().geometry?.terrain).toBe(terrain);
             page.changeBrush({ ...page.brush(), tool: "set-flag", flag: 1 });
             viewport.brushStroke.emit([{ x: 512, z: 512 }, { x: 1536, z: 512 }]);
             harness.detectChanges();
-            expect(viewport.tileOverlay()?.rgb).toEqual([0xff2d2d, 0xff2d2d, 0xff2d2d]);
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === 0xff2d2d)).toHaveLength(3);
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === walkableRgb)).toHaveLength(4093);
             expect(page.scene().geometry?.terrain).toBe(terrain);
             page.togglePlane(0, false);
             harness.detectChanges();
@@ -243,10 +247,95 @@ describe("MapsDetailPageComponent", () => {
             page.togglePlane(0, true);
             viewport.undo.emit();
             harness.detectChanges();
-            expect(viewport.tileOverlay()).toBeNull();
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === walkableRgb)).toHaveLength(4096);
             page.walkability.set(false);
             harness.detectChanges();
             expect(viewport.tileOverlay()).toBeNull();
+        });
+
+        it("shows both collision types without rebuilding geometry and keeps terrain visible when a definition batch fails", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            const solid = { sizeX: 1, sizeY: 1, clipType: 2, solid: true, gateway: false };
+            const collisionUrl = `${environment.cacheApiUrl}types/objects/collision`;
+            page.changeBrush({ ...page.brush(), tool: "set-flag", flag: 1 });
+            viewport.brushStroke.emit([{ x: 512, z: 512 }]);
+            const drop = (id: number, x: number) => {
+                page.selectedAsset.set({ id, name: "Object", shape: 10 });
+                viewport.objectDrop.emit({ id, x: x * 512, z: 6 * 512 });
+                harness.detectChanges();
+                http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`).flush([{ id, shape: 10, rotation: 0, status: 404, appearance: null }]);
+            };
+            drop(8, 3);
+            page.walkability.set(true);
+            harness.detectChanges();
+            http.expectOne(collisionUrl).flush([{ id: 8, status: "ok", collision: solid }]);
+            await TestBed.inject(ApplicationRef).whenStable();
+            harness.detectChanges();
+            expect(viewport.tileOverlay()?.rgb).toContain(0xff2d2d);
+            expect(viewport.tileOverlay()?.rgb).toContain(projectileObjectRgb);
+
+            drop(9, 4);
+            http.expectOne(collisionUrl).flush(null, { status: 500, statusText: "Server Error" });
+            await TestBed.inject(ApplicationRef).whenStable();
+            harness.detectChanges();
+            expect(page.walkabilityLabel()).toContain("missing object data");
+            expect(viewport.tileOverlay()?.rgb).toContain(0xff2d2d);
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === projectileObjectRgb)).toHaveLength(1);
+        });
+
+        it("shows every collision bit for a hovered tile and hides the readout with walkability off", async () => {
+            const wall = { id: 8, shape: 0, rotation: 1, plane: 0, x: 1, y: 1 };
+            const gate = { id: 9, shape: 10, rotation: 0, plane: 0, x: 3, y: 3 };
+            const { harness, page, viewport } = await loadTerrain([wall, gate]);
+            http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`).flush(
+                [wall, gate].map(({ id, shape, rotation }) => ({ id, shape, rotation, status: 404, appearance: null })),
+            );
+            page.changeBrush({ ...page.brush(), tool: "set-flag", flag: 1 });
+            viewport.brushStroke.emit([{ x: 512, z: 512 }]);
+            viewport.brushHover.emit({ x: 512, z: 512, plane: 0 });
+            harness.detectChanges();
+            expect(viewport.collisionReadout()).toBeNull();
+
+            page.walkability.set(true);
+            harness.detectChanges();
+            http.expectOne(`${environment.cacheApiUrl}types/objects/collision`).flush([
+                { id: 8, status: "ok", collision: { sizeX: 1, sizeY: 1, clipType: 2, solid: true, gateway: false } },
+                { id: 9, status: "ok", collision: { sizeX: 1, sizeY: 1, clipType: 0, solid: false, gateway: true } },
+            ]);
+            await TestBed.inject(ApplicationRef).whenStable();
+            harness.detectChanges();
+            expect(viewport.collisionReadout()).toEqual({
+                x: 65, y: 129, plane: 0, collisionPlane: 0,
+                bits: ["WallNorth", "BlockedNorth", "FloorBlock", "WallAllowRangeNorth"],
+            });
+
+            viewport.brushHover.emit({ x: 3 * 512, z: 3 * 512, plane: 0 });
+            harness.detectChanges();
+            expect(viewport.collisionReadout()?.bits).toEqual(["ObjectTile"]);
+            page.walkability.set(false);
+            harness.detectChanges();
+            expect(viewport.collisionReadout()).toBeNull();
+        });
+
+        it("shows one legend with movement and projectile clipping only while walkability is on", async () => {
+            const { harness, page } = await loadTerrain();
+            const host: HTMLElement = required(harness.routeDebugElement, "the routed page").nativeElement;
+            const legend = () => host.querySelector(".map-stage cache-map-overlay-legend");
+            const labels = () => [...(legend()?.querySelectorAll("li") ?? [])].map(item => item.textContent?.trim());
+            expect(legend()).toBeNull();
+            page.walkability.set(true);
+            harness.detectChanges();
+            expect(labels()).toEqual([
+                "Walkable floor", "Blocked", "Bridge", "Roof", "Draw on plane 0", "Hidden on minimap",
+                "Object or decoration (movement only)", "Wall (movement only)", "Object (movement + projectiles)",
+                "Wall (movement + projectiles)", "Ignored under bridge",
+            ]);
+            expect(legend()?.querySelector(".swatch.edge")).not.toBeNull();
+            expect([...legend()?.querySelectorAll<HTMLElement>(".swatch span") ?? []].map(swatch => swatch.style.backgroundColor))
+                .toEqual(expect.arrayContaining(["rgb(255, 99, 216)", "rgb(101, 223, 255)"]));
+            page.walkability.set(false);
+            harness.detectChanges();
+            expect(legend()).toBeNull();
         });
 
         it("lists walkability with the other layer options", async () => {
@@ -258,7 +347,7 @@ describe("MapsDetailPageComponent", () => {
             panel.append(...view.rootNodes as Node[]);
             const items = [...panel.querySelectorAll<HTMLButtonElement>("button[mat-menu-item]")];
             const labels = items.map(item => item.textContent?.replace(/check_box(_outline_blank)?/, "").trim());
-            expect(labels.slice(-2)).toEqual(["Object shadows", "Walkability (flags, drawn objects)"]);
+            expect(labels.slice(-2)).toEqual(["Object shadows", "Clipping"]);
             const item = required(items.at(-1), "the walkability item");
             expect(item.getAttribute("aria-checked")).toBe("false");
             item.click();

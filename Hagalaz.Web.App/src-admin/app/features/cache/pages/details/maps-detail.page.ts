@@ -1,6 +1,6 @@
 import { MatButtonModule } from "@angular/material/button";
 import { Component, computed, DestroyRef, effect, inject, linkedSignal, signal, untracked } from "@angular/core";
-import { toSignal } from "@angular/core/rxjs-interop";
+import { rxResource, toSignal } from "@angular/core/rxjs-interop";
 import { MatCardModule } from "@angular/material/card";
 import { MatDialog } from "@angular/material/dialog";
 import { MatDividerModule } from "@angular/material/divider";
@@ -14,29 +14,42 @@ import { firstValueFrom } from "rxjs";
 import type { PlacementGizmoMode, PlacementGizmoResult } from "../../../../../../shared/model-viewer/placement-gizmo";
 import { PortalBreadcrumbDirective } from "../../../../layout/portal-breadcrumb.directive";
 import { CachePendingChangesService } from "../../cache-pending-changes.service";
+import { CacheMapsService } from "../../services/cache-maps.service";
 import { CacheObjectsService, type ObjectCatalogEntry } from "../../services/cache-objects.service";
-import { mapAppearanceKey, selectedMapIds, type MapFloor, type MapPlacement, type MapWorldMapRefreshResult } from "../../services/map-render.models";
+import { mapAppearanceKey, selectedMapIds, type MapFloor, type MapPlacement, type ObjectCollision, type MapWorldMapRefreshResult } from "../../services/map-render.models";
 import { CacheMapSceneStore } from "../../stores/cache-map-scene.store";
 import { injectCacheDefinitionId } from "../cache-definition-id";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 import { buildMapScene, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapObjectRange, type MapObjectTransform, type MapSceneDraft, type MapSceneFilter } from "../map-scene-geometry";
-import { mapLightField } from "../map-point-lights";
+import { mapLightField, mapSceneOrigin } from "../map-point-lights";
 import { regionDetails, sceneGroups, scenePlacements, terrainDetails, type SceneSelection } from "../map-scene-tree";
 import { MapAssetPanelComponent } from "../map-asset-panel.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapObjectInspectorComponent } from "../map-object-inspector.component";
+import { MapOverlayLegendComponent, type MapLegendEntry } from "../map-overlay-legend.component";
 import { MapRegionDetailsComponent } from "../map-region-details.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
-import { tileFlag } from "../map-tile-flags";
-import { buildWalkabilityOverlay } from "../map-walkability";
+import { collisionPlane, tileFlag, tileFlagOptions } from "../map-tile-flags";
+import { buildCollisionMap, collisionBitNames } from "../map-collision";
+import { buildWalkabilityOverlay, ineffectiveBlockRgb, objectCollisionRgb, projectileObjectRgb, projectileWallRgb, walkableRgb } from "../map-walkability";
 import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type BrushPoint, type TerrainBrush } from "../map-terrain-edit";
 import { MapTerrainPanelComponent } from "../map-terrain-panel.component";
-import { MapViewportComponent } from "../map-viewport.component";
+import { type MapHoverPoint, MapViewportComponent, type TileCollisionReadout } from "../map-viewport.component";
+
+const walkabilityLegend: readonly MapLegendEntry[] = [
+    { label: "Walkable floor", rgb: walkableRgb },
+    ...tileFlagOptions,
+    { label: "Object or decoration (movement only)", rgb: objectCollisionRgb },
+    { label: "Wall (movement only)", rgb: objectCollisionRgb, marker: "edge" },
+    { label: "Object (movement + projectiles)", rgb: projectileObjectRgb },
+    { label: "Wall (movement + projectiles)", rgb: projectileWallRgb, marker: "edge" },
+    { label: "Ignored under bridge", rgb: ineffectiveBlockRgb },
+];
 
 @Component({
     selector: "cache-maps-detail-page",
-    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
-    providers: [CacheMapSceneStore],
+    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapOverlayLegendComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
+    providers: [CacheMapSceneStore, CacheMapsService],
     templateUrl: "./maps-detail.page.html",
     styleUrl: "./maps-detail.page.scss",
     host: { class: "min-w-0" },
@@ -55,6 +68,7 @@ export class MapsDetailPageComponent {
     readonly waterSurface = signal(true);
     readonly objectShadows = signal(true);
     readonly walkability = signal(false);
+    readonly walkabilityLegend = walkabilityLegend;
     readonly layerIcon = (visible: boolean) => visible ? "check_box" : "check_box_outline_blank";
     readonly regionLabel = computed(() => this.id() ?? "Invalid ID");
     readonly layerToggles = [
@@ -62,7 +76,6 @@ export class MapsDetailPageComponent {
         { label: "Water surface", visible: this.waterSurface },
         { label: "Landscape objects", visible: this.landscape },
         { label: "Object shadows", visible: this.objectShadows },
-        { label: "Walkability (flags, drawn objects)", visible: this.walkability },
     ];
 
     readonly terrainVisible = signal(true);
@@ -100,7 +113,7 @@ export class MapsDetailPageComponent {
     private readonly previewRegions = computed(() => applyTerrainEdits(this.store.regions(), this.terrainEdits(), this.floorCatalog()));
     readonly pointLights = computed(() => mapLightField(this.previewRegions()));
     readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: tileFlag.blocked });
-    readonly brushPoint = signal<BrushPoint | null>(null);
+    readonly brushPoint = signal<MapHoverPoint | null>(null);
     readonly strokePoints = signal<readonly BrushPoint[] | null>(null);
     readonly dropPoint = signal<BrushPoint | null>(null);
     private readonly dropPlane = computed(() => Math.max(0, this.planes().indexOf(true)));
@@ -114,13 +127,50 @@ export class MapsDetailPageComponent {
         const points = this.strokePoints();
         return points && terrainStrokePreview(this.previewRegions(), this.brush(), points, this.floorCatalog());
     });
-    /** Built only while shown, from the regions as edited, and never part of the terrain build. */
-    readonly walkabilityOverlay = computed(() => {
+    private readonly maps = inject(CacheMapsService);
+    private readonly collisionPlacements = computed(() =>
+        new Map(mapLandscapeSaves(this.store.regions(), this.edits()).map(save => [save.regionId, save.objects])));
+    private readonly collisionIds = computed(() => {
+        if (!this.walkability()) return [];
+        const edits = this.collisionPlacements();
+        const ids = this.store.regions().flatMap(region =>
+            (edits.get(region.id) ?? region.objects).filter(placement => placement.plane < 4).map(placement => placement.id));
+        return [...new Set(ids)].sort((left, right) => left - right);
+    }, { equal: (left, right) => left.length === right.length && left.every((id, index) => id === right[index]) });
+    private readonly collisionDefinitions = rxResource({
+        params: () => this.collisionIds().length ? this.collisionIds() : undefined,
+        stream: ({ params }) => this.maps.objectCollision(params),
+        defaultValue: new Map<number, ObjectCollision | null>() as ReadonlyMap<number, ObjectCollision | null>,
+    });
+    readonly walkabilityLabel = computed(() => {
+        const missing = [...this.collisionDefinitions.value().values()].some(definition => definition === null);
+        return missing ? "Clipping (missing object data)" : "Clipping";
+    });
+    private readonly collision = computed(() => this.walkability()
+        ? buildCollisionMap(this.previewRegions(), this.collisionPlacements(), this.collisionDefinitions.value())
+        : new Map());
+    /** The overlay is independent of the terrain and object geometry. */
+    readonly walkabilityOverlay = computed(() => this.walkability()
+        ? buildWalkabilityOverlay(this.previewRegions(), this.planes(), this.collision())
+        : null);
+    readonly collisionReadout = computed<TileCollisionReadout | null>(() => {
         if (!this.walkability()) return null;
-        const placements = new Map(mapLandscapeSaves(this.store.regions(), this.edits()).map(save => [save.regionId, save.objects]));
-        return buildWalkabilityOverlay(this.previewRegions(), this.planes(), this.landscape() ? { appearances: this.store.appearances(), placements } : undefined);
+        const point = this.brushPoint();
+        if (!point || point.plane === undefined || point.plane >= 4) return null;
+        const regions = this.previewRegions();
+        const origin = mapSceneOrigin(regions);
+        const x = origin.x + Math.floor(point.x / 512);
+        const y = origin.y + Math.floor(point.z / 512);
+        const region = regions.find(candidate => candidate.id === (((x >> 6) << 8) | (y >> 6)));
+        if (!region) return null;
+        const tile = ((x & 63) << 6) | (y & 63);
+        const plane = point.plane;
+        const target = collisionPlane(region.planes, plane, tile);
+        const bits = target === null ? 0 : this.collision().get(region.id)?.[target]?.[tile] ?? 0;
+        return { x, y, plane, collisionPlane: target, bits: collisionBitNames(bits) };
     });
     readonly brushOutline = computed(() => {
+        if (this.editTool() !== "terrain") return null;
         const point = this.brushPoint();
         return point && terrainBrushOutline(this.previewRegions(), this.brush(), point);
     });

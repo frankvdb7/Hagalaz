@@ -63,6 +63,27 @@ const c = [
 ];
 const overlayCount = [4, 2, 1, 1, 2, 2, 3, 1, 3, 3, 3, 2, 0];
 
+function floorTrianglePoints(shape: number, triangle: number): readonly number[] {
+    return [a[shape][triangle], c[shape][triangle], b[shape][triangle]];
+}
+
+/** The terrain mesh's triangle vertices in tile fractions, with each vertex's sampled height. */
+export function floorTileTriangles(region: MapRenderRegion, plane: number, x: number, y: number): [number, number, number][][] {
+    const surface = region.planes[plane];
+    const tile = x * 64 + y;
+    const shape = surface.overlays[tile] ? surface.overlayShapes[tile] : 12;
+    const rotation = surface.overlayRotations[tile];
+    const worldX = region.regionX * 64 + x, worldY = region.regionY * 64 + y;
+    return a[shape].flatMap((_, triangle) => {
+        const points = floorTrianglePoints(shape, triangle).flatMap<[number, number, number]>(point => {
+            const [rx, ry] = rotateFloor(floorX[point], floorY[point], rotation);
+            const height = mapHeight([region], plane, worldX + rx / 512, worldY + ry / 512);
+            return height === null ? [] : [[rx / 512, ry / 512, height]];
+        });
+        return points.length === 3 ? [points] : [];
+    });
+}
+
 // Class274.aBooleanArrayArray2805 marks the unrotated shape vertices that skip the underwater height lookup.
 const noSurfaceDepth = [0, 0x107c, 0x3f, 0xe7, 0xe1, 0x3c, 0x103e, 0x10fe, 0x83, 0x31f, 0x3f1, 0xcfd, 0x1fff];
 
@@ -610,7 +631,7 @@ function addFloorTriangle(
     const overlay = triangle < overlayCount[shape];
     const floor = floors.get(`${overlay}:${overlay ? plane.overlays[tile] : plane.underlays[tile]}`);
     if (!floor || isHiddenWater(context, level, floor)) return;
-    const corners = [a[shape][triangle], c[shape][triangle], b[shape][triangle]].map((point) => {
+    const corners = floorTrianglePoints(shape, triangle).map((point) => {
         const [rx, ry] = rotateFloor(floorX[point], floorY[point], rotation);
         const wx = region.regionX * 64 + x + rx / 512,
             wy = region.regionY * 64 + y + ry / 512;

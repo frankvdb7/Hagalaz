@@ -15,7 +15,7 @@
         </div>
         <mat-card appearance="outlined" class="region-view">
             <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
-                [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
+                [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [collisionHover]="walkability()" [collisionReadout]="collisionReadout()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
                 [objectTransform]="objectTransform()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
                 <div mapEditTools class="edit-toolbar map-edit-toolbar">
                     @for (tool of editTools; track tool.id) {
@@ -24,6 +24,11 @@
                         </button>
                     }
                 </div>
+                <ng-container mapOverlayLegend>
+                    @if (walkability()) {
+                        <cache-map-overlay-legend title="Clipping" [entries]="walkabilityLegend" />
+                    }
+                </ng-container>
                 <ng-container mapSelectionStatus>
                     @if (objectTransform(); as transform) {
                         <div class="map-selection-status studio-surface" role="status">
@@ -46,6 +51,9 @@
                         <mat-icon>{{ layerIcon(layer.visible()) }}</mat-icon>{{ layer.label }}
                     </button>
                 }
+                <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="walkability()" (click)="$event.stopPropagation(); walkability.set(!walkability())">
+                    <mat-icon>{{ layerIcon(walkability()) }}</mat-icon>{{ walkabilityLabel() }}
+                </button>
             </mat-menu>
         </mat-card>
         <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">

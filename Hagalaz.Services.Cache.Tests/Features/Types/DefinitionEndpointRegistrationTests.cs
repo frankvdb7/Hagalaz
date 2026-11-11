@@ -67,6 +67,7 @@ public class DefinitionEndpointRegistrationTests
             "POST /api/v1/cache/types/maps/{id:int}/render",
             "POST /api/v1/cache/types/npcs/{id:int}/combat-level",
             "POST /api/v1/cache/types/objects/{id:int}/name",
+            "POST /api/v1/cache/types/objects/collision",
             "POST /api/v1/cache/types/sprites/{id:int}/image",
             "POST /api/v1/cache/types/varp-bits/{id:int}",
             "PUT /api/v1/cache/types/items/{id:int}/definition",

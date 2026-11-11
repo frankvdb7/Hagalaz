@@ -77,6 +77,19 @@ export interface ObjectRenderAppearance {
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }
 export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
+export interface ObjectCollision {
+    sizeX: number;
+    sizeY: number;
+    clipType: number;
+    solid: boolean;
+    gateway: boolean;
+}
+export interface ObjectCollisionResult {
+    id: number;
+    status: "ok" | "not-found" | "unavailable";
+    collision: ObjectCollision | null;
+}
+
 export interface ObjectAppearanceResult {
     id: number; shape: number; rotation: number; status: number;
     appearance: ObjectRenderAppearance | null;

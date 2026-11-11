@@ -26,6 +26,38 @@ namespace Hagalaz.Services.Cache.Tests.Features;
 public sealed class ModelAppearanceTests
 {
     [TestMethod]
+    public async Task ObjectCollision_ReturnsBaseFieldsAndIndependentMissingResults()
+    {
+        var store = new MemoryFileStore();
+        SeedDefinitions(store, 16, (2, [14, 2, 15, 3, 27, 0]), (5, [14]));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapGroup("/types").MapObjectDefinitionsEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/collision", new GetObjectCollisionDto([5, 2, 7, 100_000]));
+        response.EnsureSuccessStatusCode();
+        var results = await response.Content.ReadFromJsonAsync<GetObjectCollisionResultDto[]>();
+        CollectionAssert.AreEqual(new GetObjectCollisionResultDto[]
+        {
+            new(5, "unavailable", null),
+            new(2, "ok", new(2, 3, 1, true, false)),
+            new(7, "not-found", null),
+            new(100_000, "not-found", null),
+        }, results);
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(257)]
+    public async Task ObjectCollision_RejectsInvalidBatchBeforeReadingCache(int count)
+    {
+        var store = new MemoryFileStore();
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapGroup("/types").MapObjectDefinitionsEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/collision", new GetObjectCollisionDto(new int[count]));
+        Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.AreEqual(0, store.GetReadCount(255, 16));
+    }
+
+    [TestMethod]
     public async Task ObjectCatalog_PagesActualIdsAndSearchesNamesWithoutReadingModels()
     {
         var store = new MemoryFileStore();

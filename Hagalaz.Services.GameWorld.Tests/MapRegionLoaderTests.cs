@@ -1,6 +1,15 @@
 using System.Collections;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
+using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Models;
+using Hagalaz.Cache.Types.Factories;
+using Hagalaz.Cache.Types.Providers;
+using Hagalaz.Game.Abstractions.Providers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Linq.Expressions;
 using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
@@ -489,6 +498,68 @@ public sealed class MapRegionLoaderTests
         Assert.IsFalse(store.TryResolve(itemHandle, out _));
         Assert.IsFalse(store.TryResolve(gameObjectHandle, out _));
     }
+
+    [TestMethod]
+    public async Task LoadAsync_Region12850MatchesPinnedStaticCollision()
+    {
+        static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", name);
+
+        var cache = Substitute.For<ICacheAPI>();
+        cache.GetFileId(5, "m50_50").Returns(1);
+        cache.GetFileId(5, "l50_50").Returns(2);
+        cache.ReadContainer(5, 1).Returns(_ => new Container(new MemoryStream(File.ReadAllBytes(Fixture("terrain-12850.dat")))));
+        cache.ReadContainer(5, 2).Returns(_ => new Container(new MemoryStream(File.ReadAllBytes(Fixture("landscape-12850.dat")))));
+        var mapProvider = new MapProvider(cache, new MapCodec(), new MapTypeFactory(), NullLogger<MapProvider>.Instance);
+
+        var definitions = JsonSerializer.Deserialize<CollisionDefinition[]>(
+            File.ReadAllText(Fixture("object-collision-12850.json")), new JsonSerializerOptions(JsonSerializerDefaults.Web))!
+            .ToDictionary(entry => entry.Id, entry =>
+            {
+                var definition = Substitute.For<IGameObjectDefinition>();
+                definition.SizeX.Returns(entry.SizeX);
+                definition.SizeY.Returns(entry.SizeY);
+                definition.ClipType.Returns(entry.ClipType);
+                definition.Solid.Returns(entry.Solid);
+                definition.Gateway.Returns(entry.Gateway);
+                return definition;
+            });
+        var objectService = Substitute.For<IGameObjectService>();
+        objectService.FindGameObjectDefinitionsByIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(definitions));
+        var scriptProvider = Substitute.For<IGameObjectScriptProvider>();
+        scriptProvider.GetGameObjectScriptTypeById(Arg.Any<int>()).Returns(typeof(IGameObjectScript));
+        using var services = new ServiceCollection().AddSingleton(Substitute.For<IGameObjectScript>()).BuildServiceProvider();
+        var builder = new GameObjectBuilder(services, scriptProvider);
+        var store = new EntityStore();
+        var regionService = Substitute.For<IMapRegionService>();
+        var region = new MapRegion(Location.Create(3200, 3200, 0), [],
+            Substitute.For<INpcService>(), regionService, builder, Substitute.For<IGroundItemBuilder>(),
+            Substitute.For<IMapper>(), store);
+        regionService.When(service => service.FlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
+            .Do(call =>
+            {
+                var location = call.ArgAt<ILocation>(0)!;
+                if (location.RegionId == region.Id)
+                    region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
+            });
+
+        var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: builder, entityStore: store,
+            regionService: regionService, gameObjectService: objectService);
+        await fixture.Loader.LoadAsync(region);
+
+        var actual = Enumerable.Range(0, 4).Select(plane => Enumerable.Range(0, 4096)
+            .Select(tile => (int)region.GetCollision(tile / 64, tile % 64, plane)).ToArray()).ToArray();
+        var allFlags = actual.SelectMany(plane => plane).Aggregate(0, (all, tile) => all | tile);
+        Assert.IsTrue(((CollisionFlag)allFlags).HasFlag(CollisionFlag.FloorBlock | CollisionFlag.FloorDecorationBlock | CollisionFlag.ObjectTile |
+            CollisionFlag.WallWest | CollisionFlag.ObjectBlock | CollisionFlag.BlockedWest));
+
+        var expected = JsonSerializer.Deserialize<int[][]>(File.ReadAllText(Fixture("collision-12850.json")))!;
+        Assert.AreEqual(expected.Length, actual.Length);
+        for (var plane = 0; plane < actual.Length; plane++)
+            CollectionAssert.AreEqual(expected[plane], actual[plane], $"Collision differs on plane {plane}.");
+    }
+
+    private sealed record CollisionDefinition(int Id, int SizeX, int SizeY, int ClipType, bool Solid, bool Gateway);
 
     private static IMapProvider CreateMapProvider(DecodedMapRegion? decodedRegion = null)
     {
