@@ -22,7 +22,7 @@ import { injectCacheDefinitionId } from "../cache-definition-id";
 import { CacheWriteDialogComponent } from "../cache-write-dialog";
 import { buildMapScene, mapLandscapeSaves, MapScenePreparation, unstoredEditNotes, type MapObjectRange, type MapObjectTransform, type MapSceneDraft, type MapSceneFilter } from "../map-scene-geometry";
 import { mapLightField, mapSceneOrigin } from "../map-point-lights";
-import { regionDetails, sceneGroups, scenePlacements, terrainDetails, type SceneSelection } from "../map-scene-tree";
+import { regionDetails, sceneGroups, scenePlacements, terrainDetails, type SceneDetails, type SceneSelection } from "../map-scene-tree";
 import { MapAssetPanelComponent } from "../map-asset-panel.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapObjectInspectorComponent } from "../map-object-inspector.component";
@@ -45,6 +45,8 @@ const walkabilityLegend: readonly MapLegendEntry[] = [
     { label: "Wall (movement + projectiles)", rgb: projectileWallRgb, marker: "edge" },
     { label: "Ignored under bridge", rgb: ineffectiveBlockRgb },
 ];
+
+interface TileSelection { regionId: number; x: number; y: number; plane: number }
 
 @Component({
     selector: "cache-maps-detail-page",
@@ -93,6 +95,14 @@ export class MapsDetailPageComponent {
     readonly useRegionAtmosphere = signal(true);
     readonly selectedObject = signal<MapObjectRange | null>(null);
     readonly sceneSelection = linkedSignal<SceneSelection | null>(() => { this.selectionKey(); return null; });
+    private readonly selectedTile = linkedSignal({
+        source: () => ({ key: this.selectionKey(), regions: this.store.regions(), planes: this.visiblePlanes(), terrain: this.terrainVisible() }),
+        computation: (source, previous): TileSelection | null => {
+            const tile = previous?.value;
+            return tile && previous.source.key === source.key && source.terrain && source.planes[tile.plane]
+                && source.regions.some(region => region.id === tile.regionId && region.planes[tile.plane]) ? tile : null;
+        },
+    });
     readonly selectedSceneDetails = computed(() => this.store.regions().map(this.sceneSelection() === "terrain" ? terrainDetails : regionDetails));
     readonly editTool = signal<"select" | "move" | "rotate" | "scale" | "terrain">("select");
     readonly editTools = [
@@ -111,6 +121,43 @@ export class MapsDetailPageComponent {
     private readonly floorCatalog = computed(() => new Map(this.store.floors().map(floor => [floorKey(floor.overlay, floor.id), floor])));
     /** What the scene draws; the store keeps the regions as stored. */
     private readonly previewRegions = computed(() => applyTerrainEdits(this.store.regions(), this.terrainEdits(), this.floorCatalog()));
+    readonly selectedTileOutline = computed(() => {
+        const tile = this.selectedTile();
+        if (!tile) return null;
+        const regions = this.previewRegions();
+        const region = regions.find(candidate => candidate.id === tile.regionId);
+        if (!region) return null;
+        const origin = mapSceneOrigin(regions);
+        return footprintOutline(regions, tile.plane, {
+            x: (region.regionX * 64 + tile.x - origin.x) * 512,
+            z: (region.regionY * 64 + tile.y - origin.y) * 512,
+        }, 1, 1);
+    });
+    readonly selectedTileDetails = computed<SceneDetails | null>(() => {
+        const tile = this.selectedTile();
+        if (!tile) return null;
+        const { regionId, x, y, plane } = tile;
+        const region = this.previewRegions().find(candidate => candidate.id === regionId);
+        const surface = region?.planes[plane];
+        if (!region || !surface) return null;
+        const index = x * 64 + y;
+        const height = surface.cornerHeights[x * 65 + y];
+        const flags = surface.flags[index];
+        const flagNames = tileFlagOptions.filter(flag => flags & flag.bit).map(flag => flag.label);
+        return {
+            id: regionId, title: "Terrain tile", icon: "grid_on", warnings: [],
+            rows: [
+                { label: "Region", value: String(regionId) },
+                { label: "World tile", value: `${region.regionX * 64 + x}, ${region.regionY * 64 + y}` },
+                { label: "Region tile", value: `${x}, ${y}` },
+                { label: "Plane", value: String(plane) },
+                { label: "Height", value: height == null ? "Unavailable" : String(-height) },
+                { label: "Underlay ID", value: String(surface.underlays[index]) },
+                { label: "Overlay ID", value: String(surface.overlays[index]) },
+                { label: "Flags", value: flagNames.length ? `${flags} (${flagNames.join(", ")})` : String(flags) },
+            ],
+        };
+    });
     readonly pointLights = computed(() => mapLightField(this.previewRegions()));
     readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: tileFlag.blocked });
     readonly brushPoint = signal<MapHoverPoint | null>(null);
@@ -277,12 +324,30 @@ export class MapsDetailPageComponent {
     selectScene(selection: SceneSelection): void {
         this.pendingSelection.set(null);
         this.selectedObject.set(null);
+        this.selectedTile.set(null);
         this.sceneSelection.set(selection);
         if (this.editTool() === "terrain") this.editTool.set("select");
     }
     selectObject(range: MapObjectRange | null): void {
         this.sceneSelection.set(null);
+        this.selectedTile.set(null);
         this.selectedObject.set(range);
+    }
+    selectTile(point: MapHoverPoint | null): void {
+        if (point?.plane === undefined) {
+            this.selectedTile.set(null);
+            return;
+        }
+        const regions = this.store.regions();
+        const origin = mapSceneOrigin(regions);
+        const x = origin.x + Math.floor(point.x / 512), y = origin.y + Math.floor(point.z / 512);
+        const region = regions.find(candidate => candidate.regionX === (x >> 6) && candidate.regionY === (y >> 6));
+        if (!region?.planes[point.plane]) {
+            this.selectedTile.set(null);
+            return;
+        }
+        this.selectObject(null);
+        this.selectedTile.set({ regionId: region.id, x: x & 63, y: y & 63, plane: point.plane });
     }
     chooseTool(tool: "select" | "move" | "rotate" | "scale" | "terrain"): void {
         this.editTool.set(tool);

@@ -149,6 +149,9 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
 export class MapViewportComponent implements OnDestroy {
     readonly geometry = input<MapSceneGeometry | null>(null);
     readonly selectedObject = model<MapObjectRange | null>(null);
+    readonly selectTerrainTiles = input(false);
+    readonly tilePick = output<MapHoverPoint | null>();
+    readonly selectedTileOutline = input<readonly number[] | null>(null);
     readonly objectTransform = input<MapObjectTransform | null>(null);
     readonly gizmoMode = input<PlacementGizmoMode | null>(null);
     readonly objectGizmo = output<PlacementGizmoResult>();
@@ -235,7 +238,7 @@ export class MapViewportComponent implements OnDestroy {
         effect(() => this.scene()?.setObjectAnimationsEnabled(this.animateObjects()));
         effect(() => this.scene()?.setMapPointLights(this.pointLights(), this.pointLightsActive()));
         effect(() => this.scene()?.setPrimaryDragEnabled(!this.brushActive()));
-        effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null)));
+        effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null) ?? this.selectedTileOutline()));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));
         effect(() => this.scene()?.setTileOverlay(this.tileOverlay()));
         effect(() => {
@@ -287,6 +290,7 @@ export class MapViewportComponent implements OnDestroy {
         const vertex = this.scene()?.pickVertex(event.clientX, event.clientY);
         const range = vertex == null ? null : this.geometry()?.placements.find(candidate => vertex >= candidate.startVertex && vertex < candidate.endVertex);
         this.selectedObject.set(range ?? null);
+        if (!range && this.selectTerrainTiles()) this.tilePick.emit(this.pickGround(event.clientX, event.clientY));
     }
     private startStroke(event: PointerEvent): void {
         if (!event.isPrimary || event.button !== 0) return;
@@ -414,7 +418,10 @@ export class MapViewportComponent implements OnDestroy {
         else if (event.key === "+" || event.key === "=") { event.preventDefault(); this.zoom(0.8); }
         else if (event.key === "-") { event.preventDefault(); this.zoom(1.25); }
         else if (event.key === "Home") { event.preventDefault(); this.reset(); }
-        else if (event.key === "Escape") this.selectedObject.set(null);
+        else if (event.key === "Escape") {
+            this.selectedObject.set(null);
+            this.tilePick.emit(null);
+        }
     }
     ngOnDestroy(): void {
         this.destroyed = true;

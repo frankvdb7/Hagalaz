@@ -81,6 +81,43 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.destroy();
     });
 
+    it("picks terrain only on Select clicks that miss objects and clears on Escape", () => {
+        vi.useFakeTimers();
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const viewport = fixture.componentInstance;
+        const placement = { startVertex: 0, endVertex: 3 };
+        const pickVertex = vi.fn<() => number | null>().mockReturnValueOnce(0).mockReturnValue(null);
+        const pickSurface = vi.fn<() => { x: number; z: number; vertex: number } | null>()
+            .mockReturnValueOnce({ x: 550, z: 700, vertex: 0 }).mockReturnValue(null);
+        const scene = new Proxy({ pickVertex, pickSurface, placementGizmoDragging: false } as Record<string | symbol, unknown>, { get: (target, name) => target[name] ?? vi.fn() });
+        (viewport as unknown as { scene: { set(value: unknown): void } }).scene.set(scene);
+        fixture.componentRef.setInput("geometry", { terrain: { mapPlanes: [0] }, objects: null, placements: [placement] });
+        fixture.componentRef.setInput("selectTerrainTiles", true);
+        const picked = vi.fn();
+        viewport.tilePick.subscribe(picked);
+        const click = () => {
+            const point = { pointerId: 1, isPrimary: true, clientX: 12, clientY: 34 };
+            viewport.startPick(new PointerEvent("pointerdown", point));
+            viewport.finishPick(new PointerEvent("pointerup", point));
+        };
+        click();
+        expect(viewport.selectedObject()).toBe(placement);
+        expect(pickSurface).not.toHaveBeenCalled();
+        click();
+        expect(viewport.selectedObject()).toBeNull();
+        expect(pickSurface).toHaveBeenCalledExactlyOnceWith(12, 34);
+        expect(picked).toHaveBeenLastCalledWith({ x: 550, z: 700, plane: 0 });
+        click();
+        expect(picked).toHaveBeenLastCalledWith(null);
+        fixture.componentRef.setInput("selectTerrainTiles", false);
+        click();
+        expect(pickSurface).toHaveBeenCalledTimes(2);
+        viewport.key(new KeyboardEvent("keydown", { key: "Escape" }));
+        expect(picked).toHaveBeenCalledTimes(3);
+        expect(picked).toHaveBeenLastCalledWith(null);
+        fixture.destroy();
+    });
+
     it("shows the selection and hovered tile in one overlay and preserves the selection when hover clears", () => {
         const fixture = TestBed.createComponent(MapViewportComponent);
         fixture.componentRef.setInput("objectTransform", { x: 3, y: 4, plane: 1, rotation: 0, scale: 1 });

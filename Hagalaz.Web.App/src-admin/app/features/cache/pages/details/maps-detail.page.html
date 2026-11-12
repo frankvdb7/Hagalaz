@@ -16,7 +16,7 @@
         <mat-card appearance="outlined" class="region-view">
             <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
                 [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [hoveredTile]="hoveredTile()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
-                [objectTransform]="objectTransform()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
+                [objectTransform]="objectTransform()" [selectTerrainTiles]="editTool() === 'select'" (tilePick)="selectTile($event)" [selectedTileOutline]="selectedTileOutline()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
                 <div mapEditTools class="edit-toolbar map-edit-toolbar">
                     @for (tool of editTools; track tool.id) {
                         <button mat-icon-button type="button" [class.is-active]="editTool() === tool.id" [attr.aria-label]="tool.label" [matTooltip]="tool.label" [attr.aria-pressed]="editTool() === tool.id" (click)="chooseTool(tool.id)">
@@ -60,10 +60,12 @@
                             [objectModels]="objectModels()" [objectTransform]="objectTransform()" [objectProperties]="objectProperties()"
                             [definitionFailed]="!!objectDefinition.error()" [editTool]="editTool()" [positionBase]="positionBase()" [snap]="snap()"
                             [(positionMode)]="positionMode" (transformChange)="changeTransform($event.field, $event.value)" (clearSelection)="selectObject(null)" />
+                    } @else if (selectedTileDetails(); as tile) {
+                        <cache-map-region-details [details]="[tile]" />
                     } @else if (sceneSelection()) {
                         <cache-map-region-details [details]="selectedSceneDetails()" />
                     } @else {
-                        <section><h3>Nothing selected</h3><p class="supporting-text">Click a placement in the map, or any region, terrain or placement row in the scene tree.</p></section>
+                        <section><h3>Nothing selected</h3><p class="supporting-text">Click an object or terrain tile in the map, or select a row in the scene tree.</p></section>
                     }
                 </mat-tab>
             </mat-tab-group>

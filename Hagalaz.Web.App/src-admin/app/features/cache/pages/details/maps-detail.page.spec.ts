@@ -175,6 +175,39 @@ describe("MapsDetailPageComponent", () => {
             expect(viewport.brushActive()).toBe(false);
         });
 
+        it("inspects the clicked tile across hover and draft changes, and clears it when its plane is hidden", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            page.chooseTool("select");
+            harness.detectChanges();
+            expect(viewport.selectTerrainTiles()).toBe(true);
+            viewport.tilePick.emit({ x: 550, z: 700, plane: 0 });
+            viewport.brushHover.emit({ x: 1024, z: 1024, plane: 0 });
+            harness.detectChanges();
+            const host = required(harness.routeNativeElement, "the routed page");
+            const row = (label: string) => Array.from(host.querySelectorAll("cache-map-region-details dt"))
+                .find(cell => cell.textContent?.trim() === label)?.nextElementSibling?.textContent?.trim();
+            expect(row("World tile")).toBe("65, 129");
+            expect(row("Region tile")).toBe("1, 1");
+            expect(row("Height")).toBe("640");
+            expect(viewport.selectedTileOutline()).toEqual([
+                512, 640, 512, 1024, 640, 512, 1024, 640, 1024, 512, 640, 1024,
+            ]);
+            page.changeBrush({ ...page.brush(), tool: "set-flag", flag: 1 });
+            viewport.brushStroke.emit([{ x: 512, z: 512 }]);
+            harness.detectChanges();
+            expect(row("Flags")).toBe("1 (Blocked)");
+            viewport.undo.emit();
+            harness.detectChanges();
+            expect(row("Flags")).toBe("0");
+            page.togglePlane(0, false);
+            harness.detectChanges();
+            expect(row("World tile")).toBeUndefined();
+            expect(viewport.selectedTileOutline()).toBeNull();
+            page.togglePlane(0, true);
+            harness.detectChanges();
+            expect(row("World tile")).toBeUndefined();
+        });
+
         it("commits one undo step per stroke and undoes it whole", async () => {
             const { harness, page, viewport } = await loadTerrain();
             viewport.brushStroke.emit([{ x: 512, z: 512 }, { x: 2048, z: 512 }]);
