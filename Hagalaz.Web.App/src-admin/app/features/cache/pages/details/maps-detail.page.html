@@ -60,10 +60,8 @@
                             [objectModels]="objectModels()" [objectTransform]="objectTransform()" [objectProperties]="objectProperties()"
                             [definitionFailed]="!!objectDefinition.error()" [editTool]="editTool()" [positionBase]="positionBase()" [snap]="snap()"
                             [(positionMode)]="positionMode" (transformChange)="changeTransform($event.field, $event.value)" (clearSelection)="selectObject(null)" />
-                    } @else if (selectedTileDetails(); as tile) {
-                        <cache-map-region-details [details]="[tile]" />
-                    } @else if (sceneSelection()) {
-                        <cache-map-region-details [details]="selectedSceneDetails()" />
+                    } @else if (inspectorDetails()) {
+                        <cache-map-region-details [details]="inspectorDetails() ?? []" />
                     } @else {
                         <section><h3>Nothing selected</h3><p class="supporting-text">Click an object or terrain tile in the map, or select a row in the scene tree.</p></section>
                     }

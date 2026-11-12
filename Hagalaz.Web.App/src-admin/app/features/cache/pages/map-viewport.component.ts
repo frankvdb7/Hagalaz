@@ -286,11 +286,13 @@ export class MapViewportComponent implements OnDestroy {
         if (this.pickStart?.id !== event.pointerId) return;
         const click = this.isPickClick(event);
         this.cancelPick();
-        if (!click) return;
-        const vertex = this.scene()?.pickVertex(event.clientX, event.clientY);
+        if (click) this.pickAt(event.clientX, event.clientY);
+    }
+    private pickAt(clientX: number, clientY: number): void {
+        const vertex = this.scene()?.pickVertex(clientX, clientY);
         const range = vertex == null ? null : this.geometry()?.placements.find(candidate => vertex >= candidate.startVertex && vertex < candidate.endVertex);
         this.selectedObject.set(range ?? null);
-        if (!range && this.selectTerrainTiles()) this.tilePick.emit(this.pickGround(event.clientX, event.clientY));
+        if (!range && this.selectTerrainTiles()) this.tilePick.emit(this.pickGround(clientX, clientY));
     }
     private startStroke(event: PointerEvent): void {
         if (!event.isPrimary || event.button !== 0) return;

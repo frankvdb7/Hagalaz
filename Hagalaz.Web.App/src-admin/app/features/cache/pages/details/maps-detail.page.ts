@@ -103,7 +103,6 @@ export class MapsDetailPageComponent {
                 && source.regions.some(region => region.id === tile.regionId && region.planes[tile.plane]) ? tile : null;
         },
     });
-    readonly selectedSceneDetails = computed(() => this.store.regions().map(this.sceneSelection() === "terrain" ? terrainDetails : regionDetails));
     readonly editTool = signal<"select" | "move" | "rotate" | "scale" | "terrain">("select");
     readonly editTools = [
         { id: "select", label: "Select", icon: "near_me" },
@@ -133,7 +132,7 @@ export class MapsDetailPageComponent {
             z: (region.regionY * 64 + tile.y - origin.y) * 512,
         }, 1, 1);
     });
-    readonly selectedTileDetails = computed<SceneDetails | null>(() => {
+    private readonly selectedTileDetails = computed<SceneDetails | null>(() => {
         const tile = this.selectedTile();
         if (!tile) return null;
         const { regionId, x, y, plane } = tile;
@@ -157,6 +156,12 @@ export class MapsDetailPageComponent {
                 { label: "Flags", value: flagNames.length ? `${flags} (${flagNames.join(", ")})` : String(flags) },
             ],
         };
+    });
+    readonly inspectorDetails = computed(() => {
+        const tile = this.selectedTileDetails();
+        if (tile) return [tile];
+        const scene = this.sceneSelection();
+        return scene ? this.store.regions().map(scene === "terrain" ? terrainDetails : regionDetails) : null;
     });
     readonly pointLights = computed(() => mapLightField(this.previewRegions()));
     readonly brush = signal<TerrainBrush>({ tool: "raise", plane: 0, size: 3, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: tileFlag.blocked });
