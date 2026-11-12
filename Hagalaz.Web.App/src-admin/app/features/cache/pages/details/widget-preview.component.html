@@ -1,0 +1,59 @@
+<div class="preview-toolbar" role="group" aria-label="Preview tools">
+    <button class="tool-button" type="button" title="Select components" aria-label="Select components" [attr.aria-pressed]="!pan()" (click)="pan.set(false)"><mat-icon>near_me</mat-icon></button>
+    <button class="tool-button" type="button" title="Pan preview" aria-label="Pan preview" [attr.aria-pressed]="pan()" (click)="pan.set(true)"><mat-icon>open_with</mat-icon></button>
+    <button class="tool-button" type="button" title="Reset preview and local edits" aria-label="Reset preview and local edits" (click)="reset(stage)"><mat-icon>restart_alt</mat-icon></button>
+    <span class="tool-divider"></span>
+    <button class="tool-button" type="button" title="Duplicate component in preview" aria-label="Duplicate component in preview" [disabled]="selectedId() === null" (click)="duplicate.emit()"><mat-icon>content_copy</mat-icon></button>
+    <button class="tool-button" type="button" title="Remove component from preview" aria-label="Remove component from preview" [disabled]="selectedId() === null" (click)="remove.emit()"><mat-icon>delete_outline</mat-icon></button>
+    <span class="tool-divider"></span>
+    <select #previewZoom aria-label="Preview zoom" [value]="zoomMode()" (change)="zoomMode.set(previewZoom.value)">
+        <option value="fit">Fit</option>
+        <option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option>
+        <option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option>
+    </select>
+    <span class="tool-spacer"></span>
+    <button class="tool-button" type="button" title="Show component bounds" aria-label="Show component bounds" [attr.aria-pressed]="outlines()" (click)="outlines.update(toggle)"><mat-icon>select_all</mat-icon></button>
+    <button class="tool-button" type="button" [title]="expanded() ? 'Close expanded preview' : 'Expand preview'"
+        [attr.aria-label]="expanded() ? 'Close expanded preview' : 'Expand preview'" [attr.aria-pressed]="expanded()" (click)="expanded.update(toggle)"><mat-icon>{{ expanded() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon></button>
+</div>
+<div #stage class="preview-stage" [class.pan]="pan()" (pointerdown)="startPan($event, stage)" (pointermove)="movePan($event, stage)"
+    (pointerup)="endPan()" (lostpointercapture)="endPan()">
+    <div class="preview-space">
+        <div class="preview-size" [style.width.px]="viewport().width * zoom()" [style.height.px]="viewport().height * zoom()">
+            <div class="preview-art" [style.width.px]="viewport().width" [style.height.px]="viewport().height" [style.transform]="'scale(' + zoom() + ')'">
+                @for (layer of layers(); track layer.component.id) {
+                    @let entry = layer.component;
+                    @if (layer.visible || selectedId() === entry.id) {
+                        <button type="button" class="preview-layer" [class.bounds]="outlines()" [class.selected]="selectedId() === entry.id"
+                            [disabled]="pan()" [attr.aria-label]="'Select ' + componentLabel(entry)" [attr.aria-pressed]="selectedId() === entry.id"
+                            [style.left.px]="layer.x" [style.top.px]="layer.y" [style.width.px]="layer.width" [style.height.px]="layer.height"
+                            (click)="select.emit(entry.id)">
+                            @if (layer.visible) {
+                                <span class="layer-appearance" [style.color]="color(entry.color)" [style.opacity]="1 - (entry.transparency ?? 0) / 256">
+                                    @switch (entry.type) {
+                                        @case (3) { <span class="widget-rectangle" [class.filled]="entry.filled"></span> }
+                                        @case (4) {
+                                            <cache-widget-text [layer]="layer" />
+                                        }
+                                        @case (5) {
+                                            @if (entry.spriteId !== undefined && entry.spriteId >= 0) {
+                                                <cache-widget-sprite [id]="entry.spriteId" [tiled]="entry.spriteTiled ?? false"
+                                                    [style.transform]="spriteTransform(entry)" />
+                                            }
+                                        }
+                                        @case (6) { <cache-widget-model [layer]="layer" /> }
+                                        @case (9) {
+                                            <span class="widget-line" [style.width.px]="lineLength(layer.width, layer.height)"
+                                                [style.height.px]="entry.lineWidth" [style.top.px]="entry.lineReversed ? layer.height : 0"
+                                                [style.transform]="'rotate(' + lineAngle(entry.lineReversed ? -layer.height : layer.height, layer.width) + 'rad)'"></span>
+                                        }
+                                    }
+                                </span>
+                            }
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>

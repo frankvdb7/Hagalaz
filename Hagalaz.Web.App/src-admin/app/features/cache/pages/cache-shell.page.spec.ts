@@ -34,6 +34,8 @@ describe("Cache Studio resource navigation", () => {
                             { path: "types", component: ToolContent },
                             { path: "types/:kind/:id", component: ToolContent },
                             { path: "models", component: ToolContent },
+                            { path: "widgets", component: ToolContent },
+                            { path: "widgets/:id", component: ToolContent },
                         ],
                     },
                 ]),
@@ -56,6 +58,7 @@ describe("Cache Studio resource navigation", () => {
     it.each([
         ["/cache/types?kind=npcs&query=guard", "NPCs"],
         ["/cache/types/items/7", "Items"],
+        ["/cache/widgets/12", "Widgets"],
     ])("selects the matching cache type for %s", async (url, label) => {
         const { nav } = await open(url);
         expect(await selectedLabel(nav)).toBe(label);
@@ -69,7 +72,7 @@ describe("Cache Studio resource navigation", () => {
         expect(selected.filter(Boolean)).toHaveLength(1);
     });
 
-    it("navigates to existing Models and Sprites routes and back to Items", async () => {
+    it("navigates between cache types and dedicated browsers", async () => {
         const { nav, router, harness } = await open();
         expect(await Promise.all((await nav.getLinks()).map(async (link) => (await link.host()).getAttribute("aria-label")))).toEqual([
             "Items",
@@ -86,9 +89,11 @@ describe("Cache Studio resource navigation", () => {
             "CS2 scripts",
             "CS2 integers",
             "Models",
+            "Widgets",
         ]);
         for (const [label, path] of [
             ["Models", "models"],
+            ["Widgets", "widgets"],
             ["Sprites", "types?kind=sprites"],
             ["Items", "types?kind=items"],
         ]) {

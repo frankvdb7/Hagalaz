@@ -18,6 +18,22 @@ public sealed class ModelImageEndpointTests
         0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
 
     [TestMethod]
+    public async Task WidgetImage_AppliesTheComponentCameraOffset()
+    {
+        await using var app = await StartAsync();
+        using var client = CacheServiceTestHost.CreateClient(app);
+        const string path = "/api/v1/cache/models/0/widget-image?width=64&height=48&zoom=300&pitch=0&yaw=1024&roll=0&y=0&z=0&flags=1&baseWidth=0&baseHeight=0";
+
+        using var centered = Image.Load<Rgba32>(await client.GetByteArrayAsync(path + "&x=0"));
+        using var shifted = Image.Load<Rgba32>(await client.GetByteArrayAsync(path + "&x=8"));
+        Assert.AreEqual((64, 48), (centered.Width, centered.Height));
+        Assert.AreEqual(FirstDrawnColumn(centered) + 8, FirstDrawnColumn(shifted));
+    }
+
+    private static int FirstDrawnColumn(Image<Rgba32> image) =>
+        Enumerable.Range(0, image.Width).First(x => Enumerable.Range(0, image.Height).Any(y => image[x, y].A > 0));
+
+    [TestMethod]
     public async Task Image_RendersAnyModelAtTheRequestedSizeAndRevalidates()
     {
         await using var app = await StartAsync();

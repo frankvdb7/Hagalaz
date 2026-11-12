@@ -1,21 +1,24 @@
 import { toSignal } from "@angular/core/rxjs-interop";
 import { filter } from "rxjs";
-import { Component, computed, inject } from "@angular/core";
-import { MatTabsModule } from "@angular/material/tabs";
+import { afterRenderEffect, Component, computed, inject, viewChild } from "@angular/core";
+import { MatTabNav, MatTabsModule } from "@angular/material/tabs";
 import { MatCardModule } from "@angular/material/card";
 import { MatIconModule } from "@angular/material/icon";
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from "@angular/router";
 import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
 
+type CacheTab = TypeKind | "models" | "widgets";
+
 @Component({
     selector: "cache-shell-page",
     imports: [MatTabsModule, MatCardModule, MatIconModule, RouterLink, RouterOutlet],
     templateUrl: "./cache-shell.page.html",
-    styles: ":host { display: block; }",
+    styles: ":host { display: block; } .widget-tabs a { min-width: 0; padding-inline: 12px; }",
     host: { class: "min-w-0" },
 })
 export class CacheShellPageComponent {
     private readonly router = inject(Router);
+    private readonly tabs = viewChild(MatTabNav);
     private readonly navigation = toSignal(this.router.events.pipe(filter((event) => event instanceof NavigationEnd)));
     readonly kindIcons = {
         items: "deployed_code",
@@ -32,14 +35,30 @@ export class CacheShellPageComponent {
         cs2: "code",
         "cs2-int": "numbers",
         models: "view_in_ar",
+        widgets: "widgets",
     };
-    readonly kinds = Object.keys(this.kindIcons) as (TypeKind | "models")[];
-    readonly kindLabels = { ...cacheTypeLabels, models: "Models" };
+    readonly kinds = Object.keys(this.kindIcons) as CacheTab[];
+    readonly kindLabels = { ...cacheTypeLabels, models: "Models", widgets: "Widgets" };
     readonly activeKind = computed(() => {
         const url = this.router.parseUrl(this.navigation()?.urlAfterRedirects ?? this.router.url);
         const segments = url.root.children.primary?.segments;
-        if (segments?.[1]?.path === "models") return "models";
+        const section = segments?.[1]?.path;
+        if (section === "models" || section === "widgets") return section;
         const kind = segments?.[2]?.path ?? url.queryParams.kind;
         return this.kinds.find((value) => value === kind) ?? "items";
     });
+
+    constructor() {
+        afterRenderEffect(() => {
+            const tabs = this.tabs();
+            if (this.activeKind() === "widgets" && tabs) {
+                // Widgets is the last tab, and Material clamps this to its scroll range.
+                tabs.scrollDistance = Number.MAX_SAFE_INTEGER;
+            }
+        });
+    }
+
+    tabPath(kind: CacheTab): string {
+        return kind === "models" || kind === "widgets" ? `/cache/${kind}` : "/cache/types";
+    }
 }

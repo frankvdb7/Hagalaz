@@ -5,6 +5,7 @@ using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Logic.Rendering;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Shared;
@@ -25,6 +26,7 @@ public static class ModelEndpoints
     {
         group.MapGet("/models/{id:int}", GetModel).WithSummary("Decode a model's geometry").Produces<GetModelDto>();
         group.MapGet("/models/{id:int}/image", GetModelImage).WithSummary("Render a model to a centred PNG preview").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png");
+        group.MapGet("/models/{id:int}/widget-image", GetWidgetModelImage).WithSummary("Render a model with a widget camera").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png");
         group.MapGet("/models/capacity", (ICacheAPI cache) => TypedResults.Ok(new GetModelCapacityDto(cache.ReadReferenceTable(7).Capacity))).WithSummary("Get the model index capacity");
         group.MapGet("/models/range", GetModelRange).WithSummary("List model IDs in a range of at most 200").Produces<GetModelSummaryDto[]>();
         group.MapGet("/types/items/{id:int}/model", GetItemModel).WithSummary("Assemble an item appearance model").Produces<GetModelDto>();
@@ -48,6 +50,19 @@ public static class ModelEndpoints
         var options = new ModelImages.Options(width, height);
         return RenderedImageResponse.Create(context, $"model-image-{ItemIcons.Validator(id, options, cache)}", () => ModelImages.RenderPng(id, options, cache));
     }
+
+    private static IResult GetWidgetModelImage(int id, HttpContext context, ICacheAPI cache, [AsParameters] WidgetModelImageQuery query)
+    {
+        if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Model ID must be nonnegative."));
+        if (ValidateImageSize(query.Width, query.Height) is { } invalid) return invalid;
+        var options = new ModelImages.WidgetOptions(query.Width, query.Height,
+            new ItemIconRenderer.WidgetCamera(query.Zoom, query.Pitch, query.Yaw, query.Roll, query.X, query.Y, query.Z,
+                query.Flags & 15, query.BaseWidth, query.BaseHeight));
+        return RenderedImageResponse.Create(context, $"widget-model-image-{ItemIcons.Validator(id, options, cache)}", () => ModelImages.RenderWidgetPng(id, options, cache));
+    }
+
+    internal sealed record WidgetModelImageQuery(int Width, int Height, ushort Zoom, ushort Pitch, ushort Yaw, ushort Roll,
+        short X, short Y, short Z, byte Flags, ushort BaseWidth, ushort BaseHeight);
 
     private static IResult GetModelRange(int startId, int endIdExclusive, ICacheAPI cache)
     {

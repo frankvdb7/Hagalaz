@@ -39,6 +39,7 @@ public static class ItemIconRenderer
 
     /// <summary>Item 2D icon settings, in definition units.</summary>
     public readonly record struct Camera(int Zoom, int Rotation1, int Rotation2, int Zan2d, int Offset1, int Offset2);
+    public readonly record struct WidgetCamera(int Zoom, int Pitch, int Yaw, int Roll, int X, int Y, int Z, int Flags, int BaseWidth, int BaseHeight);
 
     /// <summary>A decoded texture in ARGB with its material colour settings.</summary>
     public sealed record Texture(int Width, int Height, int[] Argb, int ColorBlend, int Brightness);
@@ -51,6 +52,51 @@ public static class ItemIconRenderer
     {
         if (model.Positions.Length == 0) return new int[width * height];
         return Rasterize(model, Project(model, camera, zoomMode, width, height), textures, width, height);
+    }
+
+    public static int[] RenderWidget(Model model, WidgetCamera camera, IReadOnlyDictionary<int, Texture> textures, int width, int height) =>
+        (camera.Flags & 3) == 0 || camera.Zoom <= 0
+            ? RenderFitted(model, textures, width, height)
+            : Rasterize(model, ProjectWidget(model, camera, width, height), textures, width, height);
+
+    internal static float[] ProjectWidget(Model model, WidgetCamera camera, int width, int height)
+    {
+        var modern = (camera.Flags & 3) == 2;
+        var orthographic = (camera.Flags & 4) != 0;
+        var zoom = modern ? camera.Zoom : camera.Zoom << 2;
+        var pitch = modern ? camera.Pitch : camera.Pitch << 3;
+        var (st, ct) = MathF.SinCos(Radians(pitch));
+        var (sy, cy) = MathF.SinCos(Radians(modern ? camera.Yaw : camera.Yaw << 3));
+        var (sr, cr) = MathF.SinCos(Radians(modern ? camera.Roll : -(camera.Roll << 3)));
+        var focalX = camera.BaseWidth > 0 ? (width << 9) / camera.BaseWidth : 512;
+        var focalY = camera.BaseHeight > 0 ? (height << 9) / camera.BaseHeight : 512;
+        var centerX = width / 2 + (modern ? 0 : focalX * camera.X >> 9);
+        var centerY = height / 2 + (modern ? 0 : focalY * camera.Y >> 9);
+        var screen = new float[model.Positions.Length];
+        for (var i = 0; i < screen.Length; i += 3)
+        {
+            float x = model.Positions[i], y = model.Positions[i + 1], z = model.Positions[i + 2];
+            if (modern)
+            {
+                (y, z) = (y * ct - z * st, y * st + z * ct);
+                (x, z) = (x * cy + z * sy, -x * sy + z * cy);
+                (x, y) = (x * cr - y * sr + camera.X, x * sr + y * cr + camera.Y);
+                z += camera.Z;
+            }
+            else
+            {
+                (x, y) = (x * cr - y * sr, x * sr + y * cr);
+                (x, z) = (x * cy + z * sy, -x * sy + z * cy);
+                y += (int)((long)zoom * Sine[pitch & 0x3fff] >> 14);
+                z += (int)((long)zoom * Cosine[pitch & 0x3fff] >> 14);
+                (y, z) = (y * ct - z * st, y * st + z * ct);
+            }
+            var distance = orthographic ? zoom : Math.Max(50, z);
+            screen[i] = centerX + focalX * x / distance;
+            screen[i + 1] = centerY + focalY * y / distance;
+            screen[i + 2] = z;
+        }
+        return screen;
     }
 
     /// <summary>Draws a model with no authored camera, centred from a fixed three-quarter view and filling most of the image.</summary>

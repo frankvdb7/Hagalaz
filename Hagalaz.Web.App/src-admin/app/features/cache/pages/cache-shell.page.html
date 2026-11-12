@@ -1,7 +1,8 @@
 <mat-card appearance="outlined" class="studio-tabs mb-4 overflow-hidden">
-    <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="cachePanel" aria-label="Cache type">
+    <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="cachePanel" [class.widget-tabs]="activeKind() === 'widgets'" aria-label="Cache type">
         @for (kind of kinds; track kind) {
-            <a mat-tab-link [attr.aria-label]="kindLabels[kind]" href="{{ kind === 'models' ? '/cache/models' : '/cache/types?kind=' + kind }}" [routerLink]="kind === 'models' ? '/cache/models' : '/cache/types'" [queryParams]="{kind: kind === 'models' ? null : kind, query: null, offset: null}" queryParamsHandling="merge" [active]="activeKind() === kind"><mat-icon class="studio-icon-small mr-2" aria-hidden="true">{{kindIcons[kind]}}</mat-icon>{{kindLabels[kind]}}</a>
+            @let path = tabPath(kind);
+            <a mat-tab-link [attr.aria-label]="kindLabels[kind]" [routerLink]="path" [queryParams]="{kind: path === '/cache/types' ? kind : null, query: null, offset: null, page: null}" queryParamsHandling="merge" [active]="activeKind() === kind"><mat-icon class="studio-icon-small mr-2" aria-hidden="true">{{kindIcons[kind]}}</mat-icon>{{kindLabels[kind]}}</a>
         }
     </nav>
 </mat-card>
