@@ -18,17 +18,6 @@
     min-width: 0;
 }
 .edit-toolbar .is-active { border-radius: 8px; color: var(--mat-sys-primary); outline: 1px solid currentColor; outline-offset: -1px; }
-.map-selection-status {
-    position: absolute;
-    inset: auto auto 12px 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 12px;
-    font: var(--mat-sys-body-small);
-    pointer-events: none;
-}
-
 h3 mat-icon { color: var(--mat-sys-primary); }
 aside section { padding: 16px; }
 section + section { border-top: 1px solid var(--mat-sys-outline-variant); }

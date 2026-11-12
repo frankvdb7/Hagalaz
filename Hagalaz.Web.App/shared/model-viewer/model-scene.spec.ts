@@ -577,6 +577,33 @@ describe("ModelScene resource ownership", () => {
         beforeEach(() => { map = new ModelScene(host as unknown as HTMLElement, "Map", "map"); });
         afterEach(() => map.dispose());
 
+        it("draws the map grid along sloped tile edges without drawing terrain diagonals", () => {
+            const terrain = {
+                positions: [0, 0, 0, 512, 32, 0, 512, 64, 512, 0, 32, 512],
+                indices: [0, 1, 2, 0, 2, 3],
+            };
+            map.setDisplay(true, false);
+            map.setSceneGeometry({ terrain, objects: null }, true);
+            const grid = required(lastScene().children.find(child => child instanceof THREE.LineSegments), "map grid");
+            expect(grid).not.toBeInstanceOf(THREE.GridHelper);
+            const positions = grid.geometry.getAttribute("position");
+            expect(positions.count).toBe(8);
+            for (let vertex = 0; vertex < positions.count; vertex += 2) {
+                const x = positions.getX(vertex), z = positions.getZ(vertex);
+                expect(x === positions.getX(vertex + 1) || z === positions.getZ(vertex + 1)).toBe(true);
+                expect([0, 512]).toContain(x);
+                expect([0, 512]).toContain(z);
+                expect(positions.getY(vertex + 1) - positions.getY(vertex)).toBe(
+                    (positions.getX(vertex + 1) + positions.getZ(vertex + 1) - x - z) / 16,
+                );
+            }
+            map.setDisplay(false, false);
+            expect(grid.visible).toBe(false);
+            map.setSceneGeometry({ terrain: null, objects: null }, false);
+            map.setDisplay(true, false);
+            expect(lastScene().children).not.toContain(grid);
+        });
+
         it("draws terrain under objects as separate meshes", () => {
             map.setSceneGeometry({ terrain: square(0), objects: square(5) }, true);
             const [first, second] = meshes(lastScene());

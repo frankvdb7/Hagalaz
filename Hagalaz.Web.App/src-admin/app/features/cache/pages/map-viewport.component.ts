@@ -12,12 +12,11 @@ import type { MapObjectRange, MapObjectTransform, MapSceneGeometry } from "./map
 import type { BrushPoint } from "./map-terrain-edit";
 
 export type MapHoverPoint = BrushPoint & { plane?: number };
-export interface TileCollisionReadout {
+export interface HoveredTileReadout {
     x: number;
     y: number;
     plane: number;
-    collisionPlane: number | null;
-    bits: readonly string[];
+    collision?: { plane: number | null; bits: readonly string[] };
 }
 
 export const mapObjectDragType = "application/x-hagalaz-map-object";
@@ -96,14 +95,28 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
                 (pointerup)="finishPick($event)" (pointercancel)="cancelPick()" (pointerleave)="leaveBrush()"
                 (dragover)="allowObjectDrop($event)" (dragleave)="leaveObjectDrop($event)" (drop)="dropObject($event)"></div>
             <div class="map-legend-slot"><ng-content select="[mapOverlayLegend]" /></div>
-            @if (collisionReadout(); as tile) {
-                <p class="collision-readout">
-                    Tile {{ tile.x }}, {{ tile.y }} · Plane {{ tile.plane }} · Collision plane {{ tile.collisionPlane ?? 'none' }}
-                    · {{ tile.bits.length ? tile.bits.join(', ') : 'No collision bits' }} · Cache only
-                </p>
+            @let transform = objectTransform();
+            @let tile = hoveredTile();
+            @if (transform || tile) {
+                <div class="map-selection-status studio-surface">
+                    @if (transform) {
+                        <div role="status">
+                            <strong>1 object selected</strong><br />Tile {{ transform.x }}, {{ transform.y }} · Plane {{ transform.plane }}
+                        </div>
+                    }
+                    @if (tile) {
+                        <div class="tile-readout">
+                            @if (transform) { <strong>Hovered tile</strong><br /> }
+                            Tile {{ tile.x }}, {{ tile.y }} · Plane {{ tile.plane }}
+                            @if (tile.collision; as collision) {
+                                · Collision plane {{ collision.plane ?? 'none' }}
+                                · {{ collision.bits.length ? collision.bits.join(', ') : 'No collision bits' }} · Cache only
+                            }
+                        </div>
+                    }
+                </div>
             }
         </div>
-        <ng-content select="[mapSelectionStatus]" />
         <ng-content select="[mapLoadStatus]" />
         @if (error()) { <p role="alert" class="p-3">{{ error() }}</p> }
     `,
@@ -112,10 +125,11 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
         .map-toolbar { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--mat-sys-outline-variant); }
         .map-toolbar button { color: var(--mat-sys-on-surface); }
         .map-toolbar .view-trigger { height: 36px; border-radius: 8px; color: var(--mat-sys-primary); }
-        .collision-readout {
-            position: absolute; inset: auto 8px 8px; margin: 0; padding: 4px 12px;
+        .map-selection-status {
+            position: absolute; inset: auto 12px 12px; width: fit-content; max-width: calc(100% - 24px);
+            box-sizing: border-box; display: grid; gap: 6px; padding: 7px 12px;
             pointer-events: none; background: var(--mat-sys-surface-container); color: var(--mat-sys-on-surface);
-            font-size: var(--mat-sys-body-small-size); overflow-wrap: anywhere;
+            font: var(--mat-sys-body-small); overflow-wrap: anywhere;
         }
         .toolbar-gap { flex: 1 1 0; }
         .map-legend-slot { position: absolute; inset: 8px auto auto 8px; max-inline-size: calc(100% - 16px); pointer-events: none; }
@@ -151,8 +165,7 @@ export class MapViewportComponent implements OnDestroy {
     readonly strokePreview = input<StrokePreviewGeometry | null>(null);
     /** Per-tile markers drawn over the ground, such as walkability. */
     readonly tileOverlay = input<StrokePreviewGeometry | null>(null);
-    readonly collisionHover = input(false);
-    readonly collisionReadout = input<TileCollisionReadout | null>(null);
+    readonly hoveredTile = input<HoveredTileReadout | null>(null);
     readonly canRebuildWorldMap = input(false);
     readonly rebuildWorldMap = output<void>();
     readonly canSave = input(false);
@@ -200,9 +213,9 @@ export class MapViewportComponent implements OnDestroy {
     private stroke?: { id: number; points: BrushPoint[] };
     private brushFrame?: number;
     private latestBrush?: { x: number; y: number };
-    private clippingHoverTimer?: ReturnType<typeof setTimeout>;
-    private clippingPointer?: { x: number; y: number };
-    private clippingTile: MapHoverPoint | null = null;
+    private tileHoverTimer?: ReturnType<typeof setTimeout>;
+    private tileHoverPointer?: { x: number; y: number };
+    private lastHoverPoint: MapHoverPoint | null = null;
     private dropFrame?: number;
     private latestDrop?: { x: number; y: number };
     private dropOnTerrain = true;
@@ -247,13 +260,13 @@ export class MapViewportComponent implements OnDestroy {
     }
     startPick(event: PointerEvent): void {
         if (this.brushActive()) { this.startStroke(event); return; }
-        this.cancelClippingHover();
+        this.cancelTileHover();
         // A press on the handles belongs to the gizmo, not to picking.
         this.pickStart = event.isPrimary && event.button === 0 && !this.scene()?.placementGizmoDragging ? { id: event.pointerId, x: event.clientX, y: event.clientY } : undefined;
     }
     movePick(event: PointerEvent): void {
         if (this.brushActive()) { this.queueBrushSample(event); return; }
-        if (this.collisionHover() && event.buttons === 0) this.queueClippingHover(event);
+        if (event.buttons === 0) this.queueTileHover(event);
         if (this.pickStart?.id !== event.pointerId) return;
         // OrbitControls listens on the document. Hold movement until this gesture becomes a drag.
         if (this.isPickClick(event)) event.stopPropagation();
@@ -266,7 +279,7 @@ export class MapViewportComponent implements OnDestroy {
     }
     finishPick(event: PointerEvent): void {
         if (this.brushActive()) { this.finishStroke(event); return; }
-        if (this.collisionHover() && event.buttons === 0) this.queueClippingHover(event);
+        if (event.buttons === 0) this.queueTileHover(event);
         if (this.pickStart?.id !== event.pointerId) return;
         const click = this.isPickClick(event);
         this.cancelPick();
@@ -290,24 +303,24 @@ export class MapViewportComponent implements OnDestroy {
             if (this.latestBrush && this.brushActive()) this.sampleBrush(this.latestBrush.x, this.latestBrush.y);
         });
     }
-    private queueClippingHover(event: PointerEvent): void {
-        this.clippingPointer = { x: event.clientX, y: event.clientY };
+    private queueTileHover(event: PointerEvent): void {
+        this.tileHoverPointer = { x: event.clientX, y: event.clientY };
         // A passive tile readout can wait while orbiting and needs fewer terrain raycasts than painting.
-        this.clippingHoverTimer ??= setTimeout(() => {
-            this.clippingHoverTimer = undefined;
-            const pointer = this.clippingPointer;
-            if (!pointer || !this.collisionHover() || this.brushActive()) return;
+        this.tileHoverTimer ??= setTimeout(() => {
+            this.tileHoverTimer = undefined;
+            const pointer = this.tileHoverPointer;
+            if (!pointer || this.brushActive()) return;
             const hit = this.pickGround(pointer.x, pointer.y);
             const tile = hit ? { x: Math.floor(hit.x / 512) * 512, z: Math.floor(hit.z / 512) * 512, plane: hit.plane } : null;
-            const previous = this.clippingTile;
+            const previous = this.lastHoverPoint;
             if (tile?.x === previous?.x && tile?.z === previous?.z && tile?.plane === previous?.plane) return;
-            this.clippingTile = tile;
+            this.lastHoverPoint = tile;
             this.brushHover.emit(tile);
         }, 75);
     }
-    private cancelClippingHover(): void {
-        clearTimeout(this.clippingHoverTimer);
-        this.clippingHoverTimer = this.clippingPointer = undefined;
+    private cancelTileHover(): void {
+        clearTimeout(this.tileHoverTimer);
+        this.tileHoverTimer = this.tileHoverPointer = undefined;
     }
     private pickGround(x: number, y: number): MapHoverPoint | null {
         const hit = this.scene()?.pickSurface(x, y);
@@ -317,7 +330,7 @@ export class MapViewportComponent implements OnDestroy {
     }
     private sampleBrush(x: number, y: number): void {
         const point = this.pickGround(x, y);
-        this.clippingTile = point;
+        this.lastHoverPoint = point;
         this.brushHover.emit(point);
         if (!point || !this.stroke) return;
         this.stroke.points.push({ x: point.x, z: point.z });
@@ -333,8 +346,8 @@ export class MapViewportComponent implements OnDestroy {
     leaveBrush(): void {
         if (this.stroke) return;
         this.latestBrush = undefined;
-        this.cancelClippingHover();
-        this.clippingTile = null;
+        this.cancelTileHover();
+        this.lastHoverPoint = null;
         this.brushHover.emit(null);
     }
     private terrainHit(clientX: number, clientY: number): BrushPoint | null {
@@ -405,7 +418,7 @@ export class MapViewportComponent implements OnDestroy {
     }
     ngOnDestroy(): void {
         this.destroyed = true;
-        this.cancelClippingHover();
+        this.cancelTileHover();
         if (this.brushFrame !== undefined) cancelAnimationFrame(this.brushFrame);
         if (this.dropFrame !== undefined) cancelAnimationFrame(this.dropFrame);
         this.scene()?.dispose();

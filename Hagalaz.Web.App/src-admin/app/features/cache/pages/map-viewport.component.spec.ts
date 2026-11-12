@@ -48,7 +48,7 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.destroy();
     });
 
-    it("batches clipping raycasts, skips drags, and emits only when the hovered tile changes", () => {
+    it("batches terrain hover raycasts, skips drags, and emits only when the hovered tile changes", () => {
         vi.useFakeTimers();
         const fixture = TestBed.createComponent(MapViewportComponent);
         const viewport = fixture.componentInstance;
@@ -59,10 +59,6 @@ describe("MapViewportComponent keyboard controls", () => {
         const hovers: unknown[] = [];
         viewport.brushHover.subscribe(point => hovers.push(point));
         const move = (clientX: number, buttons = 0) => viewport.movePick(new PointerEvent("pointermove", { clientX, buttons }));
-        move(500);
-        vi.advanceTimersByTime(75);
-        expect(pickSurface).not.toHaveBeenCalled();
-        fixture.componentRef.setInput("collisionHover", true);
         move(500);
         move(520);
         expect(pickSurface).not.toHaveBeenCalled();
@@ -85,24 +81,31 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.destroy();
     });
 
-    it("keeps the collision readout out of the canvas layout as hover changes", () => {
+    it("shows the selection and hovered tile in one overlay and preserves the selection when hover clears", () => {
         const fixture = TestBed.createComponent(MapViewportComponent);
-        fixture.componentRef.setInput("collisionReadout", {
-            x: 65, y: 129, plane: 0, collisionPlane: 0, bits: ["FloorBlock", "WallNorth"],
+        fixture.componentRef.setInput("objectTransform", { x: 3, y: 4, plane: 1, rotation: 0, scale: 1 });
+        fixture.componentRef.setInput("hoveredTile", {
+            x: 65, y: 129, plane: 0, collision: { plane: 0, bits: ["FloorBlock", "WallNorth"] },
         });
         fixture.detectChanges();
         const host: HTMLElement = fixture.nativeElement;
         const canvas = host.querySelector(".map-canvas");
-        const readout = host.querySelector(".collision-readout");
-        if (!canvas || !readout || !canvas.parentElement) throw new Error("Missing map canvas or readout");
-        expect(readout.parentElement).toBe(canvas.parentElement);
+        const overlay = host.querySelector(".map-selection-status");
+        const readout = host.querySelector(".tile-readout");
+        if (!canvas?.parentElement || !overlay || !readout) throw new Error("Missing map canvas or status overlay");
+        expect(host.querySelectorAll(".map-selection-status")).toHaveLength(1);
+        expect(overlay.parentElement).toBe(canvas.parentElement);
+        expect(readout.parentElement).toBe(overlay);
+        expect(readout.textContent).toContain("Tile 65, 129 · Plane 0");
+        expect(overlay.querySelector('[role="status"]')?.textContent).toContain("Tile 3, 4 · Plane 1");
         expect(getComputedStyle(canvas.parentElement).position).toBe("relative");
-        expect(getComputedStyle(readout).position).toBe("absolute");
-        expect(getComputedStyle(readout).pointerEvents).toBe("none");
-        fixture.componentRef.setInput("collisionReadout", null);
+        expect(getComputedStyle(overlay).position).toBe("absolute");
+        expect(getComputedStyle(overlay).pointerEvents).toBe("none");
+        fixture.componentRef.setInput("hoveredTile", null);
         fixture.detectChanges();
         expect(host.querySelector(".map-canvas")).toBe(canvas);
-        expect(host.querySelector(".collision-readout")).toBeNull();
+        expect(host.querySelector(".tile-readout")).toBeNull();
+        expect(overlay.textContent).toContain("1 object selected");
         fixture.destroy();
     });
 

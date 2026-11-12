@@ -15,7 +15,7 @@
         </div>
         <mat-card appearance="outlined" class="region-view">
             <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
-                [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [collisionHover]="walkability()" [collisionReadout]="collisionReadout()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
+                [brushActive]="editTool() === 'terrain'" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [hoveredTile]="hoveredTile()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
                 [objectTransform]="objectTransform()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
                 <div mapEditTools class="edit-toolbar map-edit-toolbar">
                     @for (tool of editTools; track tool.id) {
@@ -27,14 +27,6 @@
                 <ng-container mapOverlayLegend>
                     @if (walkability()) {
                         <cache-map-overlay-legend title="Clipping" [entries]="walkabilityLegend" />
-                    }
-                </ng-container>
-                <ng-container mapSelectionStatus>
-                    @if (objectTransform(); as transform) {
-                        <div class="map-selection-status studio-surface" role="status">
-                            <mat-icon class="studio-icon-small">layers</mat-icon>
-                            <div><strong>1 object selected</strong><br />Tile {{ transform.x }}, {{ transform.y }} · Plane {{ transform.plane }}</div>
-                        </div>
                     }
                 </ng-container>
                 <cache-map-load-status mapLoadStatus [loading]="store.loading()" [hasRegions]="store.regions().length > 0" [hasGeometry]="scene().geometry !== null" [progress]="store.progress()" [issues]="store.warnings()" [activity]="writeActivity()" (retry)="retryLoad()" />

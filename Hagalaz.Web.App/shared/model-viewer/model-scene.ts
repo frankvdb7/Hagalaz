@@ -51,6 +51,23 @@ export interface ModelAnimationRange {
 }
 
 /** Unindexed triangles drawn over a scene: six vertices and one sRGB colour per tile. */
+function mapGridGeometry({ positions, indices }: ModelGeometry): THREE.BufferGeometry {
+    const tileSize = 512;
+    const lines: number[] = [];
+    for (let face = 0; face < indices.length; face += 3) {
+        for (let edge = 0; edge < 3; edge++) {
+            const from = indices[face + edge] * 3;
+            const to = indices[face + (edge + 1) % 3] * 3;
+            const x = positions[from], z = positions[from + 2];
+            if ((x === positions[to] && x % tileSize === 0) || (z === positions[to + 2] && z % tileSize === 0)) {
+                // Lift the lines slightly so they don't fight the terrain for depth.
+                lines.push(x, positions[from + 1] + 2, z, positions[to], positions[to + 1] + 2, positions[to + 2]);
+            }
+        }
+    }
+    return new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
+}
+
 export interface StrokePreviewGeometry {
     positions: number[];
     uvs: number[];
@@ -146,6 +163,9 @@ export class ModelScene {
     private readonly waterFogWidth = { value: 1 };
     private grid?: THREE.GridHelper;
     private readonly gridFittedTo = new THREE.Box3();
+    private mapGrid?: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+    private mapGridTerrain?: ModelGeometry;
+    private showMapGrid = false;
     private orientationGizmo?: OrientationGizmo;
     private selectionBounds?: THREE.Box3Helper;
     private placementGizmo?: PlacementGizmo;
@@ -356,7 +376,10 @@ export class ModelScene {
 
     setDisplay(grid: boolean, wireframe: boolean): void {
         this.wireframe = wireframe;
-        if (grid && !this.grid) {
+        if (this.framing === "map") {
+            this.showMapGrid = grid;
+            this.updateMapGrid();
+        } else if (grid && !this.grid) {
             this.grid = new THREE.GridHelper(20, 40, 0x253141, 0x121a24);
             this.gridFittedTo.makeEmpty();
             this.scene.add(this.grid);
@@ -365,6 +388,26 @@ export class ModelScene {
         if (this.grid) this.grid.visible = grid;
         this.applyWireframe();
         this.requestRender();
+    }
+
+    private updateMapGrid(): void {
+        const terrain = this.terrain.currentModel;
+        if (terrain !== this.mapGridTerrain) this.releaseMapGrid();
+        if (this.showMapGrid && terrain && !this.mapGrid) {
+            this.mapGrid = new THREE.LineSegments(mapGridGeometry(terrain), new THREE.LineBasicMaterial({ color: 0x253141 }));
+            this.mapGridTerrain = terrain;
+            this.scene.add(this.mapGrid);
+        }
+        if (this.mapGrid) this.mapGrid.visible = this.showMapGrid;
+    }
+
+    private releaseMapGrid(): void {
+        if (!this.mapGrid) return;
+        this.scene.remove(this.mapGrid);
+        this.mapGrid.geometry.dispose();
+        this.mapGrid.material.dispose();
+        this.mapGrid = undefined;
+        this.mapGridTerrain = undefined;
     }
 
     /**
@@ -826,6 +869,7 @@ export class ModelScene {
     setSceneGeometry({ terrain, objects }: { terrain: ModelGeometry | null; objects: ModelGeometry | null }, fitCamera: boolean): void {
         this.setSurface(this.terrain, terrain);
         this.setSurface(this.primary, objects);
+        this.updateMapGrid();
         if (fitCamera) this.resetCamera();
     }
 
@@ -973,6 +1017,7 @@ export class ModelScene {
         this.orientationGizmo?.dispose();
         this.placementGizmo?.dispose();
         this.releaseOverlays();
+        this.releaseMapGrid();
         this.clear(false, false, this.terrain);
         this.clear();
         if (this.grid) {

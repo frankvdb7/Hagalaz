@@ -283,7 +283,7 @@ describe("MapsDetailPageComponent", () => {
             expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === projectileObjectRgb)).toHaveLength(1);
         });
 
-        it("shows every collision bit for a hovered tile and hides the readout with walkability off", async () => {
+        it("shows world tile coordinates on hover and adds collision details while walkability is on", async () => {
             const wall = { id: 8, shape: 0, rotation: 1, plane: 0, x: 1, y: 1 };
             const gate = { id: 9, shape: 10, rotation: 0, plane: 0, x: 3, y: 3 };
             const { harness, page, viewport } = await loadTerrain([wall, gate]);
@@ -294,7 +294,9 @@ describe("MapsDetailPageComponent", () => {
             viewport.brushStroke.emit([{ x: 512, z: 512 }]);
             viewport.brushHover.emit({ x: 512, z: 512, plane: 0 });
             harness.detectChanges();
-            expect(viewport.collisionReadout()).toBeNull();
+            const host: HTMLElement = required(harness.routeDebugElement, "the routed page").nativeElement;
+            const readout = () => host.querySelector(".tile-readout")?.textContent?.trim();
+            expect(readout()).toBe("Tile 65, 129 · Plane 0");
 
             page.walkability.set(true);
             harness.detectChanges();
@@ -304,17 +306,20 @@ describe("MapsDetailPageComponent", () => {
             ]);
             await TestBed.inject(ApplicationRef).whenStable();
             harness.detectChanges();
-            expect(viewport.collisionReadout()).toEqual({
-                x: 65, y: 129, plane: 0, collisionPlane: 0,
-                bits: ["WallNorth", "BlockedNorth", "FloorBlock", "WallAllowRangeNorth"],
+            expect(viewport.hoveredTile()).toEqual({
+                x: 65, y: 129, plane: 0,
+                collision: { plane: 0, bits: ["WallNorth", "BlockedNorth", "FloorBlock", "WallAllowRangeNorth"] },
             });
 
             viewport.brushHover.emit({ x: 3 * 512, z: 3 * 512, plane: 0 });
             harness.detectChanges();
-            expect(viewport.collisionReadout()?.bits).toEqual(["ObjectTile"]);
+            expect(viewport.hoveredTile()?.collision?.bits).toEqual(["ObjectTile"]);
             page.walkability.set(false);
             harness.detectChanges();
-            expect(viewport.collisionReadout()).toBeNull();
+            expect(readout()).toBe("Tile 67, 131 · Plane 0");
+            viewport.brushHover.emit(null);
+            harness.detectChanges();
+            expect(readout()).toBeUndefined();
         });
 
         it("shows one legend with movement and projectile clipping only while walkability is on", async () => {

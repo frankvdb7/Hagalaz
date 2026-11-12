@@ -34,7 +34,7 @@ import { buildCollisionMap, collisionBitNames } from "../map-collision";
 import { buildWalkabilityOverlay, ineffectiveBlockRgb, objectCollisionRgb, projectileObjectRgb, projectileWallRgb, walkableRgb } from "../map-walkability";
 import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type BrushPoint, type TerrainBrush } from "../map-terrain-edit";
 import { MapTerrainPanelComponent } from "../map-terrain-panel.component";
-import { type MapHoverPoint, MapViewportComponent, type TileCollisionReadout } from "../map-viewport.component";
+import { type HoveredTileReadout, type MapHoverPoint, MapViewportComponent } from "../map-viewport.component";
 
 const walkabilityLegend: readonly MapLegendEntry[] = [
     { label: "Walkable floor", rgb: walkableRgb },
@@ -153,21 +153,21 @@ export class MapsDetailPageComponent {
     readonly walkabilityOverlay = computed(() => this.walkability()
         ? buildWalkabilityOverlay(this.previewRegions(), this.planes(), this.collision())
         : null);
-    readonly collisionReadout = computed<TileCollisionReadout | null>(() => {
-        if (!this.walkability()) return null;
+    readonly hoveredTile = computed<HoveredTileReadout | null>(() => {
         const point = this.brushPoint();
-        if (!point || point.plane === undefined || point.plane >= 4) return null;
+        if (!point || point.plane === undefined) return null;
         const regions = this.previewRegions();
         const origin = mapSceneOrigin(regions);
         const x = origin.x + Math.floor(point.x / 512);
         const y = origin.y + Math.floor(point.z / 512);
         const region = regions.find(candidate => candidate.id === (((x >> 6) << 8) | (y >> 6)));
         if (!region) return null;
-        const tile = ((x & 63) << 6) | (y & 63);
         const plane = point.plane;
+        if (!this.walkability() || plane >= 4) return { x, y, plane };
+        const tile = ((x & 63) << 6) | (y & 63);
         const target = collisionPlane(region.planes, plane, tile);
         const bits = target === null ? 0 : this.collision().get(region.id)?.[target]?.[tile] ?? 0;
-        return { x, y, plane, collisionPlane: target, bits: collisionBitNames(bits) };
+        return { x, y, plane, collision: { plane: target, bits: collisionBitNames(bits) } };
     });
     readonly brushOutline = computed(() => {
         if (this.editTool() !== "terrain") return null;
