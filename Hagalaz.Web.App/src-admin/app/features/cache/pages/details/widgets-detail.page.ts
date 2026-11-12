@@ -2,8 +2,14 @@ import { afterNextRender, Component, computed, ElementRef, inject, Injector, lin
 import { toSignal } from "@angular/core/rxjs-interop";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
+import { MatCheckboxModule } from "@angular/material/checkbox";
+import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
+import { MatInputModule } from "@angular/material/input";
+import { MatListModule } from "@angular/material/list";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
+import { MatSelectModule } from "@angular/material/select";
+import { MatTabsModule } from "@angular/material/tabs";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { CacheSpritesService } from "../../services/cache-sprites.service";
 import { CacheWidgetsService } from "../../services/cache-widgets.service";
@@ -14,7 +20,21 @@ import { WidgetSpriteComponent } from "./widget-sprite.component";
 
 @Component({
     selector: "cache-widgets-detail-page",
-    imports: [MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, RouterLink, WidgetPreviewComponent, WidgetSpriteComponent],
+    imports: [
+        MatButtonModule,
+        MatCardModule,
+        MatCheckboxModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatInputModule,
+        MatListModule,
+        MatProgressBarModule,
+        MatSelectModule,
+        MatTabsModule,
+        RouterLink,
+        WidgetPreviewComponent,
+        WidgetSpriteComponent,
+    ],
     providers: [CacheSpritesService],
     templateUrl: "./widgets-detail.page.html",
     styleUrl: "./widgets-detail.page.scss",
@@ -68,8 +88,6 @@ export class WidgetsDetailPageComponent {
     });
     readonly tree = computed(() => this.layers().filter((layer) => layer.ancestors.every((id) => !this.collapsed().has(id))));
     readonly parents = computed(() => new Set(this.components().map(({ parentId }) => parentId)));
-    readonly sourcePanel = signal<"hierarchy" | "assets">("hierarchy");
-    readonly inspector = signal<"properties" | "logic">("properties");
     readonly filter = signal("");
     readonly typeFilter = signal("");
     readonly componentTypes = computed(() => [...new Set(this.components().map(({ type }) => type))].sort((a, b) => a - b));

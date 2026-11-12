@@ -13,155 +13,181 @@
 } @else if (widget(); as group) {
     <div class="widget-workspace">
         <aside class="workspace-left" aria-label="Widget components">
-            <section class="workspace-panel hierarchy-panel">
-                <div class="panel-tabs">
-                    <button type="button" [attr.aria-pressed]="sourcePanel() === 'hierarchy'" (click)="sourcePanel.set('hierarchy')">Hierarchy</button>
-                    <button type="button" [attr.aria-pressed]="sourcePanel() === 'assets'" (click)="sourcePanel.set('assets')">Assets</button>
-                </div>
-                <div class="panel-list">
-                    @if (sourcePanel() === "hierarchy") {
-                        <button class="tree-root" type="button" [attr.aria-pressed]="selectedId() === null" (click)="select(null)">
-                            <mat-icon>view_in_ar</mat-icon>Widget {{ group.fileId }}
-                        </button>
-                        @for (layer of tree(); track layer.component.id) {
-                            @let entry = layer.component;
-                            <div class="tree-row" [attr.data-tree-component]="entry.id" [style.padding-inline-start.px]="12 + layer.depth * 14" [class.selected]="selectedId() === entry.id">
-                                @if (parents().has(entry.id)) {
-                                    <button class="mini-button" type="button" [attr.aria-label]="'Toggle children of ' + componentLabel(entry)"
-                                        [attr.aria-expanded]="!collapsed().has(entry.id)" (click)="toggleBranch(entry.id)">
-                                        <mat-icon>{{ collapsed().has(entry.id) ? 'chevron_right' : 'expand_more' }}</mat-icon>
-                                    </button>
-                                } @else { <span class="tree-indent"></span> }
-                                <button class="tree-label" type="button" [attr.aria-pressed]="selectedId() === entry.id" (click)="select(entry.id)">
-                                    <mat-icon>{{ type(entry.type).icon }}</mat-icon><span>{{ componentLabel(entry) }}</span>
-                                </button>
-                                <button class="mini-button" type="button" [attr.aria-label]="(entry.hidden ? 'Show ' : 'Hide ') + componentLabel(entry)"
-                                    (click)="patch(entry.id, { hidden: !entry.hidden })"><mat-icon>{{ entry.hidden ? 'visibility_off' : 'visibility' }}</mat-icon></button>
-                            </div>
-                        }
-                        @if (unreadable().length) {
-                            <p class="panel-message">Could not decode components {{ unreadable().join(', ') }}.</p>
-                        }
-                    } @else {
-                        @for (id of spriteAssets(); track id) {
-                            <button class="catalog-entry" type="button" (click)="selectSprite(id)">
-                                <cache-widget-sprite class="asset-thumb" [id]="id" /> Sprite {{ id }}
+            <mat-card appearance="outlined" class="workspace-panel">
+                <mat-tab-group [mat-stretch-tabs]="false">
+                    <mat-tab label="Hierarchy">
+                        <div class="panel-list">
+                            <button mat-button class="tree-root" type="button" [attr.aria-pressed]="selectedId() === null" (click)="select(null)">
+                                <mat-icon>view_in_ar</mat-icon>Widget {{ group.fileId }}
                             </button>
-                        } @empty { <p class="panel-message">No sprites referenced.</p> }
-                    }
-                </div>
-            </section>
+                            @for (layer of tree(); track layer.component.id) {
+                                @let entry = layer.component;
+                                <div class="tree-row" [attr.data-tree-component]="entry.id" [style.padding-inline-start.px]="12 + layer.depth * 14" [class.selected]="selectedId() === entry.id">
+                                    @if (parents().has(entry.id)) {
+                                        <button mat-icon-button class="mini-button" type="button" [attr.aria-label]="'Toggle children of ' + componentLabel(entry)"
+                                            [attr.aria-expanded]="!collapsed().has(entry.id)" (click)="toggleBranch(entry.id)">
+                                            <mat-icon>{{ collapsed().has(entry.id) ? 'chevron_right' : 'expand_more' }}</mat-icon>
+                                        </button>
+                                    } @else { <span class="tree-indent"></span> }
+                                    <button mat-button class="tree-label" type="button" [attr.aria-pressed]="selectedId() === entry.id" (click)="select(entry.id)">
+                                        <mat-icon>{{ type(entry.type).icon }}</mat-icon><span class="tree-label-text">{{ componentLabel(entry) }}</span>
+                                    </button>
+                                    <button mat-icon-button class="mini-button" type="button" [attr.aria-label]="(entry.hidden ? 'Show ' : 'Hide ') + componentLabel(entry)"
+                                        (click)="patch(entry.id, { hidden: !entry.hidden })"><mat-icon>{{ entry.hidden ? 'visibility_off' : 'visibility' }}</mat-icon></button>
+                                </div>
+                            }
+                            @if (unreadable().length) {
+                                <p class="panel-message">Could not decode components {{ unreadable().join(', ') }}.</p>
+                            }
+                        </div>
+                    </mat-tab>
+                    <mat-tab label="Assets">
+                        <mat-action-list aria-label="Widget sprites">
+                            @for (id of spriteAssets(); track id) {
+                                <button mat-list-item type="button" (click)="selectSprite(id)">
+                                    <cache-widget-sprite matListItemAvatar class="asset-thumb" [id]="id" />
+                                    <span matListItemTitle>Sprite {{ id }}</span>
+                                </button>
+                            } @empty { <p class="panel-message">No sprites referenced.</p> }
+                        </mat-action-list>
+                    </mat-tab>
+                </mat-tab-group>
+            </mat-card>
 
-            <section class="workspace-panel catalog-panel" aria-label="Find components">
+            <mat-card appearance="outlined" class="workspace-panel" aria-label="Find components">
                 <div class="catalog-filters">
-                    <label class="search-field"><mat-icon>search</mat-icon>
-                        <input type="search" aria-label="Search components" placeholder="Search components…" [value]="filter()" (input)="filter.set($event.target.value)" />
-                    </label>
-                    <select #componentFilter aria-label="Component type filter" [value]="typeFilter()" (change)="typeFilter.set(componentFilter.value)">
-                        <option value="">Type: All</option>
-                        @for (value of componentTypes(); track value) { <option [value]="value">{{ type(value).label }}</option> }
-                    </select>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Search components</mat-label>
+                        <mat-icon matPrefix>search</mat-icon>
+                        <input matInput type="search" [value]="filter()" (input)="filter.set($event.target.value)" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Component type</mat-label>
+                        <mat-select [value]="typeFilter()" (selectionChange)="typeFilter.set($event.value)">
+                            <mat-option value="">All</mat-option>
+                            @for (value of componentTypes(); track value) { <mat-option [value]="value.toString()">{{ type(value).label }}</mat-option> }
+                        </mat-select>
+                    </mat-form-field>
                 </div>
-                <div class="panel-list">
+                <mat-action-list class="panel-list" aria-label="Matching components">
                     @for (entry of matching(); track entry.id) {
-                        <button class="catalog-entry" type="button" [attr.aria-pressed]="selectedId() === entry.id" (click)="select(entry.id)">
-                            <mat-icon>{{ type(entry.type).icon }}</mat-icon><span>{{ componentLabel(entry) }}</span>
+                        <button mat-list-item type="button" [activated]="selectedId() === entry.id" [attr.aria-pressed]="selectedId() === entry.id" (click)="select(entry.id)">
+                            <mat-icon matListItemIcon>{{ type(entry.type).icon }}</mat-icon>
+                            <span matListItemTitle>{{ componentLabel(entry) }}</span>
                         </button>
                     } @empty { <p class="panel-message">No matching components.</p> }
-                </div>
-            </section>
+                </mat-action-list>
+            </mat-card>
         </aside>
 
         <cache-widget-preview class="workspace-panel" [layers]="layers()" [viewport]="viewport()" [selectedId]="selectedId()"
             (select)="selectFromPreview($event)" (duplicate)="duplicate()" (remove)="remove()" (resetEdits)="reset()" />
 
-        <aside class="workspace-panel inspector-panel" aria-label="Component inspector">
-            <div class="panel-tabs">
-                <button type="button" [attr.aria-pressed]="inspector() === 'properties'" (click)="inspector.set('properties')"><mat-icon>tune</mat-icon>Properties</button>
-                <button type="button" [attr.aria-pressed]="inspector() === 'logic'" (click)="inspector.set('logic')"><mat-icon>account_tree</mat-icon>Logic</button>
-            </div>
-            <div class="inspector-body">
-                @if (inspector() === 'properties') {
-                    <section class="property-section">
-                        <h2><mat-icon>view_in_ar</mat-icon>Widget identity</h2>
-                        <dl class="identity-fields">
-                            <dt>Widget ID</dt><dd>{{ group.fileId }}</dd>
+        <mat-card appearance="outlined" class="workspace-panel inspector-panel" aria-label="Component inspector">
+            <mat-tab-group>
+                <mat-tab label="Properties">
+                    <div class="inspector-body">
+                        <section class="property-section">
+                            <h2><mat-icon>view_in_ar</mat-icon>Widget identity</h2>
+                            <dl class="identity-fields">
+                                <dt>Widget ID</dt><dd>{{ group.fileId }}</dd>
+                                @if (selected(); as entry) {
+                                    <dt>Component ID</dt><dd>{{ entry.id }}</dd>
+                                    <dt>Parent ID</dt><dd>{{ entry.parentId }}</dd>
+                                    <dt>Type</dt><dd>{{ type(entry.type).label }}</dd>
+                                } @else {
+                                    <dt>Components</dt><dd>{{ components().length }}</dd>
+                                }
+                            </dl>
+                        </section>
+                        <section class="property-section">
+                            <h2><mat-icon>crop_free</mat-icon>Layout</h2>
                             @if (selected(); as entry) {
-                                <dt>Component ID</dt><dd>{{ entry.id }}</dd>
-                                <dt>Parent ID</dt><dd>{{ entry.parentId }}</dd>
-                                <dt>Type</dt><dd>{{ type(entry.type).label }}</dd>
+                                <div class="layout-fields">
+                                    @for (field of geometry; track field.key) {
+                                        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                            <mat-label>{{ field.label }}</mat-label>
+                                            <input matInput type="number" [value]="entry[field.key]" step="1" max="65535"
+                                                [min]="field.key === 'x' || field.key === 'y' ? -32768 : 0" (change)="changeGeometry(entry, field.key, $event.target)" />
+                                        </mat-form-field>
+                                    }
+                                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                        <mat-label>Horizontal anchor</mat-label>
+                                        <mat-select [value]="entry.xMode" (selectionChange)="patch(entry.id, { xMode: $event.value })">
+                                            @for (anchor of anchors; track anchor) { <mat-option [value]="$index">{{ anchor }}</mat-option> }
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                        <mat-label>Vertical anchor</mat-label>
+                                        <mat-select [value]="entry.yMode" (selectionChange)="patch(entry.id, { yMode: $event.value })">
+                                            @for (anchor of anchors; track anchor) { <mat-option [value]="$index">{{ anchor }}</mat-option> }
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
                             } @else {
-                                <dt>Components</dt><dd>{{ components().length }}</dd>
+                                <dl class="identity-fields"><dt>Width</dt><dd>{{ viewport().width }}</dd><dt>Height</dt><dd>{{ viewport().height }}</dd></dl>
                             }
-                        </dl>
-                    </section>
-                    <section class="property-section">
-                        <h2><mat-icon>crop_free</mat-icon>Layout</h2>
+                        </section>
                         @if (selected(); as entry) {
-                            <div class="layout-fields">
-                                @for (field of geometry; track field.key) {
-                                    <label>{{ field.label }}<input type="number" [value]="entry[field.key]" step="1" max="65535"
-                                        [min]="field.key === 'x' || field.key === 'y' ? -32768 : 0" (change)="changeGeometry(entry, field.key, $event.target)" /></label>
+                            <section class="property-section">
+                                <h2><mat-icon>brush</mat-icon>Appearance</h2>
+                                <mat-checkbox [checked]="!entry.hidden" (change)="patch(entry.id, { hidden: !$event.checked })">Visible in preview</mat-checkbox>
+                                @if (entry.type === 4) {
+                                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="text-field">
+                                        <mat-label>Text</mat-label>
+                                        <input matInput [value]="entry.text" (input)="patch(entry.id, { text: $event.target.value })" />
+                                    </mat-form-field>
+                                    <dl class="identity-fields"><dt>Font ID</dt><dd>{{ entry.fontId }}</dd></dl>
                                 }
-                                <label>Horizontal anchor<select #horizontal (change)="patch(entry.id, { xMode: +horizontal.value })">
-                                    @for (anchor of anchors; track anchor) { <option [value]="$index" [selected]="entry.xMode === $index">{{ anchor }}</option> }
-                                </select></label>
-                                <label>Vertical anchor<select #vertical (change)="patch(entry.id, { yMode: +vertical.value })">
-                                    @for (anchor of anchors; track anchor) { <option [value]="$index" [selected]="entry.yMode === $index">{{ anchor }}</option> }
-                                </select></label>
-                            </div>
-                        } @else {
-                            <dl class="identity-fields"><dt>Width</dt><dd>{{ viewport().width }}</dd><dt>Height</dt><dd>{{ viewport().height }}</dd></dl>
+                                @if (entry.spriteId !== undefined) {
+                                    <dl class="identity-fields"><dt>Sprite ID</dt><dd>{{ entry.spriteId }}</dd></dl>
+                                }
+                                @if (entry.modelId !== undefined) {
+                                    <dl class="identity-fields"><dt>Model ID</dt><dd>
+                                        @if (entry.modelId >= 0) { <a mat-button [routerLink]="['/cache/models', entry.modelId]">{{ entry.modelId }}</a> }
+                                        @else { {{ entry.modelId }} }
+                                    </dd></dl>
+                                    @if (entry.modelCamera; as camera) {
+                                        <div class="layout-fields">
+                                            @for (field of cameraFields; track field.key) {
+                                                @let offset = field.key === "x" || field.key === "y";
+                                                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                                                    <mat-label>{{ field.label }}</mat-label>
+                                                    <input matInput type="number" [value]="camera[field.key]" step="1"
+                                                        [min]="offset ? -32768 : field.key === 'zoom' ? 1 : 0"
+                                                        [max]="offset ? 32767 : 65535" (input)="changeCamera(entry, field.key, $event.target)" />
+                                                </mat-form-field>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </section>
+                            <section class="property-section">
+                                <h2><mat-icon>bolt</mat-icon>Behavior</h2>
+                                <mat-checkbox [checked]="entry.blocksClicks" disabled>Intercepts clicks</mat-checkbox>
+                            </section>
                         }
-                    </section>
-                    @if (selected(); as entry) {
-                        <section class="property-section">
-                            <h2><mat-icon>brush</mat-icon>Appearance</h2>
-                            <label class="check-field"><input type="checkbox" [checked]="!entry.hidden" (change)="patch(entry.id, { hidden: !$event.target.checked })" />Visible in preview</label>
-                            @if (entry.type === 4) {
-                                <label class="stack-field">Text<input [value]="entry.text" (input)="patch(entry.id, { text: $event.target.value })" /></label>
-                                <dl class="identity-fields"><dt>Font ID</dt><dd>{{ entry.fontId }}</dd></dl>
-                            }
-                            @if (entry.spriteId !== undefined) {
-                                <dl class="identity-fields"><dt>Sprite ID</dt><dd>{{ entry.spriteId }}</dd></dl>
-                            }
-                            @if (entry.modelId !== undefined) {
-                                <dl class="identity-fields"><dt>Model ID</dt><dd>
-                                    @if (entry.modelId >= 0) { <a [routerLink]="['/cache/models', entry.modelId]">{{ entry.modelId }}</a> }
-                                    @else { {{ entry.modelId }} }
-                                </dd></dl>
-                                @if (entry.modelCamera; as camera) {
-                                    <div class="layout-fields">
-                                        @for (field of cameraFields; track field.key) {
-                                            @let offset = field.key === "x" || field.key === "y";
-                                            <label>{{ field.label }}<input type="number" [value]="camera[field.key]" step="1"
-                                                [min]="offset ? -32768 : field.key === 'zoom' ? 1 : 0"
-                                                [max]="offset ? 32767 : 65535" (input)="changeCamera(entry, field.key, $event.target)" /></label>
-                                        }
-                                    </div>
-                                }
-                            }
-                        </section>
-                        <section class="property-section">
-                            <h2><mat-icon>bolt</mat-icon>Behavior</h2>
-                            <label class="check-field"><input type="checkbox" [checked]="entry.blocksClicks" disabled />Intercepts clicks</label>
-                        </section>
-                    }
-                } @else if (selected(); as entry) {
-                    <section class="property-section">
-                        <h2><mat-icon>account_tree</mat-icon>Component actions</h2>
-                        <dl class="identity-fields">
-                            <dt>Content type</dt><dd>{{ entry.contentType }}</dd>
-                            @if (entry.action) { <dt>Action</dt><dd>{{ entry.action }}</dd> }
-                        </dl>
-                        @if (entry.options?.length) { <ul>@for (option of entry.options; track $index) { <li>{{ option }}</li> }</ul> }
-                        @else { <p class="panel-message">No context-menu actions.</p> }
-                    </section>
-                } @else {
-                    <p class="panel-message">Select a component to inspect its actions.</p>
-                }
-            </div>
-        </aside>
+                    </div>
+                </mat-tab>
+                <mat-tab label="Logic">
+                    <div class="inspector-body">
+                        @if (selected(); as entry) {
+                            <section class="property-section">
+                                <h2><mat-icon>account_tree</mat-icon>Component actions</h2>
+                                <dl class="identity-fields">
+                                    <dt>Content type</dt><dd>{{ entry.contentType }}</dd>
+                                    @if (entry.action) { <dt>Action</dt><dd>{{ entry.action }}</dd> }
+                                </dl>
+                                @if (entry.options?.length) { <ul>@for (option of entry.options; track $index) { <li>{{ option }}</li> }</ul> }
+                                @else { <p class="panel-message">No context-menu actions.</p> }
+                            </section>
+                        } @else {
+                            <p class="panel-message">Select a component to inspect its actions.</p>
+                        }
+                    </div>
+                </mat-tab>
+            </mat-tab-group>
+        </mat-card>
     </div>
 } @else {
     <mat-card appearance="outlined"><mat-card-content><p role="status">Widget not found.</p></mat-card-content></mat-card>

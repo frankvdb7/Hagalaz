@@ -1,5 +1,12 @@
 import { Component, computed, effect, type ElementRef, input, output, signal, viewChild } from "@angular/core";
+import { MatButtonModule } from "@angular/material/button";
+import { MatButtonToggleModule } from "@angular/material/button-toggle";
+import { MatCardModule } from "@angular/material/card";
+import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
+import { MatSelectModule } from "@angular/material/select";
+import { MatToolbarModule } from "@angular/material/toolbar";
+import { MatTooltipModule } from "@angular/material/tooltip";
 import { CacheWidgetFontsService } from "../../services/cache-widget-fonts.service";
 import type { WidgetComponent } from "../../services/widget-component";
 import { widgetColor, widgetType, type WidgetLayer } from "./widget-layout";
@@ -10,7 +17,19 @@ import { WidgetTextComponent } from "./widget-text.component";
 
 @Component({
     selector: "cache-widget-preview",
-    imports: [MatIconModule, WidgetSpriteComponent, WidgetTextComponent, WidgetModelComponent],
+    imports: [
+        MatButtonModule,
+        MatButtonToggleModule,
+        MatCardModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatSelectModule,
+        MatToolbarModule,
+        MatTooltipModule,
+        WidgetSpriteComponent,
+        WidgetTextComponent,
+        WidgetModelComponent,
+    ],
     providers: [CacheWidgetFontsService, WidgetModelImages, WidgetLiveModelsService],
     templateUrl: "./widget-preview.component.html",
     styleUrl: "./widget-preview.component.scss",

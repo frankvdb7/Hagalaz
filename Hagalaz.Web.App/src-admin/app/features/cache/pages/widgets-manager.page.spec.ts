@@ -3,6 +3,9 @@ import { provideHttpClient } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { MatPaginatorHarness } from "@angular/material/paginator/testing";
+import { MatCheckboxHarness } from "@angular/material/checkbox/testing";
+import { MatSelectHarness } from "@angular/material/select/testing";
+import { MatTabGroupHarness } from "@angular/material/tabs/testing";
 import { provideRouter, Router } from "@angular/router";
 import { RouterTestingHarness } from "@angular/router/testing";
 import { firstValueFrom, take, toArray } from "rxjs";
@@ -86,7 +89,7 @@ describe("Widget browser", () => {
         root.querySelector<HTMLAnchorElement>('a[aria-label="Inspect widget 50"]')?.click();
         await loadArchive(50, harness);
         expect(TestBed.inject(Router).url).toBe("/cache/widgets/50?page=2");
-        expect(Array.from(root.querySelectorAll(".tree-label span"), (label) => label.textContent?.trim())).toEqual(["Container (2)", "Rectangle (9)"]);
+        expect(Array.from(root.querySelectorAll(".tree-label-text"), (label) => label.textContent?.trim())).toEqual(["Container (2)", "Rectangle (9)"]);
         TestBed.inject(HttpTestingController).expectNone(referenceTableUrl);
 
         root.querySelector<HTMLAnchorElement>('a[href="/cache/widgets?page=2"]')?.click();
@@ -177,7 +180,9 @@ describe("Widget browser", () => {
 
         root.querySelector<HTMLButtonElement>('[aria-label="Select Model (9)"]')?.click();
         harness.detectChanges();
-        const pitch = [...root.querySelectorAll("label")].find((label) => label.textContent?.trim() === "Pitch")?.querySelector("input");
+        const pitch = [...root.querySelectorAll("mat-form-field")]
+            .find((field) => field.querySelector("mat-label")?.textContent?.trim() === "Pitch")
+            ?.querySelector("input");
         if (!pitch) throw new Error("Pitch input is missing");
         pitch.value = "512";
         pitch.dispatchEvent(new Event("input"));
@@ -207,7 +212,9 @@ describe("Widget browser", () => {
         const first = play();
         const second = play();
         http.expectOne(`${environment.cacheApiUrl}types/animations/16/sequence`).flush({
-            frameIds: [101, 102], frameDurations: [10, 10], loop: 2,
+            frameIds: [101, 102],
+            frameDurations: [10, 10],
+            loop: 2,
         });
         for (const id of [101, 102]) {
             await vi.waitFor(() => http.expectOne(`${environment.cacheApiUrl}animation-frames/${id}`).flush({ frame: { skeletonId: 1 } }));
@@ -226,14 +233,16 @@ describe("Widget browser", () => {
         rectangle?.click();
         harness.detectChanges();
         expect(rectangle?.getAttribute("aria-pressed")).toBe("true");
-        const zoom = root.querySelector<HTMLSelectElement>('[aria-label="Preview zoom"]');
-        if (!zoom) throw new Error("Preview zoom is missing");
-        expect(zoom.value).toBe("fit");
-        zoom.value = "1.5";
-        zoom.dispatchEvent(new Event("change"));
+        const loader = TestbedHarnessEnvironment.loader(harness.fixture);
+        expect(root.querySelector('[aria-label="Preview mode"]')?.hasAttribute("hideSingleSelectionIndicator")).toBe(true);
+        const zoom = await loader.getHarness(MatSelectHarness.with({ selector: ".preview-zoom mat-select" }));
+        expect(await zoom.getValueText()).toBe("Fit");
+        await zoom.clickOptions({ text: "150%" });
         harness.detectChanges();
         expect(root.querySelector<HTMLElement>(".preview-art")?.style.transform).toBe("scale(1.5)");
-        const x = [...root.querySelectorAll(".layout-fields label")].find((label) => label.textContent?.trim() === "X")?.querySelector("input");
+        const x = [...root.querySelectorAll(".layout-fields mat-form-field")]
+            .find((field) => field.querySelector("mat-label")?.textContent?.trim() === "X")
+            ?.querySelector("input");
         if (!x) throw new Error("X input is missing");
         x.value = "32";
         x.dispatchEvent(new Event("change"));
@@ -242,6 +251,33 @@ describe("Widget browser", () => {
         root.querySelector<HTMLButtonElement>('[aria-label="Reset preview and local edits"]')?.click();
         harness.detectChanges();
         expect(rectangle?.style.left).toBe("20px");
-        expect(zoom.value).toBe("fit");
+        expect(await zoom.getValueText()).toBe("Fit");
+    });
+
+    it("switches inspector tabs and updates preview visibility with Material controls", async () => {
+        const harness = await open("/cache/widgets");
+        const root = harness.fixture.nativeElement as HTMLElement;
+        root.querySelector<HTMLAnchorElement>('a[aria-label="Inspect widget 0"]')?.click();
+        await loadArchive(0, harness);
+        const rectangle = root.querySelector<HTMLButtonElement>('[aria-label="Select Rectangle (9)"]');
+        rectangle?.click();
+        harness.detectChanges();
+
+        const loader = TestbedHarnessEnvironment.loader(harness.fixture);
+        const visible = await loader.getHarness(MatCheckboxHarness.with({ label: "Visible in preview" }));
+        await visible.uncheck();
+        expect(rectangle?.querySelector(".widget-rectangle")).toBeNull();
+        const inspector = await loader.getHarness(MatTabGroupHarness.with({ selector: ".inspector-panel mat-tab-group" }));
+        await inspector.selectTab({ label: "Logic" });
+        await vi.waitFor(() => {
+            harness.detectChanges();
+            expect(root.textContent).toContain("Component actions");
+        });
+        await inspector.selectTab({ label: "Properties" });
+        await vi.waitFor(async () => {
+            harness.detectChanges();
+            const restored = await loader.getHarness(MatCheckboxHarness.with({ label: "Visible in preview" }));
+            expect(await restored.isChecked()).toBe(false);
+        });
     });
 });
