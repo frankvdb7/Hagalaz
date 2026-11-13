@@ -13,7 +13,9 @@
     <NuGetLockFilePath Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(MSBuildProjectDirectory)/packages.lock.windows.json</NuGetLockFilePath>
   </PropertyGroup>
 
-  <ItemGroup>    
+  <ItemGroup>
+    <PackageReference Include="Aspire.Dashboard.Sdk.linux-x64" Version="13.6.5" />
+    <PackageReference Include="Aspire.Hosting" Version="13.6.5" />    
    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
     <PackageReference Include="Aspire.Hosting.AppHost" Version="13.4.6" />
     <PackageReference Include="Aspire.Hosting.MySql" Version="13.4.6" />
