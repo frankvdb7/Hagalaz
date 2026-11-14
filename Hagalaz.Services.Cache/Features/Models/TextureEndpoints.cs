@@ -24,8 +24,11 @@ public static class TextureEndpoints
 {
     internal const string ImageCacheTag = "texture-images";
 
+    // HDR companion images, one container per texture ID.
+    private const int HdrCompanionIndex = 37;
+
     /// <summary>Texture images are derived from the texture (9) and material (26) indexes.</summary>
-    internal static bool IsImageSource(int indexId) => indexId is 9 or 26;
+    internal static bool IsImageSource(int indexId) => indexId is TextureSource.TextureIndex or TextureSource.MaterialIndex;
 
     public static IEndpointRouteBuilder MapTextureEndpoints(this IEndpointRouteBuilder group)
     {
@@ -66,23 +69,21 @@ public static class TextureEndpoints
         }
     }
 
-    private static IResult GetHdr(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec)
+    private static IResult GetHdr(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, ISpriteTypeCodec spriteCodec)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
-        using var materials = cache.Read(26, 0, 0);
-        var material = MaterialTableType.Require(materialCodec.Decode(0, materials), id);
+        var material = new TextureSource(cache, materialCodec, spriteCodec).Material(id);
         if (!material.HasHdr) return TypedResults.NotFound();
-        using var image = cache.ReadContainer(9, id);
-        using var companion = cache.ReadContainer(37, id);
+        using var image = cache.ReadContainer(TextureSource.TextureIndex, id);
+        using var companion = cache.ReadContainer(HdrCompanionIndex, id);
         var hdr = TextureImageConverter.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), RenderAlphaMode(material, sourceAlpha: true));
         return TypedResults.Ok(new GetTextureHdrDto(hdr.Width, hdr.Height, hdr.Rgba));
     }
 
-    private static IResult GetMaterial(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec)
+    private static IResult GetMaterial(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, ISpriteTypeCodec spriteCodec)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
-        using var materials = cache.Read(26, 0, 0);
-        var material = MaterialTableType.Require(materialCodec.Decode(0, materials), id);
+        var material = new TextureSource(cache, materialCodec, spriteCodec).Material(id);
         return TypedResults.Ok(new GetTextureMaterialDto(material.AlphaMode, material.ColorBlend, material.Brightness,
             material.EffectId, material.EffectParameter, material.ScrollU, material.ScrollV, material.RepeatU,
             material.RepeatV, material.HasHdr, material.EffectParameter2));
@@ -92,12 +93,11 @@ public static class TextureEndpoints
     private static int RenderAlphaMode(MaterialEntry material, bool sourceAlpha) =>
         sourceAlpha && material.AlphaMode == 0 && material.EffectId is 1 or 7 ? 2 : material.AlphaMode;
 
-    private static IResult GetTextureImage(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, HttpContext context, bool sourceAlpha = false)
+    private static IResult GetTextureImage(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, ISpriteTypeCodec spriteCodec, HttpContext context, bool sourceAlpha = false)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
-        using var container = cache.ReadContainer(9, id);
-        using var materials = cache.Read(26, 0, 0);
-        var material = MaterialTableType.Require(materialCodec.Decode(0, materials), id);
+        using var container = cache.ReadContainer(TextureSource.TextureIndex, id);
+        var material = new TextureSource(cache, materialCodec, spriteCodec).Material(id);
         var alphaMode = material.AlphaMode;
         var source = container.Data.ToArray();
         var metadata = JsonSerializer.Serialize(

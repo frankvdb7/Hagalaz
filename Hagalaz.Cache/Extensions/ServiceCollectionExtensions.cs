@@ -13,6 +13,7 @@ using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Logic;
+using Hagalaz.Cache.Logic.Rendering;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Types.Providers;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -145,6 +146,9 @@ namespace Hagalaz.Cache.Extensions
 
             services.TryAddTransient<ITypeCodec<IEquipmentDefaults>, EquipmentDefaultsCodec>();
             services.TryAddTransient<IEquipmentDefaultsProvider, EquipmentDefaultsProvider>();
+
+            services.TryAddTransient<ModelAssembler>();
+            services.TryAddTransient<ItemIconComposer>();
 
             return services;
         }

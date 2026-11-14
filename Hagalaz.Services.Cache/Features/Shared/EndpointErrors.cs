@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using FluentResults;
+using Hagalaz.Cache.Logic.Rendering;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Types;
 using Microsoft.AspNetCore.Http;
@@ -32,6 +33,15 @@ internal static class EndpointErrors
             return TypedResults.Problem(title: "Unsupported cache data.", detail: $"The stored {type} {id} could not be decoded.", statusCode: StatusCodes.Status422UnprocessableEntity);
         throw new InvalidOperationException($"Unexpected type mutation failure: {string.Join("; ", result.Errors)}");
     }
+
+    /// <summary>The response for a model that cannot be assembled: 404 when there is nothing to assemble, 400 for an unknown appearance, 422 for an unsupported one.</summary>
+    public static IResult ModelAssemblyFailure(ResultBase result) => result.Errors.FirstOrDefault() switch
+    {
+        ModelSubjectAbsentError => TypedResults.NotFound(),
+        UnknownAppearanceError => TypedResults.BadRequest(Validation("Unknown item model appearance.")),
+        UnsupportedAppearanceError unsupported => TypedResults.Problem(title: "Unsupported object appearance", detail: unsupported.Message, statusCode: StatusCodes.Status422UnprocessableEntity),
+        _ => throw new InvalidOperationException($"Unexpected model assembly failure: {string.Join("; ", result.Errors)}")
+    };
 
     /// <summary>The response for a failed region map save: 404 for a missing terrain or landscape file, 422 for one that cannot be decoded.</summary>
     public static IResult RegionMapFileFailure(ResultBase result, int id)

@@ -15,3 +15,9 @@
 **Region map revision**: the reference-table versions of a region's terrain and landscape files, read together from one table snapshot. Every cache write changes a file's version, so a changed revision means one of the region's map files was written.
 
 **Canonical encoding**: `Encode(Decode(stored))` for a definition type entry. For items, NPCs, objects and sprites this differs from the stored bytes (opcode order, written defaults, sprite layout), so "unchanged" is judged against the canonical encoding, never the stored bytes.
+
+**Model assembly**: turning a definition (an item appearance, NPC, object shape or placement, or a bare model) into one assembled model as the client does: parts merged, scaled, offset, recoloured and retextured, with attached billboards, effectors and particles resolved. Warnings it discovers in the data (texel fallback, unavailable attachments, unsupported overrides) are part of its result; absent or unsupported subjects are reported as results, not exceptions. Owned by `ModelAssembler` in `Hagalaz.Cache/Logic/Rendering`.
+
+**Object placement**: the client's rules for an object placed in a map region: the transform variant chosen at zero varp/varbit state, the shape-to-model-shape mapping, orientations, mirroring and floor shadow strength. Part of model assembly.
+
+**Item icon**: an item's inventory image as the client draws it: stack variant, the original item drawn beneath a lent or bought template, the note drawn over its content, outlines, shadow and the quantity label. Owned by `ItemIconComposer` in `Hagalaz.Cache/Logic/Rendering`, which also declares the cache indexes an icon reads.

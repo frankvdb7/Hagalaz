@@ -393,7 +393,7 @@ public sealed class ModelAppearanceTests
         Assert.IsNotNull(handler);
         var error = Assert.ThrowsExactly<TargetInvocationException>(() => handler.Invoke(null, new object[] {
             new[] { new ObjectRenderAppearanceKeyDto(0, 10, 0), new ObjectRenderAppearanceKeyDto(1, 10, 0) },
-            app.Services.GetRequiredService<ICacheAPI>(), Codecs(app.Services), provider, cancellation.Token }));
+            ActivatorUtilities.CreateInstance<Hagalaz.Cache.Logic.Rendering.ModelAssembler>(app.Services, (ITypeProvider<IObjectType>)provider), cancellation.Token }));
         Assert.IsInstanceOfType<OperationCanceledException>(error.InnerException);
         Assert.AreEqual(1, provider.Reads);
     }
@@ -774,14 +774,4 @@ public sealed class ModelAppearanceTests
         using var container = new Container(new MemoryStream(data));
         return container.Encode();
     }
-
-    private static ModelCodecs Codecs(IServiceProvider services) => new(
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IParticleEmitterType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IParticleEffectorType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IBillboardType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IRenderAnimationType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IMaterialTableType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IModelType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IAnimationSkeletonType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IAnimationFrameType>>());
 }
