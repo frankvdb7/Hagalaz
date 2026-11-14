@@ -181,7 +181,7 @@ public sealed class ModelAppearanceTests
         var store=new MemoryFileStore();
         byte[] model=[1,1,10,1,0,0];
         SeedDefinitions(store,16,(1,[..model,0]),(2,[..model,64,0]),(3,[..model,98,0]),(4,[92,255,255,255,255,0,1,0,0,1,0]));
-        store.Set(7,0,ContainerBytes(LegacyModel));
+        store.Set(7,0,ContainerBytes(TexturedTriangleModel));
         await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
         using var client=CacheServiceTestHost.CreateClient(app);
         async Task<GetObjectRenderAppearanceDto> Appearance(int id)=>(await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>($"/api/v1/cache/types/objects/{id}/render-appearance?shape=10&rotation=0"))!;
@@ -200,7 +200,7 @@ public sealed class ModelAppearanceTests
         var store=new MemoryFileStore();
         byte[] model=[1,1,10,1,0,0];
         SeedDefinitions(store,16,(1,[..model,0]),(2,[..model,17,0]),(3,[..model,27,0]),(4,[..model,18,0]));
-        store.Set(7,0,ContainerBytes(LegacyModel));
+        store.Set(7,0,ContainerBytes(TexturedTriangleModel));
         await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
         using var client=CacheServiceTestHost.CreateClient(app);
         async Task<(int ClipType,bool Solid,bool Gateway)> Collision(int id)
@@ -227,7 +227,7 @@ public sealed class ModelAppearanceTests
         var fallback=!selector&&hidden?32767:2;
         byte[] root=[92,255,255,selector?(byte)0:(byte)255,selector?(byte)1:(byte)255,(byte)(fallback>>8),(byte)fallback,0,(byte)(indexed>>8),(byte)indexed,0];
         SeedDefinitions(store,16,(0,root),(1,[1,1,10,1,0,0,14,2,0]),(2,[1,1,10,1,0,0,14,3,0]));
-        store.Set(7,0,ContainerBytes(LegacyModel));
+        store.Set(7,0,ContainerBytes(TexturedTriangleModel));
         await using var app=await CacheServiceTestHost.StartAsync(store,group=>group.MapModelEndpoints());
         using var client=CacheServiceTestHost.CreateClient(app);
         var appearance=await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/0/render-appearance?shape=10&rotation=0");
@@ -354,7 +354,7 @@ public sealed class ModelAppearanceTests
         var definition = Definition("objects").SkipLast(1).Concat(new byte[] { 62, 21, 2, 70, 101, 110, 99, 101, 0, 0 }).ToArray();
         definition[2] = (byte)modelShape;
         SeedDefinition(store, 16, definition);
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] { new ObjectRenderAppearanceKeyDto(0, shape, rotation) });
@@ -411,7 +411,7 @@ public sealed class ModelAppearanceTests
     public async Task AppearanceBatch_MapsPerKeyExceptionsWithoutDiscardingOtherResults()
     {
         var store = new MemoryFileStore();
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints(), services => services.AddSingleton<ITypeProvider<IObjectType>, FaultingObjects>());
         using var client = CacheServiceTestHost.CreateClient(app);
         using var response = await client.PostAsJsonAsync("/api/v1/cache/types/objects/render-appearances", new[] {
@@ -444,7 +444,7 @@ public sealed class ModelAppearanceTests
     {
         var store = new MemoryFileStore();
         SeedDefinition(store, 16, Definition("objects"));
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         var keys = new[] { new ObjectRenderAppearanceKeyDto(0, 10, 1), new ObjectRenderAppearanceKeyDto(0, 2, 0), new ObjectRenderAppearanceKeyDto(0, 10, 1) };
@@ -486,8 +486,8 @@ public sealed class ModelAppearanceTests
         Assert.AreEqual(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    private static readonly byte[] LegacyModel = [0, 1, 3, 1, 2, 64, 65, 65, 0, 42, 0, 0, 0, 1, 0, 2, 74, 54, 84,
-            0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
+    private static readonly byte[] TexturedTriangleModel = [0, 0, 1, 3, 1, 64, 65, 65, 0, 43, 1, 0, 127, 74, 54, 84, 0, 0, 0, 1, 0, 2,
+            0, 3, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 1, 255, 255];
     private static readonly byte[] ModernSkinnedModel = [0, 1, 3, 1, 1, 2, 3, 64, 65, 65, 0x12, 0x34, 74, 54, 84, 13,
         0, 3, 0, 1, 0, 8, 0, 0, 0, 0, 1, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
 
@@ -500,8 +500,9 @@ public sealed class ModelAppearanceTests
         var store = new MemoryFileStore();
         var definition = Definition(kind);
         SeedDefinition(store, index, definition.Take(definition.Length - 1).Concat(new byte[] {(byte)ambientOpcode, 12, (byte)contrastOpcode, 250, 0}).ToArray());
-        var geometry = (byte[])LegacyModel.Clone();
-        geometry[4] = 3; // legacy flat shading plus existing texture flag
+        // Flat shading: set the shading-type flag and insert the face's shading byte after the mapping type and vertex flags.
+        var geometry = TexturedTriangleModel.Take(4).Append((byte)1).Concat(TexturedTriangleModel.Skip(4)).ToArray();
+        geometry[geometry.Length - 23 + 5] |= 1;
         store.Set(7, 0, ContainerBytes(geometry));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
@@ -522,7 +523,7 @@ public sealed class ModelAppearanceTests
     {
         var store = new MemoryFileStore();
         SeedDefinition(store, index, Definition(kind));
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
@@ -554,10 +555,10 @@ public sealed class ModelAppearanceTests
     {
         var store = new MemoryFileStore();
         SeedDefinition(store, 18, new byte[] { 1, 2, 0, 0, 0, 1 }.Concat(Definition("npcs").Skip(4)).ToArray());
-        store.Set(7, 0, ContainerBytes(LegacyModel));
-        var first = (byte[])LegacyModel.Clone();
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
+        var first = (byte[])TexturedTriangleModel.Clone();
         var second = (byte[])ModernSkinnedModel.Clone();
-        first[first.Length - 18 + 6] = 10;
+        first[first.Length - 23 + 6] = 10;
         second[second.Length - 23 + 6] = 11;
         store.Set(7, 0, ContainerBytes(first));
         store.Set(7, 1, ContainerBytes(second));
@@ -581,7 +582,7 @@ public sealed class ModelAppearanceTests
     {
         var store = new MemoryFileStore();
         SeedDefinition(store, 16, new byte[] { 1, 2, 10, 1, 0, 0, 20, 1, 0, 1 }.Concat(Definition("objects").Skip(6)).ToArray());
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         store.Set(7, 1, ContainerBytes(ModernSkinnedModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
@@ -606,9 +607,9 @@ public sealed class ModelAppearanceTests
         byte[] equipment = [23,0,0, 24,0,1, 78,0,2, 25,0,1, 26,0,0, 79,0,2,
             90,0,0, 92,0,1, 91,0,1, 93,0,0, 125,1,254,3, 126,255,2,253];
         SeedDefinition(store, 19, equipment.Concat(Definition("items")).ToArray());
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         store.Set(7, 1, ContainerBytes(ModernSkinnedModel));
-        store.Set(7, 2, ContainerBytes(LegacyModel));
+        store.Set(7, 2, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         var metadata = await client.GetFromJsonAsync<GetItemModelAppearanceDto[]>("/api/v1/cache/types/items/0/model-appearances");
@@ -636,7 +637,7 @@ public sealed class ModelAppearanceTests
     {
         var store = new MemoryFileStore();
         SeedDefinition(store, 19, new byte[] {23,0,0, 78,0,2, 26,0,1}.Concat(Definition("items")).ToArray());
-        store.Set(7,0,ContainerBytes(LegacyModel));
+        store.Set(7,0,ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         var metadata = await client.GetFromJsonAsync<GetItemModelAppearanceDto[]>("/api/v1/cache/types/items/0/model-appearances");
@@ -656,7 +657,7 @@ public sealed class ModelAppearanceTests
     {
         var store = new MemoryFileStore();
         SeedDefinition(store, 16, Definition("objects").SkipLast(1).Concat(new byte[] { 70, 0, 3, 21, 0 }).ToArray());
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         var appearance = await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/0/render-appearance?shape=10&rotation=1");
@@ -701,7 +702,7 @@ public sealed class ModelAppearanceTests
         var definition = Definition("objects");
         definition[2] = 2;
         SeedDefinition(store, 16, definition);
-        store.Set(7, 0, ContainerBytes(LegacyModel));
+        store.Set(7, 0, ContainerBytes(TexturedTriangleModel));
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapModelEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
         var appearance = await client.GetFromJsonAsync<GetObjectRenderAppearanceDto>("/api/v1/cache/types/objects/0/render-appearance?shape=2&rotation=0");
@@ -779,5 +780,6 @@ public sealed class ModelAppearanceTests
         services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IParticleEffectorType>>(),
         services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IBillboardType>>(),
         services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IRenderAnimationType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IMaterialTableType>>());
+        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IMaterialTableType>>(),
+        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IModelType>>());
 }

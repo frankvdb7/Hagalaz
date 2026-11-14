@@ -146,7 +146,7 @@ public static class ModelEndpoints
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Model ID must be nonnegative."));
         using var container = cache.ReadContainer(7, id);
-        var geometry = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
+        var geometry = ModelGeometryBuilder.Build(codecs.Models.Decode(id, container.Data));
         return TypedResults.Ok(new GetModelDto(id, geometry.Positions, geometry.Indices, geometry.FaceColors, geometry.FaceAlpha, geometry.VertexSkins,
                 new[] { "Geometry, projected textures and ordinary transparency preview. Transparent faces use client priorities and depth ordering within each priority. Intersecting triangles and full client rendering parity remain unverified. Client model lighting uses a fixed inspection light; map atmosphere and seam lighting remain unverified." }.Concat(ProjectionWarnings(geometry.FirstTexelFaces)).ToArray(), CoordinateScale: geometry.Version < 13 ? 0.25f : 1, FaceSkins: geometry.FaceSkins, FaceTextureIds: geometry.FaceTextureIds, FaceTextureVertices: geometry.FaceTextureVertices, FaceTextureUvs: geometry.FaceTextureUvs, Particles: ReadParticles(cache, codecs, geometry.Emitters ?? []), FacePriorities: geometry.FacePriorities, FaceShadingTypes: geometry.FaceShadingTypes, FirstTexelFaces: geometry.FirstTexelFaces)
         {
@@ -320,14 +320,14 @@ public static class ModelEndpoints
         var textureVertices = new List<int>();
         var textureUvs = new List<float>();
         var firstTexelFaces = new List<int>();
-        var emitters = new List<ModelGeometryDecoder.EmitterAttachment>();
-        var effectors = new List<ModelGeometryDecoder.EffectorAttachment>();
-        var billboards = new List<ModelGeometryDecoder.BillboardAttachment>();
+        var emitters = new List<ModelEmitterAttachment>();
+        var effectors = new List<ModelEffectorAttachment>();
+        var billboards = new List<ModelBillboardAttachment>();
         {
             foreach (var modelId in modelIds.Where(modelId => modelId >= 0))
             {
                 using var container = cache.ReadContainer(7, modelId);
-                var part = ModelGeometryDecoder.Decode(container.Data.ToArray(), allowFirstTexelFallback: true);
+                var part = ModelGeometryBuilder.Build(codecs.Models.Decode(modelId, container.Data));
                 firstTexelFaces.AddRange((part.FirstTexelFaces ?? []).Select(face => face + colors.Count));
                 var vertexOffset = positions.Count / 3;
                 var faceOffset = colors.Count;
@@ -426,7 +426,7 @@ public static class ModelEndpoints
         return cache.Read(indexId, fileId, member.Index);
     }
 
-    private static ModelBillboardDto[]? ReadBillboards(ICacheAPI cache, ModelCodecs codecs, IReadOnlyList<ModelGeometryDecoder.BillboardAttachment> attachments)
+    private static ModelBillboardDto[]? ReadBillboards(ICacheAPI cache, ModelCodecs codecs, IReadOnlyList<ModelBillboardAttachment> attachments)
     {
         if (attachments.Count == 0) return null;
         var definitions = new Dictionary<int, (ModelBillboardDefinitionDto? Definition, string? Warning)>();
@@ -454,7 +454,7 @@ public static class ModelEndpoints
         return result;
     }
 
-    private static ModelParticleDto[] ReadParticles(ICacheAPI cache, ModelCodecs codecs, IEnumerable<ModelGeometryDecoder.EmitterAttachment> attachments)
+    private static ModelParticleDto[] ReadParticles(ICacheAPI cache, ModelCodecs codecs, IEnumerable<ModelEmitterAttachment> attachments)
     {
         var result = new List<ModelParticleDto>();
         foreach (var group in attachments.GroupBy(attachment => attachment.EmitterId))
@@ -482,7 +482,7 @@ public static class ModelEndpoints
         return result.ToArray();
     }
 
-    private static ModelEffectorDto[]? ReadEffectors(ICacheAPI cache, ModelCodecs codecs, IReadOnlyList<ModelGeometryDecoder.EffectorAttachment> attachments)
+    private static ModelEffectorDto[]? ReadEffectors(ICacheAPI cache, ModelCodecs codecs, IReadOnlyList<ModelEffectorAttachment> attachments)
     {
         if (attachments.Count == 0) return null;
         var definitions = attachments.Select(attachment => attachment.EffectorId).Distinct()

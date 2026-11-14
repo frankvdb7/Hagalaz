@@ -1,11 +1,23 @@
+using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Logic.Rendering;
 using System.Security.Cryptography;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests;
 
-public class ModelGeometryDecoderTests
+public class ModelTypeCodecTests
 {
+    private static IModelType Model(byte[] data) => new ModelTypeCodec().Decode(0, new MemoryStream(data));
+
+    private static ModelGeometry Build(byte[] data) => ModelGeometryBuilder.Build(Model(data));
+
+    private static void AssertRoundTrips(byte[] data)
+    {
+        using var encoded = new ModelTypeCodec().Encode(Model(data));
+        Assert.Equal(data, encoded.ToArray());
+    }
+
     [Theory]
     [InlineData(false, 255, -1)]
     [InlineData(false, 7, 7)]
@@ -21,12 +33,13 @@ public class ModelGeometryDecoderTests
             ? [.. geometry, .. attachments.AsSpan(0, attachments.Length - 1), 0x81, 1, 253, .. footer]
             : [.. geometry, .. attachments, 253, .. footer];
 
-        var decoded = ModelGeometryDecoder.Decode(data);
+        var decoded = Build(data);
 
-        Assert.Equal(new ModelGeometryDecoder.EmitterAttachment(9, 0), Assert.Single(decoded.Emitters!));
-        Assert.Equal(new ModelGeometryDecoder.EffectorAttachment(3, 2), Assert.Single(decoded.Effectors!));
-        Assert.Equal(new ModelGeometryDecoder.BillboardAttachment(42, 0, expectedGroup, -3), Assert.Single(decoded.Billboards!));
+        Assert.Equal(new ModelEmitterAttachment(9, 0), Assert.Single(decoded.Emitters!));
+        Assert.Equal(new ModelEffectorAttachment(3, 2), Assert.Single(decoded.Effectors!));
+        Assert.Equal(new ModelBillboardAttachment(42, 0, expectedGroup, -3), Assert.Single(decoded.Billboards!));
         Assert.Equal(new[] { 0, 1, 2 }, decoded.Indices);
+        AssertRoundTrips(data);
     }
 
     [Fact]
@@ -45,22 +58,17 @@ public class ModelGeometryDecoderTests
     }
 
     [Theory]
-    [InlineData(false, 0)]
-    [InlineData(false, 1)]
-    [InlineData(true, 0)]
-    [InlineData(true, 1)]
-    [InlineData(true, 2)]
-    public void Decode_PreservesFaceShadingWithoutChangingTopology(bool modern, byte shading)
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Decode_PreservesFaceShadingWithoutChangingTopology(byte shading)
     {
-        byte[] legacy = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
-            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
-        byte[] newer = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+        byte[] data = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
             0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
-        var data = modern ? newer : legacy;
-        data[data.Length - (modern ? 23 : 18) + 5] = 1;
-        var offset = modern ? 3 : 4;
-        data = data.Take(offset).Append(shading).Concat(data.Skip(offset)).ToArray();
-        var result = ModelGeometryDecoder.Decode(data);
+        data[data.Length - 23 + 5] = 1;
+        data = data.Take(3).Append(shading).Concat(data.Skip(3)).ToArray();
+        var result = Build(data);
+        AssertRoundTrips(data);
         Assert.Equal(new[] { (int)shading }, result.FaceShadingTypes);
         Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
         Assert.Equal(new[] { 0x1234 }, result.FaceColors);
@@ -68,37 +76,19 @@ public class ModelGeometryDecoderTests
     }
 
     [Theory]
-    [InlineData(false, false, 10)]
-    [InlineData(false, true, 11)]
-    [InlineData(true, false, 11)]
-    [InlineData(true, true, 10)]
-    public void Decode_PreservesUniformAndPerFacePriorities(bool modern, bool perFace, byte priority)
+    [InlineData(false, 11)]
+    [InlineData(true, 10)]
+    public void Decode_PreservesUniformAndPerFacePriorities(bool perFace, byte priority)
     {
-        byte[] legacy = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
-            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
-        byte[] newer = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+        byte[] data = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
             0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
-        var data = modern ? newer : legacy;
-        var header = data.Length - (modern ? 23 : 18);
-        data[header + 6] = perFace ? (byte)255 : priority;
+        data[data.Length - 23 + 6] = perFace ? (byte)255 : priority;
         if (perFace) data = data.Take(4).Append(priority).Concat(data.Skip(4)).ToArray();
-        var result = ModelGeometryDecoder.Decode(data);
+        var result = Build(data);
+        AssertRoundTrips(data);
         Assert.Equal(new[] { (int)priority }, result.FacePriorities);
         Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
         Assert.Equal(new[] { 0x1234 }, result.FaceColors);
-    }
-
-    [Fact]
-    public void DecodeLegacy_PreservesTextureReferenceSeparatelyFromFaceColor()
-    {
-        byte[] data = [0, 1, 3, 1, 2, 64, 65, 65, 0, 42, 0, 0, 0, 1, 0, 2, 74, 54, 84,
-            0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
-        var result = ModelGeometryDecoder.Decode(data);
-        Assert.Equal(new[] { 42 }, result.FaceTextureIds);
-        Assert.Equal(new[] { 0, 1, 2 }, result.FaceTextureVertices);
-        Assert.Equal(new[] { 127 }, result.FaceColors);
-        Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
-        Assert.Equal(new float[] { 0, 0, 1, 0, 0, 1 }, result.FaceTextureUvs);
     }
 
     [Fact]
@@ -106,7 +96,8 @@ public class ModelGeometryDecoderTests
     {
         byte[] data = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84, 13,
             0, 3, 0, 1, 0, 8, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
-        var result = ModelGeometryDecoder.Decode(data);
+        var result = Build(data);
+        AssertRoundTrips(data);
         Assert.Equal(13, result.Version);
         Assert.Equal(new[] { 0, 0, 0, 10, 0, 0, 0, 20, 0 }, result.Positions);
     }
@@ -116,29 +107,29 @@ public class ModelGeometryDecoderTests
     {
         byte[] data = [0, 1, 3, 1, 64, 65, 65, 0, 43, 0, 127, 74, 54, 84,
             0, 3, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
-        var result = ModelGeometryDecoder.Decode(data);
+        var result = Build(data);
+        AssertRoundTrips(data);
         Assert.Equal(new[] { 42 }, result.FaceTextureIds);
         Assert.Equal(new float[] { 0, 1, 1, 1, 0, 0 }, result.FaceTextureUvs);
     }
 
     [Fact]
-    public void DecodeLegacy_PreservesVertexSkinGroupsForAnimation()
+    public void Decode_PreservesVertexSkinGroupsForAnimation()
     {
-        byte[] data = [0, 1, 3, 1, 2, 2, 7, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
-            0, 3, 0, 1, 0, 0, 0, 0, 0, 1, 0, 2, 0, 1, 0, 0, 0, 3];
-        var result = ModelGeometryDecoder.Decode(data);
-        Assert.Equal(new[] { 2, 2, 7 }, result.VertexSkins);
-        Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
+        byte[] data = [0, 1, 3, 1, 2, 2, 255, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
+        Assert.Equal(new[] { 2, 2, 255 }, Model(data).VertexSkins);
+        Assert.Equal(new[] { 2, 2, -1 }, Build(data).VertexSkins);
+        AssertRoundTrips(data);
     }
 
     [Fact]
-    public void DecodeLegacy_PreservesRawFaceTransparency()
+    public void Decode_PreservesRawFaceTransparency()
     {
         byte[] data = [0, 1, 3, 1, 128, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
-            0, 3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
-        var result = ModelGeometryDecoder.Decode(data);
-        Assert.Equal(new[] { 128 }, result.FaceAlpha);
-        Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
+            0, 3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
+        Assert.Equal(new[] { 128 }, Build(data).FaceAlpha);
+        AssertRoundTrips(data);
     }
 
     [Fact]
@@ -146,28 +137,25 @@ public class ModelGeometryDecoderTests
     {
         byte[] data = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
             0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
-        var result = ModelGeometryDecoder.Decode(data);
+        var result = Build(data);
         Assert.Equal(new[] { 0, 0, 0, 10, 0, 0, 0, 20, 0 }, result.Positions);
         Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
         Assert.Equal(new[] { 0x1234 }, result.FaceColors);
+        AssertRoundTrips(data);
     }
 
     [Fact]
-    public void DecodeLegacy_ReconstructsSignedCoordinateDeltasAndTriangle()
+    public void Decode_RejectsOldLayoutExtendedSkinsAndTruncatedModels()
     {
-        // Three vertices, one triangle: (0,0,0), (10,0,0), (0,20,0).
-        byte[] data = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
-            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
-        var result = ModelGeometryDecoder.DecodeLegacy(data);
-        Assert.Equal(new[] { 0, 0, 0, 10, 0, 0, 0, 20, 0 }, result.Positions);
-        Assert.Equal(new[] { 0, 1, 2 }, result.Indices);
-        Assert.Equal(new[] { 0x1234 }, result.FaceColors);
-    }
-
-    [Fact]
-    public void DecodeLegacy_RejectsTruncatedHeader()
-    {
-        Assert.Throws<InvalidDataException>(() => ModelGeometryDecoder.DecodeLegacy([0]));
+        // Old layout: no FF FF footer.
+        Assert.Throws<NotSupportedException>(() => Model([0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84, 0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3]));
+        byte[] modern = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
+        var extended = (byte[])modern.Clone();
+        extended[extended.Length - 23 + 5] = 0x10;
+        Assert.Throws<NotSupportedException>(() => Model(extended));
+        Assert.Throws<InvalidDataException>(() => Model(modern[3..]));
+        Assert.Throws<InvalidDataException>(() => Model([255, 255]));
     }
 
     // Golden coordinates produced by the unmodified GameClient Model projection helpers.
@@ -205,7 +193,9 @@ public class ModelGeometryDecoderTests
     {
         foreach (var version in new[] { 12, 14, 15 })
         {
-            var geometry = ModelGeometryDecoder.Decode(ProjectionModel(type, version, rotation, direction));
+            var data = ProjectionModel(type, version, rotation, direction);
+            AssertRoundTrips(data);
+            var geometry = Build(data);
             Assert.Equal(new[] { 42 }, geometry.FaceTextureIds);
             Assert.NotNull(geometry.FaceTextureUvs);
             for (var index = 0; index < expected.Length; index++)
@@ -221,7 +211,8 @@ public class ModelGeometryDecoderTests
     {
         var data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "models", $"model-{modelId}.dat"));
         Assert.Equal(hash, Convert.ToHexStringLower(SHA256.HashData(data)));
-        var geometry = ModelGeometryDecoder.Decode(data);
+        var geometry = Build(data);
+        AssertRoundTrips(data);
         Assert.Equal(vertices * 3, geometry.Positions.Length);
         Assert.Equal(faces * 3, geometry.Indices.Length);
         Assert.NotNull(geometry.FaceTextureIds);
@@ -229,18 +220,16 @@ public class ModelGeometryDecoderTests
         Assert.NotNull(geometry.FaceTextureUvs);
         Assert.Equal(geometry.Indices.Length * 2, geometry.FaceTextureUvs.Length);
         Assert.All(geometry.FaceTextureUvs, coordinate => Assert.True(float.IsFinite(coordinate)));
-        var permissive = ModelGeometryDecoder.Decode(data, allowFirstTexelFallback: true);
-        Assert.Empty(permissive.FirstTexelFaces!);
-        Assert.Equal(geometry.FaceTextureUvs, permissive.FaceTextureUvs);
+        Assert.Empty(geometry.FirstTexelFaces!);
     }
 
     [Fact]
-    public void Decode_RenderOptInMarksExactlyTheClientNonfiniteFacesAndPreservesOtherUvs()
+    public void Decode_FallbackMarksExactlyTheClientNonfiniteFacesAndPreservesOtherUvs()
     {
         var data = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "models", "model-48743.dat"));
         Assert.Equal("437f44670ef9de324c2cbaa8fc6a872646745ce366ef2e4473509502ca9b09ca", Convert.ToHexStringLower(SHA256.HashData(data)));
-        Assert.Throws<NotSupportedException>(() => ModelGeometryDecoder.Decode(data));
-        var geometry = ModelGeometryDecoder.Decode(data, allowFirstTexelFallback: true);
+        AssertRoundTrips(data);
+        var geometry = Build(data);
         // Captured by the original GameClient projection helpers, not by this decoder.
         int[] expected = [12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,31,32,35,50,51,52,55,56,57,58,59,60,64,65,66,112,113,120,121,122,123,124,126,157,158,162,164,165,166,169,170];
         Assert.Equal(expected, geometry.FirstTexelFaces);
@@ -263,7 +252,7 @@ public class ModelGeometryDecoderTests
     {
         // Rotate the XY triangle onto the box's positive-Y side. Its UVs use X/Z,
         // so a zero Y scale must not poison the normal used to select that side.
-        var geometry = ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleY: 0));
+        var geometry = Build(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleY: 0));
 
         Assert.Equal(new[] { 42 }, geometry.FaceTextureIds);
         Assert.Equal(new[] { 0, 1, 2 }, geometry.Indices);
@@ -276,7 +265,7 @@ public class ModelGeometryDecoderTests
     [InlineData(15)]
     public void Decode_BoxProjectionPreservesClientNegativeXSideForCollapsedX(int version)
     {
-        var geometry = ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleX: 0));
+        var geometry = Build(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleX: 0));
         // This orientation maps Z = -Y, so the client's -X side has U = Y + 0.5.
         Assert.Equal(new float[] { -9.5f, 0.5f, -9.5f, 0.5f, 10.5f, 0.5f }, geometry.FaceTextureUvs);
     }
@@ -288,7 +277,7 @@ public class ModelGeometryDecoderTests
     public void Decode_BoxProjectionUsesCollapsedYPlaneForSlopedFaces(int version)
     {
         // Tilt leaves a nonzero Y normal smaller than Z. A zero Y scale still projects onto X/Z.
-        var geometry = ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, orientationY: 30000, orientationZ: 13177, scaleY: 0));
+        var geometry = Build(ProjectionModel(2, version, 0, 0, orientationY: 30000, orientationZ: 13177, scaleY: 0));
         var cosine = 30000f / 32767f;
         var slope = (float)Math.Sqrt(1 - cosine * cosine);
         var expected = new float[] { -4.5f, 0.5f - 10 * slope, 5.5f, 0.5f - 10 * slope, -4.5f, 0.5f + 10 * slope };
@@ -301,11 +290,12 @@ public class ModelGeometryDecoderTests
     [InlineData(12)]
     [InlineData(14)]
     [InlineData(15)]
-    public void Decode_BoxProjectionStillRejectsZeroScaleOnUsedUvAxis(int version)
+    public void Decode_BoxProjectionFallsBackToFirstTexelForZeroScaleOnUsedUvAxis(int version)
     {
-        // The default orientation selects the Z side, which uses Y in its UVs.
-        var error = Assert.Throws<NotSupportedException>(() => ModelGeometryDecoder.Decode(ProjectionModel(2, version, 0, 0, scaleY: 0)));
-        Assert.Equal("Degenerate texture projection cannot produce finite coordinates.", error.Message);
+        // The default orientation selects the Z side, which uses Y in its UVs, so the face falls back to the first texel.
+        var geometry = Build(ProjectionModel(2, version, 0, 0, scaleY: 0));
+        Assert.Equal(new[] { 0 }, geometry.FirstTexelFaces);
+        Assert.Equal(new float[6], geometry.FaceTextureUvs);
     }
 
     private static byte[] ProjectionModel(int type, int version, int rotation, int direction, int orientationY = 32767, int orientationZ = 0, int? scaleY = null, int? scaleX = null)

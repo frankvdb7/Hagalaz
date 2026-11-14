@@ -17,10 +17,10 @@ namespace Hagalaz.Services.Cache.Tests.Features.Types;
 [TestClass]
 public sealed class ItemIconEndpointTests
 {
-    // Legacy single-triangle model: (0,0,0), (10,0,0), (0,20,0) before the legacy ×4 unit scale. Its front faces -Z,
+    // Version-12 single-triangle model: (0,0,0), (10,0,0), (0,20,0) before the version-12 ×4 unit scale. Its front faces -Z,
     // so the test items yaw half a turn (rotation2 1024) to face the icon camera.
-    private static readonly byte[] TriangleModel = [0, 1, 3, 1, 2, 64, 65, 65, 0, 42, 0, 0, 0, 1, 0, 2, 74, 54, 84,
-        0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
+    private static readonly byte[] TriangleModel = [0, 0, 1, 3, 1, 64, 65, 65, 0, 43, 1, 0, 127, 74, 54, 84, 0, 0, 0, 1, 0, 2,
+        0, 3, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 1, 255, 255];
 
     private const string Url = "/api/v1/cache/types/items/0/image";
 

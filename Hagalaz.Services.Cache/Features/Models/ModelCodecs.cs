@@ -9,4 +9,5 @@ internal sealed record ModelCodecs(
     ITypeCodec<IParticleEffectorType> Effectors,
     ITypeCodec<IBillboardType> Billboards,
     ITypeCodec<IRenderAnimationType> RenderAnimations,
-    ITypeCodec<IMaterialTableType> Materials);
+    ITypeCodec<IMaterialTableType> Materials,
+    ITypeCodec<IModelType> Models);

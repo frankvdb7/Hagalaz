@@ -45,6 +45,12 @@ internal static class DefinitionWriter
         stream.WriteByte((byte)value);
     }
 
+    public static void Medium(this MemoryStream stream, int value)
+    {
+        stream.WriteByte((byte)(value >> 16));
+        stream.UShort(value);
+    }
+
     public static void Int(this MemoryStream stream, int value)
     {
         stream.UShort(value >> 16);

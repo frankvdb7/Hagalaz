@@ -1,6 +1,6 @@
 using System;
 
-namespace Hagalaz.Cache.Logic.Codecs;
+namespace Hagalaz.Cache.Logic.Rendering;
 
 /// <summary>Revision-742 model projections from Model.method4441/4443/4444/4459/4492.</summary>
 internal static class ModelTextureCoordinates
@@ -8,7 +8,7 @@ internal static class ModelTextureCoordinates
     internal sealed record Mapping(int Type, int A, int B, int C, int ScaleX = 0, int ScaleY = 0, int ScaleZ = 0,
         int Rotation = 0, int Direction = 0, int Offset = 0, int OffsetY = 0, int OffsetZ = 0);
 
-    internal static float[] Generate(int[] positions, int[] indices, int[] textureIds, int[] pointers, Mapping[] mappings, out int[] firstTexelFaces, bool allowFirstTexelFallback = false)
+    internal static float[] Generate(int[] positions, int[] indices, int[] textureIds, int[] pointers, Mapping[] mappings, out int[] firstTexelFaces)
     {
         var result = new float[indices.Length * 2];
         var centers = new int[mappings.Length][];
@@ -94,7 +94,6 @@ internal static class ModelTextureCoordinates
             var finite = true;
             foreach (var coordinate in coordinates) finite &= float.IsFinite(coordinate);
             if (finite) continue;
-            if (!allowFirstTexelFallback) throw new NotSupportedException("Degenerate texture projection cannot produce finite coordinates.");
             coordinates.Clear();
             fallbackFaces.Add(face);
         }

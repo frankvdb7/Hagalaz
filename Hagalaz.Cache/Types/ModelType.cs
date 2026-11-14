@@ -1,62 +1,27 @@
-﻿using System.IO;
-using Hagalaz.Cache.Extensions;
+﻿using System.Collections.Generic;
+using Hagalaz.Cache.Abstractions.Types;
 
-namespace Hagalaz.Cache.Types
+namespace Hagalaz.Cache.Types;
+
+public sealed class ModelType(int id) : IModelType
 {
-    /// <summary>
-    /// 
-    /// </summary>
-    public class ModelType
-    {
-        /// <summary>
-        /// Gets the vertex count.
-        /// </summary>
-        /// <value>
-        /// The vertex count.
-        /// </value>
-        public int VertexCount { get; private set; } = 0;
-
-        /// <summary>
-        /// Gets the face count.
-        /// </summary>
-        /// <value>
-        /// The face count.
-        /// </value>
-        public int FaceCount { get; private set; } = 0;
-
-        /// <summary>
-        /// Parses the definition.
-        /// </summary>
-        /// <param name="buffer">The buffer.</param>
-        private void ParseDefinition(MemoryStream buffer)
-        {
-            buffer.Position = buffer.Capacity - 2;
-            if (buffer.ReadShort() == -1)
-            {
-                ParseNewDefinition(buffer);
-            }
-            else
-            {
-                ParseOldDefinition(buffer);
-            }
-        }
-
-        /// <summary>
-        /// Parses the old definition.
-        /// </summary>
-        /// <param name="buffer">The buffer.</param>
-        private void ParseOldDefinition(MemoryStream buffer)
-        {
-
-        }
-
-        /// <summary>
-        /// Parses the new definition.
-        /// </summary>
-        /// <param name="buffer">The buffer.</param>
-        private void ParseNewDefinition(MemoryStream buffer)
-        {
-
-        }
-    }
+    public int Id { get; } = id;
+    public int Version { get; set; } = 12;
+    public int GlobalPriority { get; set; }
+    public bool UsesSmartBillboardGroups { get; set; }
+    public int[] Positions { get; set; } = [];
+    public int[] Indices { get; set; } = [];
+    public byte[] StripCodes { get; set; } = [];
+    public int[] FaceColors { get; set; } = [];
+    public int[]? FacePriorities { get; set; }
+    public int[]? FaceAlpha { get; set; }
+    public int[]? FaceSkins { get; set; }
+    public int[]? VertexSkins { get; set; }
+    public int[]? ShadingTypes { get; set; }
+    public int[]? TextureIds { get; set; }
+    public int[]? MappingPointers { get; set; }
+    public IList<ModelTextureMapping> TextureMappings { get; } = new List<ModelTextureMapping>();
+    public IList<ModelEmitterAttachment>? Emitters { get; set; }
+    public IList<ModelEffectorAttachment>? Effectors { get; set; }
+    public IList<ModelBillboardAttachment>? Billboards { get; set; }
 }

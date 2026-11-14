@@ -52,7 +52,7 @@ public class ModelParticleTests
     [InlineData(65316,782)]
     public void Decode_RealCompletionistCapeRetainsSevenFaceAttachments(int model, int firstFace)
     {
-        var geometry=ModelGeometryDecoder.Decode(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,$"Fixtures/particles/model-{model}.dat")));
+        var geometry=Hagalaz.Cache.Logic.Rendering.ModelGeometryBuilder.Build(new ModelTypeCodec().Decode(0, new MemoryStream(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,$"Fixtures/particles/model-{model}.dat")))));
         Assert.Equal(7,geometry.Emitters!.Length);
         Assert.All(geometry.Emitters, emitter=>Assert.Equal(403,emitter.EmitterId));
         Assert.Equal(Enumerable.Range(firstFace,7),geometry.Emitters.Select(emitter=>emitter.Face));
@@ -65,7 +65,7 @@ public class ModelParticleTests
     [Fact]
     public void Decode_InventoryCapeDoesNotInventEquippedParticles()
     {
-        var geometry=ModelGeometryDecoder.Decode(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures/particles/model-65270.dat")));
+        var geometry=Hagalaz.Cache.Logic.Rendering.ModelGeometryBuilder.Build(new ModelTypeCodec().Decode(0, new MemoryStream(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"Fixtures/particles/model-65270.dat")))));
         Assert.Null(geometry.Emitters);
     }
     [Fact]

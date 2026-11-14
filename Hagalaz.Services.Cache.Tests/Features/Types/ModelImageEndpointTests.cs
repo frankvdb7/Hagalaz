@@ -13,9 +13,9 @@ namespace Hagalaz.Services.Cache.Tests.Features.Types;
 [TestClass]
 public sealed class ModelImageEndpointTests
 {
-    // The legacy single-triangle model used by the item icon tests.
-    private static readonly byte[] TriangleModel = [0, 1, 3, 1, 2, 64, 65, 65, 0, 42, 0, 0, 0, 1, 0, 2, 74, 54, 84,
-        0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
+    // The version-12 single-triangle model used by the item icon tests.
+    private static readonly byte[] TriangleModel = [0, 0, 1, 3, 1, 64, 65, 65, 0, 43, 1, 0, 127, 74, 54, 84, 0, 0, 0, 1, 0, 2,
+        0, 3, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 1, 255, 255];
 
     [TestMethod]
     public async Task WidgetImage_AppliesTheComponentCameraOffset()

@@ -40,6 +40,23 @@ public class RealCacheCodecRoundTripTests
         CollectionAssert.AreEqual(bytes, encoded.ToArray());
     }
 
+    [TestMethod]
+    public void Models_RoundTripByteForByte()
+    {
+        using var provider = OpenCache();
+        var cache = provider.GetRequiredService<ICacheAPI>();
+        var codec = provider.GetRequiredService<ITypeCodec<IModelType>>();
+        var mismatches = new List<int>();
+        foreach (var (id, _) in cache.ReadReferenceTable(7).Entries)
+        {
+            using var container = cache.ReadContainer(7, id);
+            var bytes = container.Data.ToArray();
+            using var encoded = codec.Encode(codec.Decode(id, new MemoryStream(bytes)));
+            if (!encoded.ToArray().AsSpan().SequenceEqual(bytes)) mismatches.Add(id);
+        }
+        Assert.AreEqual(0, mismatches.Count, "Models not byte-identical: " + string.Join(", ", mismatches.Take(20)));
+    }
+
     internal static ServiceProvider OpenCache()
     {
         if (!Directory.Exists(CachePath)) Assert.Inconclusive($"No local game cache at {CachePath}.");

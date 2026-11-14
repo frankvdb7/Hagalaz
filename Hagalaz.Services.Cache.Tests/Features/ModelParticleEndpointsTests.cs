@@ -57,7 +57,7 @@ public class ModelParticleEndpointsTests
         using var client=CacheServiceTestHost.CreateClient(app);
         var result=await client.GetFromJsonAsync<GetModelDto>("/api/v1/cache/types/items/0/model?appearance=male-equipped");
         Assert.IsNotNull(result);Assert.HasCount(14,result.Particles!);
-        var faces=ModelGeometryDecoder.Decode(bytes).FaceColors.Length;
+        var faces=new ModelTypeCodec().Decode(0, new MemoryStream(bytes)).FaceColors.Length;
         CollectionAssert.AreEqual(Enumerable.Range(785,7).Concat(Enumerable.Range(faces+785,7)).ToArray(),result.Particles!.Select(p=>p.Face).ToArray());
     }
 
