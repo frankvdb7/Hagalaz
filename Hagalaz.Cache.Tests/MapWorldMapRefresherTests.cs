@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
@@ -28,7 +29,7 @@ public sealed class MapWorldMapRefresherTests
     public void Refresh_KeepsARefreshOfAnotherRegionThatLandsWhileThisOneIsGenerating()
     {
         var map = new FakeMaps();
-        var refresher = new MapWorldMapRefresher(map.Cache.Object, _ => null);
+        var refresher = new MapWorldMapRefresher(map.Cache.Object, new RegionMapArchive(map.Cache.Object), _ => null);
         var interleaved = false;
         map.SetRegion(West, 10, underlay: 4);
         map.SetRegion(East, 11, underlay: 6);
@@ -51,7 +52,7 @@ public sealed class MapWorldMapRefresherTests
     public void Refresh_RegeneratesARegionSavedAndRefreshedWhileThisRefreshWasGenerating()
     {
         var map = new FakeMaps();
-        var refresher = new MapWorldMapRefresher(map.Cache.Object, _ => null);
+        var refresher = new MapWorldMapRefresher(map.Cache.Object, new RegionMapArchive(map.Cache.Object), _ => null);
         var interleaved = false;
         map.SetRegion(West, 10, underlay: 4);
         // A save of the west terrain and its own refresh both land after this refresh generated the old tiles.
@@ -75,7 +76,7 @@ public sealed class MapWorldMapRefresherTests
         var map = new FakeMaps { Main = Area((32, 39)) };
         map.SetRegion(East, 11, underlay: 6);
 
-        var result = new MapWorldMapRefresher(map.Cache.Object, _ => null).Refresh([East]);
+        var result = new MapWorldMapRefresher(map.Cache.Object, new RegionMapArchive(map.Cache.Object), _ => null).Refresh([East]);
 
         Assert.Equal([new MapWorldMapSkip(East, "Region is not on the main world map.")], result.Skipped);
         map.Cache.Verify(api => api.ReadContainer(5, 11), Times.Never);

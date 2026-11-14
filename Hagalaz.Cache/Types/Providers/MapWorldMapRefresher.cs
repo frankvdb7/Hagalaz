@@ -7,6 +7,7 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache.Types.Providers;
@@ -15,27 +16,27 @@ public sealed record MapWorldMapSkip(int Id, string Reason);
 public sealed record MapWorldMapRefreshResult(IReadOnlyList<int> Refreshed, IReadOnlyList<int> Unchanged, IReadOnlyList<MapWorldMapSkip> Skipped);
 
 /// <summary>Regenerates regions of the `main` world map from their stored map files, leaving every other block as stored.</summary>
-public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?> definition)
+public sealed class MapWorldMapRefresher(ICacheAPI cache, IRegionMapArchive maps, Func<int, ObjectType?> definition)
 {
-    private const int MapsIndex = 5;
     private const int WorldMapIndex = 23;
     private const string MainArea = "main";
     private const string NotOnMap = "Region is not on the main world map.";
 
-    public static MapWorldMapRefresher Create(ICacheAPI cache, ITypeProvider<IObjectType> objects)
+    public static MapWorldMapRefresher Create(ICacheAPI cache, IRegionMapArchive maps, ITypeProvider<IObjectType> objects)
     {
         var known = new Dictionary<int, ObjectType?>();
-        return new MapWorldMapRefresher(cache, id =>
+        return new MapWorldMapRefresher(cache, maps, id =>
         {
             if (!known.TryGetValue(id, out var type)) known[id] = type = TryGet(objects, id);
             return type;
         });
     }
 
+    // An object ID without a stored definition decodes as a default object; only a stored definition that cannot be decoded is left off the map.
     private static ObjectType? TryGet(ITypeProvider<IObjectType> objects, int id)
     {
         try { return objects.Get(id) as ObjectType; }
-        catch (Exception error) when (IsReadError(error)) { return null; }
+        catch (Exception error) when (RegionMapArchive.IsCorruptData(error)) { return null; }
     }
 
     public MapWorldMapRefreshResult Refresh(IReadOnlyCollection<int> regionIds, CancellationToken cancellationToken = default)
@@ -46,7 +47,7 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
 
         var parts = ReadMainParts();
         var generated = new Dictionary<int, WorldMapTile[]?>();
-        var sources = new Dictionary<int, (int Terrain, int Landscape)>();
+        var sources = new Dictionary<int, RegionMapRevision>();
         // Built without holding the cache; `main` is written only if no other refresh changed it meanwhile, and the refresh is
         // rebuilt when a region's files were saved after its tiles were generated, since that save's own refresh may already
         // have been written and would otherwise be overwritten with stale tiles.
@@ -59,10 +60,10 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
             var located = ids.Select(id => (Id: id, Block: FindBlock(id, parts, blocks))).ToArray();
             var onMap = located.Where(region => region.Block is not null).Select(region => region.Id).ToArray();
 
-            var table = cache.ReadReferenceTable(MapsIndex);
+            var revisions = maps.Revisions(onMap);
             foreach (var id in onMap)
             {
-                var source = SourceVersions(table, id);
+                var source = revisions[id];
                 if (sources.TryGetValue(id, out var used) && used == source) continue;
                 cancellationToken.ThrowIfCancellationRequested();
                 sources[id] = source;
@@ -76,18 +77,9 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
                 if (!cache.TryReplaceContainer(WorldMapIndex, file, stored, updated)) continue;
             }
 
-            table = cache.ReadReferenceTable(MapsIndex);
-            if (onMap.All(id => sources[id] == SourceVersions(table, id))) return result;
+            revisions = maps.Revisions(onMap);
+            if (onMap.All(id => sources[id] == revisions[id])) return result;
         }
-    }
-
-    /// <summary>The stored versions of a region's terrain and landscape files; every cache write bumps them.</summary>
-    private static (int Terrain, int Landscape) SourceVersions(IReferenceTable table, int id)
-    {
-        var (x, y) = (id >> 8, id & 255);
-        return (Version($"m{x}_{y}"), Version($"l{x}_{y}"));
-
-        int Version(string name) => table.GetFileId(name) is var file and >= 0 ? table.GetEntry(file)?.Version ?? -1 : -1;
     }
 
     private static (MapWorldMapRefreshResult Result, Dictionary<WorldMapBlock, WorldMapTile[]> Replacements) Compare(
@@ -129,25 +121,12 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
 
     private WorldMapTile[]? Generate(int id, CancellationToken cancellationToken)
     {
-        var (x, y) = (id >> 8, id & 255);
-        var terrainFile = cache.GetFileId(MapsIndex, $"m{x}_{y}");
-        if (terrainFile < 0) return null;
-        try
-        {
-            using var terrain = cache.ReadContainer(MapsIndex, terrainFile);
-            var planes = MapRenderDecoder.DecodeTerrain(terrain.Data, id, cancellationToken);
-            return WorldMapTileGenerator.Generate(planes, ReadPlacements(x, y, cancellationToken), definition);
-        }
-        catch (Exception error) when (IsReadError(error)) { return null; }
-    }
-
-    // Open-water regions have terrain and no landscape file.
-    private MapRenderPlacement[] ReadPlacements(int x, int y, CancellationToken cancellationToken)
-    {
-        var file = cache.GetFileId(MapsIndex, $"l{x}_{y}");
-        if (file < 0) return [];
-        using var landscape = cache.ReadContainer(MapsIndex, file);
-        return MapRenderDecoder.DecodeLandscape(landscape.Data, cancellationToken);
+        var terrain = maps.ReadTerrain(id, cancellationToken);
+        if (terrain.IsFailed) return null;
+        // Open-water regions have terrain and no landscape file.
+        var landscape = maps.ReadLandscape(id, cancellationToken: cancellationToken);
+        if (landscape.IsFailed && !landscape.HasError<RegionMapFileAbsentError>()) return null;
+        return WorldMapTileGenerator.Generate(terrain.Value.Planes, landscape.IsSuccess ? landscape.Value : [], definition);
     }
 
     private static Container Patch(CompressionType compression, byte[] stored, WorldMapAreaFile area, Dictionary<WorldMapBlock, WorldMapTile[]> replacements)
@@ -190,6 +169,4 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
 
     private static readonly Comparer<WorldMapObject> ObjectOrder = Comparer<WorldMapObject>.Create((left, right) =>
         left.Id != right.Id ? left.Id.CompareTo(right.Id) : left.Data.CompareTo(right.Data));
-
-    private static bool IsReadError(Exception error) => error is InvalidDataException or ArgumentException || MapRenderReader.IsDataError(error);
 }

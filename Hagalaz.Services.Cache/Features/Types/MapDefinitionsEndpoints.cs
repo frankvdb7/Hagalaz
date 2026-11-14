@@ -2,9 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
-using Hagalaz.Cache.Models;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Types.Providers;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
@@ -31,19 +30,19 @@ public static class MapDefinitionsEndpoints
         return types;
     }
 
-    private static IResult RefreshWorldMap(RefreshWorldMapDto request, ICacheAPI cache, ITypeProvider<IObjectType> objects, CancellationToken cancellationToken)
+    private static IResult RefreshWorldMap(RefreshWorldMapDto request, ICacheAPI cache, IRegionMapArchive maps, ITypeProvider<IObjectType> objects, CancellationToken cancellationToken)
     {
         if (request.Regions is not { Count: > 0 })
             return TypedResults.BadRequest(EndpointErrors.Validation("regions must name at least one region."));
         if (request.Regions.Any(id => id is < 0 or > 65535))
             return TypedResults.BadRequest(EndpointErrors.Validation("Region IDs must be between 0 and 65535."));
-        return TypedResults.Ok(MapWorldMapRefresher.Create(cache, objects).Refresh(request.Regions, cancellationToken));
+        return TypedResults.Ok(MapWorldMapRefresher.Create(cache, maps, objects).Refresh(request.Regions, cancellationToken));
     }
 
-    private static IResult GetFloors(ICacheAPI cache, CancellationToken cancellationToken) =>
-        TypedResults.Ok(new MapRenderReader(cache).ReadFloorCatalog(cancellationToken));
+    private static IResult GetFloors(ICacheAPI cache, IRegionMapArchive maps, CancellationToken cancellationToken) =>
+        TypedResults.Ok(new MapRenderReader(cache, maps).ReadFloorCatalog(cancellationToken));
 
-    private static IResult UpdateTerrain(int id, UpdateMapTerrainDto request, ICacheAPI cache, CancellationToken cancellationToken)
+    private static IResult UpdateTerrain(int id, UpdateMapTerrainDto request, IRegionMapArchive maps, CancellationToken cancellationToken)
     {
         if (id is < 0 or > 65535)
             return TypedResults.BadRequest(EndpointErrors.Validation("Region ID must be between 0 and 65535."));
@@ -54,12 +53,8 @@ public static class MapDefinitionsEndpoints
         if (request.Tiles.FirstOrDefault(tile => !IsValidTile(tile)) is { } invalid)
             return TypedResults.BadRequest(EndpointErrors.Validation($"Change to tile {invalid.X},{invalid.Y} on plane {invalid.Plane} is out of range."));
 
-        return new MapTerrainWriter(cache).Apply(id, request.Tiles, cancellationToken) switch
-        {
-            MapArchiveUpdateResult.Absent => TypedResults.NotFound(EndpointErrors.Validation($"Region {id} has no terrain archive.", StatusCodes.Status404NotFound)),
-            MapArchiveUpdateResult.Unreadable => TypedResults.Problem(title: "Terrain cannot be changed", detail: $"Region {id}'s stored terrain could not be decoded.", statusCode: StatusCodes.Status422UnprocessableEntity),
-            _ => TypedResults.Ok(new UpdateMapTerrainResultDto("map-terrain-updated", id, request.Tiles.Count)),
-        };
+        var result = maps.ApplyTerrain(id, request.Tiles, cancellationToken);
+        return result.IsFailed ? EndpointErrors.RegionMapFileFailure(result, id) : TypedResults.Ok(new UpdateMapTerrainResultDto("map-terrain-updated", id, request.Tiles.Count));
     }
 
     // A stored height of 1 is read as 0, so it has no meaning of its own.
@@ -73,7 +68,7 @@ public static class MapDefinitionsEndpoints
         && tile.OverlayShape is null or (>= 0 and <= 11)
         && tile.OverlayRotation is null or (>= 0 and <= 3);
 
-    private static IResult ReplaceLandscape(int id, UpdateMapLandscapeDto request, ICacheAPI cache, ITypeProvider<IObjectType> objects, CancellationToken cancellationToken)
+    private static IResult ReplaceLandscape(int id, UpdateMapLandscapeDto request, IRegionMapArchive maps, ITypeProvider<IObjectType> objects, CancellationToken cancellationToken)
     {
         if (id is < 0 or > 65535)
             return TypedResults.BadRequest(EndpointErrors.Validation("Region ID must be between 0 and 65535."));
@@ -83,12 +78,8 @@ public static class MapDefinitionsEndpoints
         if (request.Objects.FirstOrDefault(placement => !IsValidPlacement(placement, objectLimit)) is { } invalid)
             return TypedResults.BadRequest(EndpointErrors.Validation($"Placement of object {invalid.Id} at {invalid.X},{invalid.Y} on plane {invalid.Plane} is out of range."));
 
-        return new MapLandscapeWriter(cache).Replace(id, request.Objects, cancellationToken) switch
-        {
-            MapArchiveUpdateResult.Absent => TypedResults.NotFound(EndpointErrors.Validation($"Region {id} has no landscape archive.", StatusCodes.Status404NotFound)),
-            MapArchiveUpdateResult.Unreadable => TypedResults.Problem(title: "Landscape cannot be replaced", detail: $"Region {id}'s stored landscape is encrypted or corrupt, so saving would lose its placements.", statusCode: StatusCodes.Status422UnprocessableEntity),
-            _ => TypedResults.Ok(new UpdateMapLandscapeResultDto("map-landscape-updated", id, request.Objects.Count)),
-        };
+        var result = maps.ReplaceLandscape(id, request.Objects, cancellationToken);
+        return result.IsFailed ? EndpointErrors.RegionMapFileFailure(result, id) : TypedResults.Ok(new UpdateMapLandscapeResultDto("map-landscape-updated", id, request.Objects.Count));
     }
 
     private static bool IsValidPlacement(Hagalaz.Cache.Types.MapRenderPlacement placement, int objectLimit) =>
@@ -99,40 +90,26 @@ public static class MapDefinitionsEndpoints
         && placement.Y is >= 0 and <= 63
         && placement.Plane is >= 0 and <= 3;
 
-    private static IResult GetRenderRegion(int id, MapRenderRequestDto request, ICacheAPI cache, CancellationToken cancellationToken)
+    private static IResult GetRenderRegion(int id, MapRenderRequestDto request, ICacheAPI cache, IRegionMapArchive maps, CancellationToken cancellationToken)
     {
         if (id is < 0 or > 65535)
             return TypedResults.BadRequest(EndpointErrors.Validation("Region ID must be between 0 and 65535."));
         if (request.XteaKeys is not null && request.XteaKeys.Length != 4)
             return TypedResults.BadRequest(EndpointErrors.Validation("xteaKeys must contain exactly 4 integers."));
-        return TypedResults.Ok(new MapRenderReader(cache).Read(id, request.XteaKeys, cancellationToken));
+        return TypedResults.Ok(new MapRenderReader(cache, maps).Read(id, request.XteaKeys, cancellationToken));
     }
 
-    private static IResult GetRegions(ICacheAPI cache, CancellationToken cancellationToken, int offset = 0, int limit = 10)
+    private static IResult GetRegions(IRegionMapArchive maps, CancellationToken cancellationToken, int offset = 0, int limit = 10)
     {
         if (offset < 0 || offset > 65536 || limit < 1 || limit > 200)
             return TypedResults.BadRequest(EndpointErrors.Validation("offset must be between 0 and 65536; limit must be between 1 and 200."));
 
-        var table = cache.ReadReferenceTable(5);
-        if ((table.Flags & ReferenceTableFlags.Identifiers) == 0)
+        var regions = maps.ListRegions(cancellationToken);
+        if (regions.IsFailed)
             return TypedResults.Problem(title: "Region listing unavailable", detail: "The map index has no named reference metadata.", statusCode: 422);
 
-        // Reference-table entry IDs are filename hashes, not packed region IDs.
-        var files = new Dictionary<int, int>();
-        foreach (var (fileId, entry) in table.Entries) files.TryAdd(entry.Id, fileId);
-        var regions = new List<MapRegionSummaryDto>();
-        for (var x = 0; x < 256; x++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            for (var y = 0; y < 256; y++)
-            {
-                var terrain = files.TryGetValue(ReferenceTable.CalculateId($"m{x}_{y}"), out var terrainId);
-                var landscape = files.TryGetValue(ReferenceTable.CalculateId($"l{x}_{y}"), out var landscapeId);
-                if (terrain || landscape)
-                    regions.Add(new MapRegionSummaryDto((x << 8) | y, x, y, terrain ? terrainId : null, landscape ? landscapeId : null));
-            }
-        }
-        return TypedResults.Ok(new GetMapRegionsDto(regions.Skip(offset).Take(limit).ToArray(), regions.Count, offset, limit));
+        MapRegionSummaryDto[] page = [.. regions.Value.Skip(offset).Take(limit).Select(region => new MapRegionSummaryDto(region.RegionId, region.X, region.Y, region.TerrainFile, region.LandscapeFile))];
+        return TypedResults.Ok(new GetMapRegionsDto(page, regions.Value.Count, offset, limit));
     }
 
     private static IResult GetMapType(int id, IMapProvider provider) => TypedResults.Ok(MapMap(provider.Get(id)));

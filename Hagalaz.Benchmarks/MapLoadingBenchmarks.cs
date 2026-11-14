@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Extensions;
@@ -160,7 +161,7 @@ public class MapAppearanceRequestBenchmarks
 
     private async Task<ObjectRenderAppearanceKeyDto[]> SelectRealKeys()
     {
-        var region = new MapRenderReader(_app.Services.GetRequiredService<ICacheAPI>()).Read(12850, null);
+        var region = new MapRenderReader(_app.Services.GetRequiredService<ICacheAPI>(), _app.Services.GetRequiredService<IRegionMapArchive>()).Read(12850, null);
         if (region.LandscapeStatus != "available") throw new InvalidDataException("Region 12850 landscape is unavailable in the selected cache.");
         var selected = new List<ObjectRenderAppearanceKeyDto>();
         foreach (var key in region.Objects.Where(placement => placement.Plane == 0).Select(placement => new ObjectRenderAppearanceKeyDto(placement.Id, placement.Shape, placement.Rotation)).Distinct())

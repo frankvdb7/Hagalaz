@@ -2,6 +2,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
@@ -509,7 +510,7 @@ public sealed class MapRegionLoaderTests
         cache.GetFileId(5, "l50_50").Returns(2);
         cache.ReadContainer(5, 1).Returns(_ => new Container(new MemoryStream(File.ReadAllBytes(Fixture("terrain-12850.dat")))));
         cache.ReadContainer(5, 2).Returns(_ => new Container(new MemoryStream(File.ReadAllBytes(Fixture("landscape-12850.dat")))));
-        var mapProvider = new MapProvider(cache, new MapCodec(), new MapTypeFactory(), NullLogger<MapProvider>.Instance);
+        var mapProvider = new MapProvider(cache, new RegionMapArchive(cache), new MapCodec(), new MapTypeFactory(), NullLogger<MapProvider>.Instance);
 
         var definitions = JsonSerializer.Deserialize<CollisionDefinition[]>(
             File.ReadAllText(Fixture("object-collision-12850.json")), new JsonSerializerOptions(JsonSerializerDefaults.Web))!

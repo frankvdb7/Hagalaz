@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Logic.Codecs;
@@ -40,7 +41,7 @@ public sealed class MapTerrainBlockingAgreementTests
         cache.Setup(api => api.GetFileId(5, "m50_50")).Returns(1);
         cache.Setup(api => api.GetFileId(5, "l50_50")).Returns(-1);
         cache.Setup(api => api.ReadContainer(5, 1)).Returns(() => new Container(new MemoryStream(File.ReadAllBytes(Fixture("terrain-12850.dat")))));
-        var provider = new MapProvider(cache.Object, Mock.Of<IMapCodec>(), new MapTypeFactory(), NullLogger<MapProvider>.Instance);
+        var provider = new MapProvider(cache.Object, new RegionMapArchive(cache.Object), Mock.Of<IMapCodec>(), new MapTypeFactory(), NullLogger<MapProvider>.Instance);
 
         var blocked = provider.DecodeRegion(Region, [], CancellationToken.None).BlockedTiles
             .Select(tile => (tile.Z << 12) | (tile.LocalX << 6) | tile.LocalY).Order().ToArray();

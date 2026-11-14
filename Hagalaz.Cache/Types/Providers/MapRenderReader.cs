@@ -3,40 +3,36 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using FluentResults;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Maps;
 
 namespace Hagalaz.Cache.Types.Providers;
 
 /// <summary>One request owns the terrain halo and its floor definitions. No persistent render cache.</summary>
-public sealed class MapRenderReader(ICacheAPI cache)
+public sealed class MapRenderReader(ICacheAPI cache, IRegionMapArchive maps)
 {
     public MapRenderRegion Read(int id, int[]? xteaKeys, CancellationToken cancellationToken = default)
     {
         if (id is < 0 or > 65535) throw new ArgumentOutOfRangeException(nameof(id));
         if (xteaKeys is not null && xteaKeys.Length != 4) throw new ArgumentException("Exactly four XTEA keys are required.", nameof(xteaKeys));
-        if ((cache.ReadReferenceTable(5).Flags & ReferenceTableFlags.Identifiers) == 0)
-            throw new NotSupportedException("The map index has no named reference metadata.");
+        if (!maps.HasNamedFiles) throw new NotSupportedException("The map index has no named reference metadata.");
         var warnings = new List<string>();
         var terrain = ReadTerrain(id, warnings, cancellationToken, out var terrainStatus, out var trailer, readTrailer: true);
         var objects = Array.Empty<MapRenderPlacement>();
         var landscapeStatus = "absent";
         cancellationToken.ThrowIfCancellationRequested();
-        var landscapeFile = cache.GetFileId(5, $"l{id >> 8}_{id & 255}");
-        if (landscapeFile >= 0)
+        var landscape = maps.ReadLandscape(id, xteaKeys, cancellationToken);
+        if (landscape.IsSuccess)
         {
-            try
-            {
-                using var container = xteaKeys is null ? cache.ReadContainer(5, landscapeFile) : cache.ReadContainer(5, landscapeFile, xteaKeys);
-                objects = MapRenderDecoder.DecodeLandscape(container.Data, cancellationToken);
-                landscapeStatus = "available";
-            }
-            catch (Exception error) when (IsDataError(error))
-            {
-                landscapeStatus = "failed";
-                warnings.Add($"Region {id} landscape could not be decoded. Check this region's XTEA keys. {error.Message}");
-            }
+            objects = landscape.Value;
+            landscapeStatus = "available";
+        }
+        else if (Unreadable(landscape) is { } error)
+        {
+            landscapeStatus = "failed";
+            warnings.Add($"Region {id} landscape could not be decoded. Check this region's XTEA keys. {error.Cause.Message}");
         }
 
         var planes = new List<MapRenderPlane>();
@@ -93,7 +89,7 @@ public sealed class MapRenderReader(ICacheAPI cache)
                     using var data = cache.Read(2, group, entry.Index);
                     floors.Add(MapRenderDecoder.DecodeFloor(data, member + 1, overlay));
                 }
-                catch (Exception error) when (IsDataError(error)) { /* An unreadable definition cannot be previewed or offered. */ }
+                catch (Exception error) when (RegionMapArchive.IsCorruptData(error)) { /* An unreadable definition cannot be previewed or offered. */ }
             }
         }
         return floors;
@@ -119,34 +115,18 @@ public sealed class MapRenderReader(ICacheAPI cache)
 
     private TerrainRenderPlane? ReadUnderwaterTerrain(int id, List<string> warnings, CancellationToken cancellationToken)
     {
-        var file = cache.GetFileId(5, $"um{id >> 8}_{id & 255}");
-        if (file < 0) return null;
-        try
-        {
-            using var container = cache.ReadContainer(5, file);
-            return MapRenderDecoder.DecodeUnderwaterTerrain(container.Data, cancellationToken);
-        }
-        catch (Exception error) when (IsDataError(error))
-        {
-            warnings.Add($"Region {id} underwater terrain could not be decoded. {error.Message}");
-            return null;
-        }
+        var read = maps.ReadUnderwaterTerrain(id, cancellationToken);
+        if (read.IsSuccess) return read.Value;
+        if (Unreadable(read) is { } error) warnings.Add($"Region {id} underwater terrain could not be decoded. {error.Cause.Message}");
+        return null;
     }
 
     private MapRenderPlacement[] ReadUnderwaterObjects(int id, List<string> warnings, CancellationToken cancellationToken)
     {
-        var file = cache.GetFileId(5, $"ul{id >> 8}_{id & 255}");
-        if (file < 0) return [];
-        try
-        {
-            using var container = cache.ReadContainer(5, file);
-            return MapRenderDecoder.DecodeLandscape(container.Data, cancellationToken);
-        }
-        catch (Exception error) when (IsDataError(error))
-        {
-            warnings.Add($"Region {id} underwater objects could not be decoded. {error.Message}");
-            return [];
-        }
+        var read = maps.ReadUnderwaterLandscape(id, cancellationToken);
+        if (read.IsSuccess) return read.Value;
+        if (Unreadable(read) is { } error) warnings.Add($"Region {id} underwater objects could not be decoded. {error.Cause.Message}");
+        return [];
     }
 
     private TerrainRenderPlane[]? ReadTerrain(int id, List<string> warnings, CancellationToken cancellationToken, out string status,
@@ -154,28 +134,29 @@ public sealed class MapRenderReader(ICacheAPI cache)
     {
         trailer = default;
         cancellationToken.ThrowIfCancellationRequested();
-        var file = cache.GetFileId(5, $"m{id >> 8}_{id & 255}");
-        status = "absent";
-        if (file < 0) return null;
-        try
+        var read = maps.ReadTerrain(id, cancellationToken);
+        if (read.IsSuccess)
         {
-            using var container = cache.ReadContainer(5, file);
-            var terrain = MapRenderDecoder.DecodeTerrain(container.Data, id, cancellationToken);
+            var terrain = read.Value;
             if (readTrailer)
             {
-                try { trailer = MapRenderDecoder.DecodeTerrainTrailer(container.Data, cancellationToken); }
-                catch (EndOfStreamException) { warnings.Add($"Region {id} lighting data is truncated; using default lighting."); }
+                if (terrain.TrailerTruncated) warnings.Add($"Region {id} lighting data is truncated; using default lighting.");
+                trailer = (terrain.Atmosphere, terrain.PointLights);
             }
             status = "available";
-            return terrain;
+            return terrain.Planes;
         }
-        catch (Exception error) when (IsDataError(error))
+        if (Unreadable(read) is not { } error)
         {
-            status = "failed";
-            warnings.Add($"Region {id} terrain could not be decoded. {error.Message}");
+            status = "absent";
             return null;
         }
+        status = "failed";
+        warnings.Add($"Region {id} terrain could not be decoded. {error.Cause.Message}");
+        return null;
     }
+
+    private static RegionMapFileUnreadableError? Unreadable(IResultBase result) => result.Errors.OfType<RegionMapFileUnreadableError>().FirstOrDefault();
 
     private void ReadFloors(IEnumerable<int> ids, bool overlay, List<FloorRenderDefinition> floors, List<string> warnings, CancellationToken cancellationToken)
     {
@@ -191,12 +172,10 @@ public sealed class MapRenderReader(ICacheAPI cache)
                 using var data = cache.Read(2, group, member.Index);
                 floors.Add(MapRenderDecoder.DecodeFloor(data, id, overlay));
             }
-            catch (Exception error) when (IsDataError(error))
+            catch (Exception error) when (RegionMapArchive.IsCorruptData(error))
             {
                 warnings.Add($"{(overlay ? "Overlay" : "Underlay")} {id} is unavailable. {error.Message}");
             }
         }
     }
-
-    internal static bool IsDataError(Exception error) => error is IOException or NotSupportedException or OverflowException or ICSharpCode.SharpZipLib.SharpZipBaseException;
 }

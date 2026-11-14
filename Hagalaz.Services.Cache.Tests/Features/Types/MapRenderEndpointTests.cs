@@ -1,11 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
+using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
+using Hagalaz.Cache.Abstractions.Types.Providers;
+using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.TestSupport;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
@@ -386,6 +391,40 @@ public sealed class MapRenderEndpointTests
     }
 
     [TestMethod]
+    public void AddGameCache_RegistersTheRegionMapArchiveForMapCallers()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IFileStore>(new MemoryFileStore());
+        services.AddGameCache();
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsInstanceOfType<RegionMapArchive>(provider.GetRequiredService<IRegionMapArchive>());
+        Assert.IsNotNull(provider.GetRequiredService<IMapProvider>());
+    }
+
+    [TestMethod]
+    public async Task ReplaceLandscape_ReportsTheStoredPlacementsAsUpdatedWithoutWriting()
+    {
+        MapRenderPlacement[] stored = [new(1, 10, 0, 1, 1, 0), new(7, 22, 3, 4, 5, 1)];
+        var store = Store(EditableRegion(Landscape(stored)));
+        SeedObjectIndex(store);
+        var landscape = Stored(store, 1);
+        using var table = store.Read(255, 5);
+        var tableBefore = table.ToArray();
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = stored });
+
+        response.EnsureSuccessStatusCode();
+        StringAssert.Contains(await response.Content.ReadAsStringAsync(), "map-landscape-updated");
+        CollectionAssert.AreEqual(landscape, Stored(store, 1));
+        using var tableAfter = store.Read(255, 5);
+        CollectionAssert.AreEqual(tableBefore, tableAfter.ToArray(), "An unchanged save must not change the landscape's version.");
+    }
+
+    [TestMethod]
     [DataRow(512, 10, 0, 1, 1, 0)]
     [DataRow(-1, 10, 0, 1, 1, 0)]
     [DataRow(1, 23, 0, 1, 1, 0)]
@@ -529,6 +568,23 @@ public sealed class MapRenderEndpointTests
         Assert.IsNull(edge.Planes[0].CornerHeights[64]);
         Assert.IsNotNull(edge.Planes[0].CornerHeights[0]);
         Assert.IsTrue(edge.Warnings.Any(warning => warning.Contains("boundary", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task RenderRegion_ReportsALandscapeOutsideTheSourcePlanesAsFailedWithTerrain()
+    {
+        // Object 0 at plane 4: the location step is (4 << 12) + 1 as a two-byte smart.
+        var store = Store(("m0_0", new byte[16384]), ("l0_0", new byte[] { 0x01, 0xC0, 0x01, 0x00, 0x00, 0x00 }));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/types/maps/0/render", new { });
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, await response.Content.ReadAsStringAsync());
+        var region = await response.Content.ReadFromJsonAsync<MapRenderRegion>();
+        Assert.AreEqual("available", region!.TerrainStatus);
+        Assert.AreEqual("failed", region.LandscapeStatus);
+        Assert.IsTrue(region.Warnings.Any(warning => warning.StartsWith("Region 0 landscape could not be decoded.")), string.Join("; ", region.Warnings));
     }
 
     [TestMethod]
