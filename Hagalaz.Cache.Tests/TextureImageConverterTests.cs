@@ -1,5 +1,5 @@
 using System.IO;
-using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Logic.Rendering;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Hagalaz.Cache.Tests;
 
-public class TextureImageDecoderTests
+public class TextureImageConverterTests
 {
     [Fact]
     public void ToHdr_UsesPackedLowTwelveBitsAndPreservesAlphaAndRowOrder()
@@ -20,14 +20,14 @@ public class TextureImageDecoderTests
         companion[0, 1] = new Rgba32(255, 255, 255, 255);
         using var sourceBytes = new MemoryStream(); source.SaveAsPng(sourceBytes);
         using var hdrBytes = new MemoryStream(); companion.SaveAsPng(hdrBytes);
-        var result = TextureImageDecoder.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 2);
+        var result = TextureImageConverter.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 2);
         Assert.Equal(1, result.Width); Assert.Equal(2, result.Height);
         Assert.Equal(16.5f, result.Rgba[0]);
         Assert.Equal(128 / 255f * 16.5f, result.Rgba[1]);
         Assert.Equal(64 / 255f * 16.5f, result.Rgba[2]);
         Assert.Equal(96 / 255f, result.Rgba[3]);
         Assert.Equal(new float[] {0, 0, 0, 1}, result.Rgba[4..]);
-        Assert.Equal(0, TextureImageDecoder.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 1).Rgba[7]);
+        Assert.Equal(0, TextureImageConverter.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 1).Rgba[7]);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class TextureImageDecoderTests
         using var sourceBytes = new MemoryStream(); source.SaveAsPng(sourceBytes);
         using var hdrBytes = new MemoryStream();
         companion.SaveAsPng(hdrBytes, new PngEncoder {ColorType = PngColorType.Grayscale});
-        var result = TextureImageDecoder.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 0);
+        var result = TextureImageConverter.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 0);
         Assert.Equal(new float[] {1.96875f, 1.96875f, 1.96875f, 1}, result.Rgba);
     }
 
@@ -49,7 +49,7 @@ public class TextureImageDecoderTests
         using var companion = new Image<Rgba32>(2, 1);
         using var sourceBytes = new MemoryStream(); source.SaveAsPng(sourceBytes);
         using var hdrBytes = new MemoryStream(); companion.SaveAsPng(hdrBytes);
-        Assert.Throws<NotSupportedException>(() => TextureImageDecoder.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 0));
+        Assert.Throws<NotSupportedException>(() => TextureImageConverter.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 0));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class TextureImageDecoderTests
         using var input = new MemoryStream();
         source.SaveAsPng(input, new PngEncoder { ColorType = PngColorType.Rgb });
 
-        using var result = Image.Load<Rgba32>(TextureImageDecoder.ToPng(input.ToArray(), 1));
+        using var result = Image.Load<Rgba32>(TextureImageConverter.ToPng(input.ToArray(), 1));
 
         Assert.Equal(new Rgba32(0, 0, 0, 0), result[0, 0]);
         Assert.Equal(new Rgba32(80, 92, 42, 255), result[1, 0]);
@@ -77,7 +77,7 @@ public class TextureImageDecoderTests
         using var input = new MemoryStream();
         source.SaveAsPng(input, new PngEncoder { ColorType = PngColorType.RgbWithAlpha });
 
-        using var result = Image.Load<Rgba32>(TextureImageDecoder.ToPng(input.ToArray(), mode));
+        using var result = Image.Load<Rgba32>(TextureImageConverter.ToPng(input.ToArray(), mode));
 
         Assert.Equal(expectedAlpha, result[0, 0].A);
     }

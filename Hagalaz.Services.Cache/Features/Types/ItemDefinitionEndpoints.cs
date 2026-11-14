@@ -32,7 +32,7 @@ public static class ItemDefinitionEndpoints
 
     private static IResult GetItemType(int id, ITypeProvider<IItemType> provider) => TypedResults.Ok(MapItem(provider.Get(id)));
 
-    private static IResult GetItemTypeImage(int id, HttpContext context, ICacheAPI cache, ITypeProvider<IItemType> items,
+    private static IResult GetItemTypeImage(int id, HttpContext context, ICacheAPI cache, [AsParameters] ModelCodecs codecs, ITypeProvider<IItemType> items,
         int width = ItemIconRenderer.ClientWidth, int height = ItemIconRenderer.ClientHeight, int outline = 1, string? shadow = null,
         int quantity = 1, int? quantityMode = null)
     {
@@ -51,7 +51,7 @@ public static class ItemDefinitionEndpoints
         }
 
         var options = new ItemIcons.Options(width, height, outline, shadowColor, quantity, quantityMode);
-        return RenderedImageResponse.Create(context, $"item-icon-{ItemIcons.Validator(id, options, cache)}", () => ItemIcons.RenderPng(id, options, cache, items));
+        return RenderedImageResponse.Create(context, $"item-icon-{ItemIcons.Validator(id, options, cache)}", () => ItemIcons.RenderPng(id, options, cache, codecs, items));
     }
 
     private static IResult GetItemTypeRange(int startId, int endIdExclusive, ITypeProvider<IItemType> provider)

@@ -3,9 +3,9 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace Hagalaz.Cache.Logic.Codecs;
+namespace Hagalaz.Cache.Logic.Rendering;
 
-public static class TextureImageDecoder
+public static class TextureImageConverter
 {
     public sealed record HdrImage(int Width, int Height, float[] Rgba);
 

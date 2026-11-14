@@ -39,7 +39,7 @@ public class ModelParticleEndpointsTests
                 var dto = System.Text.Json.JsonSerializer.SerializeToNode(particle.Definition)!.AsObject();
                 dto.Remove(nameof(ParticleEmitterDto.ConstantEffectors));
                 Assert.IsTrue(System.Text.Json.Nodes.JsonNode.DeepEquals(
-                    System.Text.Json.JsonSerializer.SerializeToNode(ParticleEmitterDecoder.Decode(Fixture("emitter-403.dat"))), dto));
+                    System.Text.Json.JsonSerializer.SerializeToNode(ExpectedEmitter(Fixture("emitter-403.dat"))), dto));
                 Assert.IsNull(particle.Warning);
             }
             else {Assert.IsNull(particle.Definition);StringAssert.Contains(particle.Warning,"is unavailable");}
@@ -103,5 +103,15 @@ public class ModelParticleEndpointsTests
         }
         using var encoded=new ReferenceTableCodec().Encode(table);
         store.Set(255,index,ContainerBytes(encoded.ToArray()));store.Set(index,archiveId,ContainerBytes(data));
+    }
+
+    private static object ExpectedEmitter(byte[] data)
+    {
+        var e = new Hagalaz.Cache.Logic.Codecs.ParticleEmitterTypeCodec().Decode(403, new MemoryStream(data));
+        return new
+        {
+            TextureId = e.RenderTextureId, e.ColorMin, e.ColorMax, e.LifeMin, e.LifeMax, e.RateMin, e.RateMax, e.SizeMin, e.SizeMax, e.SpeedMin, e.SpeedMax,
+            Angles = e.RenderAngles, e.UnsupportedOpcodes, e.LocalEffectorIds, e.SpeedDrag, e.ConstantEffectorIds, e.SizeOverLife, e.SpeedOverLife, e.ColorOverLife,
+        };
     }
 }

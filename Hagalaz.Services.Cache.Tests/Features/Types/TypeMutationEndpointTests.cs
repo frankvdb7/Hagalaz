@@ -69,6 +69,22 @@ public class TypeMutationEndpointTests
         Assert.IsNotNull(provider.GetRequiredService<TypeMutator<IVarpBitDefinition>>());
     }
 
+    [TestMethod]
+    public void AddGameCache_RegistersTheDefinitionCodecs()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IFileStore>(new MemoryFileStore());
+        services.AddGameCache();
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IParticleEmitterType>>());
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IParticleEffectorType>>());
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IBillboardType>>());
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IRenderAnimationType>>());
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IMaterialTableType>>());
+    }
+
     private static byte[] Stored(MemoryFileStore store)
     {
         using var stream = store.Read(NpcIndex, 0);

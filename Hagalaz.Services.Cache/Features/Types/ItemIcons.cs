@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Logic.Rendering;
@@ -53,10 +54,10 @@ internal static class ItemIcons
     }
 
     /// <summary>Renders the icon as PNG bytes, or null when the item or a template item has no inventory model.</summary>
-    public static byte[]? RenderPng(int id, Options options, ICacheAPI cache, ITypeProvider<IItemType> items)
+    public static byte[]? RenderPng(int id, Options options, ICacheAPI cache, ModelCodecs codecs, ITypeProvider<IItemType> items)
     {
-        var textures = new TextureSource(cache);
-        var pixels = Render(id, options.Quantity, options.QuantityMode, noteContent: false, options.Outline, options.Shadow, options, cache, items, textures, depth: 0);
+        var textures = new TextureSource(cache, codecs.Materials);
+        var pixels = Render(id, options.Quantity, options.QuantityMode, noteContent: false, options.Outline, options.Shadow, options, cache, codecs, items, textures, depth: 0);
         return pixels is null ? null : EncodePng(pixels, options.Width, options.Height);
     }
 
@@ -81,14 +82,14 @@ internal static class ItemIcons
     }
 
     // World.method6168 (stack variant) and ItemDefinition.method6279 (model, passes, templates and quantity label).
-    private static int[]? Render(int id, int quantity, int? quantityMode, bool noteContent, int outline, int? shadow, Options options, ICacheAPI cache, ITypeProvider<IItemType> items, TextureSource textures, int depth)
+    private static int[]? Render(int id, int quantity, int? quantityMode, bool noteContent, int outline, int? shadow, Options options, ICacheAPI cache, ModelCodecs codecs, ITypeProvider<IItemType> items, TextureSource textures, int depth)
     {
         var item = (ItemType)items.Get(id);
         var variant = ItemIconRenderer.StackVariant(id, quantity, item.StackIds, item.StackAmounts);
         if (variant != id) item = (ItemType)items.Get(variant);
         var appearance = ModelEndpoints.InventoryAppearance(item);
         if (appearance is null || depth > 1) return null;
-        var assembled = ModelEndpoints.BuildItemModel(item, appearance, cache);
+        var assembled = ModelEndpoints.BuildItemModel(item, appearance, cache, codecs);
         var model = new ItemIconRenderer.Model(assembled.Positions, assembled.Indices, assembled.FaceColors, assembled.FaceAlpha, assembled.FaceShadingTypes,
             assembled.FaceTextureIds, assembled.FaceTextureUvs, assembled.Ambient, assembled.Contrast);
         var camera = new ItemIconRenderer.Camera(item.ModelZoom, item.ModelRotation1, item.ModelRotation2, item.Zan2D, item.ModelOffset1, item.ModelOffset2);
@@ -103,14 +104,14 @@ internal static class ItemIcons
         var underneathId = item.LendTemplateId != -1 ? item.LendId : item.BoughtTemplateId != -1 ? item.BoughtItemId : -1;
         if (underneathId != -1)
         {
-            var underneath = Render(underneathId, quantity, quantityMode: 0, noteContent: false, outline, shadow, options, cache, items, textures, depth + 1);
+            var underneath = Render(underneathId, quantity, quantityMode: 0, noteContent: false, outline, shadow, options, cache, codecs, items, textures, depth + 1);
             if (underneath is null) return null;
             ItemIconRenderer.Draw(result, underneath);
         }
         ItemIconRenderer.Draw(result, pixels);
         if (item.NoteTemplateId != -1)
         {
-            var content = Render(item.NoteId, quantity: 10, quantityMode: 0, noteContent: true, outline: 1, shadow: null, options, cache, items, textures, depth + 1);
+            var content = Render(item.NoteId, quantity: 10, quantityMode: 0, noteContent: true, outline: 1, shadow: null, options, cache, codecs, items, textures, depth + 1);
             if (content is null) return null;
             ItemIconRenderer.Draw(result, content);
         }
@@ -125,10 +126,10 @@ internal static class ItemIcons
     }
 
     /// <summary>Decodes each texture, the material table and the quantity font at most once per icon.</summary>
-    internal sealed class TextureSource(ICacheAPI cache)
+    internal sealed class TextureSource(ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec)
     {
         private readonly Dictionary<int, ItemIconRenderer.Texture?> _textures = [];
-        private byte[]? _materials;
+        private IMaterialTableType? _materials;
 
         public IReadOnlyDictionary<int, ItemIconRenderer.Texture> For(int[]? faceTextureIds)
         {
@@ -174,11 +175,11 @@ internal static class ItemIcons
                 if (_materials is null)
                 {
                     using var materials = cache.Read(26, 0, 0);
-                    _materials = materials.ToArray();
+                    _materials = materialCodec.Decode(0, materials);
                 }
-                var material = MaterialDefinitionDecoder.Decode(_materials, id);
+                var material = MaterialTableType.Require(_materials, id);
                 using var container = cache.ReadContainer(9, id);
-                var (width, height, argb) = TextureImageDecoder.ToArgb(container.Data.ToArray(), material.AlphaMode);
+                var (width, height, argb) = TextureImageConverter.ToArgb(container.Data.ToArray(), material.AlphaMode);
                 texture = new ItemIconRenderer.Texture(width, height, argb, material.ColorBlend, material.Brightness);
             }
             catch (Exception error) when (error is FileNotFoundException or NotSupportedException or UnknownImageFormatException or InvalidDataException or EndOfStreamException)

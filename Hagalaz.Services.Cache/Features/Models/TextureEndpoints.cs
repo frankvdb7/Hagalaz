@@ -1,5 +1,8 @@
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Logic.Codecs;
+using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Logic.Rendering;
+using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Text.Json;
@@ -63,38 +66,38 @@ public static class TextureEndpoints
         }
     }
 
-    private static IResult GetHdr(int id, ICacheAPI cache)
+    private static IResult GetHdr(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
         using var materials = cache.Read(26, 0, 0);
-        var material = MaterialDefinitionDecoder.Decode(materials.ToArray(), id);
+        var material = MaterialTableType.Require(materialCodec.Decode(0, materials), id);
         if (!material.HasHdr) return TypedResults.NotFound();
         using var image = cache.ReadContainer(9, id);
         using var companion = cache.ReadContainer(37, id);
-        var hdr = TextureImageDecoder.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), RenderAlphaMode(material, sourceAlpha: true));
+        var hdr = TextureImageConverter.ToHdr(image.Data.ToArray(), companion.Data.ToArray(), RenderAlphaMode(material, sourceAlpha: true));
         return TypedResults.Ok(new GetTextureHdrDto(hdr.Width, hdr.Height, hdr.Rgba));
     }
 
-    private static IResult GetMaterial(int id, ICacheAPI cache)
+    private static IResult GetMaterial(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
         using var materials = cache.Read(26, 0, 0);
-        var material = MaterialDefinitionDecoder.Decode(materials.ToArray(), id);
+        var material = MaterialTableType.Require(materialCodec.Decode(0, materials), id);
         return TypedResults.Ok(new GetTextureMaterialDto(material.AlphaMode, material.ColorBlend, material.Brightness,
             material.EffectId, material.EffectParameter, material.ScrollU, material.ScrollV, material.RepeatU,
             material.RepeatV, material.HasHdr, material.EffectParameter2));
     }
 
     // The client keeps the alpha of effect 1 and 7 textures (Class73) and uses it to mask their highlight or reflection, so an opaque material's alpha is still data.
-    private static int RenderAlphaMode(MaterialDefinitionDecoder.Material material, bool sourceAlpha) =>
+    private static int RenderAlphaMode(MaterialEntry material, bool sourceAlpha) =>
         sourceAlpha && material.AlphaMode == 0 && material.EffectId is 1 or 7 ? 2 : material.AlphaMode;
 
-    private static IResult GetTextureImage(int id, ICacheAPI cache, HttpContext context, bool sourceAlpha = false)
+    private static IResult GetTextureImage(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, HttpContext context, bool sourceAlpha = false)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
         using var container = cache.ReadContainer(9, id);
         using var materials = cache.Read(26, 0, 0);
-        var material = MaterialDefinitionDecoder.Decode(materials.ToArray(), id);
+        var material = MaterialTableType.Require(materialCodec.Decode(0, materials), id);
         var alphaMode = material.AlphaMode;
         var source = container.Data.ToArray();
         var metadata = JsonSerializer.Serialize(
@@ -118,7 +121,7 @@ public static class TextureEndpoints
             context.Response.GetTypedHeaders().ETag = etag;
             return TypedResults.StatusCode(StatusCodes.Status304NotModified);
         }
-        var png = TextureImageDecoder.ToPng(source, pngAlphaMode);
+        var png = TextureImageConverter.ToPng(source, pngAlphaMode);
         context.Response.Headers.CacheControl = "private, no-cache";
         context.Response.GetTypedHeaders().ETag = etag;
         return TypedResults.File(png, "image/png");

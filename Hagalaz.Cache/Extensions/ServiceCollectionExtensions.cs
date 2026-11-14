@@ -121,6 +121,12 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeFactory<IVarpBitDefinition>, VarpBitDefinitionFactory>();
             services.TryAddTransient<IVarpBitDefinitionProvider, VarpBitDefinitionProvider>();
 
+            services.TryAddTransient<ITypeCodec<IParticleEmitterType>, ParticleEmitterTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IParticleEffectorType>, ParticleEffectorTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IBillboardType>, BillboardTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IRenderAnimationType>, RenderAnimationTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IMaterialTableType>, MaterialTableTypeCodec>();
+
             AddTypeMutator<IItemType, IItemTypeCodec>(services, new ItemTypeData());
             AddTypeMutator<INpcType, INpcTypeCodec>(services, new NpcTypeData());
             AddTypeMutator<IObjectType, IObjectTypeCodec>(services, new ObjectTypeData());

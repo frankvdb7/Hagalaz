@@ -33,8 +33,15 @@ public class ModelGeometryDecoderTests
     public void DecodeBillboard_PreservesDimensionsTextureBlendAndFlags()
     {
         using var data = new MemoryStream([3, 255, 1, 1, 7, 2, 0, 10, 0, 20, 5, 31, 4, 1, 6, 7, 0]);
-        Assert.Equal(new ModelBillboardDecoder.Definition(263, 11, 21, 1, true, true), ModelBillboardDecoder.Decode(data));
+        var codec = new BillboardTypeCodec();
+        var billboard = codec.Decode(0, data);
+        Assert.Equal((263, 11, 21, 1, true, true), (billboard.RenderTextureId, billboard.HalfWidth, billboard.HalfHeight, billboard.RenderBlendMode, billboard.HideFace, billboard.HideInSpecialPass));
+        Assert.Equal((255, 31), (billboard.Opcode3, billboard.Opcode5));
         Assert.Equal(data.Length, data.Position);
+        using var encoded = codec.Encode(billboard);
+        Assert.Equal(new byte[] { 1, 1, 7, 2, 0, 10, 0, 20, 3, 255, 4, 1, 5, 31, 6, 7, 0 }, encoded.ToArray());
+        Assert.Equal(-1, codec.Decode(1, new MemoryStream([1, 255, 255, 0])).RenderTextureId);
+        Assert.Throws<InvalidDataException>(() => codec.Decode(2, new MemoryStream([8, 0])));
     }
 
     [Theory]
