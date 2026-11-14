@@ -77,6 +77,12 @@ mat-tab-group { min-height: 0; }
     margin: 0;
 }
 .identity-fields dd { margin: 0; overflow-wrap: anywhere; }
+.callback-fields + .callback-fields {
+    border-top: 1px solid var(--workspace-border);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+.callback-fields ol { margin: 0; }
 .layout-fields mat-form-field { min-width: 0; }
 .layout-fields mat-form-field:nth-child(n+5) { grid-column: span 2; }
 .text-field { display: flex; }

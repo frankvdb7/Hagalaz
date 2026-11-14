@@ -1,0 +1,92 @@
+.script-layout {
+    display: grid;
+    align-items: start;
+    gap: 1rem;
+}
+
+@media (min-width: 64rem) {
+    .script-layout {
+        grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+    }
+}
+
+.script-metadata > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.script-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: start;
+    font-variant-numeric: tabular-nums;
+
+    th,
+    td {
+        padding: 0.375rem 0.5rem;
+        border-bottom: 1px solid var(--mat-sys-outline-variant);
+        text-align: start;
+    }
+}
+
+.instruction-scroll {
+    max-block-size: 65vh;
+    overflow: auto;
+}
+
+.script-code {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+}
+
+.source-scroll {
+    max-block-size: 26rem;
+    overflow: auto;
+}
+
+.source-line {
+    display: grid;
+    grid-template-columns: 5ch minmax(0, 1fr);
+    gap: 0.5rem;
+    padding-block: 0.25rem;
+    font-family: monospace;
+
+    code {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+}
+
+.source-index,
+.source-line.raw {
+    color: var(--mat-sys-on-surface-variant);
+}
+
+.source-reference {
+    display: inline-block;
+    margin-inline-start: 0.75rem;
+    font-family: var(--mat-sys-body-small-font);
+}
+
+.instructions {
+    font-family: monospace;
+
+    th {
+        position: sticky;
+        top: 0;
+        background: var(--mat-sys-surface);
+    }
+
+    td:last-child {
+        width: 100%;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+    }
+}
+
+summary {
+    cursor: pointer;
+    padding-block: 0.25rem;
+}

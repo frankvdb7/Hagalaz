@@ -39,6 +39,21 @@ export class WidgetPreviewComponent {
     readonly layers = input.required<WidgetLayer[]>();
     readonly viewport = input.required<{ width: number; height: number }>();
     readonly selectedId = input.required<number | null>();
+    readonly interactive = input(false);
+    readonly busy = input(false);
+    readonly message = input<string | null>(null);
+    readonly clickTargets = input<ReadonlySet<number>>(new Set());
+    readonly interact = output<void>();
+    readonly pointerAction = output<{ id: number; event: "click" | "release" | "enter" | "exit"; x: number; y: number }>();
+
+    dispatchPointer(id: number, event: "click" | "release" | "enter" | "exit", pointer: MouseEvent, element: HTMLElement) {
+        if (!this.interactive() || this.pan() || !this.clickTargets().has(id)) return;
+        if ((event === "click" || event === "release") && pointer.button !== 0) return;
+        const bounds = element.getBoundingClientRect();
+        const x = Math.floor((pointer.clientX - bounds.left) / this.zoom());
+        const y = Math.floor((pointer.clientY - bounds.top) / this.zoom());
+        this.pointerAction.emit({ id, event, x, y });
+    }
     readonly select = output<number>();
     readonly duplicate = output<void>();
     readonly remove = output<void>();

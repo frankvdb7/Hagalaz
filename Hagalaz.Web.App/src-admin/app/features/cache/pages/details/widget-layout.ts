@@ -34,6 +34,8 @@ interface WidgetBounds {
 }
 
 export interface WidgetLayer extends WidgetBounds {
+    localX: number;
+    localY: number;
     component: WidgetComponent;
     depth: number;
     ancestors: number[];
@@ -57,6 +59,8 @@ export function layoutWidget(components: WidgetComponent[], width: number, heigh
         visited.add(component.id);
         const width = size(component.width, component.widthMode, bounds.width);
         const height = size(component.height, component.heightMode, bounds.height);
+        const localX = position(component.x, component.xMode, bounds.width - width, bounds.width);
+        const localY = position(component.y, component.yMode, bounds.height - height, bounds.height);
         const layer = {
             component,
             width,
@@ -64,11 +68,16 @@ export function layoutWidget(components: WidgetComponent[], width: number, heigh
             ancestors,
             depth: ancestors.length,
             visible: visible && !component.hidden,
-            x: bounds.x + position(component.x, component.xMode, bounds.width - width, bounds.width),
-            y: bounds.y + position(component.y, component.yMode, bounds.height - height, bounds.height),
+            localX,
+            x: bounds.x + localX,
+            localY,
+            y: bounds.y + localY,
         };
         result.push(layer);
-        const childBounds = { ...layer, width: component.scrollWidth || width, height: component.scrollHeight || height };
+        const childBounds = {
+            x: layer.x - (component.scrollX ?? 0), y: layer.y - (component.scrollY ?? 0),
+            width: component.scrollWidth || width, height: component.scrollHeight || height,
+        };
         for (const child of children.get(component.id) ?? []) visit(child, childBounds, layer.visible, [...ancestors, component.id]);
     }
 

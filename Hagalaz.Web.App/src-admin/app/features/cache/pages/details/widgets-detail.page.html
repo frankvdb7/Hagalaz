@@ -1,5 +1,5 @@
 <div class="widget-path">
-    <a mat-button routerLink="/cache/widgets" queryParamsHandling="preserve"><mat-icon>arrow_back</mat-icon>Back to widgets</a>
+    <a mat-button routerLink="/cache/widgets" queryParamsHandling="merge" [queryParams]="{ component: null }"><mat-icon>arrow_back</mat-icon>Back to widgets</a>
     @if (widget(); as group) { <span>Widget {{ group.fileId }}</span> }
 </div>
 
@@ -11,6 +11,7 @@
         <button mat-stroked-button type="button" (click)="cache.referenceTable.error() ? cache.referenceTable.reload() : archive.reload()">Retry</button>
     </mat-card-content></mat-card>
 } @else if (widget(); as group) {
+    @if (componentLinkMessage(); as message) { <p role="status" class="panel-message">{{ message }}</p> }
     <div class="widget-workspace">
         <aside class="workspace-left" aria-label="Widget components">
             <mat-card appearance="outlined" class="workspace-panel">
@@ -81,6 +82,9 @@
         </aside>
 
         <cache-widget-preview class="workspace-panel" [layers]="layers()" [viewport]="viewport()" [selectedId]="selectedId()"
+            [interactive]="interactive()" [busy]="previewBusy()" [message]="previewMessage()" [clickTargets]="clickTargets()"
+            (interact)="interactive() ? reset() : startPreview()"
+            (pointerAction)="runPreview($event.event, $event.id, undefined, undefined, $event.x, $event.y)"
             (select)="selectFromPreview($event)" (duplicate)="duplicate()" (remove)="remove()" (resetEdits)="reset()" />
 
         <mat-card appearance="outlined" class="workspace-panel inspector-panel" aria-label="Component inspector">
@@ -178,8 +182,44 @@
                                     <dt>Content type</dt><dd>{{ entry.contentType }}</dd>
                                     @if (entry.action) { <dt>Action</dt><dd>{{ entry.action }}</dd> }
                                 </dl>
-                                @if (entry.options?.length) { <ul>@for (option of entry.options; track $index) { <li>{{ option }}</li> }</ul> }
+                                @if (entry.options?.some(optionIsSet)) { <ul>@for (option of entry.options; track $index) { @if (option) { <li>{{ option }}</li> } }</ul> }
                                 @else { <p class="panel-message">No context-menu actions.</p> }
+                            </section>
+                            <section class="property-section" aria-label="CS2 callbacks">
+                                <h2><mat-icon>code</mat-icon>CS2 callbacks</h2>
+                                @if (selectedCallbacks(); as callbacks) {
+                                    @for (callback of callbacks; track callback.event) {
+                                        <dl class="identity-fields callback-fields">
+                                            <dt>Event</dt><dd>{{ callback.event }}</dd>
+                                            <dt>Script</dt>
+                                            <dd>
+                                                @if (callback.scriptId !== null) {
+                                                    <a [routerLink]="['/cache/types/cs2', callback.scriptId]">Script {{ callback.scriptId }}</a>
+                                                } @else { Unknown target }
+                                            </dd>
+                                            @if (callback.args.length) {
+                                                <dt>Arguments</dt>
+                                                <dd><ol>
+                                                    @for (argument of callback.args; track $index) {
+                                                        <li><code>{{ argument.type }} {{ argument.type === 'string' ? '"' + argument.value + '"' : argument.value }}</code></li>
+                                                    }
+                                                </ol></dd>
+                                            }
+                                            @if (callback.triggers.length) {
+                                                <dt>Trigger IDs</dt><dd>{{ callback.triggers.join(', ') }}</dd>
+                                            }
+                                            @if (interactive() && callback.scriptId !== null) {
+                                                <dt>Preview</dt>
+                                                <dd>
+                                                    <form (submit)="$event.preventDefault(); runPreview('manual', entry.id, callback.event, trigger.value)">
+                                                        <input #trigger type="number" aria-label="Trigger ID" [hidden]="!callback.triggers.length" [required]="callback.triggers.length > 0" />
+                                                        <button mat-button type="submit" [disabled]="previewBusy()">Run callback</button>
+                                                    </form>
+                                                </dd>
+                                            }
+                                        </dl>
+                                    } @empty { <p class="panel-message">No cached callbacks.</p> }
+                                } @else { <p class="panel-message">Callback metadata is unavailable.</p> }
                             </section>
                         } @else {
                             <p class="panel-message">Select a component to inspect its actions.</p>
@@ -190,5 +230,7 @@
         </mat-card>
     </div>
 } @else {
-    <mat-card appearance="outlined"><mat-card-content><p role="status">Widget not found.</p></mat-card-content></mat-card>
+    <mat-card appearance="outlined"><mat-card-content>
+        <p role="status">{{ widgetId() === null ? 'Enter a valid widget ID.' : 'Widget ' + widgetId() + ' not found.' }}</p>
+    </mat-card-content></mat-card>
 }

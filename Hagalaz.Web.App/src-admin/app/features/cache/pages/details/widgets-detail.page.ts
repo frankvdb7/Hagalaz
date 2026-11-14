@@ -1,5 +1,6 @@
-import { afterNextRender, Component, computed, ElementRef, inject, Injector, linkedSignal, signal } from "@angular/core";
-import { toSignal } from "@angular/core/rxjs-interop";
+import { afterNextRender, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, linkedSignal, signal, untracked } from "@angular/core";
+import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop";
+import type { Subscription } from "rxjs";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
 import { MatCheckboxModule } from "@angular/material/checkbox";
@@ -13,7 +14,9 @@ import { MatTabsModule } from "@angular/material/tabs";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { CacheSpritesService } from "../../services/cache-sprites.service";
 import { CacheWidgetsService } from "../../services/cache-widgets.service";
+import { pointerEvents, WidgetRuntime } from "../../services/widget-runtime";
 import { decodeWidgetComponent, type WidgetComponent } from "../../services/widget-component";
+import { injectCacheDefinitionId } from "../cache-definition-id";
 import { layoutWidget, widgetType } from "./widget-layout";
 import { WidgetPreviewComponent } from "./widget-preview.component";
 import { WidgetSpriteComponent } from "./widget-sprite.component";
@@ -40,27 +43,38 @@ import { WidgetSpriteComponent } from "./widget-sprite.component";
     styleUrl: "./widgets-detail.page.scss",
 })
 export class WidgetsDetailPageComponent {
+    readonly optionIsSet = Boolean;
+    private readonly destroyRef = inject(DestroyRef);
+    private previewRequest?: Subscription;
+    private runtime?: WidgetRuntime;
+    private readonly mouseEnterTargets = signal<ReadonlyMap<number, boolean>>(new Map());
+    private readonly mouseExitTargets = signal<ReadonlyMap<number, boolean>>(new Map());
+    readonly interactive = signal(false);
+    readonly previewBusy = signal(false);
+    readonly previewMessage = signal<string | null>(null);
     private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
     private readonly injector = inject(Injector);
     private readonly route = inject(ActivatedRoute);
-    private readonly params = toSignal(this.route.paramMap, { initialValue: this.route.snapshot.paramMap });
-    readonly cache = inject(CacheWidgetsService);
-    readonly widget = computed(() => {
-        const id = this.params().get("id");
-        return id && /^\d+$/.test(id) ? this.cache.widgets().find((widget) => widget.fileId === Number(id)) : undefined;
+    private readonly queryParams = toSignal(this.route.queryParamMap, { initialValue: this.route.snapshot.queryParamMap });
+    readonly widgetId = injectCacheDefinitionId();
+    readonly requestedComponent = computed(() => {
+        const id = this.queryParams().get("component");
+        return id && /^\d+$/.test(id) && Number(id) <= 65535 ? Number(id) : null;
     });
+    readonly cache = inject(CacheWidgetsService);
+    readonly widget = computed(() => this.cache.widgets().find((widget) => widget.fileId === this.widgetId()));
     readonly archive = this.cache.archive(() => this.widget()?.fileId);
     private readonly decoded = computed(() => {
         const components: WidgetComponent[] = [];
         const unreadable: number[] = [];
         if (!this.archive.hasValue()) return { components, unreadable };
-        const slots = new Map(this.archive.value().entries.map((entry) => [entry.subFileId, entry.dataBase64]));
+        const slots = new Map(this.archive.value().entries.map((entry) => [entry.subFileId, entry]));
         const children = [...(this.widget()?.children ?? [])].sort((a, b) => a.childId - b.childId);
         for (const child of children) {
             try {
-                const bytes = slots.get(child.index);
-                if (bytes === undefined) unreadable.push(child.childId);
-                else components.push(decodeWidgetComponent(child.childId, bytes));
+                const entry = slots.get(child.index);
+                if (entry === undefined) unreadable.push(child.childId);
+                else components.push(decodeWidgetComponent(child.childId, entry.dataBase64));
             } catch {
                 unreadable.push(child.childId);
             }
@@ -71,9 +85,36 @@ export class WidgetsDetailPageComponent {
     readonly components = linkedSignal(() => this.decoded().components);
     readonly selectedId = linkedSignal(() => {
         this.widget();
-        return null as number | null;
+        const id = this.requestedComponent();
+        return id !== null && this.decoded().components.some((entry) => entry.id === id) ? id : null;
+    });
+    readonly componentLinkMessage = computed(() => {
+        const id = this.requestedComponent();
+        if (id === null || !this.archive.hasValue() || this.decoded().components.some((entry) => entry.id === id)) return null;
+        return this.unreadable().includes(id) ? `Could not read component ${id}.` : `Component ${id} not found.`;
     });
     readonly selected = computed(() => this.components().find(({ id }) => id === this.selectedId()));
+    readonly selectedCallbacks = computed(() => {
+        if (!this.archive.hasValue()) return null;
+        const slot = this.widget()?.children.find((child) => child.childId === this.selectedId())?.index;
+        return this.archive.value().entries.find((entry) => entry.subFileId === slot)?.callbacks ?? null;
+    });
+    private readonly pointerCallbacks = computed(() => {
+        const slots = new Map((this.archive.hasValue() ? this.archive.value().entries : []).map(entry => [entry.subFileId, entry.callbacks]));
+        return new Map(this.widget()?.children.map(child => {
+            const events = new Set(slots.get(child.index)?.filter(callback => callback.scriptId !== null).map(callback => callback.event));
+            const mouseEnter = this.mouseEnterTargets().get(child.childId);
+            if (mouseEnter === true) events.add(pointerEvents.enter);
+            if (mouseEnter === false) events.delete(pointerEvents.enter);
+            const mouseExit = this.mouseExitTargets().get(child.childId);
+            if (mouseExit === true) events.add(pointerEvents.exit);
+            if (mouseExit === false) events.delete(pointerEvents.exit);
+            return [child.childId, events] as const;
+        }));
+    });
+    readonly clickTargets = computed(() => new Set([...this.pointerCallbacks()]
+        .filter(([, callbacks]) => Object.values(pointerEvents).some(event => callbacks.has(event)))
+        .map(([id]) => id)));
     readonly viewport = computed(() => {
         const roots = this.decoded().components.filter(({ type, parentId }) => type === 0 && parentId === -1);
         return {
@@ -84,6 +125,7 @@ export class WidgetsDetailPageComponent {
     readonly layers = computed(() => layoutWidget(this.components(), this.viewport().width, this.viewport().height));
     readonly collapsed = linkedSignal(() => {
         this.widget();
+        this.requestedComponent();
         return new Set<number>();
     });
     readonly tree = computed(() => this.layers().filter((layer) => layer.ancestors.every((id) => !this.collapsed().has(id))));
@@ -118,6 +160,65 @@ export class WidgetsDetailPageComponent {
     ] as const;
     readonly anchors = ["Start", "Center", "End", "Relative start", "Relative center", "Relative end"];
 
+    constructor() {
+        effect(() => {
+            this.widgetId();
+            untracked(() => this.stopPreview());
+        });
+    }
+
+    startPreview() {
+        const id = this.widgetId();
+        if (id === null) return;
+        this.reset();
+        this.interactive.set(true);
+        this.previewBusy.set(true);
+        this.previewRequest = this.cache.loadProgram(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: bundle => {
+                if (id !== this.widgetId()) return;
+                this.previewBusy.set(false);
+                try {
+                    const baseline = this.decoded().components;
+                    const { width, height } = this.viewport();
+                    this.runtime = new WidgetRuntime(id, bundle, (component, changes, children) =>
+                        layoutWidget([...baseline.map(entry => ({ ...entry, ...changes.get(entry.id) })), ...children], width, height)
+                            .find(layer => layer.component.id === component));
+                    this.runPreview("open");
+                } catch (error) {
+                    this.previewMessage.set((error as Error).message);
+                }
+            },
+            error: () => {
+                this.previewBusy.set(false);
+                this.previewMessage.set("Could not load widget scripts.");
+            },
+        });
+    }
+
+    runPreview(event: "open" | "click" | "release" | "enter" | "exit" | "manual", component?: number, callback?: string, trigger?: string, x?: number, y?: number) {
+        if (!this.runtime || !this.interactive()) return;
+        if (event !== "open" && event !== "manual" && (component === undefined ||
+            !this.pointerCallbacks().get(component)?.has(pointerEvents[event]))) return;
+        const { state, message } = this.runtime.run({ event, component, callback, trigger: trigger ? Number(trigger) : undefined, x, y });
+        this.previewMessage.set(message);
+        if (state) {
+            this.mouseEnterTargets.set(this.runtime.hoverTargets(pointerEvents.enter));
+            this.mouseExitTargets.set(this.runtime.hoverTargets(pointerEvents.exit));
+            const changes = new Map(state.components.map(entry => [entry.id, entry]));
+            this.components.set([...this.decoded().components.map(entry => ({ ...entry, ...changes.get(entry.id) })), ...(state.dynamicChildren ?? [])]);
+        }
+    }
+
+    private stopPreview() {
+        this.previewRequest?.unsubscribe();
+        this.runtime = undefined;
+        this.mouseEnterTargets.set(new Map());
+        this.mouseExitTargets.set(new Map());
+        this.interactive.set(false);
+        this.previewBusy.set(false);
+        this.previewMessage.set(null);
+    }
+
     componentLabel(component: WidgetComponent) {
         return `${component.name || widgetType(component.type).label} (${component.id})`;
     }
@@ -129,6 +230,10 @@ export class WidgetsDetailPageComponent {
     }
 
     selectFromPreview(id: number) {
+        if (this.interactive()) {
+            this.runPreview("click", id);
+            return;
+        }
         this.select(id);
         afterNextRender(
             () => {
@@ -189,6 +294,7 @@ export class WidgetsDetailPageComponent {
     }
 
     reset() {
+        this.stopPreview();
         this.components.set(this.decoded().components);
         this.select(null);
     }

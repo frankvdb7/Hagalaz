@@ -96,7 +96,11 @@ export class TypesManagerPageComponent {
     }
     readonly resultKind = signal<BrowserKind | null>(null);
     readonly resultColumns = computed(() =>
-        this.activeKind() === "sprites" || this.activeKind() === "items" ? ["id", "preview", "name", "actions"] : ["id", "name", "actions"]
+        this.activeKind() === "cs2"
+            ? ["id", "name", "opcodeCount", "actions"]
+            : this.activeKind() === "sprites" || this.activeKind() === "items"
+              ? ["id", "preview", "name", "actions"]
+              : ["id", "name", "actions"]
     );
     readonly browseError = signal<string | null>(null);
     readonly loading = computed(() => {

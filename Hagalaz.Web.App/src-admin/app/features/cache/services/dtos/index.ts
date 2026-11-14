@@ -3,7 +3,7 @@ export type { GetAnimationDefinitionDto } from "./get-animation-definition-dto";
 export type { GetArchiveSizesDto } from "./get-archive-sizes-dto";
 export type { GetClientMapDefinitionDto } from "./get-client-map-definition-dto";
 export type { GetConfigDefinitionDto } from "./get-config-definition-dto";
-export type { GetCs2DefinitionDto } from "./get-cs2-definition-dto";
+export type { GetCs2DefinitionDto, GetCs2ScriptDto } from "./get-cs2-definition-dto";
 export type { GetCs2IntDefinitionDto } from "./get-cs2-int-definition-dto";
 export type { GetGraphicDefinitionDto } from "./get-graphic-definition-dto";
 export type { GetItemDefinitionDto } from "./get-item-definition-dto";

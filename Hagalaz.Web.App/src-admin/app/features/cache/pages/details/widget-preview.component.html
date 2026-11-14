@@ -5,8 +5,8 @@
             <mat-button-toggle [value]="true" matTooltip="Pan preview" aria-label="Pan preview"><mat-icon>open_with</mat-icon></mat-button-toggle>
         </mat-button-toggle-group>
         <button mat-icon-button type="button" matTooltip="Reset preview and local edits" aria-label="Reset preview and local edits" (click)="reset(stage)"><mat-icon>restart_alt</mat-icon></button>
-        <button mat-icon-button type="button" matTooltip="Duplicate component in preview" aria-label="Duplicate component in preview" [disabled]="selectedId() === null" (click)="duplicate.emit()"><mat-icon>content_copy</mat-icon></button>
-        <button mat-icon-button type="button" matTooltip="Remove component from preview" aria-label="Remove component from preview" [disabled]="selectedId() === null" (click)="remove.emit()"><mat-icon>delete_outline</mat-icon></button>
+        <button mat-icon-button type="button" matTooltip="Duplicate component in preview" aria-label="Duplicate component in preview" [disabled]="interactive() || selectedId() === null" (click)="duplicate.emit()"><mat-icon>content_copy</mat-icon></button>
+        <button mat-icon-button type="button" matTooltip="Remove component from preview" aria-label="Remove component from preview" [disabled]="interactive() || selectedId() === null" (click)="remove.emit()"><mat-icon>delete_outline</mat-icon></button>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="preview-zoom">
             <mat-label>Preview zoom</mat-label>
             <mat-select [value]="zoomMode()" (selectionChange)="zoomMode.set($event.value)">
@@ -19,7 +19,14 @@
         <button mat-icon-button type="button" matTooltip="Show component bounds" aria-label="Show component bounds" [attr.aria-pressed]="outlines()" (click)="outlines.update(toggle)"><mat-icon>select_all</mat-icon></button>
         <button mat-icon-button type="button" [matTooltip]="expanded() ? 'Close expanded preview' : 'Expand preview'"
             [attr.aria-label]="expanded() ? 'Close expanded preview' : 'Expand preview'" [attr.aria-pressed]="expanded()" (click)="expanded.update(toggle)"><mat-icon>{{ expanded() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon></button>
+        <button mat-icon-button type="button" [attr.aria-pressed]="interactive()" [attr.aria-label]="interactive() ? 'Stop preview' : 'Play preview'"
+            [matTooltip]="interactive() ? 'Stop preview' : 'Play preview'" (click)="pan.set(false); interact.emit()">
+            <mat-icon>{{ interactive() ? 'stop' : 'play_arrow' }}</mat-icon>
+        </button>
     </mat-toolbar>
+    @if (busy() || message()) {
+        <p class="preview-status" role="status">{{ busy() ? 'Running callback…' : message() }}</p>
+    }
     <div #stage class="preview-stage" [class.pan]="pan()" (pointerdown)="startPan($event, stage)" (pointermove)="movePan($event, stage)"
         (pointerup)="endPan()" (lostpointercapture)="endPan()">
         <div class="preview-space">
@@ -27,11 +34,20 @@
                 <div class="preview-art" [style.width.px]="viewport().width" [style.height.px]="viewport().height" [style.transform]="'scale(' + zoom() + ')'">
                     @for (layer of layers(); track layer.component.id) {
                         @let entry = layer.component;
-                        @if (layer.visible || selectedId() === entry.id) {
-                            <button type="button" class="preview-layer" [class.bounds]="outlines()" [class.selected]="selectedId() === entry.id"
-                                [disabled]="pan()" [attr.aria-label]="'Select ' + componentLabel(entry)" [attr.aria-pressed]="selectedId() === entry.id"
+                        @if (layer.visible || (!interactive() && selectedId() === entry.id)) {
+                            <button #hit type="button" class="preview-layer" [class.bounds]="!interactive() && outlines()" [class.selected]="!interactive() && selectedId() === entry.id"
+                                [class.inspect-layer]="!interactive()"
+                                [class.preview-pass-through]="interactive() && !clickTargets().has(entry.id) && !entry.blocksClicks"
+                                [class.preview-action]="interactive() && clickTargets().has(entry.id)"
+                                [disabled]="pan() || (interactive() && !clickTargets().has(entry.id))"
+                                [attr.aria-label]="(interactive() ? 'Activate ' : 'Select ') + componentLabel(entry)"
+                                [attr.aria-pressed]="interactive() ? null : selectedId() === entry.id"
                                 [style.left.px]="layer.x" [style.top.px]="layer.y" [style.width.px]="layer.width" [style.height.px]="layer.height"
-                                (click)="select.emit(entry.id)">
+                                (pointerdown)="dispatchPointer(entry.id, 'click', $event, hit)"
+                                (pointerup)="dispatchPointer(entry.id, 'release', $event, hit)"
+                                (pointerenter)="dispatchPointer(entry.id, 'enter', $event, hit)"
+                                (pointerleave)="dispatchPointer(entry.id, 'exit', $event, hit)"
+                                (click)="(!interactive() || $event.detail === 0) && select.emit(entry.id)">
                                 @if (layer.visible) {
                                     <span class="layer-appearance" [style.color]="color(entry.color)" [style.opacity]="1 - (entry.transparency ?? 0) / 256">
                                         @switch (entry.type) {

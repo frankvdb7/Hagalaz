@@ -1,6 +1,6 @@
 namespace Hagalaz.Services.Cache.Features.Types.Dtos;
 
-public sealed record GetCs2DefinitionDto(
+public record GetCs2DefinitionDto(
         int Id,
         string Name,
         int IntLocalsCount,

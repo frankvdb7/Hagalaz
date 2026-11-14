@@ -6,6 +6,39 @@ namespace Hagalaz.Cache.Tests
 {
     public class Cs2DefinitionCodecTests
     {
+        // Instruction widths and footer layout follow ClientScript.java and CS2InstructionInfo.java.
+        private const string Revision742Script =
+            "4100" + "0000FF" + "0009FFFFFFFE" + "00918000" + "003F8000000000000001" +
+            "00000004000100020003000400050006" + "010001FFFFFFFF00000002" + "000B";
+
+        [Fact]
+        public void Decode_Revision742Script_PreservesInstructionsAndSwitchOffsets()
+        {
+            var payload = Convert.FromHexString(Revision742Script);
+            var codec = new Cs2DefinitionCodec();
+            using var stream = new MemoryStream(payload);
+            var script = codec.Decode(42, stream);
+
+            Assert.Equal("A", script.Name);
+            Assert.Equal(new[] { 0, 9, 145, 63 }, script.Opcodes);
+            Assert.Equal(new[] { 255, -2, 0, 0 }, script.IntPool);
+            Assert.Equal("€", script.StringPool[2]);
+            Assert.Equal(long.MinValue + 1, script.LongPool[3]);
+            Assert.Equal(new KeyValuePair<int, int>(-1, 2), Assert.Single(Assert.Single(script.Switches)));
+            using var encoded = codec.Encode(script);
+            Assert.Equal(payload, encoded.ToArray());
+        }
+
+        [Fact]
+        public void Decode_InstructionCountDoesNotMatchFooter_RejectsScript()
+        {
+            var payload = Convert.FromHexString(Revision742Script);
+            payload[26] = 3;
+            using var stream = new MemoryStream(payload);
+
+            Assert.Throws<InvalidDataException>(() => new Cs2DefinitionCodec().Decode(42, stream));
+        }
+
         [Fact]
         public void RoundTrip_ValidDefinition_DecodesCorrectly()
         {

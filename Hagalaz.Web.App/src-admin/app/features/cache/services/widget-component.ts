@@ -16,6 +16,8 @@ export interface WidgetComponent {
     blocksClicks: boolean;
     scrollWidth?: number;
     scrollHeight?: number;
+    scrollX?: number;
+    scrollY?: number;
     spriteId?: number;
     spriteTiled?: boolean;
     spriteFlipX?: boolean;
@@ -177,6 +179,6 @@ export function decodeWidgetComponent(id: number, dataBase64: string): WidgetCom
     while (reader.byte() !== 0) reader.skip(3);
     component.action = reader.string();
     const optionCount = reader.byte() & 15;
-    component.options = Array.from({ length: optionCount }, () => reader.string()).filter(Boolean);
+    component.options = Array.from({ length: optionCount }, () => reader.string());
     return component;
 }

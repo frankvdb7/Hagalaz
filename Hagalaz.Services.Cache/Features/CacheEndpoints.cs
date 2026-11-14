@@ -8,6 +8,7 @@ using Hagalaz.Services.Cache.Features.Mutations;
 using Hagalaz.Services.Cache.Features.RawFiles;
 using Hagalaz.Services.Cache.Features.ReferenceTables;
 using Hagalaz.Services.Cache.Features.Types;
+using Hagalaz.Services.Cache.Features.Widgets;
 using Hagalaz.Services.Cache.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -43,6 +44,8 @@ public static class CacheEndpoints
         group.MapRawFileEndpoints();
         group.MapChecksumEndpoints();
         group.MapTypeEndpoints();
+        group.MapWidgetComponentEndpoints();
+        group.MapWidgetPrograms();
         group.MapModelEndpoints();
         group.MapTextureEndpoints();
 

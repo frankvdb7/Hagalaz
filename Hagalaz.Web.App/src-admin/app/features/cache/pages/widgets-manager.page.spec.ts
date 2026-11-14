@@ -1,11 +1,14 @@
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
+import { Location } from "@angular/common";
 import { provideHttpClient } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
+import { provideLocationMocks } from "@angular/common/testing";
 import { TestBed } from "@angular/core/testing";
 import { MatPaginatorHarness } from "@angular/material/paginator/testing";
 import { MatCheckboxHarness } from "@angular/material/checkbox/testing";
 import { MatSelectHarness } from "@angular/material/select/testing";
 import { MatTabGroupHarness } from "@angular/material/tabs/testing";
+import { Component } from "@angular/core";
 import { provideRouter, Router } from "@angular/router";
 import { RouterTestingHarness } from "@angular/router/testing";
 import { firstValueFrom, take, toArray } from "rxjs";
@@ -13,6 +16,7 @@ import { Vector3 } from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../environments/environment";
 import { routes } from "../../../app.routes";
+import type { WidgetCallback } from "../services/cache-widgets.service";
 import { WidgetLiveModelsService } from "./details/widget-live-models.service";
 import { groupWidgetModelDraws, widgetModelCamera, type WidgetModelDraw } from "./details/widget-model-scene";
 
@@ -28,7 +32,7 @@ const entries = Array.from({ length: 26 }, (_, index) => ({
         { childId: 2, index: 0 },
     ],
 }));
-const archiveUrl = (id: number) => `${environment.cacheApiUrl}indexes/3/files/${id}/archive`;
+const archiveUrl = (id: number) => `${environment.cacheApiUrl}widgets/${id}/components`;
 
 function component(type: number, parent: number, data: number[]) {
     const header = [255, type, 0, 0, 0, 10, 0, 15, 0, 80, 0, 40, 0, 0, 0, 0, parent >> 8, parent & 255, 0];
@@ -37,16 +41,22 @@ function component(type: number, parent: number, data: number[]) {
 
 const archive = {
     entries: [
-        { subFileId: 0, dataBase64: component(0, 65535, [0, 0, 0, 0, 0]) },
-        { subFileId: 1, dataBase64: component(3, 2, [0, 0, 128, 255, 1, 0]) },
+        { subFileId: 0, dataBase64: component(0, 65535, [0, 0, 0, 0, 0]), callbacks: null as WidgetCallback[] | null },
+        { subFileId: 1, dataBase64: component(3, 2, [0, 0, 128, 255, 1, 0]), callbacks: null as WidgetCallback[] | null },
     ],
 };
+
+@Component({ template: "" })
+class Cs2RouteBoundary {}
 
 describe("Widget browser", () => {
     beforeEach(() => {
         if (!widgetRoute) throw new Error("Widgets route is missing");
         TestBed.configureTestingModule({
-            providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: "cache", children: [widgetRoute] }])],
+            providers: [
+                provideHttpClient(), provideHttpClientTesting(), provideLocationMocks(),
+                provideRouter([{ path: "cache", children: [widgetRoute, { path: "types/cs2/:id", component: Cs2RouteBoundary }] }]),
+            ],
         });
     });
 
@@ -102,7 +112,132 @@ describe("Widget browser", () => {
 
     it("shows a missing-widget message for a direct URL to a gap in the cache", async () => {
         const harness = await open("/cache/widgets/1");
-        expect(harness.fixture.nativeElement.textContent).toContain("Widget not found.");
+        expect(harness.fixture.nativeElement.textContent).toContain("Widget 1 not found.");
+    });
+
+    it("applies open and click effects and preserves them after a filtered manual callback", async () => {
+        const harness = await open("/cache/widgets/0?component=9");
+        await loadArchive(0, harness, {
+            entries: [archive.entries[0], { ...archive.entries[1], callbacks: [
+                { event: "CS2 integer changed", scriptId: 279, args: [], triggers: [1971] },
+                { event: "Mouse pressed", scriptId: 279, args: [], triggers: [] },
+                { event: "Mouse released", scriptId: 279, args: [], triggers: [] },
+            ] }],
+        });
+        const root = harness.fixture.nativeElement as HTMLElement;
+        const http = TestBed.inject(HttpTestingController);
+        const url = `${environment.cacheApiUrl}widgets/0/program`;
+        const button = (label: string) => root.querySelector<HTMLButtonElement>(`.preview-toolbar button[aria-label="${label}"]`)!;
+        expect(root.querySelector(".preview-toolbar > button:last-child")).toBe(button("Play preview"));
+        button("Play preview").click();
+        const opening = http.expectOne(url);
+        expect(opening.request.method).toBe("GET");
+        const callback = (event: string, scriptId: number, triggers: number[] = []) => ({ event, scriptId, args: [], triggers });
+        const program = (id: number, x: number) => ({
+            id, arguments: [0, 0, 0], locals: [0, 0, 0], switches: [],
+            instructions: [x, 15, 0, 0].map(value => ({ operation: "pushInt", operand: String(value) }))
+                .concat({ operation: "setContextPosition", operand: "0" }, { operation: "return", operand: "0" }),
+        });
+        opening.flush({ version: 1, bindings: [{ component: 9, callbacks: [
+            callback("Open", 1), callback("Mouse pressed", 2), callback("Mouse released", 3), callback("CS2 integer changed", 4, [1971]),
+        ] }], programs: [program(1, 20), program(2, 25), program(3, 30), program(4, 35)] });
+        harness.detectChanges();
+        const layer = () => root.querySelector<HTMLButtonElement>('[aria-label="Activate Rectangle (9)"]')!;
+        expect(layer().classList.contains("inspect-layer")).toBe(false);
+        expect(layer().classList.contains("selected")).toBe(false);
+        expect(layer().style.left).toBe("30px");
+        layer().dispatchEvent(new MouseEvent("pointerdown", { button: 0 }));
+        harness.detectChanges();
+        expect(layer().style.left).toBe("35px");
+        layer().dispatchEvent(new MouseEvent("pointerup", { button: 0 }));
+        harness.detectChanges();
+        expect(layer().style.left).toBe("40px");
+        http.expectNone(request => request.method === "POST");
+        const inspector = await TestbedHarnessEnvironment.loader(harness.fixture).getHarness(MatTabGroupHarness.with({ selector: ".inspector-panel mat-tab-group" }));
+        root.querySelector<HTMLButtonElement>('[data-tree-component="9"] .tree-label')!.click();
+        harness.detectChanges();
+        await inspector.selectTab({ label: "Logic" });
+        await vi.waitFor(() => expect(root.querySelector('input[aria-label="Trigger ID"]')).not.toBeNull());
+        const trigger = root.querySelector<HTMLInputElement>('input[aria-label="Trigger ID"]')!;
+        trigger.value = "7";
+        trigger.form!.dispatchEvent(new Event("submit", { cancelable: true }));
+        harness.detectChanges();
+        expect(root.textContent).toContain("trigger did not match.");
+        expect(layer().style.left).toBe("40px");
+        trigger.value = "1971";
+        trigger.form!.dispatchEvent(new Event("submit", { cancelable: true }));
+        harness.detectChanges();
+        expect(layer().style.left).toBe("45px");
+        http.expectNone(request => request.method === "POST");
+        button("Stop preview").click();
+        harness.detectChanges();
+        const inspectionLayer = root.querySelector<HTMLButtonElement>('[aria-label="Select Rectangle (9)"]');
+        expect(inspectionLayer?.style.left).toBe("20px");
+        expect(inspectionLayer?.classList.contains("inspect-layer")).toBe(true);
+        button("Play preview").click();
+        const departed = http.expectOne(url);
+        await harness.navigateByUrl("/cache/widgets/2");
+        await loadArchive(2, harness);
+        expect(departed.cancelled).toBe(true);
+    });
+
+    it("selects linked components and restores their highlighting on browser Back", async () => {
+        const harness = await open("/cache/widgets/0?component=9");
+        await loadArchive(0, harness);
+        const root = harness.fixture.nativeElement as HTMLElement;
+        expect(root.querySelector('button[aria-label="Select Rectangle (9)"]')?.getAttribute("aria-pressed")).toBe("true");
+        expect(root.querySelector('[data-tree-component="9"].selected')).not.toBeNull();
+
+        await harness.navigateByUrl("/cache/widgets/0?component=2");
+        expect(root.querySelector('[data-tree-component="2"].selected')).not.toBeNull();
+        await harness.navigateByUrl("/cache/widgets/0?component=111");
+        expect(root.textContent).toContain("Component 111 not found.");
+        expect(root.querySelector(".tree-row.selected")).toBeNull();
+        expect(root.querySelector('a[href="/cache/widgets"]')).not.toBeNull();
+        TestBed.inject(HttpTestingController).expectNone(archiveUrl(0));
+
+        TestBed.inject(Router).setUpLocationChangeListener();
+        TestBed.inject(Location).back();
+        await vi.waitFor(() => {
+            harness.detectChanges();
+            expect(TestBed.inject(Router).url).toBe("/cache/widgets/0?component=2");
+            expect(root.querySelector('[data-tree-component="2"].selected')).not.toBeNull();
+        });
+    });
+
+    it.each([false, true])("inspects callbacks and follows the script link (complete second tail: %s)", async (complete) => {
+        const harness = await open("/cache/widgets/0");
+        await loadArchive(0, harness, {
+            entries: [
+                { ...archive.entries[0], callbacks: [
+                    { event: "Open", scriptId: 4213, args: [{ type: "int", value: -2147483645 }], triggers: [] },
+                    { event: "Context menu clicked", scriptId: 5125, args: [], triggers: [] },
+                ] },
+                { ...archive.entries[1], callbacks: complete ? [] : null },
+            ],
+        });
+        const root = harness.fixture.nativeElement as HTMLElement;
+        const select = (id: number) => {
+            root.querySelector<HTMLButtonElement>(`[data-tree-component="${id}"] .tree-label`)!.click();
+            harness.detectChanges();
+        };
+        select(2);
+        const inspector = await TestbedHarnessEnvironment.loader(harness.fixture).getHarness(MatTabGroupHarness.with({ selector: ".inspector-panel mat-tab-group" }));
+        await inspector.selectTab({ label: "Logic" });
+        await vi.waitFor(() => {
+            harness.detectChanges();
+            expect(root.querySelector('[aria-label="CS2 callbacks"]')).not.toBeNull();
+        });
+        const section = root.querySelector('[aria-label="CS2 callbacks"]')!;
+        expect([...section.querySelectorAll("a")].map((link) => link.textContent?.trim())).toEqual(["Script 4213", "Script 5125"]);
+        expect(section.textContent).toContain("-2147483645");
+        select(9);
+        expect(root.querySelector('[aria-label="CS2 callbacks"]')?.textContent).toContain(
+            complete ? "No cached callbacks." : "Callback metadata is unavailable."
+        );
+        select(2);
+        root.querySelector<HTMLAnchorElement>('a[href="/cache/types/cs2/4213"]')?.click();
+        await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe("/cache/types/cs2/4213"));
     });
 
     it("lets users change items per page and preserves that choice through widget details", async () => {
@@ -129,8 +264,8 @@ describe("Widget browser", () => {
         root.querySelector<HTMLAnchorElement>('a[aria-label="Inspect widget 0"]')?.click();
         await loadArchive(0, harness, {
             entries: [
-                { subFileId: 0, dataBase64: model },
-                { subFileId: 1, dataBase64: model },
+                { subFileId: 0, dataBase64: model, callbacks: null },
+                { subFileId: 1, dataBase64: model, callbacks: null },
             ],
         });
         const http = TestBed.inject(HttpTestingController);
@@ -160,8 +295,8 @@ describe("Widget browser", () => {
         root.querySelector<HTMLAnchorElement>('a[aria-label="Inspect widget 0"]')?.click();
         await loadArchive(0, harness, {
             entries: [
-                { subFileId: 0, dataBase64: model },
-                { subFileId: 1, dataBase64: model },
+                { subFileId: 0, dataBase64: model, callbacks: null },
+                { subFileId: 1, dataBase64: model, callbacks: null },
             ],
         });
         const http = TestBed.inject(HttpTestingController);

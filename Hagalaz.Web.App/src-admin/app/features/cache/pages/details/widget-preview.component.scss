@@ -34,10 +34,13 @@
 .preview-size { position: relative; overflow: hidden; }
 .preview-art { position: absolute; transform-origin: top left; }
 .preview-layer { position: absolute; display: block; padding: 0; border: 0; background: transparent; }
+.preview-layer.preview-pass-through { pointer-events: none; }
+.preview-layer.preview-action:enabled { cursor: pointer; }
+.preview-status { margin: 0; padding: 0.5rem 1rem; }
 .preview-layer.bounds { outline: 1px dashed var(--workspace-muted); outline-offset: -1px; }
 .preview-layer.selected { outline: 2px solid var(--workspace-accent); outline-offset: -2px; }
 .preview-layer.selected::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--workspace-accent); pointer-events: none; }
-.preview-layer:hover:enabled { box-shadow: inset 0 0 0 1px var(--workspace-accent); }
+.inspect-layer:hover:enabled { box-shadow: inset 0 0 0 1px var(--workspace-accent); }
 .layer-appearance { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; }
 .widget-rectangle { display: block; width: 100%; height: 100%; border: 1px solid currentColor; }
 .widget-rectangle.filled, .widget-line { background: currentColor; }

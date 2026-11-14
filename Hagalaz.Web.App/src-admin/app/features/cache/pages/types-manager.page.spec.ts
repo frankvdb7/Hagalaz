@@ -303,6 +303,42 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(router.url).toContain("offset=10");
         expect(router.url).toContain("limit=10");
     });
+    it.each(["row", "lookup"])("opens CS2 script details by %s from a paginated tab", async (method) => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=cs2&offset=10&limit=10");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        http.expectOne(`${baseUrl}archive-sizes`).flush({ cs2: 23 });
+        TestBed.tick();
+        await vi.waitFor(() => {
+            const request = http.expectOne((r) => r.url === `${baseUrl}cs2/range`);
+            expect(request.request.params.get("startId")).toBe("10");
+            expect(request.request.params.get("endIdExclusive")).toBe("20");
+            request.flush([{ id: 12, name: "Widget action", opcodeCount: 61 }]);
+        });
+        await stable();
+        fixture.detectChanges();
+        const element = fixture.nativeElement as HTMLElement;
+        expect(element.querySelector(".mat-column-opcodeCount")?.textContent).toContain("Instructions");
+        expect(element.querySelector("td.mat-column-opcodeCount")?.textContent).toContain("61");
+        expect(element.querySelector("td.mat-column-name")?.textContent).toContain("Widget action");
+
+        if (method === "row") {
+            const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness);
+            await menu.open();
+            const [inspect] = await menu.getItems();
+            expect(await inspect.getText()).toContain("Inspect script");
+            await inspect.click();
+        } else {
+            const page = fixture.componentInstance;
+            page.searchForm.query().value.set("12");
+            await page.browse();
+        }
+        await stable();
+        expect(router.url).toContain("/cache/types/cs2/12?");
+        expect(router.url).toContain("offset=10");
+    });
+
     it("pages ID ranges without gaps and caps the final range", async () => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
