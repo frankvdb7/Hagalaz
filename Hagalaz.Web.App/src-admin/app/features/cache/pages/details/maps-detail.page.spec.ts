@@ -432,6 +432,27 @@ describe("MapsDetailPageComponent", () => {
             http.expectOne(`${base}258/render`).flush({ ...region(258), terrainStatus: "available", planes: planes() });
         });
 
+        it("turns the brush off and ignores strokes while a save writes the draft", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            vi.spyOn(TestBed.inject(MatDialog), "open").mockReturnValue({ afterClosed: () => of(true) } as MatDialogRef<unknown>);
+            page.chooseTool("terrain");
+            flushFloors();
+            viewport.brushStroke.emit([{ x: 512, z: 512 }]);
+            const saved = page.edits();
+            const saving = page.saveChanges();
+            const request = await vi.waitFor(() => http.expectOne(`${base}258/terrain`));
+            harness.detectChanges();
+
+            expect(viewport.brushActive()).toBe(false);
+            viewport.brushStroke.emit([{ x: 2048, z: 2048 }]);
+            expect(page.edits()).toBe(saved);
+
+            request.flush({ detail: "Terrain is corrupt." }, { status: 422, statusText: "Unprocessable" });
+            await saving;
+            harness.detectChanges();
+            expect(viewport.brushActive()).toBe(true);
+        });
+
         it("previews a stroke while dragging and hands over to the edit on release", async () => {
             const { harness, page, viewport } = await loadTerrain();
             viewport.brushPreview.emit([{ x: 512, z: 512 }]);
@@ -583,6 +604,35 @@ describe("MapsDetailPageComponent", () => {
 
             request.flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
             await saving;
+        });
+
+        it("keeps the draft as saved while a save writes it, then allows editing again", async () => {
+            const { harness, page, viewport } = await loadRegion();
+            answer(true);
+            const placement = page.store.regions()[0].objects[0];
+            page.changeTransform("x", 5);
+            const saved = page.edits();
+            const saving = page.saveChanges();
+            const request = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+            harness.detectChanges();
+
+            // Each of these would be cleared, unsaved, by the reload that follows a successful save.
+            page.changeTransform("y", 7);
+            page.applyObjectGizmo({ x: 9, y: 9, plane: 0, turns: 1, scale: 1 });
+            page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
+            page.placeDroppedObject({ id: 99, x: 512, z: 512 });
+            page.removePlacement(placement);
+            expect(viewport.canUndo()).toBe(false);
+            page.undo();
+            expect(page.edits()).toBe(saved);
+
+            request.flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
+            await saving;
+            harness.detectChanges();
+            expect(viewport.canUndo()).toBe(true);
+            page.selectedObject.set({ regionId: 258, placement, startVertex: 0, endVertex: 0 });
+            page.changeTransform("y", 7);
+            expect(page.edits()?.transforms.get(placement)).toMatchObject({ x: 5, y: 7 });
         });
 
         it("shows the save as a pending state in the viewport", async () => {

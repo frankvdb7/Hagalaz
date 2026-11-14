@@ -115,7 +115,7 @@ export class MapsDetailPageComponent {
     readonly snap = signal(1);
     readonly edits = linkedSignal<MapSceneDraft | undefined>(() => { this.selectionKey(); return undefined; });
     private readonly editHistory = linkedSignal<readonly (MapSceneDraft | undefined)[]>(() => { this.selectionKey(); return []; });
-    readonly canUndo = computed(() => this.editHistory().length > 0);
+    readonly canUndo = computed(() => this.editHistory().length > 0 && !this.store.saving());
     private readonly terrainEdits = computed(() => this.edits()?.terrain);
     private readonly floorCatalog = computed(() => new Map(this.store.floors().map(floor => [floorKey(floor.overlay, floor.id), floor])));
     /** What the scene draws; the store keeps the regions as stored. */
@@ -402,7 +402,9 @@ export class MapsDetailPageComponent {
             return { ...draft, transforms, additions: draft?.additions ?? [] };
         });
     }
+    // A finished save reloads the regions and clears the whole draft, so the draft stays as saved until then.
     private commitEdit(change: (draft: MapSceneDraft | undefined) => MapSceneDraft): void {
+        if (this.store.saving()) return;
         const draft = this.edits();
         this.editHistory.update(history => [...history, draft]);
         this.edits.set(change(draft));
@@ -456,7 +458,7 @@ export class MapsDetailPageComponent {
     }
     undo(): void {
         const history = this.editHistory();
-        if (!history.length) return;
+        if (!this.canUndo()) return;
         const selected = this.selectedObject()?.placement;
         this.pendingSelection.set(null);
         this.editHistory.set(history.slice(0, -1));
