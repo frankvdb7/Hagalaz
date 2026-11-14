@@ -9,7 +9,7 @@ namespace Hagalaz.Cache.Abstractions
     /// </summary>
     /// <remarks>
     /// Same-instance writes are serialized with single-member reads and reference-table lookups. <see cref="ReplaceArchiveMember"/>
-    /// keeps that boundary across the archive read, rebuild, and write. This does not make
+    /// and <see cref="UpdateContainer"/> keep that boundary across the read, rebuild, and write. This does not make
     /// <see cref="ReadArchive(int, int)"/>, <see cref="ReadContainer(int, int)"/>, or composed range and inspection
     /// workflows atomic with concurrent writes; they do not hold that exclusion across their complete read and decode sequence.
     /// Callers that require operation-wide consistency must coordinate those operations separately.
@@ -98,6 +98,18 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="container">The container holding the data to be written.</param>
         /// <exception cref="IOException">Thrown if the archive has no existing reference-table entry.</exception>
         void Write(int indexId, int fileId, IContainer container);
+
+        /// <summary>
+        /// Reads a file and writes the container <paramref name="change"/> builds from it, holding the cache's write boundary across
+        /// the read, change and write. Use it whenever a write is derived from the file's current contents, so that concurrent
+        /// changes are not lost.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index containing the file.</param>
+        /// <param name="fileId">The identifier of the file; its reference-table entry must already exist.</param>
+        /// <param name="change">Builds the replacement from the current container, or returns <c>null</c> to leave the file as stored.
+        /// It runs under the write boundary, so it must not call back into this cache.</param>
+        /// <returns><c>true</c> when a replacement was written.</returns>
+        bool UpdateContainer(int indexId, int fileId, global::System.Func<IContainer, IContainer?> change);
 
         /// <summary>
         /// Replaces one member of an archive and persists the rebuilt archive while holding the cache's write boundary.

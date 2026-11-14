@@ -86,6 +86,8 @@ public class ReferenceTableEndpointsTests
 
         public void Write(int indexId, int fileId, IContainer container) => throw new NotSupportedException();
 
+        public bool UpdateContainer(int indexId, int fileId, Func<IContainer, IContainer?> change) => throw new NotSupportedException();
+
         public (int FileId, int EntryId) AppendArchiveMemberCopy(int indexId, int sourceFileId, int sourceEntryId, int archiveMemberLimit) => throw new NotSupportedException();
 
         public void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.ReadOnlyMemory<byte> replacement) => throw new NotSupportedException();

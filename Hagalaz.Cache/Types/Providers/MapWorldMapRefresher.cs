@@ -44,10 +44,29 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
         var file = cache.GetFileId(WorldMapIndex, MainArea);
         if (file < 0) return new([], [], ids.Select(id => new MapWorldMapSkip(id, NotOnMap)).ToArray());
 
-        using var current = cache.ReadContainer(WorldMapIndex, file);
+        // Region files are read first: the cache's write lock below cannot be held while reading through the cache.
+        var parts = ReadMainParts();
+        var generated = new Dictionary<int, WorldMapTile[]?>();
+        foreach (var id in ids)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (FindPart(id, parts) is not null) generated[id] = Generate(id, cancellationToken);
+        }
+
+        // Every refresh rewrites the same `main` file, so it is read, patched and written under one cache write lock.
+        MapWorldMapRefreshResult? result = null;
+        cache.UpdateContainer(WorldMapIndex, file, current =>
+        {
+            (result, var updated) = Merge(ids, parts, generated, current);
+            return updated;
+        });
+        return result!;
+    }
+
+    private static (MapWorldMapRefreshResult Result, Container? Updated) Merge(int[] ids, IReadOnlyList<WorldMapAreaPart> parts, Dictionary<int, WorldMapTile[]?> generated, IContainer current)
+    {
         var stored = current.Data.ToArray();
         var area = WorldMapAreaCodec.Read(stored);
-        var parts = ReadMainParts();
         var blocks = area.Blocks.Where(block => block.Kind == 0).ToDictionary(block => (block.RegionX, block.RegionY));
         var skipped = new List<MapWorldMapSkip>();
         var unchanged = new List<int>();
@@ -55,15 +74,14 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
         var refreshed = new List<int>();
         foreach (var id in ids)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             if (FindBlock(id, parts, blocks) is not { } block) { skipped.Add(new(id, NotOnMap)); continue; }
-            if (Generate(id, cancellationToken) is not { } tiles) { skipped.Add(new(id, "Region's map files could not be read.")); continue; }
+            if (generated.GetValueOrDefault(id) is not { } tiles) { skipped.Add(new(id, "Region's map files could not be read.")); continue; }
             if (SameTiles(WorldMapAreaCodec.DecodeRegion(stored, area, block), tiles)) { unchanged.Add(id); continue; }
             replacements[block] = tiles;
             refreshed.Add(id);
         }
-        if (replacements.Count > 0) Write(file, current.CompressionType, stored, area, replacements);
-        return new(refreshed, unchanged, skipped);
+        var updated = replacements.Count > 0 ? Patch(current.CompressionType, stored, area, replacements) : null;
+        return (new(refreshed, unchanged, skipped), updated);
     }
 
     private IReadOnlyList<WorldMapAreaPart> ReadMainParts()
@@ -80,11 +98,13 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
     // Blocks are stored at display coordinates; each part says where its tiles really are.
     private static WorldMapBlock? FindBlock(int id, IReadOnlyList<WorldMapAreaPart> parts, Dictionary<(int, int), WorldMapBlock> blocks)
     {
+        if (FindPart(id, parts) is not { } part) return null;
         var (x, y) = (id >> 8, id & 255);
-        var part = parts.FirstOrDefault(candidate => candidate.ContainsReal(x * 64, y * 64));
-        if (part is null) return null;
         return blocks.GetValueOrDefault((x + (part.DisplayMinX - part.MinX) / 64, y + (part.DisplayMinY - part.MinY) / 64));
     }
+
+    private static WorldMapAreaPart? FindPart(int id, IReadOnlyList<WorldMapAreaPart> parts) =>
+        parts.FirstOrDefault(candidate => candidate.ContainsReal((id >> 8) * 64, (id & 255) * 64));
 
     private WorldMapTile[]? Generate(int id, CancellationToken cancellationToken)
     {
@@ -109,13 +129,11 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
         return MapRenderDecoder.DecodeLandscape(landscape.Data, cancellationToken);
     }
 
-    private void Write(int file, CompressionType compression, byte[] stored, WorldMapAreaFile area, Dictionary<WorldMapBlock, WorldMapTile[]> replacements)
+    private static Container Patch(CompressionType compression, byte[] stored, WorldMapAreaFile area, Dictionary<WorldMapBlock, WorldMapTile[]> replacements)
     {
         var patched = WorldMapAreaCodec.ReplaceRegions(stored, area, replacements);
         if (!PatchIsExact(stored, area, patched, replacements)) throw new InvalidOperationException("The world map did not survive patching.");
-        using var data = new MemoryStream(patched);
-        using var container = new Container(compression, data);
-        cache.Write(WorldMapIndex, file, container);
+        return new Container(compression, new MemoryStream(patched));
     }
 
     private static bool PatchIsExact(byte[] stored, WorldMapAreaFile area, byte[] patched, Dictionary<WorldMapBlock, WorldMapTile[]> replacements)
