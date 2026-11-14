@@ -599,59 +599,31 @@ public sealed class CacheApiSnapshotTests
     }
 
     [Fact]
-    public async Task UpdateContainer_ConcurrentChangesToOneFileBothSurvive()
-    {
-        using var fixture = new CacheApiFixture();
-        fixture.SetArchive(5, 1, [0, 0], 1);
-        fixture.WriteAction = (indexId, archiveId, container) => fixture.SetArchive(indexId, archiveId, container.Data.ToArray(), 1);
-        using var firstChangeRead = new ManualResetEventSlim();
-        using var releaseFirstChange = new ManualResetEventSlim();
-        using var secondChangeRead = new ManualResetEventSlim();
-
-        var first = StartLongRunning(() => fixture.Cache.UpdateContainer(5, 1, current =>
-        {
-            firstChangeRead.Set();
-            if (!releaseFirstChange.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException("The test did not release the first change.");
-            return SetByte(current, 0, 7);
-        }));
-        Assert.True(firstChangeRead.Wait(TimeSpan.FromSeconds(10)));
-        var second = StartLongRunning(() => fixture.Cache.UpdateContainer(5, 1, current =>
-        {
-            secondChangeRead.Set();
-            return SetByte(current, 1, 9);
-        }));
-        try
-        {
-            Assert.False(secondChangeRead.Wait(TimeSpan.FromMilliseconds(200)));
-        }
-        finally
-        {
-            releaseFirstChange.Set();
-        }
-
-        Assert.Equal(new[] { true, true }, await Task.WhenAll(first, second));
-        Assert.Equal(new byte[] { 7, 9 }, fixture.GetStoredBytes(5, 1));
-
-        static Container SetByte(IContainer current, int position, byte value)
-        {
-            var bytes = current.Data.ToArray();
-            bytes[position] = value;
-            return new Container(new MemoryStream(bytes));
-        }
-    }
-
-    [Fact]
-    public void UpdateContainer_WritesNothingWhenChangeReturnsNull()
+    public void TryReplaceContainer_WritesWhenTheFileStillHoldsTheExpectedData()
     {
         using var fixture = new CacheApiFixture();
         fixture.SetArchive(5, 1, [1, 2], 1);
+        fixture.WriteAction = (indexId, archiveId, container) => fixture.SetArchive(indexId, archiveId, container.Data.ToArray(), 1);
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.True(fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
+
+        Assert.Equal(new byte[] { 7, 9 }, fixture.GetStoredBytes(5, 1));
+    }
+
+    [Fact]
+    public void TryReplaceContainer_WritesNothingWhenAnotherWriteChangedTheFile()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 3], 1);
         var writes = 0;
         fixture.WriteAction = (_, _, _) => writes++;
+        using var replacement = new Container(new MemoryStream([7, 9]));
 
-        Assert.False(fixture.Cache.UpdateContainer(5, 1, _ => null));
+        Assert.False(fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
 
         Assert.Equal(0, writes);
-        Assert.Equal(new byte[] { 1, 2 }, fixture.GetStoredBytes(5, 1));
+        Assert.Equal(new byte[] { 1, 3 }, fixture.GetStoredBytes(5, 1));
     }
 
     private static Task<T> StartLongRunning<T>(Func<T> action) => Task.Factory.StartNew(

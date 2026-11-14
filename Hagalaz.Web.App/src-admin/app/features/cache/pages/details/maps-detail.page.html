@@ -7,7 +7,7 @@
         <div class="region-browser">
             <mat-card appearance="outlined" class="scene-panel"><section class="contents" aria-label="Scene">
                 <cache-map-scene-panel [loading]="store.loading()" [regions]="store.regions()" [placements]="sourcePlacements()" [names]="objectNames()" [selected]="selectedObject()?.placement"
-                    [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" (placementRemoved)="removePlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
+                    [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" [editable]="editable()" (placementRemoved)="removePlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
             </section></mat-card>
             <mat-card appearance="outlined" class="asset-panel"><section class="contents" aria-label="Scene assets">
                 <cache-map-asset-panel [active]="store.regions().length > 0" [(selectedAsset)]="selectedAsset" />
@@ -15,7 +15,7 @@
         </div>
         <mat-card appearance="outlined" class="region-view">
             <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
-                [brushActive]="editTool() === 'terrain' && !store.saving()" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [hoveredTile]="hoveredTile()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
+                [brushActive]="editTool() === 'terrain' && editable()" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [hoveredTile]="hoveredTile()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
                 [objectTransform]="objectTransform()" [selectTerrainTiles]="editTool() === 'select'" (tilePick)="selectTile($event)" [selectedTileOutline]="selectedTileOutline()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
                 <div mapEditTools class="edit-toolbar map-edit-toolbar">
                     @for (tool of editTools; track tool.id) {
@@ -58,7 +58,7 @@
                     @if (selectedObject(); as selected) {
                         <cache-map-object-inspector [selection]="selected" [objectName]="objectNames().get(selected.placement.id)"
                             [objectModels]="objectModels()" [objectTransform]="objectTransform()" [objectProperties]="objectProperties()"
-                            [definitionFailed]="!!objectDefinition.error()" [editTool]="editTool()" [positionBase]="positionBase()" [snap]="snap()"
+                            [definitionFailed]="!!objectDefinition.error()" [editTool]="editTool()" [positionBase]="positionBase()" [snap]="snap()" [editable]="editable()"
                             [(positionMode)]="positionMode" (transformChange)="changeTransform($event.field, $event.value)" (clearSelection)="selectObject(null)" />
                     } @else if (inspectorDetails()) {
                         <cache-map-region-details [details]="inspectorDetails() ?? []" />

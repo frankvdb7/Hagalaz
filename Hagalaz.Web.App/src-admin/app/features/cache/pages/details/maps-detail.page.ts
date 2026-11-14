@@ -111,11 +111,13 @@ export class MapsDetailPageComponent {
         { id: "scale", label: "Scale", icon: "fit_screen" },
         { id: "terrain", label: "Terrain", icon: "landscape" },
     ] as const;
-    readonly gizmoMode = computed(() => gizmoModes[this.editTool()] ?? null);
+    readonly gizmoMode = computed(() => this.editable() ? gizmoModes[this.editTool()] ?? null : null);
     readonly snap = signal(1);
     readonly edits = linkedSignal<MapSceneDraft | undefined>(() => { this.selectionKey(); return undefined; });
     private readonly editHistory = linkedSignal<readonly (MapSceneDraft | undefined)[]>(() => { this.selectionKey(); return []; });
-    readonly canUndo = computed(() => this.editHistory().length > 0 && !this.store.saving());
+    /** A finished save reloads the regions and clears the whole draft, so the draft stays as saved until then. */
+    readonly editable = computed(() => !this.store.saving());
+    readonly canUndo = computed(() => this.editHistory().length > 0 && this.editable());
     private readonly terrainEdits = computed(() => this.edits()?.terrain);
     private readonly floorCatalog = computed(() => new Map(this.store.floors().map(floor => [floorKey(floor.overlay, floor.id), floor])));
     /** What the scene draws; the store keeps the regions as stored. */
@@ -386,45 +388,44 @@ export class MapsDetailPageComponent {
         if (!selected || !current || !Number.isFinite(value)) return;
         const { min, max, step } = transformLimits(field, this.snap());
         const next = Math.min(max, Math.max(min, Math.round(value / step) * step));
-        if (field === "plane" && !this.planes()[next]) this.togglePlane(next, true);
-        if (next !== current[field]) this.setObjectDraft(selected, { ...current, [field]: next });
+        if (next !== current[field] && this.setObjectDraft(selected, { ...current, [field]: next }) && field === "plane") this.showPlane(next);
     }
     applyObjectGizmo({ x, y, plane, turns, scale }: PlacementGizmoResult): void {
         const selected = this.selectedObject(), current = this.objectTransform();
         if (!selected || !current) return;
-        if (plane !== current.plane && !this.planes()[plane]) this.togglePlane(plane, true);
-        this.setObjectDraft(selected, { ...current, x, y, plane, rotation: (current.rotation + turns) % 4, scale });
+        if (this.setObjectDraft(selected, { ...current, x, y, plane, rotation: (current.rotation + turns) % 4, scale })) this.showPlane(plane);
     }
-    private setObjectDraft({ placement }: Pick<MapObjectRange, "placement">, transform: MapObjectTransform | null): void {
-        this.commitEdit(draft => {
+    private setObjectDraft({ placement }: Pick<MapObjectRange, "placement">, transform: MapObjectTransform | null): boolean {
+        return this.commitEdit(draft => {
             const transforms = new Map(draft?.transforms);
             transforms.set(placement, transform);
             return { ...draft, transforms, additions: draft?.additions ?? [] };
         });
     }
-    // A finished save reloads the regions and clears the whole draft, so the draft stays as saved until then.
-    private commitEdit(change: (draft: MapSceneDraft | undefined) => MapSceneDraft): void {
-        if (this.store.saving()) return;
+    /** Records an edit unless the draft is being saved; callers apply the edit's view changes only when it was recorded. */
+    private commitEdit(change: (draft: MapSceneDraft | undefined) => MapSceneDraft): boolean {
+        if (!this.editable()) return false;
         const draft = this.edits();
         this.editHistory.update(history => [...history, draft]);
         this.edits.set(change(draft));
+        return true;
     }
     private placeCatalogObject(asset: ObjectCatalogEntry, regionId: number, x: number, y: number): void {
         if (asset.shape === null) return;
         const plane = this.dropPlane();
         const placement = { id: asset.id, shape: asset.shape, rotation: 0, x, y, plane };
-        if (!this.planes()[plane]) this.togglePlane(plane, true);
-        this.landscape.set(true);
-        this.commitEdit(draft => ({
+        const added = this.commitEdit(draft => ({
             ...draft,
             transforms: draft?.transforms ?? new Map(),
             additions: [...draft?.additions ?? [], { regionId, placement }],
         }));
+        if (!added) return;
+        this.showPlane(plane);
+        this.landscape.set(true);
         this.pendingSelection.set(placement);
     }
     removePlacement(placement: MapPlacement): void {
-        this.setObjectDraft({ placement }, null);
-        if (this.selectedObject()?.placement === placement) this.selectObject(null);
+        if (this.setObjectDraft({ placement }, null) && this.selectedObject()?.placement === placement) this.selectObject(null);
     }
     resetEdits(): void {
         this.pendingSelection.set(null);
@@ -475,6 +476,7 @@ export class MapsDetailPageComponent {
         this.store.load({ ...this.selection(), keys: {} });
     }
     togglePlane(plane: number, checked: boolean): void { this.planes.update(planes => planes.map((value, index) => index === plane ? checked : value)); }
+    private showPlane(plane: number): void { if (!this.planes()[plane]) this.togglePlane(plane, true); }
 }
 
 const gizmoModes: Partial<Record<"select" | "move" | "rotate" | "scale" | "terrain", PlacementGizmoMode>> = { move: "translate", rotate: "rotate", scale: "scale" };

@@ -26,6 +26,8 @@ export class MapObjectInspectorComponent {
     readonly editTool = input.required<string>();
     readonly positionBase = input.required<{ x: number; y: number }>();
     readonly snap = input.required<number>();
+    /** Whether the transform can be changed; off while a save writes the draft. */
+    readonly editable = input(true);
     readonly positionMode = model.required<"tile" | "world">();
     readonly transformChange = output<{ field: keyof MapObjectTransform; value: number }>();
     readonly clearSelection = output<void>();

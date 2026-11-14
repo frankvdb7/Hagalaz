@@ -635,6 +635,41 @@ describe("MapsDetailPageComponent", () => {
             expect(page.edits()?.transforms.get(placement)).toMatchObject({ x: 5, y: 7 });
         });
 
+        it("locks the edit controls and leaves the view alone for edits ignored during a save", async () => {
+            const { harness, page, viewport } = await loadRegion();
+            answer(true);
+            page.chooseTool("move");
+            page.changeTransform("x", 5);
+            harness.detectChanges();
+            expect(viewport.gizmoMode()).toBe("translate");
+            const saving = page.saveChanges();
+            const request = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+            harness.detectChanges();
+
+            expect(viewport.gizmoMode()).toBeNull();
+            const scenePanel = required(harness.routeDebugElement, "the routed page").query(By.directive(MapScenePanelComponent)).componentInstance as MapScenePanelComponent;
+            expect(page.editable()).toBe(false);
+            expect(scenePanel.editable()).toBe(false);
+            const placement = page.store.regions()[0].objects[0];
+            const selected = { regionId: 258, placement, startVertex: 0, endVertex: 0 };
+            page.selectedObject.set(selected);
+            page.landscape.set(false);
+            page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
+            page.placeDroppedObject({ id: 99, x: 512, z: 512 });
+            page.changeTransform("plane", 2);
+            page.removePlacement(placement);
+            expect(page.landscape()).toBe(false);
+            expect(page.planes()).toEqual([true, false, false, false]);
+            expect(page.selectedObject()).toBe(selected);
+
+            request.flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
+            await saving;
+            harness.detectChanges();
+            expect(viewport.gizmoMode()).toBe("translate");
+            expect(page.editable()).toBe(true);
+            expect(scenePanel.editable()).toBe(true);
+        });
+
         it("shows the save as a pending state in the viewport", async () => {
             const { harness, page } = await loadRegion();
             answer(true);

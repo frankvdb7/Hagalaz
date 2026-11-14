@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Hagalaz.Cache.Abstractions;
+using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 
@@ -19,28 +20,33 @@ public sealed class MapTerrainWriter(ICacheAPI cache)
         var file = cache.GetFileId(MapsIndex, $"m{regionId >> 8}_{regionId & 255}");
         if (file < 0) return MapArchiveUpdateResult.Absent;
 
-        // Read, patch and write under one cache write lock, so a concurrent change to another tile is never overwritten.
-        var decoding = true;
-        try
+        // Patched without holding the cache, then written only if no other change landed on the file meanwhile.
+        while (true)
         {
-            cache.UpdateContainer(MapsIndex, file, current =>
+            byte[] stored;
+            CompressionType compression;
+            TerrainRenderPlane[] before;
+            try
             {
-                var stored = current.Data.ToArray();
-                var before = Decode(stored, regionId, cancellationToken);
-                decoding = false;
-                var patched = MapTerrainPatcher.Patch(stored, changes);
-                if (patched.AsSpan().SequenceEqual(stored)) return null;
-                if (!PatchIsExact(stored, patched, before, Decode(patched, regionId, cancellationToken), changes))
-                    throw new InvalidOperationException($"Region {regionId} terrain did not survive patching.");
-                cancellationToken.ThrowIfCancellationRequested();
-                return new Container(current.CompressionType, new MemoryStream(patched));
-            });
+                using var current = cache.ReadContainer(MapsIndex, file);
+                stored = current.Data.ToArray();
+                compression = current.CompressionType;
+                before = Decode(stored, regionId, cancellationToken);
+            }
+            catch (Exception error) when (error is InvalidDataException || MapRenderReader.IsDataError(error))
+            {
+                return MapArchiveUpdateResult.Unreadable;
+            }
+
+            var patched = MapTerrainPatcher.Patch(stored, changes);
+            if (patched.AsSpan().SequenceEqual(stored)) return MapArchiveUpdateResult.Updated;
+            if (!PatchIsExact(stored, patched, before, Decode(patched, regionId, cancellationToken), changes))
+                throw new InvalidOperationException($"Region {regionId} terrain did not survive patching.");
+
+            cancellationToken.ThrowIfCancellationRequested();
+            using var container = new Container(compression, new MemoryStream(patched));
+            if (cache.TryReplaceContainer(MapsIndex, file, stored, container)) return MapArchiveUpdateResult.Updated;
         }
-        catch (Exception error) when (decoding && (error is InvalidDataException || MapRenderReader.IsDataError(error)))
-        {
-            return MapArchiveUpdateResult.Unreadable;
-        }
-        return MapArchiveUpdateResult.Updated;
     }
 
     private static TerrainRenderPlane[] Decode(byte[] terrain, int regionId, CancellationToken cancellationToken)

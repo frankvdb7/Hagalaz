@@ -349,18 +349,19 @@ namespace Hagalaz.Cache
         }
 
         /// <summary>
-        /// Reads a file, passes it to <paramref name="change"/>, and writes the returned container, holding the cache write lock
-        /// across the whole read, change and write so that no other write can land in between.
+        /// Writes <paramref name="replacement"/> only while the file still holds <paramref name="expected"/>, comparing and
+        /// writing under the cache write lock so that no other write can land in between.
         /// </summary>
-        public bool UpdateContainer(int indexId, int fileId, Func<IContainer, IContainer?> change)
+        public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement)
         {
             _snapshotReadWriteLock.EnterWriteLock();
             try
             {
-                using var current = ReadContainer(indexId, fileId);
-                using var updated = change(current);
-                if (updated is null) return false;
-                WriteAndInvalidateUnderLock(indexId, fileId, updated);
+                using (var current = ReadContainer(indexId, fileId))
+                {
+                    if (!current.Data.ToArray().AsSpan().SequenceEqual(expected)) return false;
+                }
+                WriteAndInvalidateUnderLock(indexId, fileId, replacement);
                 return true;
             }
             finally

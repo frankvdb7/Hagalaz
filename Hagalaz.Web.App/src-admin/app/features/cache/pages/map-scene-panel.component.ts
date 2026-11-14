@@ -31,7 +31,7 @@ import { buildSceneTree, type ScenePlacement, type SceneSelection, type SceneTre
                             <mat-icon class="studio-icon-small" aria-hidden="true">{{ node.icon }}</mat-icon><span>{{ node.label }}</span>
                         </button>
                         @if (node.placement; as item) {
-                            <button mat-icon-button type="button" class="tree-icon tree-remove" [attr.aria-label]="'Remove ' + node.label" matTooltip="Remove object" (click)="placementRemoved.emit(item.placement)"><mat-icon>delete_outline</mat-icon></button>
+                            <button mat-icon-button type="button" class="tree-icon tree-remove" [attr.aria-label]="'Remove ' + node.label" matTooltip="Remove object" [disabled]="!editable()" (click)="placementRemoved.emit(item.placement)"><mat-icon>delete_outline</mat-icon></button>
                         }
                         @if (node.kind !== 'more') { <ng-container [ngTemplateOutlet]="eye" [ngTemplateOutletContext]="{ $implicit: node }" /> }
                     </mat-tree-node>
@@ -83,6 +83,8 @@ export class MapScenePanelComponent {
     readonly hiddenGroups = model<ReadonlySet<string>>(new Set());
     readonly hiddenPlacements = model<ReadonlySet<MapPlacement>>(new Set());
     readonly placementActivated = output<MapPlacement>();
+    /** Whether objects can be removed; off while a save writes the draft. */
+    readonly editable = input(true);
     readonly placementRemoved = output<MapPlacement>();
     readonly selection = input<SceneSelection | null>(null);
     readonly selectionActivated = output<SceneSelection>();

@@ -20,21 +20,21 @@
         </mat-button-toggle-group>
         <div class="transform-fields studio-compact-inspector">
             <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'move'">
-                <mat-label>X</mat-label><input #tileX matInput type="number" [min]="positionBase().x" [max]="positionBase().x + 63" [step]="snap()" [value]="transform.x + positionBase().x" (change)="transformChange.emit({ field: 'x', value: tileX.valueAsNumber - positionBase().x })" />
+                <mat-label>X</mat-label><input #tileX matInput [disabled]="!editable()" type="number" [min]="positionBase().x" [max]="positionBase().x + 63" [step]="snap()" [value]="transform.x + positionBase().x" (change)="transformChange.emit({ field: 'x', value: tileX.valueAsNumber - positionBase().x })" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'move'">
-                <mat-label>Y</mat-label><input #tileZ matInput type="number" [min]="positionBase().y" [max]="positionBase().y + 63" [step]="snap()" [value]="transform.y + positionBase().y" (change)="transformChange.emit({ field: 'y', value: tileZ.valueAsNumber - positionBase().y })" />
+                <mat-label>Y</mat-label><input #tileZ matInput [disabled]="!editable()" type="number" [min]="positionBase().y" [max]="positionBase().y + 63" [step]="snap()" [value]="transform.y + positionBase().y" (change)="transformChange.emit({ field: 'y', value: tileZ.valueAsNumber - positionBase().y })" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'rotate'">
-                <mat-label>Rotation</mat-label><mat-select [value]="transform.rotation" (selectionChange)="transformChange.emit({ field: 'rotation', value: $event.value })">
+                <mat-label>Rotation</mat-label><mat-select [disabled]="!editable()" [value]="transform.rotation" (selectionChange)="transformChange.emit({ field: 'rotation', value: $event.value })">
                     @for (rotation of [0, 1, 2, 3]; track rotation) { <mat-option [value]="rotation">{{ rotation * 90 }}°</mat-option> }
                 </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'scale'">
-                <mat-label>Scale</mat-label><input #scale matInput type="number" min="0.25" max="4" step="0.25" [value]="transform.scale" (change)="transformChange.emit({ field: 'scale', value: scale.valueAsNumber })" />
+                <mat-label>Scale</mat-label><input #scale matInput [disabled]="!editable()" type="number" min="0.25" max="4" step="0.25" [value]="transform.scale" (change)="transformChange.emit({ field: 'scale', value: scale.valueAsNumber })" />
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Plane</mat-label><mat-select [value]="transform.plane" (selectionChange)="transformChange.emit({ field: 'plane', value: $event.value })">
+                <mat-label>Plane</mat-label><mat-select [disabled]="!editable()" [value]="transform.plane" (selectionChange)="transformChange.emit({ field: 'plane', value: $event.value })">
                     @for (plane of [0, 1, 2, 3]; track plane) { <mat-option [value]="plane">Plane {{ plane }}</mat-option> }
                 </mat-select>
             </mat-form-field>

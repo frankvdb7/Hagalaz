@@ -44,44 +44,68 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
         var file = cache.GetFileId(WorldMapIndex, MainArea);
         if (file < 0) return new([], [], ids.Select(id => new MapWorldMapSkip(id, NotOnMap)).ToArray());
 
-        // Region files are read first: the cache's write lock below cannot be held while reading through the cache.
         var parts = ReadMainParts();
         var generated = new Dictionary<int, WorldMapTile[]?>();
-        foreach (var id in ids)
+        var sources = new Dictionary<int, (int Terrain, int Landscape)>();
+        // Built without holding the cache; `main` is written only if no other refresh changed it meanwhile, and the refresh is
+        // rebuilt when a region's files were saved after its tiles were generated, since that save's own refresh may already
+        // have been written and would otherwise be overwritten with stale tiles.
+        while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (FindPart(id, parts) is not null) generated[id] = Generate(id, cancellationToken);
-        }
+            using var current = cache.ReadContainer(WorldMapIndex, file);
+            var stored = current.Data.ToArray();
+            var area = WorldMapAreaCodec.Read(stored);
+            var blocks = area.Blocks.Where(block => block.Kind == 0).ToDictionary(block => (block.RegionX, block.RegionY));
+            var located = ids.Select(id => (Id: id, Block: FindBlock(id, parts, blocks))).ToArray();
+            var onMap = located.Where(region => region.Block is not null).Select(region => region.Id).ToArray();
 
-        // Every refresh rewrites the same `main` file, so it is read, patched and written under one cache write lock.
-        MapWorldMapRefreshResult? result = null;
-        cache.UpdateContainer(WorldMapIndex, file, current =>
-        {
-            (result, var updated) = Merge(ids, parts, generated, current);
-            return updated;
-        });
-        return result!;
+            var table = cache.ReadReferenceTable(MapsIndex);
+            foreach (var id in onMap)
+            {
+                var source = SourceVersions(table, id);
+                if (sources.TryGetValue(id, out var used) && used == source) continue;
+                cancellationToken.ThrowIfCancellationRequested();
+                sources[id] = source;
+                generated[id] = Generate(id, cancellationToken);
+            }
+
+            var (result, replacements) = Compare(located, generated, stored, area);
+            if (replacements.Count > 0)
+            {
+                using var updated = Patch(current.CompressionType, stored, area, replacements);
+                if (!cache.TryReplaceContainer(WorldMapIndex, file, stored, updated)) continue;
+            }
+
+            table = cache.ReadReferenceTable(MapsIndex);
+            if (onMap.All(id => sources[id] == SourceVersions(table, id))) return result;
+        }
     }
 
-    private static (MapWorldMapRefreshResult Result, Container? Updated) Merge(int[] ids, IReadOnlyList<WorldMapAreaPart> parts, Dictionary<int, WorldMapTile[]?> generated, IContainer current)
+    /// <summary>The stored versions of a region's terrain and landscape files; every cache write bumps them.</summary>
+    private static (int Terrain, int Landscape) SourceVersions(IReferenceTable table, int id)
     {
-        var stored = current.Data.ToArray();
-        var area = WorldMapAreaCodec.Read(stored);
-        var blocks = area.Blocks.Where(block => block.Kind == 0).ToDictionary(block => (block.RegionX, block.RegionY));
+        var (x, y) = (id >> 8, id & 255);
+        return (Version($"m{x}_{y}"), Version($"l{x}_{y}"));
+
+        int Version(string name) => table.GetFileId(name) is var file and >= 0 ? table.GetEntry(file)?.Version ?? -1 : -1;
+    }
+
+    private static (MapWorldMapRefreshResult Result, Dictionary<WorldMapBlock, WorldMapTile[]> Replacements) Compare(
+        (int Id, WorldMapBlock? Block)[] located, Dictionary<int, WorldMapTile[]?> generated, byte[] stored, WorldMapAreaFile area)
+    {
         var skipped = new List<MapWorldMapSkip>();
         var unchanged = new List<int>();
         var replacements = new Dictionary<WorldMapBlock, WorldMapTile[]>();
         var refreshed = new List<int>();
-        foreach (var id in ids)
+        foreach (var (id, found) in located)
         {
-            if (FindBlock(id, parts, blocks) is not { } block) { skipped.Add(new(id, NotOnMap)); continue; }
+            if (found is not { } block) { skipped.Add(new(id, NotOnMap)); continue; }
             if (generated.GetValueOrDefault(id) is not { } tiles) { skipped.Add(new(id, "Region's map files could not be read.")); continue; }
             if (SameTiles(WorldMapAreaCodec.DecodeRegion(stored, area, block), tiles)) { unchanged.Add(id); continue; }
             replacements[block] = tiles;
             refreshed.Add(id);
         }
-        var updated = replacements.Count > 0 ? Patch(current.CompressionType, stored, area, replacements) : null;
-        return (new(refreshed, unchanged, skipped), updated);
+        return (new(refreshed, unchanged, skipped), replacements);
     }
 
     private IReadOnlyList<WorldMapAreaPart> ReadMainParts()
@@ -98,13 +122,10 @@ public sealed class MapWorldMapRefresher(ICacheAPI cache, Func<int, ObjectType?>
     // Blocks are stored at display coordinates; each part says where its tiles really are.
     private static WorldMapBlock? FindBlock(int id, IReadOnlyList<WorldMapAreaPart> parts, Dictionary<(int, int), WorldMapBlock> blocks)
     {
-        if (FindPart(id, parts) is not { } part) return null;
         var (x, y) = (id >> 8, id & 255);
+        if (parts.FirstOrDefault(candidate => candidate.ContainsReal(x * 64, y * 64)) is not { } part) return null;
         return blocks.GetValueOrDefault((x + (part.DisplayMinX - part.MinX) / 64, y + (part.DisplayMinY - part.MinY) / 64));
     }
-
-    private static WorldMapAreaPart? FindPart(int id, IReadOnlyList<WorldMapAreaPart> parts) =>
-        parts.FirstOrDefault(candidate => candidate.ContainsReal((id >> 8) * 64, (id & 255) * 64));
 
     private WorldMapTile[]? Generate(int id, CancellationToken cancellationToken)
     {
