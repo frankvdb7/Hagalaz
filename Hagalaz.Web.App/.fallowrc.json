@@ -9,6 +9,9 @@
     "src-admin/test.ts",
     "proxy.conf.mjs"
   ],
+  "typeAware": {
+    "enabled": true
+  },
   "duplicates": {
     "minOccurrences": 3
   },
