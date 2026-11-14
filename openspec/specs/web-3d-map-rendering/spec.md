@@ -629,6 +629,16 @@ The render API and workspace MUST distinguish absent terrain, absent landscape, 
 - **AND** other valid regions remain viewable
 - **AND** the missing data is not silently replaced with flat terrain, repeated edge heights or generated objects
 
+### Requirement: Corrupt region map files are reported per file
+
+The render API MUST report a stored terrain, landscape, underwater terrain or underwater landscape file that cannot be decoded, for any corrupt-data reason, for that file with a warning, and MUST NOT fail the region request because of it.
+
+#### Scenario: Landscape data is malformed
+- **GIVEN** terrain is readable and the stored landscape decodes to a placement outside the four source planes
+- **WHEN** the region is rendered
+- **THEN** the region request succeeds with its terrain
+- **AND** landscape is reported as failed with a warning naming the region
+
 ### Requirement: Region viewing controls remain usable across layouts
 
 The Maps workspace MUST provide orbit, pan, zoom, reset-to-selection, independent visibility for the four terrain planes and a landscape visibility control. Controls MUST have accessible names and remain operable by keyboard and at phone widths. Loading, empty and failed states MUST include text feedback and applicable retry actions.
