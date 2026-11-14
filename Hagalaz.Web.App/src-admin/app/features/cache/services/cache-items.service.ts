@@ -1,11 +1,9 @@
-import type { UpdateItemDefinitionDto, UpdateItemDefinitionResultDto, DuplicateItemDefinitionResultDto } from "./dtos";
-import type { GetItemTypeDto } from "./dtos";
+import type { DuplicateItemDefinitionResultDto, GetItemTypeDto, UpdateItemDefinitionDto, UpdateItemDefinitionResultDto } from "./dtos";
 import { HttpClient, HttpParams, httpResource } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
 import type { Observable } from "rxjs";
-import { environment } from "../../../../environments/environment";
-import type { GetItemDefinitionDto, SearchDefinitionsDto } from "./cache.models";
-import { cacheQueryResource } from "./cache-resource";
+import type { GetItemDefinitionDto } from "./cache.models";
+import { CacheSearchableTypeService } from "./cache-resource";
 
 /** Rendered item icon options; omitted values keep the server's client defaults. */
 export interface ItemSpriteOptions {
@@ -18,9 +16,12 @@ export interface ItemSpriteOptions {
 }
 
 @Service()
-export class CacheItemsService {
+export class CacheItemsService extends CacheSearchableTypeService<GetItemDefinitionDto, GetItemTypeDto> {
     private readonly http = inject(HttpClient);
-    private readonly baseUrl = `${environment.cacheApiUrl}types/items`;
+
+    constructor() {
+        super("items");
+    }
 
     getItemSpriteImage(id: number, options: ItemSpriteOptions = {}): Observable<Blob> {
         let params = new HttpParams();
@@ -28,8 +29,9 @@ export class CacheItemsService {
         return this.http.get(`${this.baseUrl}/${id}/image`, { params, responseType: "blob" });
     }
 
-    definitionResource(id: Signal<number | null>) {
-        return httpResource<GetItemDefinitionDto>(() => id() === null ? undefined : `${this.baseUrl}/${id()}/definition`);
+    /** Items expose the full editable definition under `/definition` rather than the shared `/{id}` route. */
+    override definitionResource(id: Signal<number | null>) {
+        return httpResource<GetItemDefinitionDto>(() => (id() === null ? undefined : `${this.baseUrl}/${id()}/definition`));
     }
 
     updateItem(item: UpdateItemDefinitionDto): Observable<UpdateItemDefinitionResultDto> {
@@ -38,13 +40,5 @@ export class CacheItemsService {
 
     duplicateItem(id: number): Observable<DuplicateItemDefinitionResultDto> {
         return this.http.post<DuplicateItemDefinitionResultDto>(`${this.baseUrl}/${id}/duplicate`, {});
-    }
-
-    rangeResource(range: Signal<{ startId: number; endIdExclusive: number } | null>) {
-        return cacheQueryResource<GetItemTypeDto[]>(`${this.baseUrl}/range`, range);
-    }
-
-    searchResource(search: Signal<{ query: string; offset: number; limit: number } | null>) {
-        return cacheQueryResource<SearchDefinitionsDto<GetItemTypeDto>>(`${this.baseUrl}/search`, search);
     }
 }

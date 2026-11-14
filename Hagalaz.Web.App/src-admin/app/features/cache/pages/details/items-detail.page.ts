@@ -28,6 +28,18 @@ import { DefinitionPickerComponent } from "../definition-picker.component";
 import { type ItemField, ItemFieldsComponent } from "../item-fields.component";
 import { CacheModelPreviewComponent } from "../cache-model-preview.component";
 
+/** Numeric model presentation fields shown in the technical details panel, in display order. */
+const visualFields = [
+    ["Model scale X", "scaleX"],
+    ["Model scale Y", "scaleY"],
+    ["Model scale Z", "scaleZ"],
+    ["Model rotation X", "modelRotation1"],
+    ["Model rotation Y", "modelRotation2"],
+    ["Model rotation Z", "zan2D"],
+    ["Model offset X", "modelOffset1"],
+    ["Model offset Y", "modelOffset2"],
+] as const satisfies readonly (readonly [string, keyof GetItemDefinitionDto])[];
+
 @Component({
     selector: "cache-items-detail-page",
     imports: [
@@ -113,17 +125,13 @@ export class ItemsDetailPageComponent {
             this.relationship("Bought template", item?.boughtTemplateId),
         ];
     });
-    readonly visual = computed<ItemField[]>(() => [
-        { label: "Inventory model ID", value: this.reference(this.item()?.interfaceModelId) },
-        { label: "Model scale X", value: this.value(this.item()?.scaleX) },
-        { label: "Model scale Y", value: this.value(this.item()?.scaleY) },
-        { label: "Model scale Z", value: this.value(this.item()?.scaleZ) },
-        { label: "Model rotation X", value: this.value(this.item()?.modelRotation1) },
-        { label: "Model rotation Y", value: this.value(this.item()?.modelRotation2) },
-        { label: "Model rotation Z", value: this.value(this.item()?.zan2D) },
-        { label: "Model offset X", value: this.value(this.item()?.modelOffset1) },
-        { label: "Model offset Y", value: this.value(this.item()?.modelOffset2) },
-    ]);
+    readonly visual = computed<ItemField[]>(() => {
+        const item = this.item();
+        return [
+            { label: "Inventory model ID", value: this.reference(item?.interfaceModelId) },
+            ...visualFields.map(([label, key]) => ({ label, value: this.value(item?.[key]) })),
+        ];
+    });
     readonly actions = computed(() => [
         { label: "Inventory actions", slots: this.item()?.inventoryOptions },
         { label: "Ground actions", slots: this.item()?.groundOptions },

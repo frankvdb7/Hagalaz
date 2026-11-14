@@ -51,10 +51,16 @@ export class MapPointerNavigation {
         camera.getWorldDirection(controls.target).multiplyScalar(distance).add(camera.position);
     };
 
+    /** Right-button pan on the primary pointer without modifiers, while panning is enabled and no pan is active. */
+    private canStartPan(event: PointerEvent): boolean {
+        const { enabled, enablePan } = this.controls;
+        const plainRightButton = event.isPrimary && event.button === 2 && !(event.ctrlKey || event.metaKey || event.shiftKey);
+        return enabled && enablePan && !this.drag && plainRightButton;
+    }
+
     private readonly startPan = (event: PointerEvent): void => {
         const { controls, camera } = this;
-        if (!controls.enabled || !controls.enablePan || this.drag || !event.isPrimary || event.button !== 2 ||
-            event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (!this.canStartPan(event)) return;
         const distance = this.distanceToGround(event.clientX, event.clientY);
         const radius = camera.position.distanceTo(controls.target);
         if (distance === undefined || radius <= camera.near) return;

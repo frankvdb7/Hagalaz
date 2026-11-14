@@ -1,4 +1,3 @@
-import { JsonPipe } from "@angular/common";
 import { Component, computed, effect, inject, untracked } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
@@ -9,10 +8,22 @@ import { PortalBreadcrumbDirective } from "../../../../layout/portal-breadcrumb.
 import { CacheCs2Store } from "../../stores/cache-cs2.store";
 import { injectCacheDefinitionId } from "../cache-definition-id";
 import { DefinitionPickerComponent } from "../definition-picker.component";
+import { Cs2DisassemblyComponent, Cs2MetadataComponent, Cs2SourceComponent } from "./cs2-script-panels.component";
 
 @Component({
     selector: "cache-cs2-detail-page",
-    imports: [DefinitionPickerComponent, JsonPipe, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, PortalBreadcrumbDirective, RouterLink],
+    imports: [
+        Cs2DisassemblyComponent,
+        Cs2MetadataComponent,
+        Cs2SourceComponent,
+        DefinitionPickerComponent,
+        MatButtonModule,
+        MatCardModule,
+        MatIconModule,
+        MatProgressBarModule,
+        PortalBreadcrumbDirective,
+        RouterLink,
+    ],
     providers: [CacheCs2Store],
     templateUrl: "./cs2-detail.page.html",
     styleUrl: "./cs2-detail.page.scss",
@@ -25,9 +36,9 @@ export class Cs2DetailPageComponent {
         const script = this.store.byIdResult();
         return script?.id === this.id() ? script : null;
     });
-    readonly source = computed(() => {
-        const lines = this.script()?.source ?? [];
-        return { lines, partial: lines.some((line) => line.raw) };
+    readonly title = computed(() => {
+        const script = this.script();
+        return script?.name || `CS2 script #${script?.id}`;
     });
 
     constructor() {

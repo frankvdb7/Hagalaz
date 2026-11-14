@@ -8,12 +8,10 @@ import { MatSelectModule } from "@angular/material/select";
 import { MatToolbarModule } from "@angular/material/toolbar";
 import { MatTooltipModule } from "@angular/material/tooltip";
 import { CacheWidgetFontsService } from "../../services/cache-widget-fonts.service";
-import type { WidgetComponent } from "../../services/widget-component";
-import { widgetColor, widgetType, type WidgetLayer } from "./widget-layout";
+import { WidgetLayerArtComponent } from "./widget-layer-art.component";
+import { componentLabel, type WidgetLayer } from "./widget-layout";
 import { WidgetLiveModelsService } from "./widget-live-models.service";
-import { WidgetModelComponent, WidgetModelImages } from "./widget-model.component";
-import { WidgetSpriteComponent } from "./widget-sprite.component";
-import { WidgetTextComponent } from "./widget-text.component";
+import { WidgetModelImages } from "./widget-model.component";
 
 @Component({
     selector: "cache-widget-preview",
@@ -26,9 +24,7 @@ import { WidgetTextComponent } from "./widget-text.component";
         MatSelectModule,
         MatToolbarModule,
         MatTooltipModule,
-        WidgetSpriteComponent,
-        WidgetTextComponent,
-        WidgetModelComponent,
+        WidgetLayerArtComponent,
     ],
     providers: [CacheWidgetFontsService, WidgetModelImages, WidgetLiveModelsService],
     templateUrl: "./widget-preview.component.html",
@@ -71,10 +67,20 @@ export class WidgetPreviewComponent {
     readonly outlines = signal(false);
     readonly pan = signal(false);
     readonly expanded = signal(false);
-    readonly color = widgetColor;
-    readonly lineLength = Math.hypot;
-    readonly lineAngle = Math.atan2;
     readonly toggle = (value: boolean) => !value;
+    readonly editable = computed(() => !this.interactive() && this.selectedId() !== null);
+    readonly expandControl = computed(() => this.expanded()
+        ? { label: "Close expanded preview", icon: "fullscreen_exit" }
+        : { label: "Expand preview", icon: "fullscreen" });
+    readonly playControl = computed(() => this.interactive() ? { label: "Stop preview", icon: "stop" } : { label: "Play preview", icon: "play_arrow" });
+    readonly status = computed(() => this.busy() ? "Running callback…" : this.message());
+    /** Hit targets for each drawn layer; while inspecting, the selected layer stays selectable even when hidden. */
+    readonly hits = computed(() => {
+        const interactive = this.interactive();
+        return this.layers()
+            .filter(layer => layer.visible || (!interactive && this.selectedId() === layer.component.id))
+            .map(layer => (interactive ? this.activationTarget(layer) : this.inspectionTarget(layer)));
+    });
     private drag: { x: number; y: number; left: number; top: number } | undefined;
 
     constructor() {
@@ -90,13 +96,28 @@ export class WidgetPreviewComponent {
         });
     }
 
-    componentLabel(component: WidgetComponent) {
-        return `${component.name || widgetType(component.type).label} (${component.id})`;
+    private inspectionTarget(layer: WidgetLayer) {
+        const id = layer.component.id;
+        const selected = this.selectedId() === id;
+        return {
+            id, layer, selected, pressed: selected, bounds: this.outlines(), inspecting: true, passThrough: false, action: false,
+            disabled: this.pan(), label: `Select ${componentLabel(layer.component)}`,
+        };
     }
 
-    spriteTransform(component: WidgetComponent) {
-        const rotation = ((component.spriteRotation ?? 0) * 360) / 65536;
-        return `rotate(${rotation}deg) scale(${component.spriteFlipX ? -1 : 1}, ${component.spriteFlipY ? -1 : 1})`;
+    private activationTarget(layer: WidgetLayer) {
+        const id = layer.component.id;
+        const action = this.clickTargets().has(id);
+        return {
+            id, layer, selected: false, pressed: null, bounds: false, inspecting: false, action,
+            passThrough: !action && !layer.component.blocksClicks,
+            disabled: this.pan() || !action, label: `Activate ${componentLabel(layer.component)}`,
+        };
+    }
+
+    /** Keyboard activation (detail 0) still selects during interactive preview; pointer clicks are handled as script events. */
+    clickLayer(id: number, event: MouseEvent) {
+        if (!this.interactive() || event.detail === 0) this.select.emit(id);
     }
 
     reset(viewport: HTMLElement) {

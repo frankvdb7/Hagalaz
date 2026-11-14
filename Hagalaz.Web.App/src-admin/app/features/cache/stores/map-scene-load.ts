@@ -134,22 +134,17 @@ export class MapSceneLoad {
         for (const region of this.regionList) this.floorTextures(region, textures);
         const environment = this.anchorEnvironmentFaces();
         if (!this.visibility.landscape) return { placements, textures, environment };
-        for (const region of this.regionList) {
-            for (const placement of region.objects) {
-                if (!this.visibility.planes[placement.plane]) continue;
-                const key = mapAppearanceKey(placement);
-                if (placements.has(key)) continue;
-                placements.set(key, placement);
-                this.appearanceTextures(key, textures);
-            }
-        }
-        for (const placement of this.visibility.previewPlacements ?? []) {
-            const key = mapAppearanceKey(placement);
-            if (placements.has(key)) continue;
-            placements.set(key, placement);
-            this.appearanceTextures(key, textures);
-        }
+        const visible = this.regionList.flatMap(region => region.objects.filter(placement => this.visibility.planes[placement.plane]));
+        for (const placement of [...visible, ...(this.visibility.previewPlacements ?? [])]) this.addInterest(placement, placements, textures);
         return { placements, textures, environment };
+    }
+
+    /** Records the first placement of each appearance together with the textures that appearance needs. */
+    private addInterest(placement: MapPlacement, placements: Map<string, MapPlacement>, textures: Set<number>): void {
+        const key = mapAppearanceKey(placement);
+        if (placements.has(key)) return;
+        placements.set(key, placement);
+        this.appearanceTextures(key, textures);
     }
 
     // The viewer takes its environment from the anchor region.

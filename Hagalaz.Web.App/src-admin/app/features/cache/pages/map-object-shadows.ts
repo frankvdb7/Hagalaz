@@ -40,8 +40,15 @@ function writePlacement(grid: Grid, x: number, y: number, shape: number, rotatio
         for (const [dx, dy] of corners) write(grid, x + dx, y + dy, wallStrength);
         return;
     }
-    if (shape !== 10 && shape !== 11) return;
-    const sizeX = rotation & 1 ? appearance.sizeY : appearance.sizeX, sizeY = rotation & 1 ? appearance.sizeX : appearance.sizeY;
+    if (shape === 10 || shape === 11) writeFootprint(grid, x, y, rotatedSize(appearance, rotation), strength);
+}
+
+/** The object's footprint, with width and length swapped for quarter turns. */
+function rotatedSize({ sizeX, sizeY }: ObjectRenderAppearance, rotation: number): readonly [number, number] {
+    return rotation & 1 ? [sizeY, sizeX] : [sizeX, sizeY];
+}
+
+function writeFootprint(grid: Grid, x: number, y: number, [sizeX, sizeY]: readonly [number, number], strength: number): void {
     for (let dx = 0; dx <= sizeX; dx++) for (let dy = 0; dy <= sizeY; dy++) write(grid, x + dx, y + dy, strength);
 }
 
@@ -63,19 +70,30 @@ function filterGrid(grid: Grid): Grid {
 export function objectShadowField(regions: readonly MapRenderRegion[], appearances: ReadonlyMap<string, ObjectRenderAppearance>, sources: readonly ShadowSource[]): ObjectShadowField {
     const origin = new Map(regions.map(region => [region.id, region]));
     const grids = new Map<number, Grid>();
-    for (const { placement, regionId, moved } of sources) {
-        const region = origin.get(regionId);
-        const position = moved ?? placement;
-        if (!region || position.plane >= underwaterPlaneIndex) continue;
-        // Falls back like the object builder until an edited rotation's appearance arrives.
-        const appearance = appearances.get(mapAppearanceKey({ ...placement, rotation: position.rotation })) ?? appearances.get(mapAppearanceKey(placement));
-        const strength = appearance?.shadowStrength ?? 0;
-        if (!appearance || strength <= 0) continue;
+    for (const source of sources) {
+        const caster = shadowCaster(origin, appearances, source);
+        if (!caster) continue;
+        const { region, position, appearance, strength } = caster;
         const grid: Grid = grids.get(position.plane) ?? new Map();
         grids.set(position.plane, grid);
-        writePlacement(grid, region.regionX * 64 + position.x, region.regionY * 64 + position.y, placement.shape, position.rotation, appearance, strength);
+        writePlacement(grid, region.regionX * 64 + position.x, region.regionY * 64 + position.y, source.placement.shape, position.rotation, appearance, strength);
     }
     if (!grids.size) return noObjectShadows;
+    return shadowField(grids);
+}
+
+/** The source's region, current position and appearance when it casts a shadow above the underwater plane. */
+function shadowCaster(origin: ReadonlyMap<number, MapRenderRegion>, appearances: ReadonlyMap<string, ObjectRenderAppearance>, { placement, regionId, moved }: ShadowSource) {
+    const region = origin.get(regionId);
+    const position = moved ?? placement;
+    if (!region || position.plane >= underwaterPlaneIndex) return null;
+    // Falls back like the object builder until an edited rotation's appearance arrives.
+    const appearance = appearances.get(mapAppearanceKey({ ...placement, rotation: position.rotation })) ?? appearances.get(mapAppearanceKey(placement));
+    const strength = appearance?.shadowStrength ?? 0;
+    return appearance && strength > 0 ? { region, position, appearance, strength } : null;
+}
+
+function shadowField(grids: ReadonlyMap<number, Grid>): ObjectShadowField {
     const filtered = new Map([...grids].map(([plane, grid]) => [plane, filterGrid(grid)]));
     const signature = [...filtered].sort(([left], [right]) => left - right)
         .map(([plane, grid]) => `${plane}:${[...grid].filter(([, value]) => value > 0).sort(([left], [right]) => left - right).flat().join()}`).join("|");

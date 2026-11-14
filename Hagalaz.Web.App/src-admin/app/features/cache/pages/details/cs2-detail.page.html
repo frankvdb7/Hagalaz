@@ -15,101 +15,12 @@
             <button mat-stroked-button type="button" class="mt-4" (click)="retry()"><mat-icon>refresh</mat-icon>Retry</button>
         </mat-card-content></mat-card>
     } @else if (script(); as script) {
-        <h2 class="mb-4 break-words">{{ script.name || 'CS2 script #' + script.id }}</h2>
+        <h2 class="mb-4 break-words">{{ title() }}</h2>
         <div class="script-layout">
-            <mat-card appearance="outlined">
-                <mat-card-header><mat-card-title>Metadata</mat-card-title></mat-card-header>
-                <mat-card-content class="pt-4">
-                    <dl class="script-metadata">
-                        <div><dt>Script ID</dt><dd>{{ script.id }}</dd></div>
-                        <div><dt>Instructions</dt><dd>{{ script.opcodeCount }}</dd></div>
-                        <div><dt>Switch tables</dt><dd>{{ script.switchTablesCount }}</dd></div>
-                    </dl>
-                    <table class="script-table mt-4" aria-label="Arguments and locals by type">
-                        <thead><tr><th scope="col">Type</th><th scope="col">Arguments</th><th scope="col">Locals</th></tr></thead>
-                        <tbody>
-                            <tr><th scope="row">Int</th><td>{{ script.intArgsCount }}</td><td>{{ script.intLocalsCount }}</td></tr>
-                            <tr><th scope="row">String</th><td>{{ script.stringArgsCount }}</td><td>{{ script.stringLocalsCount }}</td></tr>
-                            <tr><th scope="row">Long</th><td>{{ script.longArgsCount }}</td><td>{{ script.longLocalsCount }}</td></tr>
-                        </tbody>
-                    </table>
-                    @if (script.switchTables.length) {
-                        <h3 class="mt-5 mb-2">Switch tables</h3>
-                        @for (cases of script.switchTables; track $index; let tableIndex = $index) {
-                            <details>
-                                <summary>Table {{ tableIndex }} ({{ cases.length }} cases)</summary>
-                                <table class="script-table" [attr.aria-label]="'Switch table ' + tableIndex">
-                                    <thead><tr><th scope="col">Key</th><th scope="col">Offset</th></tr></thead>
-                                    <tbody>
-                                        @for (entry of cases; track entry.key) {
-                                            <tr><td>{{ entry.key }}</td><td>{{ entry.offset }}</td></tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </details>
-                        }
-                    }
-                </mat-card-content>
-            </mat-card>
+            <cache-cs2-metadata [script]="script" />
             <div class="script-code">
-                <mat-card appearance="outlined">
-                    <mat-card-header><mat-card-title>Source</mat-card-title></mat-card-header>
-                    <mat-card-content class="pt-4">
-                        @let sourceView = source();
-                        @if (sourceView.partial) {
-                            <p class="mb-2">Partial source. Unresolved instructions are shown by opcode.</p>
-                        }
-                        @if (sourceView.lines.length) {
-                            <div class="source-scroll" role="region" aria-label="CS2 source" tabindex="0">
-                                @for (line of sourceView.lines; track $index) {
-                                    <div class="source-line" [class.raw]="line.raw">
-                                        <span class="source-index">{{ line.label ? '' : line.index }}</span>
-                                        <div>
-                                            <code>{{ line.text }}</code>
-                                            @if (line.widget; as widget) {
-                                                <a class="source-reference" [routerLink]="['/cache/widgets', widget.id]" [queryParams]="{ component: widget.component }">
-                                                    Open widget {{ widget.id }}:{{ widget.component }}
-                                                </a>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        } @else {
-                            <p>This script has no instructions.</p>
-                        }
-                    </mat-card-content>
-                </mat-card>
-                <mat-card appearance="outlined" class="min-w-0">
-                    <mat-card-header><mat-card-title>Disassembly</mat-card-title></mat-card-header>
-                    <mat-card-content class="pt-4">
-                        @if (script.executableSource?.length) {
-                            <details class="mb-4">
-                                <summary>Executable RuneScript</summary>
-                                <pre class="source-scroll">{{ script.executableSource.join('\n') }}</pre>
-                            </details>
-                        }
-                        @if (script.instructions.length) {
-                            <div class="instruction-scroll" role="region" aria-label="Script instructions" tabindex="0">
-                                <table class="script-table instructions" aria-label="Disassembly">
-                                    <thead><tr><th scope="col">Index</th><th scope="col">Opcode</th><th scope="col">Type</th><th scope="col">Operand</th></tr></thead>
-                                    <tbody>
-                                        @for (instruction of script.instructions; track instruction.index) {
-                                            <tr>
-                                                <td>{{ instruction.index }}</td>
-                                                <td>{{ instruction.opcode }}</td>
-                                                <td>{{ instruction.operandKind }}</td>
-                                                <td>{{ instruction.operandKind === 'string' ? (instruction.operand | json) : instruction.operand }}</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        } @else {
-                            <p>This script has no instructions.</p>
-                        }
-                    </mat-card-content>
-                </mat-card>
+                <cache-cs2-source [script]="script" />
+                <cache-cs2-disassembly [script]="script" />
             </div>
         </div>
     }

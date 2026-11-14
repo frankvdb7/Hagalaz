@@ -20,6 +20,43 @@ export function linearColor(channels: readonly number[]): number[] {
     });
 }
 
+type BlendTile = { key: string; layer: TerrainLayer; hsl: readonly number[] };
+type BlendTiles = ReadonlyMap<string, BlendTile>;
+
+const sumStride = 74;
+
+/** A tile's contribution to one summed component: hue, saturation, lightness, multiplier, then a count of 1. */
+function blendComponent(tile: BlendTile | undefined, component: number): number {
+    if (!tile) return 0;
+    return component === 4 ? 1 : tile.hsl[component];
+}
+
+/** Summed-area tables over the region plane and its four-tile halo, one per blended component. */
+function blendSums(tiles: BlendTiles, region: MapRenderRegion, level: number): Float64Array[] {
+    const sums = Array.from({ length: 5 }, () => new Float64Array(sumStride * sumStride));
+    for (let x = 0; x < 73; x++) for (let y = 0; y < 73; y++) {
+        const tile = tiles.get(`${level}:${region.regionX * 64 + x - 4}:${region.regionY * 64 + y - 4}`);
+        const at = (x + 1) * sumStride + y + 1;
+        for (const [component, sum] of sums.entries()) {
+            sum[at] = blendComponent(tile, component) + sum[at - sumStride] + sum[at - 1] - sum[at - sumStride - 1];
+        }
+    }
+    return sums;
+}
+
+/** Recolours each underlay tile of the region plane with the average of its ten-by-ten window. */
+function blendRegionPlane(tiles: BlendTiles, region: MapRenderRegion, level: number): void {
+    const sums = blendSums(tiles, region, level);
+    const windowSum = (sum: Float64Array, x: number, y: number) =>
+        sum[(x + 10) * sumStride + y + 10] - sum[x * sumStride + y + 10] - sum[(x + 10) * sumStride + y] + sum[x * sumStride + y];
+    for (let x = 0; x < 64; x++) for (let y = 0; y < 64; y++) {
+        const tile = tiles.get(`${level}:${region.regionX * 64 + x}:${region.regionY * 64 + y}`);
+        if (!tile) continue;
+        const [hue, saturation, lightness, multiplier, count] = sums.map(sum => windowSum(sum, x, y));
+        tile.layer.color = linearColor(floorHslPaletteColor(Math.trunc(hue * 256 / multiplier), Math.trunc(saturation / count), Math.trunc(lightness / count)));
+    }
+}
+
 /** Shared world coordinates give both sides of a selected-region seam identical samples. */
 export function terrainSampler(regions: readonly MapRenderRegion[]): (plane: number, x: number, y: number) => FloorSample[] {
     const tiles = new Map<string, { key: string; layer: TerrainLayer; hsl: readonly number[] }>();
@@ -42,24 +79,9 @@ export function terrainSampler(regions: readonly MapRenderRegion[]): (plane: num
     }
     // Class274's rolling window adds coordinate +5 and removes -5: ten tiles per axis.
     // Summed-area tables keep this linear in selected terrain size, including neighbour halos.
-    for (const region of regions) region.planes.forEach((_, level) => {
-        const stride = 74;
-        const sums = Array.from({ length: 5 }, () => new Float64Array(stride * stride));
-        for (let x = 0; x < 73; x++) for (let y = 0; y < 73; y++) {
-            const tile = tiles.get(`${level}:${region.regionX * 64 + x - 4}:${region.regionY * 64 + y - 4}`);
-            const at = (x + 1) * stride + y + 1;
-            for (let component = 0; component < 5; component++) {
-                const sum = sums[component];
-                sum[at] = (tile ? component === 4 ? 1 : tile.hsl[component] : 0) + sum[at - stride] + sum[at - 1] - sum[at - stride - 1];
-            }
-        }
-        for (let x = 0; x < 64; x++) for (let y = 0; y < 64; y++) {
-            const tile = tiles.get(`${level}:${region.regionX * 64 + x}:${region.regionY * 64 + y}`);
-            if (!tile) continue;
-            const [hue, saturation, lightness, multiplier, count] = sums.map(sum => sum[(x + 10) * stride + y + 10] - sum[x * stride + y + 10] - sum[(x + 10) * stride + y] + sum[x * stride + y]);
-            tile.layer.color = linearColor(floorHslPaletteColor(Math.trunc(hue * 256 / multiplier), Math.trunc(saturation / count), Math.trunc(lightness / count)));
-        }
-    });
+    for (const region of regions) {
+        for (const level of region.planes.keys()) blendRegionPlane(tiles, region, level);
+    }
     return (plane, x, y) => {
         const tx = Math.floor(x - 0.5),
             ty = Math.floor(y - 0.5);

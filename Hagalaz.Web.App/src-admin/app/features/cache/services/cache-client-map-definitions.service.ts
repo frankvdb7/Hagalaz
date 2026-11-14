@@ -1,17 +1,10 @@
 import type { GetClientMapDefinitionDto } from "./dtos";
-import { Service, type Signal } from "@angular/core";
-import { environment } from "../../../../environments/environment";
-import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
+import { Service } from "@angular/core";
+import { CacheTypeService } from "./cache-resource";
 
 @Service()
-export class CacheClientMapDefinitionsService {
-    private readonly baseUrl = `${environment.cacheApiUrl}types/client-map-definitions`;
-
-    definitionResource(id: Signal<number | null>) {
-        return cacheDefinitionResource<GetClientMapDefinitionDto>(this.baseUrl, id);
-    }
-
-    rangeResource(range: Signal<{ startId: number; endIdExclusive: number } | null>) {
-        return cacheQueryResource<GetClientMapDefinitionDto[]>(`${this.baseUrl}/range`, range);
+export class CacheClientMapDefinitionsService extends CacheTypeService<GetClientMapDefinitionDto> {
+    constructor() {
+        super("client-map-definitions");
     }
 }

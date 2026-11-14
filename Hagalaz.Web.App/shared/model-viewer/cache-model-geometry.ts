@@ -30,53 +30,107 @@ export interface CacheModelGeometry {
     coordinateScale?: number;
 }
 
-type FaceMaterial = { colorBlend?: number; brightness?: number; effectId?: number };
+export type FaceMaterial = { colorBlend?: number; brightness?: number; effectId?: number };
+
+type Coordinate = (index: number) => number;
+
+/** Output buffers of a model whose faces are expanded to independent corners. */
+interface FaceBuffers {
+    positions: number[];
+    colors: number[];
+    indices: number[];
+    opacities: number[];
+    uvs: number[];
+    textureIds: number[];
+    firstTexel: number[];
+}
+
+interface FaceSource {
+    model: CacheModelGeometry;
+    faceColors: readonly number[];
+    coordinate: Coordinate;
+    materials?: ReadonlyMap<number, FaceMaterial>;
+    preparedLighting: boolean;
+    shades: readonly number[];
+    hiddenFaces: ReadonlySet<number>;
+    firstTexelFaces: ReadonlySet<number>;
+}
+
+interface FaceTexture {
+    textureId: number;
+    uvs?: readonly number[];
+    material?: FaceMaterial;
+}
+
+function faceTexture(model: CacheModelGeometry, face: number, materials: ReadonlyMap<number, FaceMaterial> | undefined): FaceTexture {
+    const uvs = model.faceTextureUvs?.slice(face * 6, face * 6 + 6);
+    const textureId = model.faceTextureIds?.[face] ?? -1;
+    if (textureId < 0 || uvs?.length !== 6) return { textureId: -1 };
+    return { textureId, uvs, material: materials?.get(textureId) };
+}
+
+/** Client alpha -1 (255) hides helper faces; -2 (254) uses constant shading rather than transparency. */
+function faceShadingType(model: CacheModelGeometry, face: number, alpha: number): number {
+    if (alpha === 255) return 2;
+    if (alpha === 254) return 3;
+    return model.faceShadingTypes?.[face] ?? 0;
+}
+
+function unlitFaceColor(packed: number, texture: FaceTexture): number[] {
+    return texture.uvs && !texture.material ? [1, 1, 1] : packedHslColor(packed, texture.material);
+}
+
+function appendFace(source: FaceSource, buffers: FaceBuffers, face: number) {
+    const { model, coordinate, preparedLighting } = source;
+    const texture = faceTexture(model, face, source.materials);
+    const textured = texture.uvs !== undefined;
+    const alpha = model.faceAlpha?.[face] ?? 0;
+    const type = faceShadingType(model, face, alpha);
+    const opacity = faceOpacity(source.hiddenFaces, face, alpha, type, preparedLighting && textured);
+    const rgb = preparedLighting ? [] : unlitFaceColor(source.faceColors[face], texture);
+    const texel = source.firstTexelFaces.has(face) ? 1 : 0;
+    buffers.textureIds.push(texture.textureId);
+    for (const corner of modelFaceWinding) {
+        const vertex = model.indices[face * 3 + corner] * 3;
+        buffers.positions.push(coordinate(vertex), -coordinate(vertex + 1), coordinate(vertex + 2));
+        if (preparedLighting) {
+            appendLitCorner(buffers.colors, source.faceColors[face], source.shades[face * 3 + corner], textured, texture.material, type, model.ambient);
+        } else buffers.colors.push(...rgb);
+        buffers.indices.push(buffers.indices.length);
+        buffers.opacities.push(opacity);
+        buffers.firstTexel.push(texel);
+        buffers.uvs.push(...(texture.uvs?.slice(corner * 2, corner * 2 + 2) ?? [0, 0]));
+    }
+}
+
+function prepareColoredModel(model: CacheModelGeometry, faceColors: readonly number[], coordinate: Coordinate,
+    materials: ReadonlyMap<number, FaceMaterial> | undefined, light: ModelLight | undefined) {
+    const preparedLighting = model.ambient !== undefined || model.faceShadingTypes !== undefined;
+    const lightingPositions = () => model.positions.map((_, index) => Math.trunc(coordinate(index) / (model.coordinateScale ?? 1)));
+    const shades = preparedLighting ? lightModel({ ...model, positions: lightingPositions() }, light) : [];
+    const firstTexelFaces = new Set(model.firstTexelFaces ?? []);
+    const { billboards, hiddenFaces } = prepareBillboards(model, faceColors);
+    const source: FaceSource = { model, faceColors, coordinate, materials, preparedLighting, shades, hiddenFaces, firstTexelFaces };
+    const buffers: FaceBuffers = { positions: [], colors: [], indices: [], opacities: [], uvs: [], textureIds: [], firstTexel: [] };
+    for (let face = 0; face < model.indices.length / 3; face++) appendFace(source, buffers, face);
+    const { firstTexel, ...faces } = buffers;
+    return { ...faces, preparedLighting, billboards, firstTexel: firstTexelFaces.size ? firstTexel : undefined };
+}
 
 /** Converts the cache's downward Y axis and reverses winding exactly once. */
 export function prepareCacheModel(model: CacheModelGeometry, materials?: ReadonlyMap<number, FaceMaterial>, light?: ModelLight): ModelGeometry {
-    const coordinate = (index: number) => model.scale ? Math.floor(model.positions[index] * model.scale[index % 3]) : model.positions[index];
-    const effectors = prepareEffectors(model.effectors, coordinate);
-    if (model.faceColors) {
-        const preparedLighting = model.ambient !== undefined || model.faceShadingTypes !== undefined;
-        const shades = preparedLighting ? lightModel({...model, positions: model.positions.map((_, index) => Math.trunc(coordinate(index) / (model.coordinateScale ?? 1)))}, light) : [];
-        const positions: number[] = [];
-        const colors: number[] = [];
-        const indices: number[] = [];
-        const opacities: number[] = [];
-        const uvs: number[] = [];
-        const textureIds: number[] = [];
-        const firstTexelFaces = new Set(model.firstTexelFaces ?? []);
-        const firstTexel: number[] = [];
-        const { billboards, hiddenFaces } = prepareBillboards(model, model.faceColors);
-        for (let face = 0; face < model.indices.length / 3; face++) {
-            const decodedUvs = model.faceTextureUvs?.slice(face * 6, face * 6 + 6);
-            const textured = (model.faceTextureIds?.[face] ?? -1) >= 0 && decodedUvs?.length === 6;
-            textureIds.push(textured ? model.faceTextureIds![face] : -1);
-            const material = textured ? materials?.get(model.faceTextureIds![face]) : undefined;
-            const rgb = preparedLighting ? [] : textured && !material ? [1, 1, 1] : packedHslColor(model.faceColors[face], material);
-            const alpha = model.faceAlpha?.[face] ?? 0;
-            // Client alpha -1 hides helper faces; -2 uses constant shading rather than transparency.
-            const type = alpha === 255 ? 2 : alpha === 254 ? 3 : model.faceShadingTypes?.[face] ?? 0;
-            const opacity = faceOpacity(hiddenFaces, face, alpha, type, preparedLighting && textured);
-            for (const corner of modelFaceWinding) {
-                const vertex = model.indices[face * 3 + corner] * 3;
-                positions.push(coordinate(vertex), -coordinate(vertex + 1), coordinate(vertex + 2));
-                if (preparedLighting) {
-                    appendLitCorner(colors, model.faceColors[face], shades[face * 3 + corner], textured, material, type, model.ambient);
-                } else colors.push(...rgb);
-                indices.push(indices.length);
-                opacities.push(opacity);
-                firstTexel.push(firstTexelFaces.has(face) ? 1 : 0);
-                uvs.push(...(textured ? decodedUvs!.slice(corner * 2, corner * 2 + 2) : [0, 0]));
-            }
-        }
-        return { preparedLighting, sourceId: model.id, facePriorities: model.facePriorities ?? undefined, positions, indices, colors, opacities, uvs, textureIds, firstTexel: firstTexelFaces.size ? firstTexel : undefined, particles: model.particles, effectors, particleScale: model.coordinateScale ?? 1, billboards };
-    }
-    return {
-        sourceId: model.id, facePriorities: model.facePriorities ?? undefined,
+    const scale = model.scale;
+    const coordinate: Coordinate = scale ? index => Math.floor(model.positions[index] * scale[index % 3]) : index => model.positions[index];
+    const shared = {
+        sourceId: model.id,
+        facePriorities: model.facePriorities ?? undefined,
         particles: model.particles,
-        effectors,
+        effectors: prepareEffectors(model.effectors, coordinate),
         particleScale: model.coordinateScale ?? 1,
+    };
+    if (model.faceColors) return { ...shared, ...prepareColoredModel(model, model.faceColors, coordinate, materials, light) };
+    return {
+        ...shared,
         positions: model.positions.map((_, index) => index % 3 === 1 ? -coordinate(index) : coordinate(index)),
         indices: model.indices.flatMap((_, index, source) => index % 3 === 0 ? [source[index], source[index + 2], source[index + 1]] : []),
     };

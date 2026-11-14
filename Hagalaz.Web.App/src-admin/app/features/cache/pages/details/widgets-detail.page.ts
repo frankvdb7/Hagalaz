@@ -3,47 +3,42 @@ import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop";
 import type { Subscription } from "rxjs";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
-import { MatCheckboxModule } from "@angular/material/checkbox";
-import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
-import { MatInputModule } from "@angular/material/input";
-import { MatListModule } from "@angular/material/list";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
-import { MatSelectModule } from "@angular/material/select";
 import { MatTabsModule } from "@angular/material/tabs";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { CacheSpritesService } from "../../services/cache-sprites.service";
-import { CacheWidgetsService } from "../../services/cache-widgets.service";
-import { pointerEvents, WidgetRuntime } from "../../services/widget-runtime";
+import { CacheWidgetsService, type WidgetPreviewState } from "../../services/cache-widgets.service";
+import { pointerEvents, type PreviewEvent, WidgetRuntime } from "../../services/widget-runtime";
 import { decodeWidgetComponent, type WidgetComponent } from "../../services/widget-component";
 import { injectCacheDefinitionId } from "../cache-definition-id";
-import { layoutWidget, widgetType } from "./widget-layout";
+import { WidgetFinderComponent } from "./widget-finder.component";
+import { layoutWidget } from "./widget-layout";
+import { WidgetLogicComponent } from "./widget-logic.component";
 import { WidgetPreviewComponent } from "./widget-preview.component";
-import { WidgetSpriteComponent } from "./widget-sprite.component";
+import { WidgetPropertiesComponent } from "./widget-properties.component";
+import { WidgetTreeComponent } from "./widget-tree.component";
 
 @Component({
     selector: "cache-widgets-detail-page",
     imports: [
         MatButtonModule,
         MatCardModule,
-        MatCheckboxModule,
-        MatFormFieldModule,
         MatIconModule,
-        MatInputModule,
-        MatListModule,
         MatProgressBarModule,
-        MatSelectModule,
         MatTabsModule,
         RouterLink,
+        WidgetFinderComponent,
+        WidgetLogicComponent,
         WidgetPreviewComponent,
-        WidgetSpriteComponent,
+        WidgetPropertiesComponent,
+        WidgetTreeComponent,
     ],
     providers: [CacheSpritesService],
     templateUrl: "./widgets-detail.page.html",
-    styleUrl: "./widgets-detail.page.scss",
+    styleUrls: ["./widget-panels.scss", "./widgets-detail.page.scss"],
 })
 export class WidgetsDetailPageComponent {
-    readonly optionIsSet = Boolean;
     private readonly destroyRef = inject(DestroyRef);
     private previewRequest?: Subscription;
     private runtime?: WidgetRuntime;
@@ -64,6 +59,12 @@ export class WidgetsDetailPageComponent {
     readonly cache = inject(CacheWidgetsService);
     readonly widget = computed(() => this.cache.widgets().find((widget) => widget.fileId === this.widgetId()));
     readonly archive = this.cache.archive(() => this.widget()?.fileId);
+    readonly loading = computed(() => this.cache.referenceTable.isLoading() || this.archive.isLoading());
+    readonly failed = computed(() => Boolean(this.cache.referenceTable.error() || this.archive.error()));
+    readonly missingMessage = computed(() => {
+        const id = this.widgetId();
+        return id === null ? "Enter a valid widget ID." : `Widget ${id} not found.`;
+    });
     private readonly decoded = computed(() => {
         const components: WidgetComponent[] = [];
         const unreadable: number[] = [];
@@ -130,35 +131,9 @@ export class WidgetsDetailPageComponent {
     });
     readonly tree = computed(() => this.layers().filter((layer) => layer.ancestors.every((id) => !this.collapsed().has(id))));
     readonly parents = computed(() => new Set(this.components().map(({ parentId }) => parentId)));
-    readonly filter = signal("");
-    readonly typeFilter = signal("");
-    readonly componentTypes = computed(() => [...new Set(this.components().map(({ type }) => type))].sort((a, b) => a - b));
-    readonly matching = computed(() =>
-        this.components().filter(
-            (component) =>
-                (!this.typeFilter() || component.type === Number(this.typeFilter())) &&
-                this.componentLabel(component).toLowerCase().includes(this.filter().trim().toLowerCase())
-        )
-    );
     readonly spriteAssets = computed(() => [
         ...new Set(this.components().flatMap(({ spriteId }) => (spriteId !== undefined && spriteId >= 0 ? [spriteId] : []))),
     ]);
-    readonly type = widgetType;
-    readonly geometry = [
-        { key: "x", label: "X" },
-        { key: "y", label: "Y" },
-        { key: "width", label: "Width" },
-        { key: "height", label: "Height" },
-    ] as const;
-    readonly cameraFields = [
-        { key: "pitch", label: "Pitch" },
-        { key: "yaw", label: "Yaw" },
-        { key: "roll", label: "Roll" },
-        { key: "zoom", label: "Camera distance" },
-        { key: "x", label: "Camera X" },
-        { key: "y", label: "Camera Y" },
-    ] as const;
-    readonly anchors = ["Start", "Center", "End", "Relative start", "Relative center", "Relative end"];
 
     constructor() {
         effect(() => {
@@ -195,18 +170,35 @@ export class WidgetsDetailPageComponent {
         });
     }
 
-    runPreview(event: "open" | "click" | "release" | "enter" | "exit" | "manual", component?: number, callback?: string, trigger?: string, x?: number, y?: number) {
-        if (!this.runtime || !this.interactive()) return;
-        if (event !== "open" && event !== "manual" && (component === undefined ||
-            !this.pointerCallbacks().get(component)?.has(pointerEvents[event]))) return;
-        const { state, message } = this.runtime.run({ event, component, callback, trigger: trigger ? Number(trigger) : undefined, x, y });
+    retry() {
+        if (this.cache.referenceTable.error()) this.cache.referenceTable.reload();
+        else this.archive.reload();
+    }
+
+    togglePreview() {
+        if (this.interactive()) this.reset();
+        else this.startPreview();
+    }
+
+    runPreview(event: PreviewEvent["event"], component?: number, callback?: string, trigger?: string, x?: number, y?: number) {
+        const runtime = this.runtime;
+        if (!runtime || !this.interactive() || !this.accepts(event, component)) return;
+        const { state, message } = runtime.run({ event, component, callback, trigger: trigger ? Number(trigger) : undefined, x, y });
         this.previewMessage.set(message);
-        if (state) {
-            this.mouseEnterTargets.set(this.runtime.hoverTargets(pointerEvents.enter));
-            this.mouseExitTargets.set(this.runtime.hoverTargets(pointerEvents.exit));
-            const changes = new Map(state.components.map(entry => [entry.id, entry]));
-            this.components.set([...this.decoded().components.map(entry => ({ ...entry, ...changes.get(entry.id) })), ...(state.dynamicChildren ?? [])]);
-        }
+        if (state) this.applyPreviewState(runtime, state);
+    }
+
+    /** Pointer events only reach components that currently handle them; open and manual runs are always accepted. */
+    private accepts(event: PreviewEvent["event"], component: number | undefined) {
+        if (event === "open" || event === "manual") return true;
+        return component !== undefined && this.pointerCallbacks().get(component)?.has(pointerEvents[event]) === true;
+    }
+
+    private applyPreviewState(runtime: WidgetRuntime, state: WidgetPreviewState) {
+        this.mouseEnterTargets.set(runtime.hoverTargets(pointerEvents.enter));
+        this.mouseExitTargets.set(runtime.hoverTargets(pointerEvents.exit));
+        const changes = new Map(state.components.map(entry => [entry.id, entry]));
+        this.components.set([...this.decoded().components.map(entry => ({ ...entry, ...changes.get(entry.id) })), ...(state.dynamicChildren ?? [])]);
     }
 
     private stopPreview() {
@@ -217,10 +209,6 @@ export class WidgetsDetailPageComponent {
         this.interactive.set(false);
         this.previewBusy.set(false);
         this.previewMessage.set(null);
-    }
-
-    componentLabel(component: WidgetComponent) {
-        return `${component.name || widgetType(component.type).label} (${component.id})`;
     }
 
     select(id: number | null) {
@@ -256,16 +244,9 @@ export class WidgetsDetailPageComponent {
         this.components.update((components) => components.map((component) => (component.id === id ? { ...component, ...change } : component)));
     }
 
-    changeGeometry(component: WidgetComponent, key: "x" | "y" | "width" | "height", input: HTMLInputElement) {
-        if (Number.isInteger(input.valueAsNumber) && input.validity.valid) this.patch(component.id, { [key]: input.valueAsNumber });
-        else input.value = String(component[key]);
-    }
-
-    changeCamera(component: WidgetComponent, key: (typeof this.cameraFields)[number]["key"], input: HTMLInputElement) {
-        const camera = component.modelCamera;
-        if (!camera) return;
-        if (Number.isInteger(input.valueAsNumber) && input.validity.valid) this.patch(component.id, { modelCamera: { ...camera, [key]: input.valueAsNumber } });
-        else input.value = String(camera[key]);
+    patchSelected(change: Partial<WidgetComponent>) {
+        const id = this.selectedId();
+        if (id !== null) this.patch(id, change);
     }
 
     selectSprite(id: number) {

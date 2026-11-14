@@ -39,10 +39,10 @@ export function mapLoadPercent(progress: MapLoadProgress): number {
             @case ("progress") {
                 <div class="load-pill is-delayed studio-surface">
                     <div class="pill-row">
-                        <strong>{{ activity() ?? stage().label }}</strong>
-                        @if (!activity() && stage().detail) { <span class="supporting-text">{{ stage().detail }}</span> }
+                        <strong>{{ progressStatus().label }}</strong>
+                        @if (progressStatus().detail; as detail) { <span class="supporting-text">{{ detail }}</span> }
                     </div>
-                    <mat-progress-bar [mode]="activity() ? 'indeterminate' : 'determinate'" [value]="percent()" aria-label="Map scene progress" />
+                    <mat-progress-bar [mode]="progressStatus().mode" [value]="percent()" aria-label="Map scene progress" />
                 </div>
             }
             @case ("failed") {
@@ -70,7 +70,7 @@ export function mapLoadPercent(progress: MapLoadProgress): number {
                     </div>
                     @if (detailsOpen()) { <ng-container [ngTemplateOutlet]="issueList" /> }
                     <div class="pill-actions">
-                        <button mat-button type="button" [attr.aria-expanded]="detailsOpen()" (click)="detailsOpen.set(!detailsOpen())">{{ detailsOpen() ? 'Hide details' : 'Details' }}</button>
+                        <button mat-button type="button" [attr.aria-expanded]="detailsOpen()" (click)="detailsOpen.set(!detailsOpen())">{{ detailsLabel() }}</button>
                         <button mat-button type="button" (click)="retry.emit()"><mat-icon>refresh</mat-icon>Retry</button>
                     </div>
                 </div>
@@ -113,6 +113,13 @@ export class MapLoadStatusComponent {
     readonly detailsOpen = signal(false);
     readonly dismissed = linkedSignal(() => { this.progress().failures; return false; });
     readonly stage = computed(() => mapLoadStage(this.progress()));
+    /** A cache write replaces the load stage with its own description and an indeterminate bar. */
+    readonly progressStatus = computed(() => {
+        const activity = this.activity();
+        if (activity) return { label: activity, detail: null, mode: "indeterminate" as const };
+        return { ...this.stage(), mode: "determinate" as const };
+    });
+    readonly detailsLabel = computed(() => (this.detailsOpen() ? "Hide details" : "Details"));
     readonly failureText = computed(() => {
         const failures = this.progress().failures;
         return `${failures} ${failures === 1 ? "item" : "items"} could not be loaded`;

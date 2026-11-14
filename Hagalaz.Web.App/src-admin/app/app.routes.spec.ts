@@ -5,7 +5,7 @@ import { BreakpointObserver } from "@angular/cdk/layout";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
-import { ApplicationRef, Component, input, model, signal } from "@angular/core";
+import { ApplicationRef, Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatAutocompleteHarness } from "@angular/material/autocomplete/testing";
 import { MatDialog } from "@angular/material/dialog";
@@ -22,31 +22,11 @@ import { routes } from "./app.routes";
 import { AuthStore } from "./core/auth/auth.store";
 import { CacheModelPreviewComponent } from "./features/cache/pages/cache-model-preview.component";
 import { NpcsDetailPageComponent } from "./features/cache/pages/details/npcs-detail.page";
+import { ItemSpriteBoundary, ModelPreviewBoundary } from "../testing/cache-preview-boundaries";
 import { ItemsDetailPageComponent } from "./features/cache/pages/details/items-detail.page";
 
 @Component({ template: "<h1>Login boundary</h1>" })
 class LoginBoundary {}
-
-@Component({ selector: "cache-item-sprite-thumbnail", template: "" })
-class ItemSpriteBoundary {
-    readonly id = input.required<number>();
-    readonly name = input("");
-    readonly size = input(44);
-    readonly revision = input<unknown>();
-    readonly quantity = input<number>();
-    readonly outline = input<number>();
-    readonly shadow = input<string>();
-}
-
-@Component({ selector: "cache-model-preview", template: "" })
-class ModelPreviewBoundary {
-    readonly workspace = input(false);
-    readonly inspectionTab = model(0);
-    readonly definition = input<unknown>();
-    readonly modelId = input<number | null>(null);
-    readonly itemId = input<number | null>(null);
-    readonly height = input(360);
-}
 
 async function openRoute(path: string): Promise<RouterTestingHarness> {
     const harness = await RouterTestingHarness.create(path);
@@ -182,8 +162,7 @@ describe("admin portal routing", () => {
         await vi.waitFor(() => expect(breadcrumb?.textContent).toContain("Model #666"));
         expect(breadcrumb?.querySelector('a[href="/cache/models"]')).not.toBeNull();
         const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
-        expect(preview.modelId()).toBe(666);
-        expect(preview.inspectionTab()).toBe(1);
+        expect(preview.bound()).toEqual({ workspace: true, inspectionTab: 1, definition: undefined, modelId: 666, itemId: null, height: 360 });
     });
 
     it("does not expose the retired sprite manager route", async () => {

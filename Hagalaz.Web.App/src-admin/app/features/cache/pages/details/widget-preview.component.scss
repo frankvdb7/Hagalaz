@@ -41,10 +41,6 @@
 .preview-layer.selected { outline: 2px solid var(--workspace-accent); outline-offset: -2px; }
 .preview-layer.selected::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--workspace-accent); pointer-events: none; }
 .inspect-layer:hover:enabled { box-shadow: inset 0 0 0 1px var(--workspace-accent); }
-.layer-appearance { position: absolute; inset: 0; display: block; overflow: hidden; pointer-events: none; }
-.widget-rectangle { display: block; width: 100%; height: 100%; border: 1px solid currentColor; }
-.widget-rectangle.filled, .widget-line { background: currentColor; }
-.widget-line { position: absolute; left: 0; transform-origin: left center; }
 
 @media (max-width: 1180px) {
     :host { height: 620px; }

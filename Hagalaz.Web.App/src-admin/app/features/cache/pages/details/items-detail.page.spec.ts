@@ -20,27 +20,9 @@ import { environment } from "../../../../../environments/environment";
 import { PortalBreadcrumb } from "../../../../layout/portal-breadcrumb";
 import { ItemsDetailPageComponent } from "./items-detail.page";
 
-import { Component, input } from "@angular/core";
 import { CacheModelPreviewComponent } from "../cache-model-preview.component";
+import { ItemSpriteBoundary, ModelPreviewBoundary } from "../../../../../testing/cache-preview-boundaries";
 import { required } from "../../../../../testing/required";
-
-@Component({ selector: "cache-item-sprite-thumbnail", template: "" })
-class ItemSpriteBoundary {
-    readonly id = input.required<number>();
-    readonly name = input("");
-    readonly size = input(44);
-    readonly revision = input<unknown>();
-    readonly quantity = input<number>();
-    readonly outline = input<number>();
-    readonly shadow = input<string>();
-}
-
-@Component({ selector: "cache-model-preview", template: "" })
-class ModelPreviewBoundary {
-    readonly modelId = input<number | null>(null);
-    readonly itemId = input<number | null>(null);
-    readonly height = input(360);
-}
 
 const text = (element: Element | null) => element?.textContent?.replace(/\s+/g, "").trim();
 const baseUrl = `${environment.cacheApiUrl}types`;
@@ -107,8 +89,7 @@ describe("Item Forge", () => {
     it("shows the reference editor with actual zero values and real preview wiring", async () => {
         const { element, loader, harness } = await open();
         const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
-        expect(preview.modelId()).toBe(42);
-        expect(preview.itemId()).toBe(7);
+        expect(preview.bound()).toEqual({ workspace: false, inspectionTab: 0, definition: undefined, modelId: 42, itemId: 7, height: 200 });
         expect(element.querySelector("h2")?.textContent).toBe("Runic blade");
         expect((element.querySelector("#item-value") as HTMLInputElement).value).toBe("0");
         expect(text(element)).toContain("Stackable:No");
@@ -318,7 +299,7 @@ describe("Item Forge", () => {
         expect([sprite.quantity(), sprite.outline(), sprite.shadow()]).toEqual([1, 1, "302020"]);
         expect(sprite.revision()).toBe(page.item());
         const portrait = harness.fixture.debugElement.query(By.css(".item-portrait cache-item-sprite-thumbnail")).componentInstance as ItemSpriteBoundary;
-        expect(portrait.revision()).toBe(page.item());
+        expect(portrait.bound()).toEqual({ id: 7, name: "Runic blade", size: 88, revision: page.item(), quantity: undefined, outline: undefined, shadow: undefined });
 
         const quantity = await loader.getHarness(MatInputHarness.with({ selector: ".icon-options input[type=number]" }));
         await quantity.setValue("25000");

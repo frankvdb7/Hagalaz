@@ -1,4 +1,4 @@
-interface Glyph {
+export interface Glyph {
     x: number;
     y: number;
     width: number;
@@ -86,47 +86,111 @@ interface TextGlyph {
     color: string;
 }
 
+type PlacedLine = { glyphs: (TextGlyph & { x: number })[]; width: number };
+const escapes: Record<string, string> = { "<lt>": "<", "<gt>": ">" };
+
+function positionLine(font: WidgetFont, glyphs: TextGlyph[]): PlacedLine {
+    let x = 0;
+    let previous: number | undefined;
+    return {
+        glyphs: glyphs.map((glyph) => {
+            if (previous !== undefined) x += font.kerning(previous, glyph.code);
+            const placed = { ...glyph, x };
+            x += font.advances[glyph.code];
+            previous = glyph.code;
+            return placed;
+        }),
+        width: x,
+    };
+}
+
+/** The colour a `<col=rrggbb>` or `</col>` tag switches to, or undefined for any other token. */
+function colorTag(token: string, base: string): string | undefined {
+    if (/^<col=[a-f\d]{1,6}>$/i.test(token)) return `#${token.slice(5, -1).padStart(6, "0")}`;
+    return token === "</col>" ? base : undefined;
+}
+
+/** The character a token prints, resolving `<lt>`/`<gt>` escapes; other tags print nothing. */
+function printable(token: string): string | undefined {
+    if (Object.hasOwn(escapes, token)) return escapes[token];
+    return !token.startsWith("<") || token.length === 1 ? token : undefined;
+}
+
+/** Wraps an overflowing line at its last space or hyphen, pushing the finished part; returns the line still being filled. */
+function wrapLine(font: WidgetFont, line: TextGlyph[], width: number, lines: PlacedLine[]): TextGlyph[] {
+    if (positionLine(font, line).width <= width) return line;
+    let space = line.length - 1;
+    while (space > 0 && line[space].code !== 32 && line[space].code !== 45) space--;
+    if (space <= 0) return line;
+    lines.push(positionLine(font, line.slice(0, space + (line[space].code === 45 ? 1 : 0))));
+    return line.slice(space + 1);
+}
+
 export function layoutWidgetText(font: WidgetFont, text: string, color: string, width: number) {
-    const lines: { glyphs: (TextGlyph & { x: number })[]; width: number }[] = [];
+    const lines: PlacedLine[] = [];
     let line: TextGlyph[] = [];
     let currentColor = color;
-    const positionLine = (glyphs: TextGlyph[]) => {
-        let x = 0;
-        let previous: number | undefined;
-        return {
-            glyphs: glyphs.map((glyph) => {
-                if (previous !== undefined) x += font.kerning(previous, glyph.code);
-                const placed = { ...glyph, x };
-                x += font.advances[glyph.code];
-                previous = glyph.code;
-                return placed;
-            }),
-            width: x,
-        };
-    };
     for (const token of text.match(/<[^>]*>|[\s\S]/gu) ?? []) {
         if (token === "\n" || token === "<br>") {
-            lines.push(positionLine(line));
+            lines.push(positionLine(font, line));
             line = [];
             currentColor = color;
-        } else if (/^<col=[a-f\d]{1,6}>$/i.test(token)) {
-            currentColor = `#${token.slice(5, -1).padStart(6, "0")}`;
-        } else if (token === "</col>") currentColor = color;
-        else if (!token.startsWith("<") || token.length === 1 || token === "<lt>" || token === "<gt>") {
-            const character = token === "<lt>" ? "<" : token === "<gt>" ? ">" : token;
-            line.push({ code: characterCodes.get(character) ?? 63, color: currentColor });
-            if (positionLine(line).width > width) {
-                let space = line.length - 1;
-                while (space > 0 && line[space].code !== 32 && line[space].code !== 45) space--;
-                if (space > 0) {
-                    lines.push(positionLine(line.slice(0, space + (line[space].code === 45 ? 1 : 0))));
-                    line = line.slice(space + 1);
-                }
-            }
+            continue;
         }
+        const tag = colorTag(token, color);
+        if (tag) {
+            currentColor = tag;
+            continue;
+        }
+        const character = printable(token);
+        if (character === undefined) continue;
+        line.push({ code: characterCodes.get(character) ?? 63, color: currentColor });
+        line = wrapLine(font, line, width, lines);
     }
-    lines.push(positionLine(line));
+    lines.push(positionLine(font, line));
     return lines;
+}
+
+/** First baseline and line pitch for the client's vertical alignments: top, centre, bottom and justified. */
+function verticalLayout(font: WidgetFont, lineCount: number, height: number, vertical: number, spacing: number) {
+    const lineHeight = spacing || font.ascent;
+    const extra = height - font.top - font.bottom - (lineCount - 1) * lineHeight;
+    if (vertical === 1 || (vertical === 3 && lineCount === 1)) return { baseline: font.top + Math.trunc(extra / 2), lineHeight };
+    if (vertical === 2) return { baseline: font.top + extra, lineHeight };
+    if (vertical !== 3) return { baseline: font.top, lineHeight };
+    const gap = Math.max(0, Math.trunc(extra / (lineCount + 1)));
+    return { baseline: font.top + gap, lineHeight: lineHeight + gap };
+}
+
+function lineStart(horizontal: number, remaining: number) {
+    if (horizontal === 1) return Math.trunc(remaining / 2);
+    return horizontal === 2 ? remaining : 0;
+}
+
+interface LineDraw {
+    context: CanvasRenderingContext2D;
+    font: WidgetFont;
+    baseline: number;
+    start: number;
+    /** Extra width distributed across the line's spaces when justified, otherwise zero. */
+    justify: number;
+    spaces: number;
+    shadow: boolean;
+}
+
+function drawLine({ context, font, baseline, start, justify, spaces, shadow }: LineDraw, line: PlacedLine) {
+    let passedSpaces = 0;
+    for (const { code, color, x } of line.glyphs) {
+        if (code === 32) {
+            passedSpaces++;
+            continue;
+        }
+        const glyph = font.glyphs[code];
+        const left = start + x + glyph.x + (spaces ? Math.trunc((justify * passedSpaces) / spaces) : 0);
+        const top = baseline - font.ascent + glyph.y;
+        if (shadow) drawGlyph(context, glyph, left + 1, top + 1, "#000000");
+        drawGlyph(context, glyph, left, top, color);
+    }
 }
 
 export function drawWidgetText(
@@ -142,33 +206,13 @@ export function drawWidgetText(
     shadow: boolean
 ) {
     const lines = layoutWidgetText(font, text, color, width);
-    let lineHeight = spacing || font.ascent;
-    const extra = height - font.top - font.bottom - (lines.length - 1) * lineHeight;
-    let baseline = font.top;
-    if (vertical === 1 || (vertical === 3 && lines.length === 1)) baseline += Math.trunc(extra / 2);
-    else if (vertical === 2) baseline += extra;
-    else if (vertical === 3) {
-        const gap = Math.max(0, Math.trunc(extra / (lines.length + 1)));
-        baseline += gap;
-        lineHeight += gap;
-    }
+    let { baseline, lineHeight } = verticalLayout(font, lines.length, height, vertical, spacing);
     context.clearRect(0, 0, width, height);
     for (const [index, line] of lines.entries()) {
         const remaining = width - line.width;
-        const start = horizontal === 1 ? Math.trunc(remaining / 2) : horizontal === 2 ? remaining : 0;
-        const spaces = horizontal === 3 && index < lines.length - 1 ? line.glyphs.filter(({ code }) => code === 32).length : 0;
-        let passedSpaces = 0;
-        for (const { code, color, x } of line.glyphs) {
-            if (code === 32) {
-                passedSpaces++;
-                continue;
-            }
-            const glyph = font.glyphs[code];
-            const left = start + x + glyph.x + (spaces ? Math.trunc((Math.max(0, remaining) * passedSpaces) / spaces) : 0);
-            const top = baseline - font.ascent + glyph.y;
-            if (shadow) drawGlyph(context, glyph, left + 1, top + 1, "#000000");
-            drawGlyph(context, glyph, left, top, color);
-        }
+        const justified = horizontal === 3 && index < lines.length - 1;
+        const spaces = justified ? line.glyphs.filter(({ code }) => code === 32).length : 0;
+        drawLine({ context, font, baseline, start: lineStart(horizontal, remaining), justify: Math.max(0, remaining), spaces, shadow }, line);
         baseline += lineHeight;
     }
     context.globalAlpha = 1;

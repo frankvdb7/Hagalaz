@@ -4,7 +4,7 @@ import { provideLocationMocks } from "@angular/common/testing";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from "@angular/common/http/testing";
-import { ApplicationRef, Component, input, signal } from "@angular/core";
+import { ApplicationRef, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatButtonHarness } from "@angular/material/button/testing";
 import { MatDialog } from "@angular/material/dialog";
@@ -24,26 +24,9 @@ import { DefinitionDetailComponent } from "./definition-detail.component";
 import { CacheModelPreviewComponent } from "./cache-model-preview.component";
 import { NpcsDetailPageComponent } from "./details/npcs-detail.page";
 import { ObjectsDetailPageComponent } from "./details/objects-detail.page";
+import { ItemSpriteBoundary, ModelPreviewBoundary } from "../../../../testing/cache-preview-boundaries";
+import { required } from "../../../../testing/required";
 import { ItemsDetailPageComponent } from "./details/items-detail.page";
-
-@Component({ selector: "cache-item-sprite-thumbnail", template: "" })
-class ItemSpriteBoundary {
-    readonly id = input.required<number>();
-    readonly name = input("");
-    readonly size = input(44);
-    readonly revision = input<unknown>();
-    readonly quantity = input<number>();
-    readonly outline = input<number>();
-    readonly shadow = input<string>();
-}
-
-@Component({ selector: "cache-model-preview", template: "" })
-class ModelPreviewBoundary {
-    readonly modelId = input<number | null>(null);
-    readonly itemId = input<number | null>(null);
-    readonly height = input(360);
-    readonly definition = input<unknown>();
-}
 
 const baseUrl = `${environment.cacheApiUrl}types/`;
 const stable = () => TestBed.inject(ApplicationRef).whenStable();
@@ -124,30 +107,36 @@ describe("dedicated cache detail routes", () => {
         harness.fixture.detectChanges();
         return harness;
     }
+    const editableKinds = ["npcs", "objects", "varp-bits", "config-definitions"];
+    function expectedAccess(kind: string) {
+        if (kind === "sprites") return "Image replacement supported";
+        return editableKinds.includes(kind) ? "Supported edits" : "Read only";
+    }
+    function definitionFixture(kind: string) {
+        if (kind === "cs2-int") return 0;
+        return { id: 7, name: `${kind} record`, combatLevel: 2, configId: 3, bitLength: 2, bitOffset: 1, defaultValue: 0, valueType: "i" };
+    }
+    function expectModelPreview(harness: RouterTestingHarness, kind: "npcs" | "objects") {
+        const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
+        expect(preview.bound()).toEqual({
+            workspace: false,
+            inspectionTab: 0,
+            definition: kind === "objects" ? { kind, id: 7, shape: undefined } : { kind, id: 7 },
+            modelId: null,
+            itemId: null,
+            height: 360,
+        });
+    }
     it.each(kinds)("loads the dedicated guarded %s page and its own definition", async (kind) => {
-        const harness = await open(
-            kind,
-            kind === "cs2-int" ? 0 : { id: 7, name: `${kind} record`, combatLevel: 2, configId: 3, bitLength: 2, bitOffset: 1, defaultValue: 0, valueType: "i" }
-        );
+        const harness = await open(kind, definitionFixture(kind));
         const element = harness.routeNativeElement as HTMLElement;
         expect(element.querySelector(`cache-${kind}-detail-page`)).not.toBeNull();
-        if (kind === "npcs" || kind === "objects") {
-            const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
-            expect(preview.definition()).toEqual(kind === "objects" ? { kind, id: 7, shape: undefined } : { kind, id: 7 });
-        }
+        if (kind === "npcs" || kind === "objects") expectModelPreview(harness, kind);
         expect(element.querySelectorAll("mat-toolbar cache-definition-picker")).toHaveLength(1);
         expect(element.querySelector("mat-toolbar cache-definition-picker button")?.getAttribute("aria-label")).toContain(`Choose ${cacheTypeNames[kind]}.`);
         expect(element.querySelector(`a[href="/cache/types?kind=${kind}"]`)).not.toBeNull();
-        expect(element.textContent).toContain(
-            kind === "sprites"
-                ? "Image replacement supported"
-                : ["npcs", "objects", "varp-bits", "config-definitions"].includes(kind)
-                  ? "Supported edits"
-                  : "Read only"
-        );
-        expect(element.querySelector("input[readonly]")?.getAttribute("value") ?? (element.querySelector("input[readonly]") as HTMLInputElement)?.value).toBe(
-            "7"
-        );
+        expect(element.textContent).toContain(expectedAccess(kind));
+        expect(required(element.querySelector<HTMLInputElement>("input[readonly]"), "the readonly ID input").value).toBe("7");
         if (kind === "cs2-int") expect((element.querySelector("textarea") as HTMLTextAreaElement).value).toBe("0");
     });
     it("opens a CS2 deep link with metadata and exact operands in instruction order", async () => {

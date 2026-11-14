@@ -9,6 +9,7 @@ import type { MapLightField } from "../../../../../shared/model-viewer/map-light
 import { type MapAtmosphere, mapFogRange } from "../services/map-render.models";
 import type { PlacementGizmoMode, PlacementGizmoResult } from "../../../../../shared/model-viewer/placement-gizmo";
 import type { MapObjectRange, MapObjectTransform, MapSceneGeometry } from "./map-scene-geometry";
+import { MapSelectionStatusComponent } from "./map-selection-status.component";
 import type { BrushPoint } from "./map-terrain-edit";
 
 export type MapHoverPoint = BrushPoint & { plane?: number };
@@ -19,11 +20,15 @@ export interface HoveredTileReadout {
     collision?: { plane: number | null; bits: readonly string[] };
 }
 
+function sameHoverPoint(a: MapHoverPoint | null, b: MapHoverPoint | null): boolean {
+    return a?.x === b?.x && a?.z === b?.z && a?.plane === b?.plane;
+}
+
 export const mapObjectDragType = "application/x-hagalaz-map-object";
 
 @Component({
     selector: "cache-map-viewport",
-    imports: [MatButtonModule, MatDividerModule, MatIconModule, MatMenuModule, MatTooltipModule],
+    imports: [MapSelectionStatusComponent, MatButtonModule, MatDividerModule, MatIconModule, MatMenuModule, MatTooltipModule],
     template: `
         <div class="map-toolbar" role="group" aria-label="Map editor controls">
             <ng-content select="[mapEditTools]" />
@@ -42,8 +47,8 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
         </mat-menu>
         <mat-menu #viewMenu="matMenu" class="map-view-menu">
             <button mat-menu-item type="button" [matMenuTriggerFor]="gridMenu"><mat-icon>grid_on</mat-icon>Grid ({{ snap() }})</button>
-            <button mat-menu-item type="button" [matMenuTriggerFor]="lightingMenu"><mat-icon>light_mode</mat-icon>Lighting: {{ regionLightingActive() ? 'Region atmosphere' : 'Default' }}{{ fogActive() ? ' with fog' : '' }}</button>
-            <button mat-menu-item type="button" [matMenuTriggerFor]="displayMenu"><mat-icon>texture</mat-icon>{{ wireframe() ? 'Wireframe' : 'Textured' }}</button>
+            <button mat-menu-item type="button" [matMenuTriggerFor]="lightingMenu"><mat-icon>light_mode</mat-icon>Lighting: {{ lightingLabel() }}</button>
+            <button mat-menu-item type="button" [matMenuTriggerFor]="displayMenu"><mat-icon>texture</mat-icon>{{ displayLabel() }}</button>
             <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="animateObjects()" (click)="animateObjects.set(!animateObjects())">Animate objects</button>
             @if (layersMenu(); as layers) { <button mat-menu-item type="button" [matMenuTriggerFor]="layers"><mat-icon>layers</mat-icon>Layers</button> }
             <button mat-menu-item type="button" [matMenuTriggerFor]="cameraMenu"><mat-icon>my_location</mat-icon>Camera</button>
@@ -80,7 +85,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             <button mat-menu-item type="button" role="menuitemradio" [attr.aria-checked]="!regionLightingActive()" (click)="useRegionAtmosphere.set(false)">Default lighting</button>
             <mat-divider />
             <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="pointLightsActive()" [disabled]="!pointLights()" (click)="$event.stopPropagation(); showPointLights.set(!showPointLights())">
-                <mat-icon>{{ pointLightsActive() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>Point lights
+                <mat-icon>{{ pointLightsIcon() }}</mat-icon>Point lights
             </button>
             <button mat-menu-item type="button" role="menuitemcheckbox" [attr.aria-checked]="fogActive()" [disabled]="!regionLightingActive()" (click)="fog.set(!fog())">Client fog</button>
         </mat-menu>
@@ -95,26 +100,8 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
                 (pointerup)="finishPick($event)" (pointercancel)="cancelPick()" (pointerleave)="leaveBrush()"
                 (dragover)="allowObjectDrop($event)" (dragleave)="leaveObjectDrop($event)" (drop)="dropObject($event)"></div>
             <div class="map-legend-slot"><ng-content select="[mapOverlayLegend]" /></div>
-            @let transform = objectTransform();
-            @let tile = hoveredTile();
-            @if (transform || tile) {
-                <div class="map-selection-status studio-surface">
-                    @if (transform) {
-                        <div role="status">
-                            <strong>1 object selected</strong><br />Tile {{ transform.x }}, {{ transform.y }} · Plane {{ transform.plane }}
-                        </div>
-                    }
-                    @if (tile) {
-                        <div class="tile-readout">
-                            @if (transform) { <strong>Hovered tile</strong><br /> }
-                            Tile {{ tile.x }}, {{ tile.y }} · Plane {{ tile.plane }}
-                            @if (tile.collision; as collision) {
-                                · Collision plane {{ collision.plane ?? 'none' }}
-                                · {{ collision.bits.length ? collision.bits.join(', ') : 'No collision bits' }} · Cache only
-                            }
-                        </div>
-                    }
-                </div>
+            @if (objectTransform() || hoveredTile()) {
+                <div class="map-selection-status studio-surface" cacheMapSelectionStatus [transform]="objectTransform()" [tile]="hoveredTile()"></div>
             }
         </div>
         <ng-content select="[mapLoadStatus]" />
@@ -189,6 +176,9 @@ export class MapViewportComponent implements OnDestroy {
     // Off by default: the fitted overview camera sits beyond the client's far plane.
     readonly fog = signal(false);
     readonly fogActive = computed(() => this.regionLightingActive() && this.fog());
+    readonly lightingLabel = computed(() => `${this.regionLightingActive() ? "Region atmosphere" : "Default"}${this.fogActive() ? " with fog" : ""}`);
+    readonly displayLabel = computed(() => (this.wireframe() ? "Wireframe" : "Textured"));
+    readonly pointLightsIcon = computed(() => (this.pointLightsActive() ? "check_box" : "check_box_outline_blank"));
     readonly environment = computed(() => {
         const atmosphere = this.regionLightingActive() ? this.regionAtmosphere() : null;
         return {
@@ -315,14 +305,16 @@ export class MapViewportComponent implements OnDestroy {
         this.tileHoverTimer ??= setTimeout(() => {
             this.tileHoverTimer = undefined;
             const pointer = this.tileHoverPointer;
-            if (!pointer || this.brushActive()) return;
-            const hit = this.pickGround(pointer.x, pointer.y);
-            const tile = hit ? { x: Math.floor(hit.x / 512) * 512, z: Math.floor(hit.z / 512) * 512, plane: hit.plane } : null;
-            const previous = this.lastHoverPoint;
-            if (tile?.x === previous?.x && tile?.z === previous?.z && tile?.plane === previous?.plane) return;
-            this.lastHoverPoint = tile;
-            this.brushHover.emit(tile);
+            if (pointer && !this.brushActive()) this.hoverTile(pointer.x, pointer.y);
         }, 75);
+    }
+    /** Emits the tile under the pointer, snapped to its tile origin, only when it differs from the last hovered tile. */
+    private hoverTile(x: number, y: number): void {
+        const hit = this.pickGround(x, y);
+        const tile = hit && { x: Math.floor(hit.x / 512) * 512, z: Math.floor(hit.z / 512) * 512, plane: hit.plane };
+        if (sameHoverPoint(tile, this.lastHoverPoint)) return;
+        this.lastHoverPoint = tile;
+        this.brushHover.emit(tile);
     }
     private cancelTileHover(): void {
         clearTimeout(this.tileHoverTimer);

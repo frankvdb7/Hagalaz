@@ -23,6 +23,22 @@ export class WidgetModelImages {
     }
 }
 
+function imageSize(value: number) {
+    return Math.max(8, Math.min(value, 512));
+}
+
+/** Server image path for a widget model layer, using its authored camera when one is set. */
+function widgetModelImagePath({ component, width, height }: WidgetLayer): string | null {
+    const modelId = component.modelId ?? -1;
+    if (modelId < 0 || width < 1 || height < 1) return null;
+    const dimensions = { width: imageSize(width), height: imageSize(height) };
+    const camera = component.modelCamera;
+    const authored = camera !== undefined && camera.zoom > 0;
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(authored ? { ...dimensions, ...camera } : dimensions)) query.set(key, String(value));
+    return `models/${modelId}/${authored ? "widget-image" : "image"}?${query}`;
+}
+
 @Component({
     selector: "cache-widget-model",
     template: `
@@ -53,18 +69,9 @@ export class WidgetModelComponent {
         params: () => (this.liveAsset() && this.animationId() >= 0 ? this.animationId() : undefined),
         stream: ({ params }) => this.live.animation(params),
     });
-    private readonly path = computed(() => {
-        if (this.live.available() !== false && !(this.model.hasValue() && this.model.value() === null)) return null;
-        const { component, width, height } = this.layer();
-        if (component.modelId === undefined || component.modelId < 0 || width < 1 || height < 1) return null;
-        const size = (value: number) => Math.max(8, Math.min(value, 512));
-        const dimensions = { width: size(width), height: size(height) };
-        const camera = component.modelCamera;
-        const query = new URLSearchParams();
-        const authored = camera && camera.zoom > 0;
-        for (const [key, value] of Object.entries(authored ? { ...dimensions, ...camera } : dimensions)) query.set(key, String(value));
-        return `models/${component.modelId}/${authored ? "widget-image" : "image"}?${query}`;
-    });
+    /** Falls back to a server-rendered image when live rendering is unavailable or the model cannot be drawn live. */
+    private readonly usesServerImage = computed(() => this.live.available() === false || (this.model.hasValue() && this.model.value() === null));
+    private readonly path = computed(() => (this.usesServerImage() ? widgetModelImagePath(this.layer()) : null));
 
     constructor() {
         afterRenderEffect(() => {

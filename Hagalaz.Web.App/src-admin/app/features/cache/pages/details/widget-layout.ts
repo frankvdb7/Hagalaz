@@ -1,6 +1,6 @@
 import type { WidgetComponent } from "../../services/widget-component";
 
-export const widgetTypes: Record<number, { label: string; icon: string }> = {
+const widgetTypes: Record<number, { label: string; icon: string }> = {
     0: { label: "Container", icon: "folder_open" },
     3: { label: "Rectangle", icon: "crop_square" },
     4: { label: "Text", icon: "title" },
@@ -89,4 +89,9 @@ export function layoutWidget(components: WidgetComponent[], width: number, heigh
 
 export function widgetColor(color = 0xffffff) {
     return `#${(color & 0xffffff).toString(16).padStart(6, "0")}`;
+}
+
+/** Display label shared by every widget component list: its cached name, or its type, followed by its ID. */
+export function componentLabel(component: Pick<WidgetComponent, "id" | "name" | "type">) {
+    return `${component.name || widgetType(component.type).label} (${component.id})`;
 }

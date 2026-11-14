@@ -1,5 +1,3 @@
-@use "@angular/material" as mat;
-
 :host {
     display: block;
     min-width: 0;
@@ -34,58 +32,7 @@
     min-height: 0;
 }
 
-.workspace-panel {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-}
-
-mat-tab-group { min-height: 0; }
-.panel-list { min-height: 0; overflow: auto; padding: 8px; }
-.panel-message { margin: 8px; color: var(--workspace-muted); }
-.tree-row { display: flex; align-items: center; min-width: 0; }
-.tree-root, .tree-label { justify-content: flex-start; text-align: start; }
-.tree-root { width: 100%; }
-.tree-label { flex: 1; min-width: 0; overflow: hidden; }
-.tree-label-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tree-indent { width: 32px; flex: none; }
-.mini-button {
-    flex: none;
-    @include mat.icon-button-overrides((state-layer-size: 32px));
-}
-.tree-row.selected, .tree-root[aria-pressed="true"] { background: var(--mat-sys-secondary-container); }
-.catalog-filters { display: grid; gap: 8px; padding: 12px 12px 0; }
-.asset-thumb { width: 24px; height: 24px; }
-
 .inspector-body { padding: 0 16px; }
-.property-section { padding-block: 12px; border-bottom: 1px solid var(--workspace-border); }
-.property-section:last-child { border: 0; }
-.property-section h2 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 12px;
-    font: var(--mat-sys-title-small);
-}
-.identity-fields, .layout-fields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 12px;
-    align-items: center;
-    margin: 0;
-}
-.identity-fields dd { margin: 0; overflow-wrap: anywhere; }
-.callback-fields + .callback-fields {
-    border-top: 1px solid var(--workspace-border);
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-}
-.callback-fields ol { margin: 0; }
-.layout-fields mat-form-field { min-width: 0; }
-.layout-fields mat-form-field:nth-child(n+5) { grid-column: span 2; }
-.text-field { display: flex; }
 
 @media (max-width: 1180px) {
     .widget-workspace { grid-template-columns: minmax(160px, 1fr) minmax(0, 3fr); height: auto; }

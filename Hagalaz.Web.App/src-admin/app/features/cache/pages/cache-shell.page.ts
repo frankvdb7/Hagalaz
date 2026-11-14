@@ -4,10 +4,18 @@ import { afterRenderEffect, Component, computed, inject, viewChild } from "@angu
 import { MatTabNav, MatTabsModule } from "@angular/material/tabs";
 import { MatCardModule } from "@angular/material/card";
 import { MatIconModule } from "@angular/material/icon";
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from "@angular/router";
+import { NavigationEnd, Router, RouterLink, RouterOutlet, type UrlTree } from "@angular/router";
 import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
 
 type CacheTab = TypeKind | "models" | "widgets";
+
+/** `/cache/models` and `/cache/widgets` are their own tabs; other cache pages name their type in the path or `kind` query. */
+function cacheTabFromUrl(url: UrlTree): string | undefined {
+    const paths = (url.root.children.primary?.segments ?? []).map(segment => segment.path);
+    const section = paths[1];
+    if (section === "models" || section === "widgets") return section;
+    return paths[2] ?? url.queryParams.kind;
+}
 
 @Component({
     selector: "cache-shell-page",
@@ -41,10 +49,7 @@ export class CacheShellPageComponent {
     readonly kindLabels = { ...cacheTypeLabels, models: "Models", widgets: "Widgets" };
     readonly activeKind = computed(() => {
         const url = this.router.parseUrl(this.navigation()?.urlAfterRedirects ?? this.router.url);
-        const segments = url.root.children.primary?.segments;
-        const section = segments?.[1]?.path;
-        if (section === "models" || section === "widgets") return section;
-        const kind = segments?.[2]?.path ?? url.queryParams.kind;
+        const kind = cacheTabFromUrl(url);
         return this.kinds.find((value) => value === kind) ?? "items";
     });
 

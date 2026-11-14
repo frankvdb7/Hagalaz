@@ -93,21 +93,18 @@ function writePlacement(region: CollisionRegion, placement: MapPlacement, defini
     if (plane === null) return;
     const x = region.regionX * 64 + placement.x;
     const y = region.regionY * 64 + placement.y;
-    const { shape, rotation } = placement;
-    const { clipType, gateway } = definition;
+    writeShape(placement, definition, (dx, dy, bits) => write(x + dx, y + dy, plane, bits));
+}
 
+/** Ground decorations block only with clip type 1; walls and footprints block when clipped or when they are gateways. */
+function writeShape({ shape, rotation }: MapPlacement, definition: ObjectCollision, writeTile: PlacementWriter): void {
     if (shape === 22) {
-        if (clipType === 1) write(x, y, plane, CollisionFlag.FloorDecorationBlock);
+        if (definition.clipType === 1) writeTile(0, 0, CollisionFlag.FloorDecorationBlock);
         return;
     }
-    if (clipType === 0 && !gateway) return;
-
-    const writeTile = (dx: number, dy: number, bits: number) => write(x + dx, y + dy, plane, bits);
-    if (shape >= 0 && shape <= 3) {
-        writeWalls(wallDirections[shape][rotation], definition, writeTile);
-    } else if (shape >= 9 && shape <= 21) {
-        writeFootprint(rotation, definition, writeTile);
-    }
+    if (definition.clipType === 0 && !definition.gateway) return;
+    if (shape >= 0 && shape <= 3) writeWalls(wallDirections[shape][rotation], definition, writeTile);
+    else if (shape >= 9 && shape <= 21) writeFootprint(rotation, definition, writeTile);
 }
 
 type PlacementWriter = (dx: number, dy: number, bits: number) => void;

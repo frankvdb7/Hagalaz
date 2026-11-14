@@ -16,7 +16,7 @@ export interface WidgetCallback {
     triggers: number[];
 }
 
-type PreviewFields = "hidden" | "text" | "action" | "options" | "spriteId" | "spriteTiled" | "color" | "transparency" | "modelId" | "x" | "y" | "xMode" | "yMode" | "width" | "height" | "widthMode" | "heightMode" | "scrollX" | "scrollY";
+export type PreviewFields = "hidden" | "text" | "action" | "options" | "spriteId" | "spriteTiled" | "color" | "transparency" | "modelId" | "x" | "y" | "xMode" | "yMode" | "width" | "height" | "widthMode" | "heightMode" | "scrollX" | "scrollY";
 export interface WidgetPreviewState {
     components: (Pick<WidgetComponent, "id"> & Partial<Pick<WidgetComponent, PreviewFields>>)[];
     dynamicChildren?: (WidgetComponent & { slot: number })[];

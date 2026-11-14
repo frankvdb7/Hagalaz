@@ -142,6 +142,27 @@ export class TypesManagerPageComponent {
             (row): row is { id: number; name?: string } => row !== null && typeof row === "object" && "id" in row && typeof row.id === "number"
         );
     });
+    readonly ariaDisabled = computed(() => (this.loading() ? "true" : null));
+    readonly paginationDisabled = computed(() => Boolean(this.error() || this.browseError()) || this.resultKind() !== this.activeKind());
+    /** Which result panel to show; quiet loading reserves space until slow-request feedback is due. */
+    readonly resultState = computed(() => {
+        if (this.loading() && !this.rows().length) return this.loadingFeedbackVisible() ? "loading" : "loading-quiet";
+        if (this.browseError()) return "browse-error";
+        if (this.error()) return "error";
+        return this.rows().length ? "rows" : "empty";
+    });
+    /** Labels that differ between the model workspace and definition workspaces. */
+    readonly copy = computed(() => {
+        const models = this.models();
+        return {
+            workspace: models ? "Model workspace" : "Definition workspace",
+            placeholder: this.supportsNameSearch() ? "Search by name or ID…" : "Enter an exact ID…",
+            find: models ? "Find models" : "Find definitions",
+            table: models ? "Matching models" : "Matching definitions",
+            preview: this.activeKind() === "items" ? "Item sprite" : "Preview",
+            actions: models ? "Actions for model " : "Actions for definition ",
+        };
+    });
     private readonly searchModel = linkedSignal(() => {
         this.activeKind();
         return { query: this.appliedQuery() };
@@ -198,6 +219,22 @@ export class TypesManagerPageComponent {
         const parsed = value !== null && /^\d+$/.test(value) ? Number(value) : NaN;
         return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
     }
+    /** CS2 scripts show their name or "Unnamed"; other rows fall back to their type label and ID. */
+    rowName(row: { id: number; name?: string }): string {
+        const kind = this.activeKind();
+        if (kind === "cs2") return row.name || "Unnamed";
+        return row.name ?? `${this.models() ? "Model #" : `${this.kindLabels[kind]} `}${row.id}`;
+    }
+
+    inspectLink(kind: BrowserKind, id: number): (string | number)[] {
+        return kind === "models" ? ["/cache/models", id] : ["/cache/types", kind, id];
+    }
+
+    inspectLabel(kind: BrowserKind): string {
+        if (this.models()) return "Inspect model";
+        return kind === "cs2" ? "Inspect script" : "Inspect definition";
+    }
+
     spritePreviewFrame(frameCount: number): number | null {
         if (frameCount === 0) return null;
         return frameCount === 1 ? 0 : 1;
