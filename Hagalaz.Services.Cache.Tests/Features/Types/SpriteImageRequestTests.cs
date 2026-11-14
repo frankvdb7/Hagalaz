@@ -8,7 +8,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 
 [TestClass]
-public class TypeMutationUtilitiesTests
+public class SpriteImageRequestTests
 {
     [TestMethod]
     public async Task ReadImageRequestStreamAsync_WithRawBody_ReadsBody()
@@ -17,7 +17,7 @@ public class TypeMutationUtilitiesTests
         context.Request.ContentType = "image/png";
         context.Request.Body = new MemoryStream(Encoding.ASCII.GetBytes("raw-bytes"));
 
-        await using var result = await TypeMutationUtilities.ReadImageRequestStreamAsync(context.Request);
+        await using var result = await SpriteDefinitionsEndpoints.ReadImageRequestStreamAsync(context.Request);
 
         Assert.AreEqual("raw-bytes", Encoding.ASCII.GetString(result.ToArray()));
     }
@@ -36,7 +36,7 @@ public class TypeMutationUtilitiesTests
         var form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>(), files);
         context.Features.Set<IFormFeature>(new FormFeature(form));
 
-        await using var result = await TypeMutationUtilities.ReadImageRequestStreamAsync(context.Request);
+        await using var result = await SpriteDefinitionsEndpoints.ReadImageRequestStreamAsync(context.Request);
 
         Assert.AreEqual("file-bytes", Encoding.ASCII.GetString(result.ToArray()));
     }

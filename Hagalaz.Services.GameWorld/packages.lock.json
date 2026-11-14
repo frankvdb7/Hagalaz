@@ -890,6 +890,7 @@
       "hagalaz.cache": {
         "type": "Project",
         "dependencies": {
+          "FluentResults": "[4.0.0, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Cache.Extensions": "[1.0.0, )",
           "Hagalaz.Security": "[1.0.0, )",

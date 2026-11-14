@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
@@ -15,7 +14,6 @@ using Microsoft.AspNetCore.Routing;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using static Hagalaz.Services.Cache.Features.Types.TypeQueryUtilities;
-using static Hagalaz.Services.Cache.Features.Types.TypeMutationUtilities;
 
 namespace Hagalaz.Services.Cache.Features.Types;
 
@@ -116,15 +114,14 @@ public static class SpriteDefinitionsEndpoints
     private static async Task<IResult> ReplaceSpriteImage(
         int id,
         HttpRequest request,
-        ISpriteTypeCodec codec,
-        ICacheAPI cacheApi)
+        TypeMutator<ISpriteType> sprites)
     {
         if (id < 0)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
         }
 
-        await using var input = await TypeMutationUtilities.ReadImageRequestStreamAsync(request);
+        await using var input = await ReadImageRequestStreamAsync(request);
         if (input.Length == 0)
         {
             return TypedResults.BadRequest(EndpointErrors.Validation("Request body/form file is empty."));
@@ -134,8 +131,8 @@ public static class SpriteDefinitionsEndpoints
         using var sprite = new SpriteType(id);
         sprite.ReplaceImage(sourceImage);
 
-        using var encodedType = codec.Encode(sprite);
-        PersistTypeEntry(cacheApi, new SpriteTypeData(), id, encodedType.ToArray());
+        var result = sprites.Replace(id, sprite);
+        if (result.IsFailed) return EndpointErrors.TypeMutationFailure(result, "sprite", id);
 
         return TypedResults.Ok(new ReplaceSpriteImageResultDto(
             Operation: "sprite-image-replaced",
@@ -144,5 +141,27 @@ public static class SpriteDefinitionsEndpoints
             Width: sprite.Image.Width,
             Height: sprite.Image.Height,
             FrameCount: sprite.Image.Frames.Count));
+    }
+
+    /// <summary>Reads the uploaded image from a multipart <c>file</c> field, the first uploaded file, or the raw body.</summary>
+    internal static async Task<MemoryStream> ReadImageRequestStreamAsync(HttpRequest request)
+    {
+        var stream = new MemoryStream();
+
+        if (request.HasFormContentType)
+        {
+            var form = await request.ReadFormAsync(request.HttpContext.RequestAborted);
+            var file = form.Files.GetFile("file") ?? (form.Files.Count > 0 ? form.Files[0] : null);
+            if (file is not null)
+            {
+                await file.CopyToAsync(stream, request.HttpContext.RequestAborted);
+                stream.Position = 0;
+                return stream;
+            }
+        }
+
+        await request.Body.CopyToAsync(stream, request.HttpContext.RequestAborted);
+        stream.Position = 0;
+        return stream;
     }
 }

@@ -1,15 +1,13 @@
 using System.Linq;
-using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
-using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using static Hagalaz.Services.Cache.Features.Types.TypeQueryUtilities;
-using static Hagalaz.Services.Cache.Features.Types.TypeMutationUtilities;
+using Hagalaz.Cache.Types;
+using Hagalaz.Services.Cache.Features.Shared;
 
 namespace Hagalaz.Services.Cache.Features.Types;
 
@@ -37,17 +35,20 @@ public static class VarpBitDefinitionsEndpoints
     private static IResult UpdateVarpBitDefinition(
         int id,
         UpdateVarpBitDefinitionDto request,
-        IVarpBitDefinitionProvider provider,
-        ITypeCodec<IVarpBitDefinition> codec,
-        ICacheAPI cacheApi)
+        TypeMutator<IVarpBitDefinition> varpBits)
     {
-        var error = TryGetType(id, provider, out var varpBit);
-        if (error is not null) return error;
+        if (id < 0)
+        {
+            return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
+        }
 
-        varpBit.ConfigID = request.ConfigId;
-        varpBit.BitLength = request.BitLength;
-        varpBit.BitOffset = request.BitOffset;
-        PersistTypeEntry(id, varpBit, codec, new VarpBitDefinitionData(), cacheApi);
+        var result = varpBits.Mutate(id, varpBit =>
+        {
+            varpBit.ConfigID = request.ConfigId;
+            varpBit.BitLength = request.BitLength;
+            varpBit.BitOffset = request.BitOffset;
+        });
+        if (result.IsFailed) return EndpointErrors.TypeMutationFailure(result, "varp bit", id);
         return TypedResults.Ok(new UpdateVarpBitDefinitionResultDto("varp-bit-updated", "varp-bit", id));
     }
 }

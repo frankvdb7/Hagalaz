@@ -1,9 +1,7 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Rendering;
 using Hagalaz.Cache.Types;
@@ -15,7 +13,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Hagalaz.Services.Cache.Features.Models;
 using static Hagalaz.Services.Cache.Features.Types.TypeQueryUtilities;
-using static Hagalaz.Services.Cache.Features.Types.TypeMutationUtilities;
 
 namespace Hagalaz.Services.Cache.Features.Types;
 
@@ -91,22 +88,18 @@ public static class ItemDefinitionEndpoints
             item.BoughtTemplateId,
             item.InterfaceModelId);
 
-    private static IResult GetItemDefinition(int id, IItemTypeCodec codec, ICacheAPI cacheApi)
+    private static IResult GetItemDefinition(int id, TypeMutator<IItemType> items)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Item ID must be nonnegative."));
-        return TypedResults.Ok(GetItemDefinitionDto.FromItem((ItemType)DecodeRawTypeEntry(id, codec, new ItemTypeData(), cacheApi)));
+        var item = items.Read(id);
+        return item.IsFailed ? EndpointErrors.TypeMutationFailure(item, "item", id) : TypedResults.Ok(GetItemDefinitionDto.FromItem((ItemType)item.Value));
     }
 
-    private static IResult UpdateItemDefinition(int id, UpdateItemDefinitionDto request, IItemTypeCodec codec, ICacheAPI cacheApi)
+    private static IResult UpdateItemDefinition(int id, UpdateItemDefinitionDto request, TypeMutator<IItemType> items)
     {
         if (request.Validate(id) is { } error) return TypedResults.BadRequest(EndpointErrors.Validation(error));
-        var item = (ItemType)DecodeRawTypeEntry(id, codec, new ItemTypeData(), cacheApi);
-        request.ApplyTo(item);
-        using var encoded = codec.Encode(item);
-        using var validation = new MemoryStream(encoded.ToArray());
-        _ = codec.Decode(id, validation);
-        PersistTypeEntry(cacheApi, new ItemTypeData(), id, encoded.ToArray());
-        return TypedResults.Ok(new UpdateItemDefinitionResultDto("item-updated", "item", id));
+        var result = items.Mutate(id, item => request.ApplyTo((ItemType)item));
+        return result.IsFailed ? EndpointErrors.TypeMutationFailure(result, "item", id) : TypedResults.Ok(new UpdateItemDefinitionResultDto("item-updated", "item", id));
     }
 
     private static IResult DuplicateItem(int id, ICacheAPI cacheApi)

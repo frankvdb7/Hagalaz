@@ -1,16 +1,13 @@
 using System;
 using System.Linq;
-using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
-using Hagalaz.Cache.Types.Data;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using static Hagalaz.Services.Cache.Features.Types.TypeQueryUtilities;
-using static Hagalaz.Services.Cache.Features.Types.TypeMutationUtilities;
+using Hagalaz.Cache.Types;
 
 namespace Hagalaz.Services.Cache.Features.Types;
 
@@ -46,8 +43,7 @@ public static class NpcDefinitionsEndpoints
     private static IResult SetNpcCombatLevel(
         int id,
         UpdateNpcCombatLevelDto request,
-        INpcTypeCodec codec,
-        ICacheAPI cacheApi)
+        TypeMutator<INpcType> npcs)
     {
         if (id < 0)
         {
@@ -59,9 +55,8 @@ public static class NpcDefinitionsEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("combatLevel must be -1 or between 0 and 65535."));
         }
 
-        var npc = DecodeRawTypeEntry(id, codec, new NpcTypeData(), cacheApi);
-        npc.CombatLevel = request.CombatLevel;
-        PersistTypeEntry(id, npc, codec, new NpcTypeData(), cacheApi);
+        var result = npcs.Mutate(id, npc => npc.CombatLevel = request.CombatLevel);
+        if (result.IsFailed) return EndpointErrors.TypeMutationFailure(result, "npc", id);
         return TypedResults.Ok(new UpdateNpcCombatLevelResultDto("npc-combat-level-updated", "npc", id));
     }
 }

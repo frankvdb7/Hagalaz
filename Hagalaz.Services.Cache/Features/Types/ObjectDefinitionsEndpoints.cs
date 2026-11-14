@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
-using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
@@ -16,7 +15,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using static Hagalaz.Services.Cache.Features.Types.TypeQueryUtilities;
-using static Hagalaz.Services.Cache.Features.Types.TypeMutationUtilities;
 
 namespace Hagalaz.Services.Cache.Features.Types;
 
@@ -173,8 +171,7 @@ public static class ObjectDefinitionsEndpoints
     private static IResult SetObjectName(
         int id,
         UpdateObjectNameDto request,
-        IObjectTypeCodec codec,
-        ICacheAPI cacheApi)
+        TypeMutator<IObjectType> objects)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -199,10 +196,8 @@ public static class ObjectDefinitionsEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("id must be greater than or equal to 0."));
         }
 
-        var typeData = new ObjectTypeData();
-        var obj = DecodeRawTypeEntry(id, codec, typeData, cacheApi);
-        obj.Name = request.Name;
-        PersistTypeEntry(id, obj, codec, typeData, cacheApi);
+        var result = objects.Mutate(id, obj => obj.Name = request.Name);
+        if (result.IsFailed) return EndpointErrors.TypeMutationFailure(result, "object", id);
         return TypedResults.Ok(new UpdateObjectNameResultDto("object-name-updated", "object", id));
     }
 }

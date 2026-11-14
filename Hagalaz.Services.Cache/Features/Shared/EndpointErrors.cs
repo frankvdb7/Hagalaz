@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using FluentResults;
+using Hagalaz.Cache.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +19,16 @@ internal static class EndpointErrors
             Detail = detail,
             Status = statusCode
         };
+    }
+
+    /// <summary>The response for a failed type mutation: 404 for a missing type entry, 422 for one that cannot be decoded.</summary>
+    public static IResult TypeMutationFailure(ResultBase result, string type, int id)
+    {
+        if (result.HasError<TypeAbsentError>())
+            return TypedResults.NotFound(Validation($"No {type} with ID {id} exists.", StatusCodes.Status404NotFound));
+        if (result.HasError<TypeUnreadableError>())
+            return TypedResults.Problem(title: "Unsupported cache data.", detail: $"The stored {type} {id} could not be decoded.", statusCode: StatusCodes.Status422UnprocessableEntity);
+        throw new InvalidOperationException($"Unexpected type mutation failure: {string.Join("; ", result.Errors)}");
     }
 
     public static IResult MapException(Exception exception)
