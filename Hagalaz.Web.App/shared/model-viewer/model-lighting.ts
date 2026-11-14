@@ -1,0 +1,159 @@
+/** Isolated software-client lighting. Scene atmosphere and palette jitter are fixed for inspection. */
+export interface LightingModel {
+    positions: readonly number[];
+    indices: readonly number[];
+    faceShadingTypes?: readonly number[] | null;
+    ambient?: number;
+    contrast?: number;
+}
+
+export interface ModelLight {
+    directionX: number;
+    directionY: number;
+    directionZ: number;
+    positiveResponse: number;
+    negativeResponse: number;
+}
+
+// Atmosphere defaults, GraphicsToolkit_Sub3.m/IA and Model_Sub3.method4549.
+const direction = [-50, -60, -50].map(value => Math.trunc(value * 65535 / Math.sqrt(8600)));
+const baseLight = Math.trunc(Math.fround(1.1523438) * 65535) >> 8;
+const positive = Math.trunc(Math.fround(0.69921875) * 65535);
+const negative = Math.trunc(Math.fround(1.2) * 65535);
+
+/** Source face normals and smooth sums are calculated before expanding face corners. */
+export function lightModel(model: LightingModel, light?: ModelLight): number[] {
+    const sums = Array.from({length: model.positions.length / 3}, () => [0, 0, 0, 0]);
+    const normals: number[][] = [];
+    const { positions, indices } = model;
+    for (let corner = 0; corner < indices.length; corner += 3) {
+        const a = indices[corner] * 3, b = indices[corner + 1] * 3, c = indices[corner + 2] * 3;
+        const abX = positions[b] - positions[a], acX = positions[c] - positions[a];
+        const abY = positions[b + 1] - positions[a + 1], acY = positions[c + 1] - positions[a + 1];
+        const abZ = positions[b + 2] - positions[a + 2], acZ = positions[c + 2] - positions[a + 2];
+        let x = (abY * acZ - acY * abZ) | 0;
+        let y = (abZ * acX - acZ * abX) | 0;
+        let z = (abX * acY - acX * abY) | 0;
+        while (Math.max(Math.abs(x), Math.abs(y), Math.abs(z)) > 8192) { x >>= 1; y >>= 1; z >>= 1; }
+        const length = Math.max(1, Math.trunc(Math.sqrt(x * x + y * y + z * z)));
+        const normal = [Math.trunc(x * 256 / length), Math.trunc(y * 256 / length), Math.trunc(z * 256 / length)];
+        normals.push(normal);
+        if ((model.faceShadingTypes?.[corner / 3] ?? 0) === 0) {
+            for (let index = corner; index < corner + 3; index++) {
+                const sum = sums[indices[index]];
+                sum[0] += normal[0];
+                sum[1] += normal[1];
+                sum[2] += normal[2];
+                sum[3]++;
+            }
+        }
+    }
+    const contrast = model.contrast ?? 850;
+    const vector = light ? [light.directionX, light.directionY, light.directionZ] : direction;
+    const length = Math.hypot(...vector);
+    const lightDirection = light && length ? vector.map(value => Math.trunc(value * 65535 / length)) : direction;
+    const response = light ? [light.positiveResponse, light.negativeResponse].map(value => Math.trunc(Math.fround(value) * 65535)) : [positive, negative];
+    const responses = contrast === 0 ? [0, 0] : response.map(value => Math.trunc(value * 768 / contrast));
+    return model.indices.map((vertex, corner) => {
+        const face = Math.trunc(corner / 3);
+        const flat = model.faceShadingTypes?.[face] === 1;
+        const normal = flat ? normals[face] : sums[vertex];
+        const count = flat ? 1 : Math.max(1, normal[3]);
+        const dot = Math.trunc((Math.imul(lightDirection[0], normal[0]) + Math.imul(lightDirection[1], normal[1]) + Math.imul(lightDirection[2], normal[2]) | 0) / count) >> 16;
+        // This client threshold is 256, not the sign of the dot product.
+        return (baseLight >> 1) + (Math.imul(responses[dot > 256 ? 0 : 1], dot) >> 17);
+    });
+}
+
+export function clampLight(value: number): number { return Math.max(2, Math.min(126, value)); }
+
+/** Revision-742 hardware point-light palette with the inspection gamma. */
+export function pointLightRgb(packed: number): number {
+    const [r, g, b] = paletteColor(packed, false);
+    return (r << 16) | (g << 8) | b;
+}
+
+/** Model_Sub3.method4549 + Class356.method4187 + the fixed-gamma client palettes. */
+export function litFaceColor(packed: number, intensity: number, textured: boolean, ambient = 64): number[] {
+    if (textured) return paletteColor((packed & 0xff80) | clampLight((packed & 127) * intensity >> 7), false);
+    const prepared = (packed & ~127) | ((packed & 127) * ambient >> 7);
+    const hsv = softwareHsv(prepared);
+    return paletteColor((hsv & 0xff80) | clampLight((hsv & 127) * intensity >> 7), true);
+}
+
+/** Class491.method6074 + Class230.method2338; unlit base tint for Class_xa_Sub3 floors. */
+export function floorPaletteColor(rgb: number): number[] {
+    const hsl = floorHsl(rgb);
+    return floorHslPaletteColor(Math.trunc(hsl[0] * 256 / hsl[3]), hsl[1], hsl[2]);
+}
+
+/** Weighted hue, saturation, lightness and hue multiplier, as stored by Class491. */
+export function floorHsl(rgb: number): readonly number[] {
+    const [r, g, b] = [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255].map(channel => channel / 256);
+    const min = Math.min(r, g, b), max = Math.max(r, g, b);
+    const lightness = (max + min) / 2;
+    let hue = 0, saturation = 0;
+    if (max !== min) {
+        saturation = lightness < 0.5 ? (max - min) / (max + min) : (max - min) / (2 - max - min);
+        hue = (max === r ? (g - b) / (max - min) : max === g ? 2 + (b - r) / (max - min) : 4 + (r - g) / (max - min)) / 6;
+    }
+    const multiplier = Math.max(1, Math.trunc(saturation * (lightness > 0.5 ? 1 - lightness : lightness) * 512));
+    const weightedHue = Math.trunc(hue * multiplier);
+    return [weightedHue, Math.min(255, Math.trunc(saturation * 256)), Math.min(255, Math.trunc(lightness * 256)), multiplier];
+}
+
+/** Class230 packing followed by the software floor palette, after neighbourhood averaging. */
+export function floorHslPaletteColor(h: number, saturation: number, l: number): number[] {
+    let s = saturation;
+    s >>= l > 243 ? 4 : l > 217 ? 3 : l > 192 ? 2 : l > 179 ? 1 : 0;
+    const packed = ((h & 255) >> 2 << 10) + (s >> 5 << 7) + (l >> 1);
+    return paletteColor(softwareHsv(packed), true);
+}
+
+/** Class356.method4187, shared by software model and terrain palettes. */
+function softwareHsv(packed: number): number {
+    const hue = packed >> 10 & 63;
+    let saturation = packed >> 3 & 112;
+    const lightness = packed & 127;
+    saturation = lightness <= 64 ? saturation * lightness >> 7 : saturation * (127 - lightness) >> 7;
+    const value = saturation + lightness;
+    const hsvSaturation = value !== 0 ? Math.trunc((saturation << 8) / value) : saturation << 1;
+    return (hue << 10 | (hsvSaturation >> 4) << 7 | value) & 65535;
+}
+
+// The inspection gamma is fixed. Store the same 16-bit palette entries the client looks up.
+const hslPalette = new Uint32Array(65536);
+const hsvPalette = new Uint32Array(65536);
+
+function paletteColor(packed: number, hsv: boolean): number[] {
+    const index = packed & 0xffff;
+    const palette = hsv ? hsvPalette : hslPalette;
+    let rgb = palette[index];
+    if (rgb === 0) {
+        const [red, green, blue] = computePaletteColor(index, hsv);
+        rgb = 0x1000000 | (red << 16) | (green << 8) | blue;
+        palette[index] = rgb;
+    }
+    return [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
+}
+
+function computePaletteColor(packed: number, hsv: boolean): number[] {
+    const hue = (packed >> 10 & 63) / 64 + 1 / 128;
+    const saturation = (packed >> 7 & 7) / 8 + 1 / 16;
+    const value = (packed & 127) / 128;
+    let channels: number[];
+    if (hsv) {
+        const sector = hue * 6, index = Math.trunc(sector), fraction = sector - index;
+        const p = value * (1 - saturation), q = value * (1 - saturation * fraction), t = value * (1 - (1 - fraction) * saturation);
+        channels = [[value,t,p],[q,value,p],[p,value,t],[p,q,value],[t,p,value],[value,p,q]][index % 6];
+    } else {
+        const q = value < 0.5 ? value * (1 + saturation) : value + saturation - value * saturation;
+        const p = 2 * value - q;
+        channels = [hue + 1 / 3, hue, hue - 1 / 3].map(channel => {
+            const t = (channel + 1) % 1;
+            return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p;
+        });
+    }
+    // The client randomly jitters gamma around 0.7. Inspection uses exactly 0.7.
+    return channels.map(channel => Math.trunc(Math.pow(channel, 0.7) * 256) & 255);
+}

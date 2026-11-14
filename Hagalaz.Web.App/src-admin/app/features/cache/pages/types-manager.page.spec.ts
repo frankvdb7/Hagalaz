@@ -1,15 +1,20 @@
-import { Location } from "@angular/common";
-import { provideLocationMocks } from "@angular/common/testing";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
+import { Location } from "@angular/common";
 import { provideHttpClient, withXhr } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from "@angular/common/http/testing";
+import { provideLocationMocks } from "@angular/common/testing";
 import { ApplicationRef, Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { MatPaginatorHarness } from "@angular/material/paginator/testing";
+import { MatMenuHarness } from "@angular/material/menu/testing";
 import { provideRouter, Router } from "@angular/router";
+import { EMPTY } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../environments/environment";
+import { CacheItemsService } from "../services/cache-items.service";
 import { TypesManagerPageComponent } from "./types-manager.page";
+import { MapRegionsBrowserComponent } from "./map-regions-browser.component";
+import { By } from "@angular/platform-browser";
 
 @Component({ template: "" })
 class DetailBoundary {}
@@ -31,12 +36,18 @@ describe("TypesManagerPage per-type navigation", () => {
                 provideHttpClientTesting(),
             ],
         });
+        vi.spyOn(TestBed.inject(CacheItemsService), "getItemSpriteImage").mockReturnValue(EMPTY);
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
         http.verify();
+        vi.restoreAllMocks();
         vi.unstubAllGlobals();
+        vi.useRealTimers();
     });
+    async function selectKind(kind: string) {
+        await TestBed.inject(Router).navigate([], { queryParams: { kind, query: null, offset: 0 }, queryParamsHandling: "merge" });
+    }
     async function createPage(sprites = 20) {
         const fixture = TestBed.createComponent(TypesManagerPageComponent);
         fixture.detectChanges();
@@ -133,14 +144,32 @@ describe("TypesManagerPage per-type navigation", () => {
     it("shows exclusive request feedback and retries the applied page without using draft text", async () => {
         const fixture = await createPage();
         const page = fixture.componentInstance;
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         await page.changePage({ pageIndex: 1, pageSize: 10, length: 23 });
         TestBed.tick();
         const delayed = http.expectOne((r) => r.url === `${baseUrl}items/range`);
-        expect(fixture.nativeElement.textContent).toContain("Loading definitions");
-        expect(fixture.nativeElement.textContent).not.toContain("Initial sword");
+        expect(page.loading()).toBe(true);
+        expect(fixture.nativeElement.querySelector('section[aria-label="Definition workspace"]')?.getAttribute("aria-busy")).toBe("true");
+        expect(fixture.nativeElement.querySelector('button[type="submit"]')?.disabled).toBe(false);
+        expect(fixture.nativeElement.querySelector('button[type="submit"]')?.getAttribute("aria-disabled")).toBe("true");
+        expect(fixture.nativeElement.querySelector('[role="tab"]')).toBeNull();
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+        expect(fixture.nativeElement.textContent).toContain("Initial sword");
         expect(fixture.nativeElement.textContent).not.toContain("No matching definitions");
+        expect(page.paginatorPageIndex()).toBe(0);
+        expect(fixture.nativeElement.querySelector("mat-paginator .mat-mdc-paginator-range-label")?.textContent.trim()).toBe("1 – 10 of 23");
+        await vi.advanceTimersByTimeAsync(200);
+        TestBed.tick();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).not.toBeNull();
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
         delayed.flush({ detail: "Unavailable" }, { status: 503, statusText: "Unavailable" });
+        TestBed.tick();
         await stable();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
         expect(fixture.nativeElement.querySelector("mat-card.definition-list [role=alert]")?.textContent).toContain("Unavailable");
         expect(fixture.nativeElement.textContent).not.toContain("No matching definitions");
         page.searchForm.query().value.set("unsubmitted");
@@ -153,13 +182,40 @@ describe("TypesManagerPage per-type navigation", () => {
         await stable();
         expect(page.searchForm.query().value()).toBe("unsubmitted");
         expect(page.pageIndex()).toBe(1);
+        expect(page.paginatorPageIndex()).toBe(1);
+        expect(fixture.nativeElement.querySelector("mat-paginator .mat-mdc-paginator-range-label")?.textContent.trim()).toBe("11 – 20 of 23");
         expect(fixture.nativeElement.textContent).toContain("No matching definitions");
         expect(fixture.nativeElement.querySelector("[role=alert]")).toBeNull();
+        expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
+    });
+    it("does not show loading feedback when a request finishes before the debounce", async () => {
+        const fixture = await createPage();
+        const page = fixture.componentInstance;
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+        await page.changePage({ pageIndex: 1, pageSize: 10, length: 23 });
+        TestBed.tick();
+        const request = http.expectOne((r) => r.url === `${baseUrl}items/range`);
+        expect(page.loading()).toBe(true);
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+
+        request.flush([{ id: 10, name: "Quick response" }]);
+        TestBed.tick();
+        await stable();
+        await vi.advanceTimersByTimeAsync(200);
+        TestBed.tick();
+        fixture.detectChanges();
+
+        expect(page.loading()).toBe(false);
+        expect(fixture.nativeElement.querySelector('section[aria-label="Definition workspace"]')?.getAttribute("aria-busy")).toBe("false");
+        expect(fixture.nativeElement.textContent).toContain("Quick response");
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
         expect(fixture.nativeElement.querySelector("mat-progress-bar")).toBeNull();
     });
     it("hides previous search results while a different query is delayed and retries that query", async () => {
         const fixture = await createPage();
         const page = fixture.componentInstance;
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         page.searchForm.query().value.set("sword");
         await page.browse();
         TestBed.tick();
@@ -172,8 +228,13 @@ describe("TypesManagerPage per-type navigation", () => {
         const delayed = http.expectOne((r) => r.url === `${baseUrl}items/search`);
         expect(delayed.request.params.get("query")).toBe("coin");
         expect(fixture.nativeElement.textContent).not.toContain("Old search sword");
+        expect(fixture.nativeElement.textContent).not.toContain("Loading definitions");
+        await vi.advanceTimersByTimeAsync(200);
+        TestBed.tick();
+        fixture.detectChanges();
         expect(fixture.nativeElement.textContent).toContain("Loading definitions");
         delayed.flush({ detail: "Search offline" }, { status: 503, statusText: "Unavailable" });
+        TestBed.tick();
         await stable();
         page.searchForm.query().value.set("draft");
         page.retry();
@@ -192,7 +253,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("describes exact-ID lookup for sprites and rejects unsupported name searches", async () => {
         const fixture = await createPage();
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         http.expectOne((r) => r.url === `${baseUrl}sprites/range`).flush([]);
         await stable();
@@ -205,13 +266,80 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(page.browseError()).toContain("Name search is available for items and NPCs");
         http.expectNone((r) => r.url === `${baseUrl}sprites/search`);
     });
-    it("automatically loads the first ten definitions and keeps tabs inside the search card", async () => {
+    it("automatically loads the first ten definitions inside the shared cache navigation", async () => {
         const fixture = await createPage();
-        expect(fixture.nativeElement.querySelector('mat-card.studio-search nav[aria-label="Definition type"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector("nav")).toBeNull();
+        expect(fixture.nativeElement.querySelector("mat-card.studio-search form")).not.toBeNull();
         expect(fixture.componentInstance.kinds).toHaveLength(13);
         expect(fixture.componentInstance.rows()).toEqual([{ id: 0, name: "Initial sword" }]);
     });
-    it("pages ID ranges and links rows to their dedicated detail route", async () => {
+    it("opens the selected row from its actions menu and preserves browse context", async () => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=items&offset=10&limit=10");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        http.expectOne(`${baseUrl}archive-sizes`).flush({ items: 23 });
+        TestBed.tick();
+        await vi.waitFor(() =>
+            http
+                .expectOne((r) => r.url === `${baseUrl}items/range`)
+                .flush([
+                    { id: 10, name: "First" },
+                    { id: 12, name: "Second" },
+                ])
+        );
+        await stable();
+        const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(
+            MatMenuHarness.with({ selector: 'button[aria-label="Actions for definition 12"]' })
+        );
+        await menu.open();
+        const items = await menu.getItems();
+        expect(items).toHaveLength(1);
+        expect(await items[0].getText()).toContain("Inspect definition");
+        await items[0].click();
+        await stable();
+        expect(router.url).toContain("/cache/types/items/12?");
+        expect(router.url).toContain("kind=items");
+        expect(router.url).toContain("offset=10");
+        expect(router.url).toContain("limit=10");
+    });
+    it.each(["row", "lookup"])("opens CS2 script details by %s from a paginated tab", async (method) => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=cs2&offset=10&limit=10");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        http.expectOne(`${baseUrl}archive-sizes`).flush({ cs2: 23 });
+        TestBed.tick();
+        await vi.waitFor(() => {
+            const request = http.expectOne((r) => r.url === `${baseUrl}cs2/range`);
+            expect(request.request.params.get("startId")).toBe("10");
+            expect(request.request.params.get("endIdExclusive")).toBe("20");
+            request.flush([{ id: 12, name: "Widget action", opcodeCount: 61 }]);
+        });
+        await stable();
+        fixture.detectChanges();
+        const element = fixture.nativeElement as HTMLElement;
+        expect(element.querySelector(".mat-column-opcodeCount")?.textContent).toContain("Instructions");
+        expect(element.querySelector("td.mat-column-opcodeCount")?.textContent).toContain("61");
+        expect(element.querySelector("td.mat-column-name")?.textContent).toContain("Widget action");
+
+        if (method === "row") {
+            const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness);
+            await menu.open();
+            const [inspect] = await menu.getItems();
+            expect(await inspect.getText()).toContain("Inspect script");
+            await inspect.click();
+        } else {
+            const page = fixture.componentInstance;
+            page.searchForm.query().value.set("12");
+            await page.browse();
+        }
+        await stable();
+        expect(router.url).toContain("/cache/types/cs2/12?");
+        expect(router.url).toContain("offset=10");
+    });
+
+    it("pages ID ranges without gaps and caps the final range", async () => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
         await page.browse();
@@ -230,11 +358,8 @@ describe("TypesManagerPage per-type navigation", () => {
         last.flush([{ id: 20, name: "Last sword" }]);
         await changing;
         await stable();
-        const link = fixture.nativeElement.querySelector('a[aria-label="Inspect definition 20"]') as HTMLAnchorElement;
-        expect(link.getAttribute("href")).toContain("/cache/types/items/20?");
-        link.click();
-        await stable();
-        expect(TestBed.inject(Router).url).toContain("/cache/types/items/20?");
+        expect(page.rows().map((row) => row.id)).toEqual([20]);
+        expect(await paginator.getRangeLabel()).toBe("21 – 23 of 23");
     });
     it("paginates the submitted query, changes page size and resets category state", async () => {
         const fixture = await createPage(),
@@ -281,7 +406,7 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(first.request.params.get("offset")).toBe("0");
         first.flush({ query: "sword", totalMatches: 0, offset: 0, limit: 25, items: [] });
         await stable();
-        await page.selectKind(page.kinds.indexOf("npcs"));
+        await selectKind("npcs");
         expect(page.rows()).toEqual([]);
         expect(page.pageIndex()).toBe(0);
         TestBed.tick();
@@ -298,7 +423,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("opens numeric lookups as dedicated pages and rejects invalid IDs", async () => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("npcs"));
+        await selectKind("npcs");
         TestBed.tick();
         http.expectOne((r) => r.url === `${baseUrl}npcs/range`).flush([]);
         await stable();
@@ -312,10 +437,63 @@ describe("TypesManagerPage per-type navigation", () => {
         expect(page.browseError()).toContain("zero or greater");
         http.expectNone(() => true);
     });
-    it.each(["maps", "cs2-int"] as const)("keeps %s as ID-only lookup", async (kind) => {
+    it("lists actual map regions without loading archive counts or scene assets and links to detail", async () => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=maps&offset=10&limit=10");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        const request = http.expectOne(`${baseUrl}maps?offset=10&limit=10`);
+        request.flush({ items: [{ id: 258, regionX: 1, regionY: 2, terrainFileId: 12, landscapeFileId: null }], total: 23, offset: 10, limit: 10 });
+        await stable();
+        fixture.detectChanges();
+        const page = fixture.debugElement.query(By.directive(MapRegionsBrowserComponent)).componentInstance as MapRegionsBrowserComponent;
+        expect(page.paginationLength()).toBe(23);
+        const table = fixture.nativeElement.querySelector("table");
+        expect(table.textContent).toContain("Terrain file");
+        expect(table.textContent).toContain("Present");
+        expect(table.textContent).toContain("Absent");
+        const link = table.querySelector('a[aria-label="Open map 258"]') as HTMLAnchorElement;
+        expect(link.href).toContain("/cache/types/maps/258");
+        expect(link.href).toContain("offset=10");
+        const paginator = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatPaginatorHarness);
+        expect(await paginator.getRangeLabel()).toBe("11 – 20 of 23");
+        http.expectNone(() => true);
+        link.click();
+        await stable();
+        expect(router.url).toContain("/cache/types/maps/258");
+        expect(router.url).toContain("offset=10");
+        expect(router.url).toContain("limit=10");
+    });
+    it("pages maps through sparse metadata and retries unavailable listings", async () => {
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl("/?kind=maps");
+        const fixture = TestBed.createComponent(TypesManagerPageComponent);
+        fixture.detectChanges();
+        http.expectOne(`${baseUrl}maps?offset=0&limit=10`).flush({ detail: "No named metadata" }, { status: 422, statusText: "Unprocessable Entity" });
+        await stable();
+        const page = fixture.debugElement.query(By.directive(MapRegionsBrowserComponent)).componentInstance as MapRegionsBrowserComponent;
+        expect(page.store.rangeError()).toBe("No named metadata");
+        expect(page.rows()).toEqual([]);
+        page.store.loadPage(page.offset(), page.pageSize());
+        TestBed.tick();
+        http.expectOne(`${baseUrl}maps?offset=0&limit=10`).flush({ items: [], total: 0, offset: 0, limit: 10 });
+        await stable();
+        expect(page.store.rangeError()).toBeNull();
+        expect(page.paginationLength()).toBe(0);
+        await page.changePage({ pageIndex: 1, pageSize: 25, length: 50 });
+        TestBed.tick();
+        http.expectOne(`${baseUrl}maps?offset=25&limit=25`).flush({ items: [{ id: 65535, regionX: 255, regionY: 255, terrainFileId: null, landscapeFileId: 99 }], total: 50, offset: 25, limit: 25 });
+        await stable();
+        expect(page.rows()).toEqual([expect.objectContaining({ id: 65535 })]);
+        page.searchForm.query().value.set("65536");
+        await page.browse();
+        expect(page.browseError()).toBe("Enter a region ID between 0 and 65535.");
+        http.expectNone(() => true);
+    });
+    it.each(["cs2-int"] as const)("keeps %s as ID-only lookup", async (kind) => {
         const fixture = await createPage(),
             page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf(kind));
+        await selectKind(kind);
         await page.browse();
         expect(page.browseError()).toContain("lookup by ID");
         expect(page.paginated()).toBe(false);
@@ -359,7 +537,7 @@ describe("TypesManagerPage per-type navigation", () => {
         );
         const fixture = await createPage();
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() =>
             http
@@ -378,12 +556,21 @@ describe("TypesManagerPage per-type navigation", () => {
             for (const request of requests) request.flush(new Blob(["png"], { type: "image/png" }));
         });
         await stable();
-        expect(page.resultColumns()).toEqual(["id", "preview", "name"]);
+        expect(page.resultColumns()).toEqual(["id", "preview", "name", "actions"]);
         expect(fixture.nativeElement.querySelectorAll("td cache-sprite-frame-thumbnail img")).toHaveLength(2);
         expect(fixture.nativeElement.textContent).toContain("No frames");
-        expect(fixture.nativeElement.querySelector('a[href^="/cache/types/sprites/10?"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('button[aria-label="Actions for definition 10"]')).not.toBeNull();
         fixture.destroy();
         expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+    });
+    it("renders an item sprite thumbnail in item rows", async () => {
+        const fixture = await createPage();
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.resultColumns()).toEqual(["id", "preview", "name", "actions"]);
+        expect(fixture.nativeElement.querySelector("th.mat-column-preview")?.textContent).toContain("Item sprite");
+        expect(fixture.nativeElement.querySelector("td cache-item-sprite-thumbnail")).not.toBeNull();
+        expect(fixture.nativeElement.querySelector("td img")).toBeNull();
     });
     it("pages sprites without gaps, caps the last range, and cancels previews from the previous page", async () => {
         let urlIndex = 0;
@@ -398,7 +585,7 @@ describe("TypesManagerPage per-type navigation", () => {
         const page = fixture.componentInstance;
         const spriteRows = (start: number, count: number) => Array.from({ length: count }, (_, index) => ({ id: start + index, frameCount: 2 }));
         const ids: number[] = [];
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() => {
             const request = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);
@@ -416,12 +603,15 @@ describe("TypesManagerPage per-type navigation", () => {
         ids.push(...page.rows().map((row) => row.id));
         (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
         TestBed.tick();
+        let nextRange!: TestRequest;
         await vi.waitFor(() => {
-            const request = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);
-            expect(request.request.params.get("startId")).toBe("10");
-            expect(request.request.params.get("endIdExclusive")).toBe("20");
-            request.flush(spriteRows(10, 10));
+            nextRange = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);
         });
+        expect(nextRange.request.params.get("startId")).toBe("10");
+        expect(nextRange.request.params.get("endIdExclusive")).toBe("20");
+        expect(oldPreview.cancelled).toBe(false);
+        nextRange.flush(spriteRows(10, 10));
+        await stable();
         expect(oldPreview.cancelled).toBe(true);
         await vi.waitFor(() => {
             const previews = http.match((r) => r.url.endsWith("/image"));
@@ -463,7 +653,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("keeps range pagination aligned when resizing the last page and navigating back", async () => {
         const fixture = await createPage(23);
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() => http.expectOne((r) => r.url === `${baseUrl}sprites/range`).flush([{ id: 0, frameCount: 0 }]));
         await stable();
@@ -504,7 +694,7 @@ describe("TypesManagerPage per-type navigation", () => {
     it("disables next and last page when the sprite archive contains one result", async () => {
         const fixture = await createPage(1);
         const page = fixture.componentInstance;
-        await page.selectKind(page.kinds.indexOf("sprites"));
+        await selectKind("sprites");
         TestBed.tick();
         await vi.waitFor(() => {
             const request = http.expectOne((r) => r.url === `${baseUrl}sprites/range`);

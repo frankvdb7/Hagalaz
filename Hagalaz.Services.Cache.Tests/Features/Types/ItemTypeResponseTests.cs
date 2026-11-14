@@ -4,6 +4,7 @@ using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

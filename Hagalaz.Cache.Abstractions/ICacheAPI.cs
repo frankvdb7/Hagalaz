@@ -9,7 +9,7 @@ namespace Hagalaz.Cache.Abstractions
     /// </summary>
     /// <remarks>
     /// Same-instance writes are serialized with single-member reads and reference-table lookups. <see cref="ReplaceArchiveMember"/>
-    /// keeps that boundary across the archive read, rebuild, and write. This does not make
+    /// and <see cref="TryReplaceContainer"/> keep that boundary across the read, rebuild or comparison, and write. This does not make
     /// <see cref="ReadArchive(int, int)"/>, <see cref="ReadContainer(int, int)"/>, or composed range and inspection
     /// workflows atomic with concurrent writes; they do not hold that exclusion across their complete read and decode sequence.
     /// Callers that require operation-wide consistency must coordinate those operations separately.
@@ -67,7 +67,7 @@ namespace Hagalaz.Cache.Abstractions
         /// </summary>
         /// <param name="indexId">The identifier of the index containing the archive.</param>
         /// <param name="fileId">The identifier of the archive file.</param>
-        /// <param name="subFileId">The identifier of the member file to read from the archive.</param>
+        /// <param name="subFileId">The physical position of the member within the archive (<c>IReferenceTableChildEntry.Index</c>), not its member ID; resolve sparse member IDs through the reference table first.</param>
         /// <returns>A <see cref="MemoryStream"/> containing the data of the requested member file.</returns>
         MemoryStream Read(int indexId, int fileId, int subFileId);
 
@@ -100,6 +100,19 @@ namespace Hagalaz.Cache.Abstractions
         void Write(int indexId, int fileId, IContainer container);
 
         /// <summary>
+        /// Writes <paramref name="replacement"/> only if the file's decoded data still equals <paramref name="expected"/>, comparing
+        /// and writing under the cache's write boundary. Use it whenever a write is derived from the file's current contents: build
+        /// the replacement from a <see cref="ReadContainer(int, int)"/> without holding anything, then read, rebuild and try again
+        /// when this returns <c>false</c>, so that concurrent changes are never lost.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index containing the file.</param>
+        /// <param name="fileId">The identifier of the file; its reference-table entry must already exist.</param>
+        /// <param name="expected">The decoded data the replacement was built from.</param>
+        /// <param name="replacement">The container to write.</param>
+        /// <returns><c>true</c> when the replacement was written; <c>false</c> when another write changed the file first.</returns>
+        bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement);
+
+        /// <summary>
         /// Replaces one member of an archive and persists the rebuilt archive while holding the cache's write boundary.
         /// </summary>
         /// <param name="indexId">The identifier of the index containing the archive.</param>
@@ -107,6 +120,13 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="archiveEntryId">The member identifier from the reference table.</param>
         /// <param name="replacement">The replacement member bytes.</param>
         void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.ReadOnlyMemory<byte> replacement);
+
+        /// <summary>Appends a persisted member copy after the last mapped member, allocating and writing under the cache write lock.</summary>
+        /// <param name="indexId">The source and destination index.</param>
+        /// <param name="sourceFileId">The source archive ID.</param>
+        /// <param name="sourceEntryId">The source member ID.</param>
+        /// <param name="archiveMemberLimit">The exclusive member ID limit; starts a new archive when reached.</param>
+        (int FileId, int EntryId) AppendArchiveMemberCopy(int indexId, int sourceFileId, int sourceEntryId, int archiveMemberLimit);
 
         /// <summary>
         /// Writes raw, already-encoded file bytes while invalidating local cached state affected by the target.

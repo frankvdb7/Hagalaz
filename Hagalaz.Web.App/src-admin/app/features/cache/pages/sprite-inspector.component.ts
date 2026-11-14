@@ -11,7 +11,7 @@ import { MatTabsModule } from "@angular/material/tabs";
 import { take } from "rxjs";
 
 import { CachePendingChangesService } from "../cache-pending-changes.service";
-import type { SpriteMetadataDto } from "../services/cache.models";
+import type { GetSpriteDefinitionDto } from "../services/cache.models";
 
 import { CacheSpritesStore } from "../stores/cache-sprites.store";
 
@@ -24,12 +24,13 @@ import { CacheWriteDialogComponent } from "./cache-write-dialog";
 
     templateUrl: "./sprite-inspector.component.html",
 
+    host: { class: "block min-w-0" },
     styleUrl: "./sprite-inspector.component.scss",
 })
 export class SpriteInspectorComponent {
     readonly id = input.required<number | null>();
 
-    readonly metadata = input.required<SpriteMetadataDto | null>();
+    readonly metadata = input.required<GetSpriteDefinitionDto | null>();
 
     readonly selectedFrame = input.required<number | null>();
 

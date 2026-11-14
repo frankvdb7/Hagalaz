@@ -6,6 +6,8 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Types;
+using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -31,7 +33,7 @@ public sealed class SpriteTypeSearchTests
         using var response = await client.GetAsync("/api/v1/cache/types/sprites/search?query=&offset=1&limit=1");
 
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<TypeEndpoints.SearchResponse<TypeEndpoints.SpriteTypeResponse>>();
+        var result = await response.Content.ReadFromJsonAsync<SearchDefinitionsDto<GetSpriteDefinitionDto>>();
         Assert.IsNotNull(result);
         Assert.AreEqual(string.Empty, result.Query);
         Assert.AreEqual(3, result.TotalMatches);
@@ -57,7 +59,7 @@ public sealed class SpriteTypeSearchTests
         using var response = await client.GetAsync("/api/v1/cache/types/sprites/search?query=1&offset=2&limit=2");
 
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<TypeEndpoints.SearchResponse<TypeEndpoints.SpriteTypeResponse>>();
+        var result = await response.Content.ReadFromJsonAsync<SearchDefinitionsDto<GetSpriteDefinitionDto>>();
         Assert.IsNotNull(result);
         Assert.AreEqual(5, result.TotalMatches);
         CollectionAssert.AreEqual(new[] { 11, 101 }, result.Items.Select(item => item.Id).ToArray());

@@ -1,0 +1,5 @@
+# Design
+Extract the existing table/entry response records into Features/Checksums/Dtos. Keep all member names and primitive types unchanged, including signed int CRC and base64 digest strings. The handler retains the existing cache checksum owner and mapping order. Verify the real endpoint over an isolated store with a populated reference index and empty indexes. No frontend consumer or production cache mutation is needed.
+
+## Verification
+The service/test projects built successfully through dotnet test and all 83 service tests passed. ReadChecksumTable_RetainsOrderValuesAndBase64ForPopulatedAndEmptyIndexes exercises the real route over an isolated store, verifying index ordering, populated CRC/version/digest values, empty-index values and exact JSON entry field names. Strict OpenSpec validation and git diff --check passed, with the existing Git line-ending notice. No new source compiler warnings; existing NuGet warnings remain. No live service restart or production cache mutation occurred.

@@ -19,8 +19,8 @@ export class ConfigDefinitionEditorComponent {
     private readonly dialog = inject(MatDialog);
     private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly configMutationModel = linkedSignal(() => {
-        const value = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-        return { id: this.store.definitionId() ?? 0, defaultValue: (value.defaultValue ?? 0) as number, valueType: (value.valueType ?? "") as string };
+        const value = this.store.byIdResult();
+        return { id: this.store.definitionId() ?? 0, defaultValue: (value?.defaultValue ?? 0), valueType: (value?.valueType ?? "") };
     });
     readonly configMutationForm = form(this.configMutationModel, (path) => {
         required(path.id);
@@ -36,8 +36,8 @@ export class ConfigDefinitionEditorComponent {
             {
                 dirty: () => {
                     const v = this.configMutationModel();
-                    const record = (this.store.byIdResult() ?? {}) as Record<string, unknown>;
-                    return v.defaultValue !== (record.defaultValue ?? 0) || v.valueType !== (record.valueType ?? "");
+                    const record = this.store.byIdResult();
+                    return v.defaultValue !== (record?.defaultValue ?? 0) || v.valueType !== (record?.valueType ?? "");
                 },
                 saving: () => this.store.saving(),
             },

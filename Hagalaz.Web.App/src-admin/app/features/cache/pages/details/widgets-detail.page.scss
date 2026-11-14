@@ -1,0 +1,46 @@
+:host {
+    display: block;
+    min-width: 0;
+    --workspace-border: var(--mat-sys-outline-variant);
+    --workspace-panel: var(--mat-sys-surface-container-low);
+    --workspace-field: var(--mat-sys-surface-container-lowest);
+    --workspace-accent: var(--mat-sys-primary);
+    --workspace-muted: var(--mat-sys-on-surface-variant);
+}
+
+.widget-path {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.widget-workspace {
+    display: grid;
+    grid-template-columns: minmax(185px, 19fr) minmax(0, 57fr) minmax(230px, 24fr);
+    gap: 12px;
+    height: max(620px, calc(100dvh - 215px));
+    font-size: 13px;
+}
+
+.workspace-left {
+    display: grid;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+}
+
+.inspector-body { padding: 0 16px; }
+
+@media (max-width: 1180px) {
+    .widget-workspace { grid-template-columns: minmax(160px, 1fr) minmax(0, 3fr); height: auto; }
+    .workspace-left { height: 620px; }
+    .inspector-panel { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+    .widget-workspace { display: flex; flex-direction: column; }
+    .workspace-left { height: 385px; }
+}

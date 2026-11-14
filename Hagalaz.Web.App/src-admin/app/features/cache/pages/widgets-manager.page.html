@@ -1,0 +1,33 @@
+<mat-card appearance="outlined" class="definition-list overflow-hidden">
+    @if (cache.referenceTable.isLoading()) {
+        <mat-progress-bar mode="indeterminate" aria-label="Loading widgets" />
+    } @else if (cache.referenceTable.error()) {
+        <mat-card-content class="py-6">
+            <p role="alert">Could not load widgets.</p>
+            <button mat-stroked-button type="button" (click)="cache.referenceTable.reload()">Retry</button>
+        </mat-card-content>
+    } @else if (rows().length) {
+        <div class="overflow-x-auto">
+            <table mat-table [dataSource]="rows()" aria-label="Widgets">
+                <ng-container matColumnDef="id">
+                    <th mat-header-cell *matHeaderCellDef>Widget ID</th>
+                    <td mat-cell *matCellDef="let row">
+                        <a mat-button [routerLink]="[row.fileId]" queryParamsHandling="preserve"
+                            [attr.aria-label]="'Inspect widget ' + row.fileId">{{ row.fileId }}</a>
+                    </td>
+                </ng-container>
+                <ng-container matColumnDef="components">
+                    <th mat-header-cell *matHeaderCellDef>Components</th>
+                    <td mat-cell *matCellDef="let row">{{ row.children.length }}</td>
+                </ng-container>
+                <tr mat-header-row class="definition-table-header" *matHeaderRowDef="columns"></tr>
+                <tr mat-row *matRowDef="let row; columns: columns"></tr>
+            </table>
+        </div>
+        <mat-paginator class="definition-paginator" aria-label="Widget pages" [length]="cache.widgets().length"
+            [pageIndex]="pageIndex()" [pageSize]="pageSize()" [pageSizeOptions]="pageSizeOptions"
+            showFirstLastButtons (page)="changePage($event)" />
+    } @else {
+        <mat-card-content class="py-6"><p>No widgets found.</p></mat-card-content>
+    }
+</mat-card>

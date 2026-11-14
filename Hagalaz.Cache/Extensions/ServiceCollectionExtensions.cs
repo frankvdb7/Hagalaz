@@ -1,6 +1,8 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types.Data;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
 using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Types.Hooks;
@@ -11,6 +13,7 @@ using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Logic;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Types.Providers;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -119,14 +122,39 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeFactory<IVarpBitDefinition>, VarpBitDefinitionFactory>();
             services.TryAddTransient<IVarpBitDefinitionProvider, VarpBitDefinitionProvider>();
 
+            services.TryAddTransient<ITypeCodec<IParticleEmitterType>, ParticleEmitterTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IParticleEffectorType>, ParticleEffectorTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IBillboardType>, BillboardTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IRenderAnimationType>, RenderAnimationTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IMaterialTableType>, MaterialTableTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IModelType>, ModelTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IAnimationSkeletonType>, AnimationSkeletonTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IAnimationFrameType>, AnimationFrameTypeCodec>();
+
+            AddTypeMutator<IItemType, IItemTypeCodec>(services, new ItemTypeData());
+            AddTypeMutator<INpcType, INpcTypeCodec>(services, new NpcTypeData());
+            AddTypeMutator<IObjectType, IObjectTypeCodec>(services, new ObjectTypeData());
+            AddTypeMutator<ISpriteType, ISpriteTypeCodec>(services, new SpriteTypeData());
+            AddTypeMutator<IConfigDefinition, ITypeCodec<IConfigDefinition>>(services, new ConfigDefinitionData());
+            AddTypeMutator<IVarpBitDefinition, ITypeCodec<IVarpBitDefinition>>(services, new VarpBitDefinitionData());
+
             services.TryAddTransient<IMapCodec, MapCodec>();
             services.TryAddTransient<ITypeFactory<IMapType>, MapTypeFactory>();
             services.TryAddTransient<IMapProvider, MapProvider>();
+            services.TryAddTransient<IRegionMapArchive, RegionMapArchive>();
 
             services.TryAddTransient<ITypeCodec<IEquipmentDefaults>, EquipmentDefaultsCodec>();
             services.TryAddTransient<IEquipmentDefaultsProvider, EquipmentDefaultsProvider>();
 
             return services;
+        }
+
+        private static void AddTypeMutator<TType, TCodec>(IServiceCollection services, ITypeData typeData)
+            where TType : IType
+            where TCodec : ITypeCodec<TType>
+        {
+            services.TryAddTransient(provider => new TypeMutator<TType>(
+                provider.GetRequiredService<ICacheAPI>(), provider.GetRequiredService<TCodec>(), typeData));
         }
     }
 }

@@ -1,0 +1,21 @@
+<h2 class="studio-section-title mb-3">Animations</h2>
+<div class="flex flex-wrap gap-2">
+    @for (id of animations(); track id) { <button mat-stroked-button type="button" (click)="playAnimation.emit(id)">Play animation #{{ id }}</button><a mat-button href="/cache/types/animations/{{id}}" [routerLink]="['/cache/types/animations', id]">Definition #{{ id }}</a> }
+</div>
+@if (!animations().length) { <p class="supporting-text text-sm">No animation sequences are associated with this raw model. Inspect a frame below when skin groups are available.</p> }
+@if (hasSkins()) {
+    <form class="flex flex-wrap items-center gap-2 mt-3" (ngSubmit)="inspectFrame.emit()">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Frame ID</mat-label><input matInput name="frame" type="number" min="0" step="1" [(ngModel)]="frameId" required #frameInput="ngModel" /></mat-form-field>
+        <button mat-stroked-button type="submit" [disabled]="frameInput.invalid">Inspect frame</button><button mat-button type="button" (click)="basePose.emit()">Base pose</button>
+    </form>
+}
+@if (sequence(); as sequence) {
+    <p class="supporting-text text-sm mt-3">Animation #{{ sequence.id }}, frame {{ frameIndex() + 1 }} of {{ sequence.frameIds.length }}. Discrete frames; tweening is not applied.</p>
+    <button mat-stroked-button type="button" (click)="togglePlayback.emit()" [disabled]="!sequence.frameIds.length || !!poseError()">{{ playing() ? 'Pause' : 'Play' }}</button><button mat-button type="button" (click)="nextFrame.emit()" [disabled]="playing()">Next frame</button>
+}
+@if (sequenceError(); as error) { <p role="alert">{{ error }}</p> }
+@if (loading()) { <p role="status">Loading animation frames…</p> }
+@if (clipError(); as error) { <p role="alert">{{ error }}</p><button mat-stroked-button type="button" (click)="retryClip.emit()">Retry animation</button> }
+@if (frameError(); as error) { <p role="alert">{{ error }}</p><button mat-stroked-button type="button" (click)="retryFrame.emit()">Retry frame</button> }
+@if (poseError(); as error) { <p role="alert">{{ error }}</p> }
+@if (poseWarning(); as warning) { <p role="status">{{ warning }}</p> }

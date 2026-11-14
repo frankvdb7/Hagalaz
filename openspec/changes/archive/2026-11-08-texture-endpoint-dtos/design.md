@@ -1,0 +1,7 @@
+# Design
+Put the DTOs beside the existing model DTOs under Features/Models/Dtos. Map material fields explicitly, including signed scroll values, both effect parameters and HDR flag. Map HDR width/height/float RGBA without data transformation. Client uses matching interfaces and retains runtime alpha-mode validation at the renderer adapter boundary. PNG responses remain image/png with existing metadata headers. Shared rendering interfaces remain unchanged.
+
+## Verification
+Service/test projects built through dotnet test; 96 service tests passed. MaterialRequest_ReturnsAppearanceAndUnverifiedEffectMetadata now reads GetTextureMaterialDto and verifies every material field, including signed scrolling and the second effect parameter. HdrRequest_ReturnsFloatIntensitiesAndKeepsPngCompatible reads GetTextureHdrDto and verifies HDR RGBA values, PNG pixels and all three texture metadata headers. Existing missing/mismatched/invalid request coverage remains green.
+
+241 admin tests, 35 shared viewer tests, admin test TypeScript compilation and admin production build passed. Runtime alpha validation uses a narrowed local constant before mapping material DTOs to renderer textures. Shared renderer types/files remain unchanged. Existing Item Forge stylesheet budget and dependency/test warnings remain; no new source compiler warnings were introduced. Strict OpenSpec validation and git diff --check passed. Browser checks remain skipped per the user's standing instruction; no live cache writes or service restart occurred.

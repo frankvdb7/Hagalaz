@@ -1,0 +1,52 @@
+<mat-card appearance="outlined" class="preview-card">
+    <mat-toolbar class="preview-toolbar" role="group" aria-label="Preview tools">
+        <mat-button-toggle-group aria-label="Preview mode" hideSingleSelectionIndicator [value]="pan()" (change)="pan.set($event.value)">
+            <mat-button-toggle [value]="false" matTooltip="Select components" aria-label="Select components"><mat-icon>near_me</mat-icon></mat-button-toggle>
+            <mat-button-toggle [value]="true" matTooltip="Pan preview" aria-label="Pan preview"><mat-icon>open_with</mat-icon></mat-button-toggle>
+        </mat-button-toggle-group>
+        <button mat-icon-button type="button" matTooltip="Reset preview and local edits" aria-label="Reset preview and local edits" (click)="reset(stage)"><mat-icon>restart_alt</mat-icon></button>
+        <button mat-icon-button type="button" matTooltip="Duplicate component in preview" aria-label="Duplicate component in preview" [disabled]="!editable()" (click)="duplicate.emit()"><mat-icon>content_copy</mat-icon></button>
+        <button mat-icon-button type="button" matTooltip="Remove component from preview" aria-label="Remove component from preview" [disabled]="!editable()" (click)="remove.emit()"><mat-icon>delete_outline</mat-icon></button>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="preview-zoom">
+            <mat-label>Preview zoom</mat-label>
+            <mat-select [value]="zoomMode()" (selectionChange)="zoomMode.set($event.value)">
+                <mat-option value="fit">Fit</mat-option>
+                <mat-option value="0.5">50%</mat-option><mat-option value="0.75">75%</mat-option><mat-option value="1">100%</mat-option>
+                <mat-option value="1.25">125%</mat-option><mat-option value="1.5">150%</mat-option><mat-option value="2">200%</mat-option>
+            </mat-select>
+        </mat-form-field>
+        <span class="tool-spacer"></span>
+        <button mat-icon-button type="button" matTooltip="Show component bounds" aria-label="Show component bounds" [attr.aria-pressed]="outlines()" (click)="outlines.update(toggle)"><mat-icon>select_all</mat-icon></button>
+        <button mat-icon-button type="button" [matTooltip]="expandControl().label" [attr.aria-label]="expandControl().label" [attr.aria-pressed]="expanded()"
+            (click)="expanded.update(toggle)"><mat-icon>{{ expandControl().icon }}</mat-icon></button>
+        <button mat-icon-button type="button" [attr.aria-pressed]="interactive()" [attr.aria-label]="playControl().label" [matTooltip]="playControl().label"
+            (click)="pan.set(false); interact.emit()">
+            <mat-icon>{{ playControl().icon }}</mat-icon>
+        </button>
+    </mat-toolbar>
+    @if (status(); as text) {
+        <p class="preview-status" role="status">{{ text }}</p>
+    }
+    <div #stage class="preview-stage" [class.pan]="pan()" (pointerdown)="startPan($event, stage)" (pointermove)="movePan($event, stage)"
+        (pointerup)="endPan()" (lostpointercapture)="endPan()">
+        <div class="preview-space">
+            <div class="preview-size" [style.width.px]="viewport().width * zoom()" [style.height.px]="viewport().height * zoom()">
+                <div class="preview-art" [style.width.px]="viewport().width" [style.height.px]="viewport().height" [style.transform]="'scale(' + zoom() + ')'">
+                    @for (hit of hits(); track hit.id) {
+                        <button #target type="button" class="preview-layer" [class.bounds]="hit.bounds" [class.selected]="hit.selected"
+                            [class.inspect-layer]="hit.inspecting" [class.preview-pass-through]="hit.passThrough" [class.preview-action]="hit.action"
+                            [disabled]="hit.disabled" [attr.aria-label]="hit.label" [attr.aria-pressed]="hit.pressed"
+                            [style.left.px]="hit.layer.x" [style.top.px]="hit.layer.y" [style.width.px]="hit.layer.width" [style.height.px]="hit.layer.height"
+                            (pointerdown)="dispatchPointer(hit.id, 'click', $event, target)"
+                            (pointerup)="dispatchPointer(hit.id, 'release', $event, target)"
+                            (pointerenter)="dispatchPointer(hit.id, 'enter', $event, target)"
+                            (pointerleave)="dispatchPointer(hit.id, 'exit', $event, target)"
+                            (click)="clickLayer(hit.id, $event)">
+                            @if (hit.layer.visible) { <span [cacheWidgetLayerArt]="hit.layer"></span> }
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</mat-card>

@@ -1,0 +1,113 @@
+.viewport-toolbar,
+.viewport-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 1;
+}
+.model-heading h1 {
+    margin: 2px 0 0;
+    font-weight: 600;
+}
+.model-eyebrow {
+    color: var(--mat-sys-primary);
+    font: var(--mat-sys-label-small);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.model-emblem {
+    display: grid;
+    place-items: center;
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    color: var(--mat-sys-primary);
+}
+
+.workspace-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 12px;
+    align-items: start;
+}
+.inspection-tabs {
+    overflow: hidden;
+}
+
+.model-stage {
+    position: relative;
+    overflow: hidden;
+    background: var(--mat-sys-surface);
+}
+.viewport-toolbar {
+    top: 0;
+    padding: 8px 12px;
+}
+.camera-label {
+    font: var(--mat-sys-label-medium);
+    padding: 10px 16px;
+}
+.active-tool {
+    color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+}
+.viewport-footer {
+    bottom: 0;
+    padding: 0 12px 12px;
+    pointer-events: none;
+}
+.model-stats {
+    font: var(--mat-sys-body-small);
+    padding: 6px 10px;
+    min-width: 110px;
+}
+.model-stats div,
+.metadata-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+}
+dt {
+    color: var(--mat-sys-on-surface-variant);
+}
+dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+.empty-panel {
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    padding: 56px 24px;
+    text-align: center;
+}
+.empty-panel > mat-icon {
+    color: var(--mat-sys-primary);
+}
+.raw-model {
+    max-height: 400px;
+    max-width: 100%;
+    overflow: auto;
+    font-size: var(--mat-sys-body-small-size);
+}
+@media (max-width: 1199px) {
+    .workspace-grid {
+        grid-template-columns: minmax(0, 1fr) 310px;
+    }
+}
+@media (max-width: 959px) {
+    .workspace-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .model-emblem {
+        width: 56px;
+        height: 56px;
+    }
+}
+
+@media (max-width: 599px) {
+    .model-actions {
+        align-items: flex-start;
+        width: 100%;
+    }
+}

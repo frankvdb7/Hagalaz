@@ -1,0 +1,9 @@
+:host { display: contents; }
+.tree-row { display: flex; align-items: center; min-width: 0; }
+.tree-root, .tree-label { justify-content: flex-start; text-align: start; }
+.tree-root { width: 100%; }
+.tree-label { flex: 1; min-width: 0; overflow: hidden; }
+.tree-label-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-indent { width: 32px; flex: none; }
+.tree-row.selected, .tree-root[aria-pressed="true"] { background: var(--mat-sys-secondary-container); }
+.asset-thumb { width: 24px; height: 24px; }

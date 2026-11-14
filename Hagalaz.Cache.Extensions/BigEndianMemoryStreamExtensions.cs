@@ -372,14 +372,13 @@ namespace Hagalaz.Cache.Extensions
             }
             else
             {
-                var val = 32767;
-                var total = 0;
-                while(value > total)
+                var remainder = value;
+                while (remainder >= 32767)
                 {
-                    stream.WriteSmart(val);
-                    total += val;
+                    stream.WriteSmart(32767);
+                    remainder -= 32767;
                 }
-                stream.WriteSmart(value - total);
+                stream.WriteSmart(remainder);
             }
         }
     }

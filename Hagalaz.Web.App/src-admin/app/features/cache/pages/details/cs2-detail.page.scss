@@ -1,0 +1,17 @@
+.script-layout {
+    display: grid;
+    align-items: start;
+    gap: 1rem;
+}
+
+@media (min-width: 64rem) {
+    .script-layout {
+        grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+    }
+}
+
+.script-code {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+}

@@ -492,7 +492,7 @@ internal sealed class CacheBenchmarkFixture : IDisposable
         return new CacheBenchmarkFixture(indexId, archiveCount, snapshotWeight, files, objectTypeIds);
     }
 
-    private static byte[] EncodeArchive(byte[][] members)
+    internal static byte[] EncodeArchive(byte[][] members)
     {
         if (members.Length == 1)
         {

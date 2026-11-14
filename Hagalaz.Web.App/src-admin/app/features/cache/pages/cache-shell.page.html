@@ -1,4 +1,9 @@
-<section aria-labelledby="cache-title">
-    <header class="mb-6 flex flex-wrap items-start justify-between gap-4"><div><h1 id="cache-title">Cache Studio</h1><p class="supporting-text mt-2">Browse game definitions and edit supported fields.</p></div></header>
-    <router-outlet />
-</section>
+<mat-card appearance="outlined" class="studio-tabs mb-4 overflow-hidden">
+    <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="cachePanel" [class.widget-tabs]="activeKind() === 'widgets'" aria-label="Cache type">
+        @for (kind of kinds; track kind) {
+            @let path = tabPath(kind);
+            <a mat-tab-link [attr.aria-label]="kindLabels[kind]" [routerLink]="path" [queryParams]="{kind: path === '/cache/types' ? kind : null, query: null, offset: null, page: null}" queryParamsHandling="merge" [active]="activeKind() === kind"><mat-icon class="studio-icon-small mr-2" aria-hidden="true">{{kindIcons[kind]}}</mat-icon>{{kindLabels[kind]}}</a>
+        }
+    </nav>
+</mat-card>
+<mat-tab-nav-panel #cachePanel><router-outlet /></mat-tab-nav-panel>

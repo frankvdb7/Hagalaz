@@ -1,0 +1,5 @@
+# Design
+Use dedicated GetRawFileDto and GetRawSubFileDto classes with explicit FromRoute names for indexId, fileId and subFileId. Bind them using the framework AsParameters attribute; no custom binder or callback. Retain TypedResults.File responses and existing disposal/read paths unchanged. Test exact physical container bytes versus decoded archive member bytes, media type, download filenames and missing assets using isolated stores.
+
+## Verification
+Service/test projects built through dotnet test and all 104 service tests passed. RouteDtos_RetainBinaryFileAndMemberBytesAndDownloadNames verifies actual AsParameters route binding with a nonzero file ID, exact physical/member bytes, octet-stream media types and both download filenames. RouteDtos_RetainMissingAssetResponses verifies missing raw-file and sub-file responses. Strict OpenSpec validation and git diff --check passed. No new source compiler warnings; existing NuGet warnings remain. Verification used read-only isolated cache fixtures; no live cache mutations or service restart occurred.

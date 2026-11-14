@@ -1,0 +1,27 @@
+<ng-template portalBreadcrumb><cache-definition-picker [store]="store" kind="cs2" [id]="id()" /></ng-template>
+
+<a mat-button routerLink="/cache/types" queryParamsHandling="merge" [queryParams]="{ kind: 'cs2' }" class="mb-4">
+    <mat-icon>arrow_back</mat-icon>Back to CS2 scripts
+</a>
+
+<section aria-label="CS2 script details" [attr.aria-busy]="store.loading()">
+    @if (id() === null) {
+        <p role="alert">Enter a valid script ID of zero or greater.</p>
+    } @else if (store.loading()) {
+        <mat-progress-bar mode="indeterminate" aria-label="Loading CS2 script" />
+    } @else if (store.error(); as error) {
+        <mat-card appearance="outlined"><mat-card-content>
+            <p role="alert">{{ error }}</p>
+            <button mat-stroked-button type="button" class="mt-4" (click)="retry()"><mat-icon>refresh</mat-icon>Retry</button>
+        </mat-card-content></mat-card>
+    } @else if (script(); as script) {
+        <h2 class="mb-4 break-words">{{ title() }}</h2>
+        <div class="script-layout">
+            <cache-cs2-metadata [script]="script" />
+            <div class="script-code">
+                <cache-cs2-source [script]="script" />
+                <cache-cs2-disassembly [script]="script" />
+            </div>
+        </div>
+    }
+</section>

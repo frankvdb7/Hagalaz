@@ -1,0 +1,61 @@
+@let selected = selection();
+<section aria-label="Selected object">
+    <h3><mat-icon class="studio-icon-small">view_in_ar</mat-icon>Object identity</h3>
+    <dl class="region-stats">
+        <div><dt>Name</dt><dd>{{ objectName() ?? 'Unnamed object' }}</dd></div>
+        <div><dt>Object ID</dt><dd><a href="/cache/types/objects/{{ selected.placement.id }}" [routerLink]="['/cache/types/objects', selected.placement.id]">{{ selected.placement.id }}</a></dd></div>
+        @for (part of objectModels(); track $index) {
+            <div><dt>Model</dt><dd><a href="/cache/models/{{ part.id }}" [routerLink]="['/cache/models', part.id]">{{ part.id }}</a></dd></div>
+        }
+        <div><dt>Shape</dt><dd>{{ shapeLabel(selected.placement.shape) }}</dd></div>
+        <div><dt>Region</dt><dd>{{ selected.regionId }}</dd></div>
+    </dl>
+</section>
+@if (objectTransform(); as transform) {
+    <section>
+        <h3><mat-icon class="studio-icon-small">open_with</mat-icon>Transform</h3>
+        <mat-button-toggle-group class="position-mode map-position-mode" aria-label="Position coordinates" hideSingleSelectionIndicator [value]="positionMode()" (change)="positionMode.set($event.value)">
+            <mat-button-toggle value="tile">Tile position</mat-button-toggle>
+            <mat-button-toggle value="world">World position</mat-button-toggle>
+        </mat-button-toggle-group>
+        <div class="transform-fields studio-compact-inspector">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'move'">
+                <mat-label>X</mat-label><input #tileX matInput [disabled]="!editable()" type="number" [min]="positionBase().x" [max]="positionBase().x + 63" [step]="snap()" [value]="transform.x + positionBase().x" (change)="transformChange.emit({ field: 'x', value: tileX.valueAsNumber - positionBase().x })" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'move'">
+                <mat-label>Y</mat-label><input #tileZ matInput [disabled]="!editable()" type="number" [min]="positionBase().y" [max]="positionBase().y + 63" [step]="snap()" [value]="transform.y + positionBase().y" (change)="transformChange.emit({ field: 'y', value: tileZ.valueAsNumber - positionBase().y })" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'rotate'">
+                <mat-label>Rotation</mat-label><mat-select [disabled]="!editable()" [value]="transform.rotation" (selectionChange)="transformChange.emit({ field: 'rotation', value: $event.value })">
+                    @for (rotation of [0, 1, 2, 3]; track rotation) { <mat-option [value]="rotation">{{ rotation * 90 }}°</mat-option> }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.active-field]="editTool() === 'scale'">
+                <mat-label>Scale</mat-label><input #scale matInput [disabled]="!editable()" type="number" min="0.25" max="4" step="0.25" [value]="transform.scale" (change)="transformChange.emit({ field: 'scale', value: scale.valueAsNumber })" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Plane</mat-label><mat-select [disabled]="!editable()" [value]="transform.plane" (selectionChange)="transformChange.emit({ field: 'plane', value: $event.value })">
+                    @for (plane of [0, 1, 2, 3]; track plane) { <mat-option [value]="plane">Plane {{ plane }}</mat-option> }
+                </mat-select>
+            </mat-form-field>
+        </div>
+        <button mat-button type="button" (click)="clearSelection.emit()">Clear selection</button>
+    </section>
+}
+<section>
+    <h3><mat-icon class="studio-icon-small">tune</mat-icon>Properties</h3>
+    @if (objectProperties(); as properties) {
+        <div class="property-grid">
+            @for (property of properties; track property.label) { <mat-checkbox disabled [checked]="property.value">{{ property.label }}</mat-checkbox> }
+        </div>
+    } @else {
+        <p class="supporting-text">{{ definitionFailed() ? 'Could not load the object definition.' : 'Loading object definition…' }}</p>
+    }
+</section>
+<section>
+    <h3><mat-icon class="studio-icon-small">open_in_new</mat-icon>Open in Cache Studio</h3>
+    <div class="open-actions">
+        <a mat-stroked-button href="/cache/types/objects/{{ selected.placement.id }}" [routerLink]="['/cache/types/objects', selected.placement.id]"><mat-icon>data_object</mat-icon>Definition</a>
+        @if (objectModels()[0]; as model) { <a mat-stroked-button href="/cache/models/{{ model.id }}" [routerLink]="['/cache/models', model.id]"><mat-icon>deployed_code</mat-icon>Model</a> }
+    </div>
+</section>

@@ -1,3 +1,4 @@
+import { FullscreenOverlayContainer, OverlayContainer } from "@angular/cdk/overlay";
 import { provideHttpClient, withInterceptors } from "@angular/common/http";
 import { importProvidersFrom, inject, provideAppInitializer, provideZonelessChangeDetection } from "@angular/core";
 import { MatIconRegistry } from "@angular/material/icon";
@@ -15,6 +16,8 @@ bootstrapApplication(AdminAppComponent, {
         provideRouter(routes, withExperimentalPlatformNavigation(), withAutoCleanupInjectors()),
         provideZonelessChangeDetection(),
         provideHttpClient(withInterceptors([authInterceptor])),
+        // Keeps menus visible while the map viewport is fullscreen.
+        { provide: OverlayContainer, useClass: FullscreenOverlayContainer },
         importProvidersFrom(
             NgHcaptchaModule.forRoot({
                 siteKey:

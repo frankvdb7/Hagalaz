@@ -1,24 +1,19 @@
+import type { GetVarpBitDefinitionDto, UpdateVarpBitDefinitionDto } from "./dtos";
 import { HttpClient } from "@angular/common/http";
-import { inject, Service, type Signal } from "@angular/core";
+import { inject, Service } from "@angular/core";
 import type { Observable } from "rxjs";
-import { environment } from "../../../../environments/environment";
-import type { TypeMutationResultDto } from "./cache.models";
-import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
+import type { UpdateVarpBitDefinitionResultDto } from "./cache.models";
+import { CacheTypeService } from "./cache-resource";
 
 @Service()
-export class CacheVarpBitsService {
+export class CacheVarpBitsService extends CacheTypeService<GetVarpBitDefinitionDto> {
     private readonly http = inject(HttpClient);
-    private readonly baseUrl = `${environment.cacheApiUrl}types/varp-bits`;
 
-    definitionResource(id: Signal<number | null>) {
-        return cacheDefinitionResource<unknown>(this.baseUrl, id);
+    constructor() {
+        super("varp-bits");
     }
 
-    rangeResource(range: Signal<{ startId: number; endIdExclusive: number } | null>) {
-        return cacheQueryResource<unknown[]>(`${this.baseUrl}/range`, range);
-    }
-
-    updateVarpBit(id: number, configId: number, bitLength: number, bitOffset: number): Observable<TypeMutationResultDto> {
-        return this.http.post<TypeMutationResultDto>(`${this.baseUrl}/${id}`, { configId, bitLength, bitOffset });
+    updateVarpBit(id: number, configId: number, bitLength: number, bitOffset: number): Observable<UpdateVarpBitDefinitionResultDto> {
+        return this.http.post<UpdateVarpBitDefinitionResultDto>(`${this.baseUrl}/${id}`, { configId, bitLength, bitOffset } satisfies UpdateVarpBitDefinitionDto);
     }
 }

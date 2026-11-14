@@ -1,3 +1,4 @@
+import { ItemSpriteThumbnailComponent } from "./item-sprite-thumbnail.component";
 import { Location } from "@angular/common";
 import { provideLocationMocks } from "@angular/common/testing";
 import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
@@ -18,12 +19,38 @@ import { AuthStore } from "../../../core/auth/auth.store";
 import { cacheTypeNames } from "../services/cache.models";
 import { cacheDefinitionStores } from "../stores/cache-definition-stores";
 import { SpriteInspectorComponent } from "./sprite-inspector.component";
-import { SpritesManagerPageComponent } from "./sprites-manager.page";
 import { DefinitionDetailComponent } from "./definition-detail.component";
+
+import { CacheModelPreviewComponent } from "./cache-model-preview.component";
+import { NpcsDetailPageComponent } from "./details/npcs-detail.page";
+import { ObjectsDetailPageComponent } from "./details/objects-detail.page";
+import { ItemSpriteBoundary, ModelPreviewBoundary } from "../../../../testing/cache-preview-boundaries";
+import { required } from "../../../../testing/required";
+import { ItemsDetailPageComponent } from "./details/items-detail.page";
 
 const baseUrl = `${environment.cacheApiUrl}types/`;
 const stable = () => TestBed.inject(ApplicationRef).whenStable();
-const kinds = Object.keys(cacheDefinitionStores).filter((kind) => kind !== "sprites" && kind !== "items") as (keyof typeof cacheDefinitionStores)[];
+const kinds = Object.keys(cacheDefinitionStores).filter(
+    (kind) => kind !== "sprites" && kind !== "items" && kind !== "maps" && kind !== "cs2"
+) as (keyof typeof cacheDefinitionStores)[];
+
+const cs2Script = {
+    id: 7,
+    name: "Widget action",
+    intArgsCount: 4,
+    intLocalsCount: 1,
+    stringArgsCount: 5,
+    stringLocalsCount: 2,
+    longArgsCount: 6,
+    longLocalsCount: 3,
+    opcodeCount: 2,
+    switchTablesCount: 1,
+    instructions: [
+        { index: 0, opcode: 63, operandKind: "long", operand: "-9223372036854775807" },
+        { index: 1, opcode: 145, operandKind: "string", operand: "€" },
+    ],
+    switchTables: [[{ key: -1, offset: 2 }]],
+};
 
 describe("dedicated cache detail routes", () => {
     let http: HttpTestingController;
@@ -47,6 +74,9 @@ describe("dedicated cache detail routes", () => {
                 },
             ],
         });
+        for (const page of [NpcsDetailPageComponent, ObjectsDetailPageComponent, ItemsDetailPageComponent])
+            TestBed.overrideComponent(page, { remove: { imports: [CacheModelPreviewComponent] }, add: { imports: [ModelPreviewBoundary] } });
+        TestBed.overrideComponent(ItemsDetailPageComponent, { remove: { imports: [ItemSpriteThumbnailComponent] }, add: { imports: [ItemSpriteBoundary] } });
         http = TestBed.inject(HttpTestingController);
     });
     afterEach(() => {
@@ -77,28 +107,117 @@ describe("dedicated cache detail routes", () => {
         harness.fixture.detectChanges();
         return harness;
     }
+    const editableKinds = ["npcs", "objects", "varp-bits", "config-definitions"];
+    function expectedAccess(kind: string) {
+        if (kind === "sprites") return "Image replacement supported";
+        return editableKinds.includes(kind) ? "Supported edits" : "Read only";
+    }
+    function definitionFixture(kind: string) {
+        if (kind === "cs2-int") return 0;
+        return { id: 7, name: `${kind} record`, combatLevel: 2, configId: 3, bitLength: 2, bitOffset: 1, defaultValue: 0, valueType: "i" };
+    }
+    function expectModelPreview(harness: RouterTestingHarness, kind: "npcs" | "objects") {
+        const preview = harness.fixture.debugElement.query(By.directive(ModelPreviewBoundary)).componentInstance as ModelPreviewBoundary;
+        expect(preview.bound()).toEqual({
+            workspace: false,
+            inspectionTab: 0,
+            definition: kind === "objects" ? { kind, id: 7, shape: undefined } : { kind, id: 7 },
+            modelId: null,
+            itemId: null,
+            height: 360,
+        });
+    }
     it.each(kinds)("loads the dedicated guarded %s page and its own definition", async (kind) => {
-        const harness = await open(
-            kind,
-            kind === "cs2-int" ? 0 : { id: 7, name: `${kind} record`, combatLevel: 2, configId: 3, bitLength: 2, bitOffset: 1, defaultValue: 0, valueType: "i" }
-        );
+        const harness = await open(kind, definitionFixture(kind));
         const element = harness.routeNativeElement as HTMLElement;
         expect(element.querySelector(`cache-${kind}-detail-page`)).not.toBeNull();
+        if (kind === "npcs" || kind === "objects") expectModelPreview(harness, kind);
         expect(element.querySelectorAll("mat-toolbar cache-definition-picker")).toHaveLength(1);
         expect(element.querySelector("mat-toolbar cache-definition-picker button")?.getAttribute("aria-label")).toContain(`Choose ${cacheTypeNames[kind]}.`);
         expect(element.querySelector(`a[href="/cache/types?kind=${kind}"]`)).not.toBeNull();
-        expect(element.textContent).toContain(
-            kind === "sprites"
-                ? "Image replacement supported"
-                : ["npcs", "objects", "varp-bits", "config-definitions"].includes(kind)
-                  ? "Supported edits"
-                  : "Read only"
-        );
-        expect(element.querySelector("input[readonly]")?.getAttribute("value") ?? (element.querySelector("input[readonly]") as HTMLInputElement)?.value).toBe(
-            "7"
-        );
+        expect(element.textContent).toContain(expectedAccess(kind));
+        expect(required(element.querySelector<HTMLInputElement>("input[readonly]"), "the readonly ID input").value).toBe("7");
         if (kind === "cs2-int") expect((element.querySelector("textarea") as HTMLTextAreaElement).value).toBe("0");
     });
+    it("opens a CS2 deep link with metadata and exact operands in instruction order", async () => {
+        const harness = await open("cs2", cs2Script);
+        const element = harness.routeNativeElement as HTMLElement;
+        expect(element.querySelector("cache-cs2-detail-page h2")?.textContent).toBe("Widget action");
+        expect(element.querySelector("mat-toolbar cache-definition-picker button")?.getAttribute("aria-label")).toContain("Choose CS2 script.");
+        expect(element.querySelector('a[href="/cache/types?kind=cs2"]')).not.toBeNull();
+        const intCounts = element.querySelector('table[aria-label="Arguments and locals by type"] tbody tr');
+        expect([...intCounts!.querySelectorAll("td")].map((cell) => cell.textContent)).toEqual(["4", "1"]);
+        const instructions = element.querySelectorAll('table[aria-label="Disassembly"] tbody tr');
+        expect([...instructions].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent?.trim()))).toEqual([
+            ["0", "63", "long", "-9223372036854775807"],
+            ["1", "145", "string", '"€"'],
+        ]);
+        const switchCase = element.querySelector('table[aria-label="Switch table 0"] tbody tr');
+        expect([...switchCase!.querySelectorAll("td")].map((cell) => cell.textContent)).toEqual(["-1", "2"]);
+    });
+
+    it("cancels a pending CS2 read when the route ID changes", async () => {
+        const harness = await open("cs2", cs2Script);
+        await harness.navigateByUrl("/cache/types/cs2/8");
+        let pending!: TestRequest;
+        await vi.waitFor(() => { pending = http.expectOne(`${baseUrl}cs2/8`); });
+        expect(harness.routeNativeElement?.querySelector(".instructions")).toBeNull();
+
+        const next = harness.navigateByUrl("/cache/types/cs2/9");
+        await vi.waitFor(() => http.expectOne(`${baseUrl}cs2/9`).flush({ ...cs2Script, id: 9, name: "New script" }));
+        await next;
+        await stable();
+        harness.fixture.detectChanges();
+        expect(pending.cancelled).toBe(true);
+        expect(harness.routeNativeElement?.textContent).toContain("New script");
+        expect(harness.routeNativeElement?.textContent).not.toContain("Widget action");
+    });
+
+    it("renders server-provided source, widget links and unresolved instructions", async () => {
+        const harness = await open("cs2", {
+            ...cs2Script,
+            opcodeCount: 8,
+            instructions: [
+                [606, "1", "int"], [606, "64028703", "int"], [902, "0", "byte"],
+                [606, "1", "int"], [611, "0", "int"], [902, "0", "byte"], [1045, "7", "byte"], [2, "0", "byte"],
+            ].map(([opcode, operand, operandKind], index) => ({ index, opcode, operand, operandKind })),
+            source: [
+                { index: 2, text: "setHidden(widget(977, 31), true)", widget: { id: 977, component: 31 } },
+                { index: 5, text: "setHidden(value_4, true)" },
+                { index: 6, text: "opcode 1045 byte 7", raw: true },
+            ],
+        });
+        const element = harness.routeNativeElement as HTMLElement;
+        const source = element.querySelector('[aria-label="CS2 source"]')!;
+        expect(source.textContent).toContain("setHidden(widget(977, 31), true)");
+        expect(source.textContent).toContain("setHidden(value_4, true)");
+        expect(source.querySelector(".raw")?.textContent).toContain("opcode 1045 byte 7");
+        expect(element.textContent).toContain("Partial source");
+        expect([...source.querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual(["/cache/widgets/977?component=31"]);
+        expect(element.querySelectorAll(".instructions tbody tr")).toHaveLength(8);
+    });
+
+    it.each([
+        [404, "CS2 script 7 was not found."],
+        [422, "CS2 script 7 is truncated."],
+    ])("shows a CS2 read failure for status %i and retries the requested ID", async (status, detail) => {
+        const opening = RouterTestingHarness.create("/cache/types/cs2/7");
+        await vi.waitFor(() => http.expectOne(`${baseUrl}cs2/7`).flush({ detail }, { status, statusText: "Read failed" }));
+        const harness = await opening;
+        await stable();
+        harness.fixture.detectChanges();
+        expect(harness.routeNativeElement?.querySelector('[role="alert"]')?.textContent).toBe(detail);
+        expect(harness.routeNativeElement?.querySelector(".instructions")).toBeNull();
+
+        const retry = TestbedHarnessEnvironment.loader(harness.fixture).getHarness(MatButtonHarness.with({ text: /Retry/ }))
+            .then((button) => button.click());
+        await vi.waitFor(() => http.expectOne(`${baseUrl}cs2/7`).flush(cs2Script));
+        await retry;
+        await stable();
+        harness.fixture.detectChanges();
+        expect(harness.routeNativeElement?.querySelector(".instructions")).not.toBeNull();
+    });
+
     it("reloads the same route ID and follows ID parameter changes", async () => {
         const harness = await open("npcs");
         const detail = harness.fixture.debugElement.query(By.directive(DefinitionDetailComponent)).componentInstance as DefinitionDetailComponent;
@@ -271,15 +390,9 @@ describe("dedicated cache detail routes", () => {
         expect(await leaving).toBe(false);
         expect(input.value).toBe(value);
     });
-    it.each(["studio", "legacy"])("protects a staged PNG in the %s sprite workflow", async (workflow) => {
-        const harness =
-            workflow === "studio"
-                ? await open("sprites", { id: 7, width: 32, height: 32, frameCount: 1 })
-                : await RouterTestingHarness.create("/cache/sprites");
-        const component =
-            workflow === "studio"
-                ? (harness.fixture.debugElement.query(By.directive(SpriteInspectorComponent)).componentInstance as SpriteInspectorComponent)
-                : (harness.fixture.debugElement.query(By.directive(SpritesManagerPageComponent)).componentInstance as SpritesManagerPageComponent);
+    it("protects a staged PNG in the current Sprite Studio", async () => {
+        const harness = await open("sprites", { id: 7, width: 32, height: 32, frameCount: 1 });
+        const component = harness.fixture.debugElement.query(By.directive(SpriteInspectorComponent)).componentInstance as SpriteInspectorComponent;
         const file = new File(["png"], "replacement.png", { type: "image/png" });
         component.onFileSelected({ target: { files: [file], value: "" } } as unknown as Event);
         TestBed.tick();

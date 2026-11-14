@@ -1,0 +1,73 @@
+<ng-template portalBreadcrumb><span>Region {{ regionLabel() }}</span></ng-template>
+<section class="region-editor" aria-label="Map region detail" [attr.aria-busy]="store.loading()">
+    @if (store.saveError(); as message) { <p role="alert">{{ message }}</p> }
+    @if (store.worldMapError(); as message) { <p role="alert">{{ message }}</p> }
+    @if (!selectedIds().length) { <p role="alert">Invalid region selection. Use a region ID from 0 to 65535 and dimensions from 1 to 3 without crossing coordinate 255.</p> }
+    <div class="region-workspace">
+        <div class="region-browser">
+            <mat-card appearance="outlined" class="scene-panel"><section class="contents" aria-label="Scene">
+                <cache-map-scene-panel [loading]="store.loading()" [regions]="store.regions()" [placements]="sourcePlacements()" [names]="objectNames()" [selected]="selectedObject()?.placement"
+                    [(terrainVisible)]="terrainVisible" [(hiddenGroups)]="hiddenGroups" [(hiddenPlacements)]="hiddenPlacements" (placementActivated)="selectPlacement($event)" [editable]="editable()" (placementRemoved)="removePlacement($event)" [selection]="sceneSelection()" (selectionActivated)="selectScene($event)" />
+            </section></mat-card>
+            <mat-card appearance="outlined" class="asset-panel"><section class="contents" aria-label="Scene assets">
+                <cache-map-asset-panel [active]="store.regions().length > 0" [(selectedAsset)]="selectedAsset" />
+            </section></mat-card>
+        </div>
+        <mat-card appearance="outlined" class="region-view">
+            <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
+                [brushActive]="editTool() === 'terrain' && editable()" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [hoveredTile]="hoveredTile()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
+                [objectTransform]="objectTransform()" [selectTerrainTiles]="editTool() === 'select'" (tilePick)="selectTile($event)" [selectedTileOutline]="selectedTileOutline()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
+                <div mapEditTools class="edit-toolbar map-edit-toolbar">
+                    @for (tool of editTools; track tool.id) {
+                        <button mat-icon-button type="button" [class.is-active]="editTool() === tool.id" [attr.aria-label]="tool.label" [matTooltip]="tool.label" [attr.aria-pressed]="editTool() === tool.id" (click)="chooseTool(tool.id)">
+                            <mat-icon>{{ tool.icon }}</mat-icon>
+                        </button>
+                    }
+                </div>
+                <ng-container mapOverlayLegend>
+                    @if (walkability()) {
+                        <cache-map-overlay-legend title="Clipping" [entries]="walkabilityLegend" />
+                    }
+                </ng-container>
+                <cache-map-load-status mapLoadStatus [loading]="store.loading()" [hasRegions]="store.regions().length > 0" [hasGeometry]="scene().geometry !== null" [progress]="store.progress()" [issues]="store.warnings()" [activity]="writeActivity()" (retry)="retryLoad()" />
+            </cache-map-viewport>
+            <mat-menu #layersMenu="matMenu">
+                @for (visible of planes(); track $index) {
+                    <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="visible" (click)="$event.stopPropagation(); togglePlane($index, !visible)">
+                        <mat-icon>{{ layerIcon(visible) }}</mat-icon>Plane {{ $index }}
+                    </button>
+                }
+                <mat-divider />
+                @for (layer of layerToggles; track layer.label) {
+                    <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="layer.visible()" (click)="$event.stopPropagation(); layer.visible.set(!layer.visible())">
+                        <mat-icon>{{ layerIcon(layer.visible()) }}</mat-icon>{{ layer.label }}
+                    </button>
+                }
+                <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="walkability()" (click)="$event.stopPropagation(); walkability.set(!walkability())">
+                    <mat-icon>{{ layerIcon(walkability()) }}</mat-icon>{{ walkabilityLabel() }}
+                </button>
+            </mat-menu>
+        </mat-card>
+        <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">
+            @if (editTool() === 'terrain') {
+                <cache-map-terrain-panel [brush]="brush()" (brushChange)="changeBrush($event)" [floors]="store.floors()" [loading]="store.floorsLoading()" [error]="store.floorsError()" />
+            } @else {
+            <mat-tab-group class="inspector-tabs map-workspace-tabs" mat-stretch-tabs="false" aria-label="Inspector view" animationDuration="0ms">
+                <mat-tab>
+                    <ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2" aria-hidden="true">view_in_ar</mat-icon>Inspector</ng-template>
+                    @if (selectedObject(); as selected) {
+                        <cache-map-object-inspector [selection]="selected" [objectName]="objectNames().get(selected.placement.id)"
+                            [objectModels]="objectModels()" [objectTransform]="objectTransform()" [objectProperties]="objectProperties()"
+                            [definitionFailed]="!!objectDefinition.error()" [editTool]="editTool()" [positionBase]="positionBase()" [snap]="snap()" [editable]="editable()"
+                            [(positionMode)]="positionMode" (transformChange)="changeTransform($event.field, $event.value)" (clearSelection)="selectObject(null)" />
+                    } @else if (inspectorDetails()) {
+                        <cache-map-region-details [details]="inspectorDetails() ?? []" />
+                    } @else {
+                        <section><h3>Nothing selected</h3><p class="supporting-text">Click an object or terrain tile in the map, or select a row in the scene tree.</p></section>
+                    }
+                </mat-tab>
+            </mat-tab-group>
+            }
+        </aside></mat-card>
+    </div>
+</section>

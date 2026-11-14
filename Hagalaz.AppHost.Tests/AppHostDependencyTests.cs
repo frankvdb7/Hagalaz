@@ -100,4 +100,21 @@ public sealed class AppHostDependencyTests
         Assert.IsInstanceOfType<EndpointReference>(issuer);
         Assert.AreSame(https, ((EndpointReference)issuer).EndpointAnnotation);
     }
+    [TestMethod]
+    [DataRow("hagalaz-web-app", 4400)]
+    [DataRow("hagalaz-web-admin", 4410)]
+    public async Task WebApplications_AdvertiseFixedPortsWithAllocatedInternalListeners(string name, int port)
+    {
+        var builder = DistributedApplication.CreateBuilder(["--disable-dashboard"]);
+        AppHostConfiguration.Configure(builder, includeHealthChecks: false);
+        await using var application = builder.Build();
+        var model = application.Services.GetRequiredService<DistributedApplicationModel>();
+        var resource = model.Resources.Single(resource => resource.Name == name);
+        var endpoint = resource.Annotations.OfType<EndpointAnnotation>().Single(endpoint => endpoint.Name == "http");
+        Assert.AreEqual(port, endpoint.Port, name);
+        Assert.IsNull(endpoint.TargetPort, name);
+        Assert.IsTrue(endpoint.IsProxied, name);
+        Assert.IsTrue(endpoint.IsExternal, name);
+    }
+
 }
