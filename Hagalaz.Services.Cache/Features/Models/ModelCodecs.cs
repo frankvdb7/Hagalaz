@@ -10,4 +10,6 @@ internal sealed record ModelCodecs(
     ITypeCodec<IBillboardType> Billboards,
     ITypeCodec<IRenderAnimationType> RenderAnimations,
     ITypeCodec<IMaterialTableType> Materials,
-    ITypeCodec<IModelType> Models);
+    ITypeCodec<IModelType> Models,
+    ITypeCodec<IAnimationSkeletonType> AnimationSkeletons,
+    ITypeCodec<IAnimationFrameType> AnimationFrames);

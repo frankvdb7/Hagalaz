@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace Hagalaz.Cache.Logic.Codecs;
@@ -20,6 +21,26 @@ internal sealed class DefinitionReader(MemoryStream stream, string format)
     {
         var first = Byte();
         return first < 128 ? (first << 8) | Byte() : ((first & 0x7F) << 24) | (Byte() << 16) | (Byte() << 8) | Byte();
+    }
+
+    /// <summary>A 1-byte value of -64..63, or a 2-byte value with its top bit set.</summary>
+    public int SignedSmart()
+    {
+        var first = Byte();
+        return first < 128 ? first - 64 : ((first << 8) | Byte()) - 49152;
+    }
+
+    /// <summary>A 1-byte value below 128, or a 2-byte value with its top bit set.</summary>
+    public int UnsignedSmart()
+    {
+        var first = Byte();
+        return first < 128 ? first : ((first << 8) | Byte()) - 32768;
+    }
+
+    /// <summary>Fails when the stream holds data after the definition.</summary>
+    public void End()
+    {
+        if (stream.Position != stream.Length) throw new InvalidDataException($"Unexpected {format} trailing data.");
     }
 
     public byte[] Bytes(int count)
@@ -55,6 +76,20 @@ internal static class DefinitionWriter
     {
         stream.UShort(value >> 16);
         stream.UShort(value);
+    }
+
+    public static void SignedSmart(this MemoryStream stream, int value)
+    {
+        if (value is >= -64 and < 64) stream.Byte(value + 64);
+        else if (value is >= -16384 and < 16384) stream.UShort(value + 49152);
+        else throw new InvalidOperationException($"{value} does not fit a signed smart value.");
+    }
+
+    public static void UnsignedSmart(this MemoryStream stream, int value)
+    {
+        if (value is >= 0 and < 128) stream.Byte(value);
+        else if (value is >= 128 and < 32768) stream.UShort(value + 32768);
+        else throw new InvalidOperationException($"{value} does not fit an unsigned smart value.");
     }
 
     public static void BigSmart(this MemoryStream stream, int value)

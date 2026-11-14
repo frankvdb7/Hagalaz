@@ -84,6 +84,8 @@ public class TypeMutationEndpointTests
         Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IRenderAnimationType>>());
         Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IMaterialTableType>>());
         Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IModelType>>());
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IAnimationSkeletonType>>());
+        Assert.IsNotNull(provider.GetRequiredService<ITypeCodec<IAnimationFrameType>>());
     }
 
     private static byte[] Stored(MemoryFileStore store)

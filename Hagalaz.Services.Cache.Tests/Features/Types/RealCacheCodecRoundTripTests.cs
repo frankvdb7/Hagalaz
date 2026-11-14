@@ -57,6 +57,40 @@ public class RealCacheCodecRoundTripTests
         Assert.AreEqual(0, mismatches.Count, "Models not byte-identical: " + string.Join(", ", mismatches.Take(20)));
     }
 
+    [TestMethod]
+    public void AnimationSkeletons_RoundTripByteForByte()
+    {
+        using var provider = OpenCache();
+        var cache = provider.GetRequiredService<ICacheAPI>();
+        var codec = provider.GetRequiredService<ITypeCodec<IAnimationSkeletonType>>();
+        var mismatches = new List<int>();
+        foreach (var (id, _) in cache.ReadReferenceTable(1).Entries)
+        {
+            using var container = cache.ReadContainer(1, id);
+            var bytes = container.Data.ToArray();
+            using var encoded = codec.Encode(codec.Decode(id, new MemoryStream(bytes)));
+            if (!encoded.ToArray().AsSpan().SequenceEqual(bytes)) mismatches.Add(id);
+        }
+        Assert.AreEqual(0, mismatches.Count, "Skeletons not byte-identical: " + string.Join(", ", mismatches.Take(20)));
+    }
+
+    [TestMethod]
+    public void AnimationFrames_RoundTripByteForByte()
+    {
+        using var provider = OpenCache();
+        var cache = provider.GetRequiredService<ICacheAPI>();
+        var codec = provider.GetRequiredService<ITypeCodec<IAnimationFrameType>>();
+        var mismatches = new List<int>();
+        foreach (var (set, _) in cache.ReadReferenceTable(0).Entries)
+        foreach (var (member, bytes) in Members(cache, 0, set))
+        {
+            var id = set << 16 | member;
+            using var encoded = codec.Encode(codec.Decode(id, new MemoryStream(bytes)));
+            if (!encoded.ToArray().AsSpan().SequenceEqual(bytes)) mismatches.Add(id);
+        }
+        Assert.AreEqual(0, mismatches.Count, "Frames not byte-identical: " + string.Join(", ", mismatches.Take(20)));
+    }
+
     internal static ServiceProvider OpenCache()
     {
         if (!Directory.Exists(CachePath)) Assert.Inconclusive($"No local game cache at {CachePath}.");

@@ -127,6 +127,8 @@ namespace Hagalaz.Cache.Extensions
             services.TryAddTransient<ITypeCodec<IRenderAnimationType>, RenderAnimationTypeCodec>();
             services.TryAddTransient<ITypeCodec<IMaterialTableType>, MaterialTableTypeCodec>();
             services.TryAddTransient<ITypeCodec<IModelType>, ModelTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IAnimationSkeletonType>, AnimationSkeletonTypeCodec>();
+            services.TryAddTransient<ITypeCodec<IAnimationFrameType>, AnimationFrameTypeCodec>();
 
             AddTypeMutator<IItemType, IItemTypeCodec>(services, new ItemTypeData());
             AddTypeMutator<INpcType, INpcTypeCodec>(services, new NpcTypeData());

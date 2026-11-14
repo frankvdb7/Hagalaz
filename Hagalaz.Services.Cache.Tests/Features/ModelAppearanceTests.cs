@@ -781,5 +781,7 @@ public sealed class ModelAppearanceTests
         services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IBillboardType>>(),
         services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IRenderAnimationType>>(),
         services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IMaterialTableType>>(),
-        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IModelType>>());
+        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IModelType>>(),
+        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IAnimationSkeletonType>>(),
+        services.GetRequiredService<Hagalaz.Cache.Abstractions.Logic.Codecs.ITypeCodec<Hagalaz.Cache.Abstractions.Types.IAnimationFrameType>>());
 }

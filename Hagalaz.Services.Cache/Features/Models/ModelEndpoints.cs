@@ -80,16 +80,14 @@ public static class ModelEndpoints
         return TypedResults.Ok(new GetAnimationSequenceDto(sequence.Id, sequence.Frames ?? [], sequence.Delays ?? [], sequence.Loop, sequence.IsTweened));
     }
 
-    private static IResult GetAnimationFrame(int id, ICacheAPI cache)
+    private static IResult GetAnimationFrame(int id, ICacheAPI cache, [AsParameters] ModelCodecs codecs)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Frame ID must be nonnegative."));
         using var stream = ReadMember(cache, 0, id >> 16, id & 65535);
-        var bytes = stream.ToArray();
-        if (bytes.Length < 5) throw new System.IO.InvalidDataException("Animation frame header is truncated.");
-        var skeletonId = (bytes[1] << 8) | bytes[2];
-        using var skeletonContainer = cache.ReadContainer(1, skeletonId);
-        var skeleton = AnimationFrameDecoder.DecodeSkeleton(skeletonContainer.Data.ToArray());
-        var frame = AnimationFrameDecoder.DecodeFrame(bytes, skeleton);
+        var stored = codecs.AnimationFrames.Decode(id, stream);
+        using var skeletonContainer = cache.ReadContainer(1, stored.SkeletonId);
+        var skeleton = AnimationFrameBuilder.ResolveSkeleton(codecs.AnimationSkeletons.Decode(stored.SkeletonId, skeletonContainer.Data));
+        var frame = AnimationFrameBuilder.Resolve(stored, skeleton);
         return TypedResults.Ok(new GetAnimationFrameDto(
             new AnimationFrameDto(frame.SkeletonId, frame.Transforms.Select(transform =>
                 new AnimationTransformDto(transform.Slot, transform.X, transform.Y, transform.Z, transform.PivotSlot, transform.TweenFlags)).ToArray()),
