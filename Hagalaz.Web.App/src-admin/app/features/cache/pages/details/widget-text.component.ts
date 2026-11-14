@@ -1,7 +1,7 @@
 import { afterRenderEffect, Component, computed, type ElementRef, inject, input, viewChild } from "@angular/core";
 import { rxResource } from "@angular/core/rxjs-interop";
 import { CacheWidgetFontsService } from "../../services/cache-widget-fonts.service";
-import { drawWidgetText } from "../../services/widget-font";
+import { drawWidgetText, widgetPlainText } from "../../services/widget-font";
 import { widgetColor, type WidgetLayer } from "./widget-layout";
 
 @Component({
@@ -37,7 +37,7 @@ export class WidgetTextComponent {
         const { width, height } = this.layer();
         return width > 0 && height > 0 && width * height <= 4_194_304 && this.font.hasValue() ? this.font.value() : null;
     });
-    readonly plainText = computed(() => (this.layer().component.text ?? "").replace(/<br>/gi, "\n").replace(/<[^>]+>/g, ""));
+    readonly plainText = computed(() => widgetPlainText(this.layer().component.text ?? ""));
 
     constructor() {
         afterRenderEffect(() => {

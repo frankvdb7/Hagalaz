@@ -116,6 +116,16 @@ function printable(token: string): string | undefined {
     return !token.startsWith("<") || token.length === 1 ? token : undefined;
 }
 
+/** Splits client text into tags and single characters. */
+function textTokens(text: string): string[] {
+    return text.match(/<[^>]*>|[\s\S]/gu) ?? [];
+}
+
+/** The text a widget prints, without its font: `<br>` becomes a line break, escapes are resolved and other tags print nothing. */
+export function widgetPlainText(text: string): string {
+    return textTokens(text).map((token) => (token === "<br>" ? "\n" : (printable(token) ?? ""))).join("");
+}
+
 /** Wraps an overflowing line at its last space or hyphen, pushing the finished part; returns the line still being filled. */
 function wrapLine(font: WidgetFont, line: TextGlyph[], width: number, lines: PlacedLine[]): TextGlyph[] {
     if (positionLine(font, line).width <= width) return line;
@@ -130,7 +140,7 @@ export function layoutWidgetText(font: WidgetFont, text: string, color: string, 
     const lines: PlacedLine[] = [];
     let line: TextGlyph[] = [];
     let currentColor = color;
-    for (const token of text.match(/<[^>]*>|[\s\S]/gu) ?? []) {
+    for (const token of textTokens(text)) {
         if (token === "\n" || token === "<br>") {
             lines.push(positionLine(font, line));
             line = [];

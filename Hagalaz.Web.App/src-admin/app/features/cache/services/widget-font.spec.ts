@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { decodeWidgetFont, drawWidgetText, layoutWidgetText } from "./widget-font";
+import { decodeWidgetFont, drawWidgetText, layoutWidgetText, widgetPlainText } from "./widget-font";
 
 function base64(bytes: Uint8Array) {
     return btoa(String.fromCharCode(...bytes));
@@ -49,5 +49,11 @@ describe("widget bitmap fonts", () => {
             [5, 4, 1, 1, "#000000", 128 / 255],
             [4, 3, 1, 1, "#ffcc00", 128 / 255],
         ]);
+    });
+
+    it("reads text without a font the way the font prints it", () => {
+        expect(widgetPlainText("<col=ff0000>Hp</col> <lt>10<gt><br>Next<img=3>")).toBe("Hp <10>\nNext");
+        // A lone "<" is a character, not the start of a tag.
+        expect(widgetPlainText("a < b")).toBe("a < b");
     });
 });
