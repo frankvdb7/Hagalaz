@@ -10,12 +10,15 @@ const unit = 4096;
 const f32 = Math.fround;
 
 function javaRandom(seed: number): () => number {
-    const multiplier = 0x5deece66dn;
-    const mask = (1n << 48n) - 1n;
+    // BigInt() rather than bigint literals, which CodeQL reads as undefined operands.
+    const multiplier = BigInt(0x5deece66d);
+    const increment = BigInt(11);
+    const mask = BigInt(2 ** 48 - 1);
+    const shift = BigInt(16);
     let state = (BigInt(seed) ^ multiplier) & mask;
     return () => {
-        state = (state * multiplier + 11n) & mask;
-        return Number(state >> 16n) | 0;
+        state = (state * multiplier + increment) & mask;
+        return Number(state >> shift) | 0;
     };
 }
 
