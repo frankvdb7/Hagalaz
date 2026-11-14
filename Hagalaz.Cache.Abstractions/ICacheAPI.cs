@@ -109,7 +109,7 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="fileId">The identifier of the file; its reference-table entry must already exist.</param>
         /// <param name="expected">The decoded data the replacement was built from.</param>
         /// <param name="replacement">The container to write.</param>
-        /// <returns><c>true</c> when the replacement was written; <c>false</c> when another write changed the file first.</returns>
+        /// <returns><c>true</c> when the replacement was written; <c>false</c> when another write changed the file first or the stored file can no longer be read.</returns>
         bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement);
 
         /// <summary>

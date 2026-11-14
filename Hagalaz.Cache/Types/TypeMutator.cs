@@ -56,11 +56,14 @@ public sealed class TypeMutator<TType>(ICacheAPI cache, ITypeCodec<TType> codec,
     {
         if (Locate(typeId) is not { } position) return new TypeAbsentError(typeId);
 
+        // The canonical encoding only lets an unchanged replacement skip the write; a stored entry that decodes but cannot be
+        // re-encoded (such as a sprite whose palette index 0 is a visible colour) is still replaced.
         byte[]? canonical = null;
         var stored = Decode(typeId, position);
         if (stored.IsSuccess)
         {
             try { canonical = Encode(stored.Value); }
+            catch (Exception error) when (error is not OperationCanceledException) { canonical = null; }
             finally { (stored.Value as IDisposable)?.Dispose(); }
         }
 

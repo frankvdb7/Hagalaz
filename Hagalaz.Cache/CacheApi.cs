@@ -357,10 +357,19 @@ namespace Hagalaz.Cache
             _snapshotReadWriteLock.EnterWriteLock();
             try
             {
-                using (var current = ReadContainer(indexId, fileId))
+                // A stored container that can no longer be read is not the expected data: report a lost race so the caller's own
+                // read reports it. Only the comparison read is caught; write failures propagate.
+                bool unchanged;
+                try
                 {
-                    if (!current.Data.ToArray().AsSpan().SequenceEqual(expected)) return false;
+                    using var current = ReadContainer(indexId, fileId);
+                    unchanged = current.Data.ToArray().AsSpan().SequenceEqual(expected);
                 }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    unchanged = false;
+                }
+                if (!unchanged) return false;
                 WriteAndInvalidateUnderLock(indexId, fileId, replacement);
                 return true;
             }

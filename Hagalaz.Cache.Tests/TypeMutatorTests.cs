@@ -128,6 +128,19 @@ public sealed class TypeMutatorTests
     }
 
     [Fact]
+    public void Replace_WritesTheReplacementOverAnEntryThatDecodesButCannotBeEncoded()
+    {
+        var cache = new FakeTypeCache(new NpcTypeData());
+        cache.Store(Npc, [200]);
+
+        var result = new TypeMutator<CountedType>(cache.Api, new ByteCodec(maximumEncodable: 100), new NpcTypeData())
+            .Replace(Npc, new CountedType(Npc) { Count = 9 });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new byte[] { 9 }, cache.Stored(Npc));
+    }
+
+    [Fact]
     public void Replace_ReportsAMissingEntryAsAbsentWithoutWriting()
     {
         var cache = new FakeTypeCache(new NpcTypeData());
@@ -203,12 +216,17 @@ public sealed class TypeMutatorTests
         public int Count { get; set; }
     }
 
-    /// <summary>Stores a count as its first byte and ignores the rest; <paramref name="drift"/> makes re-encoding never match.</summary>
-    private sealed class ByteCodec(int drift = 0) : ITypeCodec<CountedType>
+    /// <summary>
+    /// Stores a count as its first byte and ignores the rest; <paramref name="drift"/> makes re-encoding never match, and counts
+    /// above <paramref name="maximumEncodable"/> decode but cannot be encoded, like a sprite whose palette index 0 is visible.
+    /// </summary>
+    private sealed class ByteCodec(int drift = 0, int maximumEncodable = byte.MaxValue) : ITypeCodec<CountedType>
     {
         public CountedType Decode(int id, MemoryStream stream) =>
             new(id) { Count = (stream.ReadByte() is var value and >= 0 ? value : throw new EndOfStreamException()) + drift };
 
-        public MemoryStream Encode(CountedType instance) => new([(byte)instance.Count]);
+        public MemoryStream Encode(CountedType instance) => instance.Count <= maximumEncodable
+            ? new([(byte)instance.Count])
+            : throw new ArgumentException("The count cannot be encoded.");
     }
 }

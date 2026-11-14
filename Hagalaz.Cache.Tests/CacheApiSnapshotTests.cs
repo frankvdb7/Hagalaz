@@ -626,6 +626,32 @@ public sealed class CacheApiSnapshotTests
         Assert.Equal(new byte[] { 1, 3 }, fixture.GetStoredBytes(5, 1));
     }
 
+    [Fact]
+    public void TryReplaceContainer_WritesNothingWhenTheStoredFileCanNoLongerBeRead()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 2], 1);
+        fixture.BeforeContainerDecode = () => throw new InvalidDataException("Corrupt container.");
+        var writes = 0;
+        fixture.WriteAction = (_, _, _) => writes++;
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.False(fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
+
+        Assert.Equal(0, writes);
+    }
+
+    [Fact]
+    public void TryReplaceContainer_PropagatesWriteFailures()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 2], 1);
+        fixture.WriteAction = (_, _, _) => throw new IOException("Disk full.");
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.Throws<IOException>(() => fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
+    }
+
     private static Task<T> StartLongRunning<T>(Func<T> action) => Task.Factory.StartNew(
         action,
         CancellationToken.None,
