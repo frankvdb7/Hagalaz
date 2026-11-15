@@ -153,7 +153,7 @@ internal static class ModelTextureCoordinates
         var tiltCos = map.B / 32767f;
         var tiltSin = -(float)Math.Sqrt(1 - tiltCos * tiltCos);
         var oneMinusCos = 1 - tiltCos;
-        var length = (float)Math.Sqrt(map.A * map.A + map.C * map.C);
+        var length = (float)Math.Sqrt((double)map.A * map.A + (double)map.C * map.C);
         var result = new float[9];
         if (length == 0 && tiltCos == 0) Array.Copy(rotation, result, 9);
         else

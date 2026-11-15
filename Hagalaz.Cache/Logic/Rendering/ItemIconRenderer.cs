@@ -218,7 +218,9 @@ public static class ItemIconRenderer
         for (var vertex = 0; vertex < vertexCount; vertex++) minY = Math.Min(minY, model.Positions[vertex * 3 + 1]);
         var pitch = camera.Rotation1 << 3 & 0x3fff;
         float tx = camera.Offset1 << 2;
-        float ty = (int)((long)zoom * Sine[pitch] >> 14) - minY / 2 + (camera.Offset2 << 2);
+        // The client offsets by half the lowest vertex in integer arithmetic before the camera works in floats.
+        int clientTy = (int)((long)zoom * Sine[pitch] >> 14) - minY / 2 + (camera.Offset2 << 2);
+        float ty = clientTy;
         float tz = (camera.Offset2 << 2) + (int)((long)Cosine[pitch] * zoom >> 14);
 
         var roll = Radians(-(camera.Zan2d << 3));

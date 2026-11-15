@@ -55,7 +55,7 @@ public sealed class ParticleEmitterType(int id) : IParticleEmitterType
     public int[] LocalEffectorIds => LocalEffectors ?? [];
     public int[] ConstantEffectorIds => ConstantEffectors ?? [];
     public ParticleDrag? SpeedDrag => Drag is { Min: 1 or 2 } drag ? new(drag.Min, (sbyte)drag.Max) : null;
-    public ParticleSizeCurve? SizeOverLife => TargetSize is { } target ? new(target * 4, SizeLifetimePercent ?? 100) : null;
+    public ParticleSizeCurve? SizeOverLife => TargetSize is { } target ? new(target * 4f, SizeLifetimePercent ?? 100) : null;
     public ParticleSpeedCurve? SpeedOverLife => TargetSpeed is { } target and not -1 ? new(target, SpeedLifetimePercent ?? 100) : null;
     public ParticleColorCurve? ColorOverLife => TargetColor is { } target and not 0
         ? new(unchecked((uint)target), ColorLifetimePercent ?? 100, AlphaLifetimePercent ?? 100)

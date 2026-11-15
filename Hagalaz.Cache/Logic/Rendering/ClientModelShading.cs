@@ -40,7 +40,7 @@ public static class ClientModelShading
         }
 
         var vector = Math.Sqrt((double)light.DirectionX * light.DirectionX + (double)light.DirectionY * light.DirectionY + (double)light.DirectionZ * light.DirectionZ);
-        int lx = (int)(light.DirectionX * 65535 / vector), ly = (int)(light.DirectionY * 65535 / vector), lz = (int)(light.DirectionZ * 65535 / vector);
+        int lx = (int)((double)light.DirectionX * 65535 / vector), ly = (int)((double)light.DirectionY * 65535 / vector), lz = (int)((double)light.DirectionZ * 65535 / vector);
         // Single-precision light values are widened before scaling, as Math.fround(value) * 65535 in the client port.
         var baseLight = (int)((double)light.Intensity * 65535) >> 8;
         int positive = (int)((double)light.PositiveResponse * 65535), negative = (int)((double)light.NegativeResponse * 65535);
