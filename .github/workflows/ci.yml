@@ -122,7 +122,7 @@ jobs:
       - name: Lint webapp with Biome
         run: pnpm run lint:biome
       - name: Audit webapp with Fallow
-        uses: fallow-rs/fallow@v3
+        uses: fallow-rs/fallow@8cc305d74aeb77b7ab316388f8ab41cce20a394f # v3.43.1
         with:
           root: Hagalaz.Web.App
           command: audit
