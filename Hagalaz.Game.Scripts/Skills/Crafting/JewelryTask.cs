@@ -1,4 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -99,13 +100,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             }
 
             MakeCount++;
-            var removed = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(Definition.ResourceID).Build());
-            if (CraftingSkillService.GoldBar != Definition.ResourceID)
-            {
-                removed += Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build());
-            }
-
-            if (removed <= 0)
+            if (!TryConsumeIngredients())
             {
                 Cancel();
                 return;
@@ -129,7 +124,28 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         }
 
         /// <summary>
-        /// 
+        ///     Consumes the whole recipe as one commit; nothing is consumed when any ingredient is missing.
+        /// </summary>
+        private bool TryConsumeIngredients()
+        {
+            using var transaction = ItemContainerTransaction.Begin(Performer.Inventory);
+            if (!Performer.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(Definition.ResourceID).Build()))
+            {
+                return false;
+            }
+
+            if (CraftingSkillService.GoldBar != Definition.ResourceID &&
+                !Performer.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(CraftingSkillService.GoldBar).Build()))
+            {
+                return false;
+            }
+
+            transaction.Commit();
+            return true;
+        }
+
+        /// <summary>
+        ///
         /// </summary>
         public override void Cancel()
         {
