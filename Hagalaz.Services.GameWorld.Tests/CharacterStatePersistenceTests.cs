@@ -33,6 +33,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
@@ -69,6 +70,25 @@ public sealed class CharacterStatePersistenceTests
 
         character.Destroy();
         script.Received(1).OnDestroy();
+    }
+
+    [TestMethod]
+    public void OnDetach_PublishesDetachingEventBeforeScriptCallbacks()
+    {
+        var order = new List<string>();
+        var eventManager = Substitute.For<IEventManager>();
+        eventManager.When(manager => manager.SendEvent(Arg.Any<IEvent>())).Do(call =>
+        {
+            if (call.Arg<IEvent>() is CharacterDetachingEvent) order.Add("event");
+        });
+        var script = Substitute.For<IDefaultCharacterScript>();
+        script.When(s => s.OnDetach()).Do(_ => order.Add("script"));
+        var character = CreateCharacter(new TestStateService(), out _, [script], eventManager,
+            Substitute.For<IGameCommandPrompt>(), Substitute.For<ICreatureTaskService>());
+
+        character.OnDetach();
+
+        CollectionAssert.AreEqual(new[] { "event", "script" }, order);
     }
 
     [TestMethod]

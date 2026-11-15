@@ -360,6 +360,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public void OnDetach()
         {
+            EventManager.SendEvent(new CharacterDetachingEvent(this));
             foreach (var script in _scripts.Values)
             {
                 script.OnDetach();
