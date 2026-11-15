@@ -1,5 +1,5 @@
 <mat-card appearance="outlined" class="preview-card">
-    <mat-toolbar class="preview-toolbar" role="group" aria-label="Preview tools">
+    <mat-toolbar class="preview-toolbar" role="toolbar" aria-label="Preview tools">
         <mat-button-toggle-group aria-label="Preview mode" hideSingleSelectionIndicator [value]="pan()" (change)="pan.set($event.value)">
             <mat-button-toggle [value]="false" matTooltip="Select components" aria-label="Select components"><mat-icon>near_me</mat-icon></mat-button-toggle>
             <mat-button-toggle [value]="true" matTooltip="Pan preview" aria-label="Pan preview"><mat-icon>open_with</mat-icon></mat-button-toggle>

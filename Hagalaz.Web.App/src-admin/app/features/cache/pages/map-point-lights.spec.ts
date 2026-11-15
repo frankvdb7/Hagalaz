@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapRenderRegion } from "../services/map-render.models";
 import { mapLightField } from "./map-point-lights";
+import { required } from "../../../../testing/required";
 
 describe("map point lights", () => {
     const planes = Array.from({ length: 4 }, (_, plane) => ({
@@ -20,7 +21,7 @@ describe("map point lights", () => {
                 plane: 1, minPlane: 1, maxPlane: 3, rows: [0x0101, 0x0003, 0x0101],
             }],
         };
-        const field = mapLightField([source, { ...region, id: 514, regionX: 2 }])!;
+        const field = required(mapLightField([source, { ...region, id: 514, regionX: 2 }]), "a light field");
         // Hardware HSL palette at fixed gamma 0.7.
         expect(field.lights).toEqual([{ x: 32512, y: 1472, z: 256, radius: 768, rgb: 0xfa2916 }]);
         const lightAt = (x: number, y: number, plane: number) => field.tiles[((plane * field.height + y) * field.width + x) * 4];

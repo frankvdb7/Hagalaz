@@ -1,5 +1,5 @@
 <div class="widget-path">
-    <a mat-button routerLink="/cache/widgets" queryParamsHandling="merge" [queryParams]="{ component: null }"><mat-icon>arrow_back</mat-icon>Back to widgets</a>
+    <a mat-button href="/cache/widgets" routerLink="/cache/widgets" queryParamsHandling="merge" [queryParams]="{ component: null }"><mat-icon>arrow_back</mat-icon>Back to widgets</a>
     @if (widget(); as group) { <span>Widget {{ group.fileId }}</span> }
 </div>
 

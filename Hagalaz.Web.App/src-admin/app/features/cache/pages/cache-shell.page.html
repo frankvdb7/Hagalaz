@@ -2,7 +2,7 @@
     <nav mat-tab-nav-bar mat-stretch-tabs="false" [tabPanel]="cachePanel" [class.widget-tabs]="activeKind() === 'widgets'" aria-label="Cache type">
         @for (kind of kinds; track kind) {
             @let path = tabPath(kind);
-            <a mat-tab-link [attr.aria-label]="kindLabels[kind]" [routerLink]="path" [queryParams]="{kind: path === '/cache/types' ? kind : null, query: null, offset: null, page: null}" queryParamsHandling="merge" [active]="activeKind() === kind"><mat-icon class="studio-icon-small mr-2" aria-hidden="true">{{kindIcons[kind]}}</mat-icon>{{kindLabels[kind]}}</a>
+            <a mat-tab-link [attr.aria-label]="kindLabels[kind]" href="{{ path }}" [routerLink]="path" [queryParams]="{kind: path === '/cache/types' ? kind : null, query: null, offset: null, page: null}" queryParamsHandling="merge" [active]="activeKind() === kind"><mat-icon class="studio-icon-small mr-2" aria-hidden="true">{{kindIcons[kind]}}</mat-icon>{{kindLabels[kind]}}</a>
         }
     </nav>
 </mat-card>

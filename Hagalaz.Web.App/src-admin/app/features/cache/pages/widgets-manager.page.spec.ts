@@ -19,6 +19,7 @@ import { routes } from "../../../app.routes";
 import type { WidgetCallback } from "../services/cache-widgets.service";
 import { WidgetLiveModelsService } from "./details/widget-live-models.service";
 import { groupWidgetModelDraws, widgetModelCamera, type WidgetModelDraw } from "./details/widget-model-scene";
+import { required } from "../../../../testing/required";
 
 const widgetRoute = routes
     .find((route) => route.path === "")
@@ -127,7 +128,7 @@ describe("Widget browser", () => {
         const root = harness.fixture.nativeElement as HTMLElement;
         const http = TestBed.inject(HttpTestingController);
         const url = `${environment.cacheApiUrl}widgets/0/program`;
-        const button = (label: string) => root.querySelector<HTMLButtonElement>(`.preview-toolbar button[aria-label="${label}"]`)!;
+        const button = (label: string) => required(root.querySelector<HTMLButtonElement>(`.preview-toolbar button[aria-label="${label}"]`), `the ${label} button`);
         expect(root.querySelector(".preview-toolbar > button:last-child")).toBe(button("Play preview"));
         button("Play preview").click();
         const opening = http.expectOne(url);
@@ -142,7 +143,7 @@ describe("Widget browser", () => {
             callback("Open", 1), callback("Mouse pressed", 2), callback("Mouse released", 3), callback("CS2 integer changed", 4, [1971]),
         ] }], programs: [program(1, 20), program(2, 25), program(3, 30), program(4, 35)] });
         harness.detectChanges();
-        const layer = () => root.querySelector<HTMLButtonElement>('[aria-label="Activate Rectangle (9)"]')!;
+        const layer = () => required(root.querySelector<HTMLButtonElement>('[aria-label="Activate Rectangle (9)"]'), "the rectangle layer");
         expect(layer().classList.contains("inspect-layer")).toBe(false);
         expect(layer().classList.contains("selected")).toBe(false);
         expect(layer().style.left).toBe("30px");
@@ -154,18 +155,19 @@ describe("Widget browser", () => {
         expect(layer().style.left).toBe("40px");
         http.expectNone(request => request.method === "POST");
         const inspector = await TestbedHarnessEnvironment.loader(harness.fixture).getHarness(MatTabGroupHarness.with({ selector: ".inspector-panel mat-tab-group" }));
-        root.querySelector<HTMLButtonElement>('[data-tree-component="9"] .tree-label')!.click();
+        required(root.querySelector<HTMLButtonElement>('[data-tree-component="9"] .tree-label'), "component 9 in the tree").click();
         harness.detectChanges();
         await inspector.selectTab({ label: "Logic" });
         await vi.waitFor(() => expect(root.querySelector('input[aria-label="Trigger ID"]')).not.toBeNull());
-        const trigger = root.querySelector<HTMLInputElement>('input[aria-label="Trigger ID"]')!;
+        const trigger = required(root.querySelector<HTMLInputElement>('input[aria-label="Trigger ID"]'), "the trigger ID input");
+        const triggerForm = required(trigger.form, "the trigger form");
         trigger.value = "7";
-        trigger.form!.dispatchEvent(new Event("submit", { cancelable: true }));
+        triggerForm.dispatchEvent(new Event("submit", { cancelable: true }));
         harness.detectChanges();
         expect(root.textContent).toContain("trigger did not match.");
         expect(layer().style.left).toBe("40px");
         trigger.value = "1971";
-        trigger.form!.dispatchEvent(new Event("submit", { cancelable: true }));
+        triggerForm.dispatchEvent(new Event("submit", { cancelable: true }));
         harness.detectChanges();
         expect(layer().style.left).toBe("45px");
         http.expectNone(request => request.method === "POST");
@@ -218,7 +220,7 @@ describe("Widget browser", () => {
         });
         const root = harness.fixture.nativeElement as HTMLElement;
         const select = (id: number) => {
-            root.querySelector<HTMLButtonElement>(`[data-tree-component="${id}"] .tree-label`)!.click();
+            required(root.querySelector<HTMLButtonElement>(`[data-tree-component="${id}"] .tree-label`), `component ${id} in the tree`).click();
             harness.detectChanges();
         };
         select(2);
@@ -228,7 +230,7 @@ describe("Widget browser", () => {
             harness.detectChanges();
             expect(root.querySelector('[aria-label="CS2 callbacks"]')).not.toBeNull();
         });
-        const section = root.querySelector('[aria-label="CS2 callbacks"]')!;
+        const section = required(root.querySelector('[aria-label="CS2 callbacks"]'), "the CS2 callbacks section");
         expect([...section.querySelectorAll("a")].map((link) => link.textContent?.trim())).toEqual(["Script 4213", "Script 5125"]);
         expect(section.textContent).toContain("-2147483645");
         select(9);

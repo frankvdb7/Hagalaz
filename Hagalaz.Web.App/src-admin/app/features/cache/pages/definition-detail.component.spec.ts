@@ -146,14 +146,14 @@ describe("dedicated cache detail routes", () => {
         expect(element.querySelector("mat-toolbar cache-definition-picker button")?.getAttribute("aria-label")).toContain("Choose CS2 script.");
         expect(element.querySelector('a[href="/cache/types?kind=cs2"]')).not.toBeNull();
         const intCounts = element.querySelector('table[aria-label="Arguments and locals by type"] tbody tr');
-        expect([...intCounts!.querySelectorAll("td")].map((cell) => cell.textContent)).toEqual(["4", "1"]);
+        expect([...required(intCounts, "the argument count row").querySelectorAll("td")].map((cell) => cell.textContent)).toEqual(["4", "1"]);
         const instructions = element.querySelectorAll('table[aria-label="Disassembly"] tbody tr');
         expect([...instructions].map((row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent?.trim()))).toEqual([
             ["0", "63", "long", "-9223372036854775807"],
             ["1", "145", "string", '"€"'],
         ]);
         const switchCase = element.querySelector('table[aria-label="Switch table 0"] tbody tr');
-        expect([...switchCase!.querySelectorAll("td")].map((cell) => cell.textContent)).toEqual(["-1", "2"]);
+        expect([...required(switchCase, "the switch table row").querySelectorAll("td")].map((cell) => cell.textContent)).toEqual(["-1", "2"]);
     });
 
     it("cancels a pending CS2 read when the route ID changes", async () => {
@@ -188,7 +188,7 @@ describe("dedicated cache detail routes", () => {
             ],
         });
         const element = harness.routeNativeElement as HTMLElement;
-        const source = element.querySelector('[aria-label="CS2 source"]')!;
+        const source = required(element.querySelector('[aria-label="CS2 source"]'), "the CS2 source");
         expect(source.textContent).toContain("setHidden(widget(977, 31), true)");
         expect(source.textContent).toContain("setHidden(value_4, true)");
         expect(source.querySelector(".raw")?.textContent).toContain("opcode 1045 byte 7");

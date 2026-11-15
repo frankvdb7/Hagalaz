@@ -4,6 +4,7 @@ import { TestBed } from "@angular/core/testing";
 import { MatMenuHarness } from "@angular/material/menu/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mapObjectDragType, MapViewportComponent } from "./map-viewport.component";
+import { required } from "../../../../testing/required";
 
 describe("MapViewportComponent keyboard controls", () => {
     beforeEach(() => TestBed.configureTestingModule({ imports: [MapViewportComponent] }));
@@ -262,7 +263,7 @@ describe("MapViewportComponent keyboard controls", () => {
         const view = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatMenuHarness.with({ triggerText: /View/ }));
         await view.open();
         const [lighting] = await view.getItems({ text: /Lighting:/ });
-        const submenu = (await lighting.getSubmenu())!;
+        const submenu = required(await lighting.getSubmenu(), "the lighting submenu");
         await submenu.open();
         const [pointLights] = await submenu.getItems({ text: /Point lights/ });
         expect(await pointLights.getText()).toContain("check_box");
