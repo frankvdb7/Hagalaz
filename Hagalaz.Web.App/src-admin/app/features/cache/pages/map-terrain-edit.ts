@@ -149,7 +149,7 @@ export function paintedFloorTextures(edits: TerrainEdits | undefined, catalog: R
 export function mapTerrainSaves(regions: readonly MapRenderRegion[], edits: TerrainEdits | undefined): MapTerrainSave[] {
     return regions.flatMap(region => {
         const tiles = [...edits?.get(region.id) ?? []].flatMap(([key, edit]) => tileChange(region, key, edit));
-        return tiles.length ? [{ kind: "terrain" as const, regionId: region.id, tiles }] : [];
+        return tiles.length ? [{ kind: "terrain" as const, regionId: region.id, tiles, expectedVersion: region.terrainVersion }] : [];
     });
 }
 

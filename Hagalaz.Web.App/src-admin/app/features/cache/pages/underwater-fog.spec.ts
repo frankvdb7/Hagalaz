@@ -7,7 +7,7 @@ const floor: MapFloor = { id: 3, overlay: true, rgb: 1, textureId: -1, secondary
 function region(id: number): MapRenderRegion {
     const overlays = Array(4096).fill(0);
     overlays[5 * 64 + 6] = 3;
-    return { id, regionX: id >> 8, regionY: id & 255, terrainStatus: "available", landscapeStatus: "available", objects: [], warnings: [], floors: [floor], planes: [{ cornerHeights: [], flags: [], underlays: [], overlays, overlayShapes: [], overlayRotations: [] }] };
+    return { id, regionX: id >> 8, regionY: id & 255, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", objects: [], warnings: [], floors: [floor], planes: [{ cornerHeights: [], flags: [], underlays: [], overlays, overlayShapes: [], overlayRotations: [] }] };
 }
 
 describe("underwater fog", () => {

@@ -48,12 +48,14 @@ public static class MapDefinitionsEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("Region ID must be between 0 and 65535."));
         if (request.Tiles is null)
             return TypedResults.BadRequest(EndpointErrors.Validation("tiles is required."));
+        if (request.ExpectedVersion is not { } expectedVersion)
+            return TypedResults.BadRequest(EndpointErrors.Validation("expectedVersion is required: the terrain version the changes were drawn from."));
         if (request.Tiles.FirstOrDefault(tile => tile.Flags is { } flags && !MapTerrainPatcher.IsStorableFlags(flags)) is { } unstorable)
             return TypedResults.BadRequest(EndpointErrors.Validation($"Tile {unstorable.X},{unstorable.Y} on plane {unstorable.Plane} has flag value {unstorable.Flags}; a tile flag value must be between 0 and 32."));
         if (request.Tiles.FirstOrDefault(tile => !IsValidTile(tile)) is { } invalid)
             return TypedResults.BadRequest(EndpointErrors.Validation($"Change to tile {invalid.X},{invalid.Y} on plane {invalid.Plane} is out of range."));
 
-        var result = maps.ApplyTerrain(id, request.Tiles, cancellationToken);
+        var result = maps.ApplyTerrain(id, request.Tiles, expectedVersion, cancellationToken);
         return result.IsFailed ? EndpointErrors.RegionMapFileFailure(result, id) : TypedResults.Ok(new UpdateMapTerrainResultDto("map-terrain-updated", id, request.Tiles.Count));
     }
 
@@ -74,11 +76,13 @@ public static class MapDefinitionsEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("Region ID must be between 0 and 65535."));
         if (request.Objects is null)
             return TypedResults.BadRequest(EndpointErrors.Validation("objects is required."));
+        if (request.ExpectedVersion is not { } expectedVersion)
+            return TypedResults.BadRequest(EndpointErrors.Validation("expectedVersion is required: the landscape version the placements were drawn from."));
         var objectLimit = objects.ArchiveSize;
         if (request.Objects.FirstOrDefault(placement => !IsValidPlacement(placement, objectLimit)) is { } invalid)
             return TypedResults.BadRequest(EndpointErrors.Validation($"Placement of object {invalid.Id} at {invalid.X},{invalid.Y} on plane {invalid.Plane} is out of range."));
 
-        var result = maps.ReplaceLandscape(id, request.Objects, cancellationToken);
+        var result = maps.ReplaceLandscape(id, request.Objects, expectedVersion, cancellationToken);
         return result.IsFailed ? EndpointErrors.RegionMapFileFailure(result, id) : TypedResults.Ok(new UpdateMapLandscapeResultDto("map-landscape-updated", id, request.Objects.Count));
     }
 

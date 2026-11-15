@@ -4,7 +4,7 @@ import type { MapPlacement, MapRenderRegion } from "../services/map-render.model
 import { MapScenePanelComponent } from "./map-scene-panel.component";
 
 const crate: MapPlacement = { id: 7, shape: 10, rotation: 0, x: 1, y: 2, plane: 0 };
-const region: MapRenderRegion = { id: 12850, regionX: 50, regionY: 50, terrainStatus: "available", landscapeStatus: "available", planes: [], objects: [crate], floors: [], warnings: [] };
+const region: MapRenderRegion = { id: 12850, regionX: 50, regionY: 50, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", planes: [], objects: [crate], floors: [], warnings: [] };
 
 describe("MapScenePanelComponent", () => {
     beforeEach(() => TestBed.configureTestingModule({ imports: [MapScenePanelComponent] }));

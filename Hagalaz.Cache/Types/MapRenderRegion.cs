@@ -20,4 +20,4 @@ public sealed record MapPointLight(int X, int Y, int Height, int Radius, int Pac
 public sealed record MapRenderRegion(int Id, int RegionX, int RegionY, string TerrainStatus, string LandscapeStatus,
     IReadOnlyList<MapRenderPlane> Planes, IReadOnlyList<MapRenderPlacement> Objects, IReadOnlyList<FloorRenderDefinition> Floors, IReadOnlyList<string> Warnings,
     MapAtmosphere? Atmosphere = null, MapRenderPlane? UnderwaterPlane = null, IReadOnlyList<MapRenderPlacement>? UnderwaterObjects = null,
-    IReadOnlyList<MapPointLight>? PointLights = null);
+    IReadOnlyList<MapPointLight>? PointLights = null, int TerrainVersion = -1, int LandscapeVersion = -1);

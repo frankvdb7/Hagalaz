@@ -16,9 +16,10 @@ export interface MapRenderPlane {
     overlayRotations: number[];
 }
 export interface MapPlacement { id: number; shape: number; rotation: number; x: number; y: number; plane: number; }
-export interface MapLandscapeSave { kind: "landscape"; regionId: number; objects: readonly MapPlacement[]; }
+/** `expectedVersion` is the stored file version the edit was drawn from; the server refuses the save when the file has been written since. */
+export interface MapLandscapeSave { kind: "landscape"; regionId: number; objects: readonly MapPlacement[]; expectedVersion: number; }
 export interface MapTerrainTileChange { plane: number; x: number; y: number; height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; flags?: number; }
-export interface MapTerrainSave { kind: "terrain"; regionId: number; tiles: readonly MapTerrainTileChange[]; }
+export interface MapTerrainSave { kind: "terrain"; regionId: number; tiles: readonly MapTerrainTileChange[]; expectedVersion: number; }
 export type MapRegionSave = MapLandscapeSave | MapTerrainSave;
 export interface MapWorldMapRefreshResult { refreshed: number[]; unchanged: number[]; skipped: { id: number; reason: string }[]; }
 export interface UpdateMapTerrainResultDto { operation: string; id: number; tiles: number; }
@@ -41,6 +42,8 @@ export interface MapAtmosphere {
 }
 export interface MapRenderRegion {
     id: number; regionX: number; regionY: number;
+    /** Stored versions of the region's terrain and landscape files; -1 when absent. Saves are checked against them. */
+    terrainVersion: number; landscapeVersion: number;
     terrainStatus: "available" | "absent" | "failed";
     landscapeStatus: "available" | "absent" | "failed";
     planes: MapRenderPlane[]; objects: MapPlacement[]; floors: MapFloor[]; warnings: string[];

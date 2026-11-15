@@ -4,7 +4,7 @@ import { required } from "../../../../testing/required";
 import { applyBrushStroke, applyTerrainEdits, floorKey, footprintOutline, mapTerrainSaves, paintedFloorTextures, terrainBrushOutline, terrainEditNotes, terrainStrokePreview, type TerrainBrush, type TerrainEdits } from "./map-terrain-edit";
 
 const plane = (height: number): MapRenderPlane => ({ cornerHeights: Array(4225).fill(height), flags: Array(4096).fill(0), underlays: Array(4096).fill(1), overlays: Array(4096).fill(0), overlayShapes: Array(4096).fill(0), overlayRotations: Array(4096).fill(0) });
-const region = (regionX = 1, regionY = 2, heights = [-640, -1600, -2560, -3520]): MapRenderRegion => ({ id: (regionX << 8) | regionY, regionX, regionY, terrainStatus: "available", landscapeStatus: "available", planes: heights.map(plane), objects: [], floors: [], warnings: [] });
+const region = (regionX = 1, regionY = 2, heights = [-640, -1600, -2560, -3520]): MapRenderRegion => ({ id: (regionX << 8) | regionY, regionX, regionY, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", planes: heights.map(plane), objects: [], floors: [], warnings: [] });
 const brush = (change: Partial<TerrainBrush> = {}): TerrainBrush => ({ tool: "raise", plane: 0, size: 1, strength: 2, underlay: null, overlay: null, overlayShape: 0, overlayRotation: 0, flag: 1, ...change });
 const key = (plane: number, x: number, y: number) => (plane << 12) | (x << 6) | y;
 const at = (x: number, y: number) => ({ x: x * 512, z: y * 512 });
@@ -219,7 +219,7 @@ describe("flag brushes", () => {
         const start = flagged(5);
         expect(mapTerrainSaves([start], edits(start.id, [key(1, 3, 4), { flags: 5 }]))).toEqual([]);
         expect(mapTerrainSaves([start], edits(start.id, [key(1, 3, 4), { flags: 4 }], [key(0, 0, 0), { flags: 0 }]))).toEqual([
-            { kind: "terrain", regionId: start.id, tiles: [{ plane: 1, x: 3, y: 4, flags: 4 }] },
+            { kind: "terrain", regionId: start.id, tiles: [{ plane: 1, x: 3, y: 4, flags: 4 }], expectedVersion: 1 },
         ]);
     });
 
@@ -253,7 +253,7 @@ describe("mapTerrainSaves", () => {
     it("sends only the values that changed", () => {
         const start = region();
         expect(mapTerrainSaves([start], edits(start.id, [key(0, 1, 1), { height: 22, underlay: 1 }], [key(1, 2, 3), { underlay: 5 }]))).toEqual([
-            { kind: "terrain", regionId: start.id, tiles: [{ plane: 0, x: 1, y: 1, height: 22 }, { plane: 1, x: 2, y: 3, underlay: 5 }] },
+            { kind: "terrain", regionId: start.id, tiles: [{ plane: 0, x: 1, y: 1, height: 22 }, { plane: 1, x: 2, y: 3, underlay: 5 }], expectedVersion: 1 },
         ]);
     });
 

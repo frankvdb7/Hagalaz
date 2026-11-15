@@ -58,6 +58,31 @@ public sealed class RegionMapFileUnreadableError : Error
     public Exception Cause { get; }
 }
 
+/// <summary>The region's file was written after the edit was drawn from it, so saving would overwrite someone else's change.</summary>
+public sealed class RegionMapFileConflictError(int region, RegionMapFile kind, int expectedVersion, int currentVersion)
+    : Error($"Region {region}'s {RegionMapArchive.Describe(kind)} file changed since it was loaded (version {expectedVersion}, now {currentVersion}).")
+{
+    public int Region { get; } = region;
+    public RegionMapFile Kind { get; } = kind;
+    public int ExpectedVersion { get; } = expectedVersion;
+    public int CurrentVersion { get; } = currentVersion;
+}
+
+/// <summary>The file was written, but reopening it did not return the written data.</summary>
+public sealed class RegionMapWriteUnverifiedError : Error
+{
+    public RegionMapWriteUnverifiedError(int region, RegionMapFile kind, Exception? cause)
+        : base($"Region {region}'s {RegionMapArchive.Describe(kind)} file was written but could not be verified by reopening it.")
+    {
+        Region = region;
+        Kind = kind;
+        if (cause is not null) CausedBy(cause);
+    }
+
+    public int Region { get; }
+    public RegionMapFile Kind { get; }
+}
+
 /// <summary>Index 5 has no named reference metadata, so region files cannot be found by name.</summary>
 public sealed class RegionMapNamesMissingError() : Error("The map index has no named reference metadata.");
 
@@ -140,8 +165,8 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
         Read(region, RegionMapFile.UnderwaterLandscape, null, data => MapRenderDecoder.DecodeLandscape(data, cancellationToken));
 
     /// <inheritdoc />
-    public Result ApplyTerrain(int region, IReadOnlyCollection<MapTerrainTileChange> changes, CancellationToken cancellationToken = default) =>
-        Rewrite(region, RegionMapFile.Terrain, cancellationToken, stored => DecodeTerrain(stored, region, cancellationToken), (stored, before) =>
+    public Result ApplyTerrain(int region, IReadOnlyCollection<MapTerrainTileChange> changes, int expectedVersion, CancellationToken cancellationToken = default) =>
+        Rewrite(region, RegionMapFile.Terrain, expectedVersion, cancellationToken, stored => DecodeTerrain(stored, region, cancellationToken), (stored, before) =>
         {
             var patched = MapTerrainPatcher.Patch(stored, changes);
             if (patched.AsSpan().SequenceEqual(stored)) return null;
@@ -151,8 +176,8 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
         });
 
     /// <inheritdoc />
-    public Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, CancellationToken cancellationToken = default) =>
-        Rewrite(region, RegionMapFile.Landscape, cancellationToken, stored => DecodeLandscape(stored, cancellationToken), (_, current) =>
+    public Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, int expectedVersion, CancellationToken cancellationToken = default) =>
+        Rewrite(region, RegionMapFile.Landscape, expectedVersion, cancellationToken, stored => DecodeLandscape(stored, cancellationToken), (_, current) =>
         {
             var encoded = Encode(placements);
             if (!DecodeLandscape(encoded, cancellationToken).SequenceEqual(MapLandscapeEncoder.Canonicalize(placements)))
@@ -201,7 +226,8 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
     }
 
     // The single write path: `rebuild` returns the replacement, or null when the stored file would not change.
-    private Result Rewrite<TDecoded>(int region, RegionMapFile kind, CancellationToken cancellationToken, Func<byte[], TDecoded> decode, Func<byte[], TDecoded, byte[]?> rebuild)
+    // The edit was drawn from `expectedVersion`; a file stored under any other version was written since, so nothing is saved.
+    private Result Rewrite<TDecoded>(int region, RegionMapFile kind, int expectedVersion, CancellationToken cancellationToken, Func<byte[], TDecoded> decode, Func<byte[], TDecoded, byte[]?> rebuild)
     {
         if (Locate(region, kind) is not { } file) return new RegionMapFileAbsentError(region, kind);
 
@@ -216,6 +242,10 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
                 using var container = cache.ReadContainer(Index, file);
                 stored = container.Data.ToArray();
                 compression = container.CompressionType;
+                // Read after the bytes: a version still at `expectedVersion` here means these bytes are the ones the edit was drawn from,
+                // and a write landing after this point fails the compare-and-swap below, which loops back to this check.
+                if ((cache.ReadReferenceTable(Index).GetEntry(file)?.Version ?? -1) is var version && version != expectedVersion)
+                    return new RegionMapFileConflictError(region, kind, expectedVersion, version);
                 current = decode(stored);
             }
             catch (Exception error) when (IsCorruptData(error))
@@ -227,7 +257,23 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
 
             cancellationToken.ThrowIfCancellationRequested();
             using var updated = new Container(compression, new MemoryStream(replacement));
-            if (cache.TryReplaceContainer(Index, file, stored, updated)) return Result.Ok();
+            if (cache.TryReplaceContainer(Index, file, stored, updated)) return Reopen(region, kind, file, replacement, decode);
+        }
+    }
+
+    // A write is reported saved only once reopening the file yields the bytes that were written and they decode.
+    private Result Reopen<TDecoded>(int region, RegionMapFile kind, int file, byte[] written, Func<byte[], TDecoded> decode)
+    {
+        try
+        {
+            using var container = cache.ReadContainer(Index, file);
+            var stored = container.Data.ToArray();
+            decode(stored);
+            return stored.AsSpan().SequenceEqual(written) ? Result.Ok() : new RegionMapWriteUnverifiedError(region, kind, null);
+        }
+        catch (Exception error) when (IsCorruptData(error))
+        {
+            return new RegionMapWriteUnverifiedError(region, kind, error);
         }
     }
 

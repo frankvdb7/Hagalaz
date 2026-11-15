@@ -7,7 +7,7 @@ import { buildCollisionMap } from "./map-collision";
 import { buildWalkabilityOverlay, ineffectiveBlockRgb, objectCollisionRgb, projectileObjectRgb, projectileWallRgb, walkableRgb } from "./map-walkability";
 
 const plane = (height: number): MapRenderPlane => ({ cornerHeights: Array(4225).fill(height), flags: Array(4096).fill(0), underlays: Array(4096).fill(0), overlays: Array(4096).fill(0), overlayShapes: Array(4096).fill(0), overlayRotations: Array(4096).fill(0) });
-const region = (regionX = 1, regionY = 2): MapRenderRegion => ({ id: (regionX << 8) | regionY, regionX, regionY, terrainStatus: "available", landscapeStatus: "available", planes: [-640, -1600, -2560, -3520].map(plane), objects: [], floors: [], warnings: [] });
+const region = (regionX = 1, regionY = 2): MapRenderRegion => ({ id: (regionX << 8) | regionY, regionX, regionY, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", planes: [-640, -1600, -2560, -3520].map(plane), objects: [], floors: [], warnings: [] });
 const flag = (target: MapRenderRegion, level: number, x: number, y: number, value: number) => { target.planes[level].flags[x * 64 + y] = value; };
 const all = [true, true, true, true];
 const rgbOf = (name: string) => required(tileFlagOptions.find(option => option.name === name), name).rgb;

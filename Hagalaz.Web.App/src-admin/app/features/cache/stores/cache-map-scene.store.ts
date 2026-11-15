@@ -47,7 +47,7 @@ export const CacheMapSceneStore = signalStore(
                     tap((state) => patchState(store, state))
                 )
             ),
-            /** Saves in order and stops at the first failure; every save holds absolute values, so saving again is safe. */
+            /** Saves in order and stops at the first failure. A save from a version the cache has moved past is refused, so the region must be reloaded before saving again. */
             async saveRegions(saves: readonly MapRegionSave[]): Promise<boolean> {
                 if (store.saving()) return false;
                 patchState(store, { saving: true, saveError: null });
@@ -55,7 +55,7 @@ export const CacheMapSceneStore = signalStore(
                 for (const save of saves) {
                     const label = `region ${save.regionId} ${save.kind === "terrain" ? "terrain" : "objects"}`;
                     try {
-                        await firstValueFrom<unknown>(save.kind === "terrain" ? service.saveTerrain(save.regionId, save.tiles) : service.saveLandscape(save.regionId, save.objects));
+                        await firstValueFrom<unknown>(save.kind === "terrain" ? service.saveTerrain(save.regionId, save.tiles, save.expectedVersion) : service.saveLandscape(save.regionId, save.objects, save.expectedVersion));
                         saved.push(label);
                     } catch (error) {
                         const progress = saved.length ? ` Already saved: ${saved.join(", ")}.` : "";
