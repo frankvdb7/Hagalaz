@@ -33,7 +33,7 @@ Use `angular.json` to resolve project targets and `package.json` for installed v
 
 ## Tooling and packaging
 
-- Use pnpm and preserve the hoisted node linker in `.npmrc`. Electron Forge packaging requires dependencies on disk.
+- Use pnpm and preserve the hoisted node linker (`nodeLinker`) in `pnpm-workspace.yaml`. Electron Forge packaging requires dependencies on disk.
 - Biome owns linting and formatting. Follow `biome.json` and `.editorconfig`; both Tailwind arbitrary-value and shorthand rules are errors.
 - Fix findings at their source. Do not weaken lint, Fallow, type checking, CSP, or authorization to make a check pass.
 - Format only affected files. Check the file list before a command that writes files; an empty selection must not become a project-wide formatter run.
