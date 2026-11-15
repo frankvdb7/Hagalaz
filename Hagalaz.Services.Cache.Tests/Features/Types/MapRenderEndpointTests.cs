@@ -627,7 +627,8 @@ public sealed class MapRenderEndpointTests
 
         var stored = Stored(store, 1);
         CollectionAssert.AreNotEqual(fileBefore, stored);
-        using var reopened = new ContainerDecoder().Decode(new MemoryStream(XteaDecryptor.DecryptXtea(keys, (byte[])stored.Clone(), 5, stored.Length)));
+        using var decrypted = new MemoryStream(XteaDecryptor.DecryptXtea(keys, (byte[])stored.Clone(), 5, stored.Length));
+        using var reopened = new ContainerDecoder().Decode(decrypted);
         CollectionAssert.AreEqual(Landscape(mine), reopened.Data.ToArray());
     }
 
