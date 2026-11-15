@@ -533,6 +533,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             var onSameTile = false;
             var withinRange = false;
+            var meleeBlocked = false;
             for (var x1 = 0; x1 < thisSize; x1++)
             {
                 for (var y1 = 0; y1 < thisSize; y1++)
@@ -544,8 +545,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                             var distance = (int)Location.GetDistance(myX + x1, myY + y1, otherX + x2, otherY + y2);
                             if (distance <= 0)
                                 onSameTile = true;
-                            else if (distance <= range && (range > 1 || CanMeleeStep(myX + x1, myY + y1, otherX + x2, otherY + y2)))
-                                withinRange = true;
+                            else if (distance <= range)
+                            {
+                                if (range > 1 || CanMeleeStep(myX + x1, myY + y1, otherX + x2, otherY + y2))
+                                    withinRange = true;
+                                else
+                                    meleeBlocked = true;
+                            }
                         }
                     }
                 }
@@ -590,7 +596,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     return false;
                 }
 
-                if (path.ReachedDestination) return true;
+                // A zero-step path to an adjacent but collision-blocked target must not count as melee reach.
+                if (path.ReachedDestination) return !meleeBlocked;
                 Owner.Movement.AddToQueue(path);
             }
 

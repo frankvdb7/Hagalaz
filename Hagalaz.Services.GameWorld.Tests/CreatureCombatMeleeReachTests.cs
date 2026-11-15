@@ -191,6 +191,21 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Tick_RealPathFinderWithGatewayWallOnly_DoesNotAttack()
+        {
+            // Gateway walls carry WallWest without WallAllowRangeWest or FloorBlock.
+            var regionService = Substitute.For<IMapRegionService>();
+            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
+            regionService.GetClippingFlag(3201, 3200, 0).Returns(CollisionFlag.WallWest);
+            _owner.PathFinder.Returns(new DumbPathFinder(regionService));
+
+            _combat.Tick();
+            _combat.Tick();
+
+            Assert.AreEqual(0, _combat.Attacks);
+        }
+
+        [TestMethod]
         public void Tick_RealPathFinderWithOpenGround_Attacks()
         {
             var regionService = Substitute.For<IMapRegionService>();
