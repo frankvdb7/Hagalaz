@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -29,6 +29,10 @@
     <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
     <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
+    <!-- Build-order only: the plugin is staged and loaded dynamically, never referenced statically. -->
+    <ProjectReference Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Import Project="..\Hagalaz.GameScriptsPlugin.targets" />
 
 </Project>

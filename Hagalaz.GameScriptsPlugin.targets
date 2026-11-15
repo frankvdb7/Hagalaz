@@ -1,0 +1,26 @@
+<Project>
+  <!--
+    Stages the normal build output of Hagalaz.Game.Scripts into $(TargetDir)plugins/Hagalaz.Game.Scripts so it can be
+    loaded through the plugin boundary. The importing project must also declare a build-order-only ProjectReference
+    (ReferenceOutputAssembly="false") so Game.Scripts is built exactly once by the normal project-reference graph.
+  -->
+  <PropertyGroup>
+    <GameScriptsProject>$(MSBuildThisFileDirectory)Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj</GameScriptsProject>
+  </PropertyGroup>
+
+  <Target Name="StageGameScriptsPlugin" AfterTargets="CopyFilesToOutputDirectory">
+    <!-- GetTargetPath only reports the output location; it does not rebuild the project. -->
+    <MSBuild Projects="$(GameScriptsProject)" Targets="GetTargetPath">
+      <Output TaskParameter="TargetOutputs" ItemName="_GameScriptsTargetPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <_GameScriptsOutputDir>@(_GameScriptsTargetPath->'%(RootDir)%(Directory)')</_GameScriptsOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_GameScriptsOutputFile Include="$(_GameScriptsOutputDir)**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_GameScriptsOutputFile)"
+          DestinationFiles="@(_GameScriptsOutputFile->'$(TargetDir)plugins\Hagalaz.Game.Scripts\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

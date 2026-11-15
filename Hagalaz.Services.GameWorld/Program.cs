@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using McMaster.NETCore.Plugins;
+using Hagalaz.Services.GameWorld.Plugins;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -94,32 +94,12 @@ namespace Hagalaz.Services.GameWorld
             await app.RunAsync();
         }
 
-        private static IEnumerable<PluginLoader> GetPluginLoaders()
-        {
-            // create plugin loaders
-            var pluginsDir = Path.Combine(AppContext.BaseDirectory, "plugins");
-            foreach (var dir in Directory.GetDirectories(pluginsDir))
-            {
-                var dirName = Path.GetFileName(dir);
-                var pluginDll = Path.Combine(dir, dirName + ".dll");
-                if (!File.Exists(pluginDll))
-                {
-                    continue;
-                }
-
-                var loader = PluginLoader.CreateFromAssemblyFile(pluginDll, config => config.PreferSharedTypes = true);
-
-                yield return loader;
-            }
-        }
-
         public static IHostBuilder ConfigurePlugins(this IHostBuilder builder) =>
             builder.ConfigureServices(services =>
             {
                 // Create an instance of plugin types
-                foreach (var loader in GetPluginLoaders())
+                foreach (var pluginAssembly in PluginAssemblyLoader.LoadAll(Path.Join(AppContext.BaseDirectory, "plugins")))
                 {
-                    var pluginAssembly = loader.LoadDefaultAssembly();
                     services.AddSingleton(pluginAssembly);
 
                     foreach (var pluginType in GetLoadableTypes(pluginAssembly)

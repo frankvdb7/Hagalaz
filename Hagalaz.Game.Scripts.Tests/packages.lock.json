@@ -180,11 +180,6 @@
           "RabbitMQ.Client": "7.2.1"
         }
       },
-      "McMaster.NETCore.Plugins": {
-        "type": "Transitive",
-        "resolved": "2.0.0",
-        "contentHash": "pmmrI3qPE53xEJEcg575jQeDNPzMWfNJO8/SASlB9PLPrGVrsyVNFRrvfo+3BzcbQxfUBF1//gTOiJ82dOTlTw=="
-      },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
         "resolved": "2.23.0",
@@ -1480,7 +1475,6 @@
           "MassTransit": "[8.5.10, )",
           "MassTransit.EntityFrameworkCore": "[8.5.10, )",
           "MassTransit.RabbitMQ": "[8.5.10, )",
-          "McMaster.NETCore.Plugins": "[2.0.0, )",
           "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.10, )",
           "Polly.RateLimiting": "[8.7.0, )",
           "Raido.Server": "[1.0.0, )",

@@ -9,7 +9,6 @@
     <PackageReference Include="MassTransit" Version="8.5.10" />
     <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.5.10" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.10" />
-    <PackageReference Include="McMaster.NETCore.Plugins" Version="2.0.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <PrivateAssets>all</PrivateAssets>
@@ -53,16 +52,24 @@
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Build-order only: Game.Scripts is loaded as a plugin, never referenced statically. -->
+    <ProjectReference Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
     <Folder Include="Model\Creatures\Combat\Experimental\" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Hagalaz.Services.GameWorld.Tests" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
-  <Target Name="PublishPlugins" BeforeTargets="Build">
+  <Import Project="..\Hagalaz.GameScriptsPlugin.targets" />
+  <!-- Publish reuses the plugin staged by Build; no nested Publish of Game.Scripts. -->
+  <Target Name="PublishGameScriptsPlugin" AfterTargets="Publish">
     <ItemGroup>
-      <PluginProject Include="..\Hagalaz.Game.Scripts\Hagalaz.Game.Scripts.csproj" />
+      <_StagedPluginFile Include="$(TargetDir)plugins\**" />
     </ItemGroup>
-    <MSBuild Projects="@(PluginProject)" Targets="Publish" Properties="PublishDir=$(TargetDir)plugins\%(FileName)\;Configuration=$(Configuration)" />
+    <Copy SourceFiles="@(_StagedPluginFile)"
+          DestinationFiles="@(_StagedPluginFile->'$(PublishDir)plugins\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 </Project>
