@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793535957114,
+  "lastUpdate": 1794704683271,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -34224,6 +34224,378 @@ window.BENCHMARK_DATA = {
             "value": 0.1954887994527817,
             "unit": "ns",
             "range": "± 0.0017422364158834888"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3929d030f15ebc3d4a2d1f33685fb8c5926700c2",
+          "message": "Expand Cache Studio with map editing and CS2 widget playback (#571)\n\n* Serve item sprites from the cache API\n\n* sync\n\n* caching\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* 3d models\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* sync\n\n* Add map region editor, atmosphere lighting and object catalog\n\n- Decode region atmosphere lighting and apply it in the map viewer\n- Add preview-only placement editing (move, rotate, scale, add, remove)\n  with rotation drawn from server-rotated appearances\n- Add paged object catalog with a reusable name index and thumbnails\n- Output-cache texture images; raw store writes evict derived reads\n- Render the map viewport on demand instead of a continuous loop\n- Update OpenSpec changes for the redesigned workspace\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Harden catalog and texture cache invalidation\n\n- Discard catalog name builds that raced a raw store write\n- Invalidate derived reads even when a raw write fails\n- Drop private MDC tab selectors and the fixed tab-header inset\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Keep scopes and resources on refreshed tokens\n\nRefreshed access tokens lost the original grant's scopes and audiences,\nso the cache_api policy rejected admins after the first refresh.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Render item icons from the cache instead of static GIFs\n\n- Port the 742 client inventory icon routine (camera, lighting, palette,\n  outline, shadow, templates) and serve rendered PNGs with content ETags\n- Options for size, outline, shadow, quantity (stack models) and the\n  client quantity label drawn with the p11_full font\n- Admin app requests icons at display size, refreshes after saves and\n  adds quantity, outline and shadow preview controls\n- Remove the committed GIF sprites; OpenSpec changes render-item-icons\n  and item-icon-quantity\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Resolve sparse archive member IDs before cache reads\n\nICacheAPI.Read takes a member's physical position, but animation frames,\nNPC render-animation sets and map floor definitions passed member IDs.\nArchives with gaps in their member IDs then returned the wrong data or\nfailed. Look up the position in the reference table first, as type\ndecoding already does, and document the Read contract.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Revalidate item icons without rendering and defer offscreen fetches\n\nThe icon ETag was a hash of the rendered PNG, so every conditional\nrequest paid for a full model render. Derive it from the item, the\ndisplay options and the reference-table versions of the indexes the\nrenderer reads, plus a per-cache generation that raw store writes\nreplace, and answer matching requests with 304 before rendering.\n\nThumbnails fetched their icon as soon as they were created; the\nimg loading=\"lazy\" had no effect on an already-downloaded blob. Start\nthe request once the thumbnail nears the viewport instead.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Evict cached texture images on container writes to their sources\n\nOnly raw store writes evicted the texture-image output cache, so a\nwrite-container to the texture (9) or material (26) index could serve\na stale image for up to 15 seconds. Evict the cache after those writes,\nincluding failed ones, as raw writes already do.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Tighten cache API validation, error mapping and OpenAPI docs\n\n- Validate item definition saves against what the codec can encode:\n  option counts and text, paired recolor and stack lists, list sizes\n  and extra-data value types. Previously a sixth ground option silently\n  overwrote the first inventory option, and malformed lists returned 500.\n- Map NotSupportedException, InvalidDataException and\n  UnknownImageFormatException to 422 in EndpointErrors and drop the\n  per-handler catches, so malformed models and frames no longer give 500.\n- Log handled exceptions by severity in CacheExceptionHandler, since\n  handling them suppresses the diagnostics middleware's logging.\n- Make the item definition DTOs immutable sealed records.\n- Document every cache route in OpenAPI with a summary, its success type\n  and the shared 400/401/403/404/422/500 responses, guarded by a test\n  that generates the document.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Remove new jscpd clones and reject wide extra-data keys\n\n- Share item definition fields in ItemDefinitionFieldsDto; the read and\n  update DTOs now add only derived values or validation. The admin app's\n  read DTO extends its update DTO the same way.\n- Extract mock setup helpers in FirstPartyClientRegistrationTests.\n- Ignore using directives in .jscpd.json: the duplicated import blocks in\n  the definition endpoint files are all required, not copied logic.\n- Keep each route's OpenAPI metadata on its route line, so route tables\n  stay below the clone threshold.\n- Reject item extra-data keys outside 0..16777215; the codec writes them\n  as 24-bit values, so wider keys wrapped and could overwrite another entry.\n\njscpd run as in CI now reports no new clones against main.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix\n\n* Clean up admin dead code and Biome findings\n\n- Remove admin DTO types and barrel re-exports with no consumers, and the\n  item detail page's unused overview field.\n- Tell Fallow that @tailwindcss/postcss and postcss are used through\n  .postcssrc.json.\n- Fix Biome's errors at their source: move landmark roles from mat-cards\n  onto display:contents section/aside elements, use a fieldset for the\n  icon options group, give router links a static href, and avoid \"<\" in\n  control-flow conditions that Biome cannot parse.\n- Replace non-null assertions with explicit checks, and in specs with a\n  required() helper that names the missing element.\n- Build the breadcrumb link in the component, and use grid gaps instead\n  of sibling-margin selectors on the map region panels.\n\nBiome now reports no diagnostics; admin type checks, tests and the Fallow\naudit pass.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Add region sky colour and client fog to the admin map viewer\n\nDecode the revision-742 environment sky colour and raw fog value instead\nof skipping them, expose both on the map render atmosphere, and clear the\nmap viewport to the sky colour while region atmosphere is active. An\nopt-in \"Client fog\" toggle applies linear eye-depth fog using the client's\nfar plane (14332) and (fogValue + 256) << 2 range.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* sync\n\n* Separate map environment faces and limit region cube to effects 7-9\n\nEffect 1 binds the client's generated internal cubes, so it no longer\nsamples the region environment map. The map loader keeps one texture\nqueue but publishes environment faces separately from surface textures,\nso they stay out of the Textures tab and surface GPU resources.\n\nUpdate the region-sky-fog OpenSpec change to cover environment maps.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Add overlay spreading and underwater terrain to the map viewer\n\nDecode overlay priority, spreading and water parameters, and blend\nspreading overlays into neighbouring tile perimeters using the client's\nclaim order. Opcode 14's value is byte << 5 once the client's getter\nmultiplier is applied.\n\nRead the um and ul archives into an optional underwater plane and\nobjects, render them as a fifth plane with depth fog from the surface\noverlay, and add toggles for the underwater layer and water surface.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Add model and object PNG previews to the cache service and map editor\n\nRender any cached model or object shape to a centred transparent PNG\nusing the item icon rasteriser with an automatically fitted camera, and\nshare the conditional response handling with item icons.\n\nShow the object previews in the map editor's catalog tiles, replacing\nthe flat in-scene canvas thumbnail.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Add a map editor with terrain brushes, cache saves and 3D object handles\n\nLay the admin map viewer out as a workspace with a scene tree, asset\nbrowser and inspector. Objects can be placed, moved, rotated and scaled\nwith undo, and viewport handles preview a drag before it becomes an edit.\n\nTerrain brushes edit heights and floors with a live stroke preview.\nTerrain and objects now draw as separate meshes, so releasing a stroke\nstays fast.\n\nObject and terrain edits save to the cache, and the world map can be\nrefreshed from the saved regions. This also fixes WriteHugeSmart for\nvalues above 32,767.\n\nSaves have not yet been checked in the game client.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Guard map drafts, reload after saves and archive finished specs\n\nThe map editor could drop an unsaved draft on navigation, and a save made\nwhile assets were loading skipped its reload. Register the draft with the\npending-changes guard and always reload saved regions.\n\nRemove the unused WithCacheControl API and stray package-lock.json and\ndesign-qa.md files, limit SDK roll-forward to patches, and archive the\ncompleted OpenSpec changes that no open change depends on.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Show map editor loading and read failures in the viewport\n\nThe progress bar above the workspace shifted the layout, the canvas stayed\nblank during the first load, and failed reads vanished when loading ended.\nAdd a viewport status with staged progress, pending saves, and a persistent\nfailure summary with retry.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Add object shadows, client specular and map editor UX polish\n\nBake client-style object floor shadows into terrain, with a Layers\ntoggle. Match the client's effect 1 specular highlight, masked by the\ntexture's source alpha via a new sourceAlpha texture option.\n\nMove object removal into the scene tree, show hover-only row actions,\nand give object drags a rendered preview with a footprint-sized outline.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Archive the map object shadows spec\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: archive completed OpenSpec changes\n\n* Add animated objects to cache maps\n\n* Add map point lights and pointer navigation\n\n* Match client effect 7 reflections and blend reflective floors\n\nReflect the region cube map by texture alpha along the client's negated\nray, with no reflection when a region has no cube map. Keep source alpha\nfor effect 7 textures in the texture API.\n\nLet opaque effect 7 underlays join terrain blending, so they no longer\nend in hard tile edges next to ordinary floors.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Aim the effect 1 highlight by surface normal like the client\n\nThe client looks its highlight cube up by eye-space normal, not by\nreflection. Using the reflection over-brightened flat surfaces at\ncommon camera angles.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Port client water rendering to the map editor\n\nReplace the procedural approximations for material effects 2, 4, 5, 8\nand 9 with ports of the client's noise volumes, turbulence, shoreline\ndepth and shader stages. Effects 8 and 9 use the region cube and fall\nback to the base material without one. Water edges do not blend yet.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Match client face-color animation in model previews\n\n* more stuff\n\n* Improve admin model particle preview\n\n* Add tile-flag editing and a walkability overlay to the map editor\n\nTerrain saves can now carry a tile flag value (0 to 32). The patcher\nrewrites the flag token only when the value differs, in place, and\nrejects values the format cannot store before writing anything.\n\nThe map editor gains set-flag and clear-flag brushes on the existing\nstroke, undo and save path, and a walkability layer option that marks\nflagged tiles and object collision using the client's bridge rule.\nFlag strokes and toggling the overlay leave terrain geometry as it was.\n\nPinned fixtures for region 12850 check that the editor and the game\nserver block the same tiles. The object appearance DTO now reports the\nplaced definition's clip type, solid and gateway values.\n\nOpenSpec change: map-tile-flags (left unarchived; the client\nside-by-side task is open).\n\nCo-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>\n\n* sync\n\n* Show server clipping in the map editor\n\n* Align admin map grid and combine tile hover with selection status\n\n* Select and inspect terrain tiles in the admin map\n\n* fix\n\n* Add Cache Studio widget browser and live preview\n\n* Use Angular Material controls in widget details\n\n* Add CS2 script inspection and browser widget playback\n\n* Fix web app Fallow findings\n\nResolve every dead-code, duplication and complexity finding reported by\nthe type-aware Fallow analysis of Hagalaz.Web.App.\n\n- Share cache preview test boundaries and assert their full bindings\n- Centralize cache type endpoints in CacheTypeService base classes\n- Rewrite the widget CS2 runtime as an opcode handler table\n- Split widget, CS2 and types manager templates into child components\n- Extract helpers from model, map, font and launcher hot spots\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Hold the cache write lock across map read-modify-write\n\nTerrain saves and world map refreshes read a file, patched it and wrote\nit back with only the final write under the cache lock, so two\nconcurrent requests could silently drop one change. Add\nICacheAPI.UpdateContainer, which runs the read, change and write under\nthe existing snapshot write lock, and move MapTerrainWriter and\nMapWorldMapRefresher onto it. Region files are still read before the\nlock, since reading through the cache cannot nest inside it.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Block map edits while a save is writing the draft\n\nA finished save reloads the regions and clears the whole draft, so\nedits made while the save requests were running were lost unsaved.\nIgnore draft changes and undo while the store is saving, and turn the\nterrain brush off until the save ends.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Enable type-aware Fallow analysis locally\n\nCI already audits with type-aware analysis; the local fallow:audit ran\nsyntactically and reported members used through inject() as unused.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Build water noise random constants with BigInt()\n\nCodeQL reads bigint literals as undefined operands and flagged the\nJava LCG step. The constants are exact integers, so the generated\nnoise is unchanged.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Share the widget text tokenizer with the plain-text fallback\n\nThe fallback stripped client markup with its own regex, which dropped\n<lt>/<gt> escapes and read <BR> as a line break, unlike the font\nrenderer. Both paths now use one tokenizer, which also removes the\ntag-stripping regex CodeQL flagged as incomplete sanitization.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix issues\n\n* Route definition type edits through one TypeMutator module\n\nItem, NPC, object, config, varp bit and sprite edits each combined the\nTypeMutationUtilities helpers differently: two load paths (raw vs hooked\nproviders), three verify rules (none for sprites) and inconsistent\nerrors for missing or undecodable entries.\n\nTypeMutator<TType> in Hagalaz.Cache now owns type mutation. It loads the\nraw entry without hooks, requires encode -> decode -> encode to be\nbyte-identical before writing, skips writes equal to the stored entry's\ncanonical encoding, and reports absent/unreadable entries as\nFluentResults errors that endpoints map to 404/422. The endpoints inject\nthe mutator, and TypeMutationUtilities is removed.\n\nAdds the type-mutation-module OpenSpec change and a CONTEXT.md glossary.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Archive the type-mutation-module OpenSpec change\n\nSync its cache-definition-mutations requirements into the main spec.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Model particle, billboard, render animation and material definitions as Types with codecs\n\nThe static ParticleEmitter/ParticleEffector/ModelBillboard/RenderAnimationSet/\nMaterialDefinition decoders returned derived records, dropped opcodes and\ncolumns they did not need, and could not encode.\n\nEach definition is now an I...Type interface in Hagalaz.Cache.Abstractions,\na mutable ...Type class holding the raw stored values, and an\nITypeCodec<T> registered in AddGameCache. Derived members reproduce the\nvalues the endpoints showed before. The four opcode formats encode in\ncanonical ascending opcode order (stored order varies per entry and some\nopcodes repeat); the material table re-encodes byte for byte. A real-cache\ntest round-trips every stored entry when the local cache is present.\n\nModelEndpoints, ModelImages, ItemIcons and TextureEndpoints take the codecs\nfrom DI, the old decoders are removed, and TextureImageDecoder becomes\nTextureImageConverter in Logic/Rendering. Emitter unsupported-opcode lists\nare now ascending without repeats, and render-animation sequence IDs follow\ncanonical opcode order.\n\nAdds the particle-billboard-material-codecs OpenSpec change and the Type\nand Codec terms in CONTEXT.md.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Archive the particle-billboard-material-codecs OpenSpec change\n\nCreate the cache-type-codecs spec from its requirements.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Model cache models as a ModelType with a byte-identical codec\n\nModelGeometryDecoder returned render-ready geometry (derived texture IDs,\ngenerated UVs, remapped skins and groups) and could not encode.\n\nIModelType/ModelType now hold the stored values of a model in the newer\nlayout: absolute positions, indices with their strip codes, raw per-face\ndata, texture IDs as stored, texture mappings, attachments, and the version\nand presence switches. ModelTypeCodec, registered in AddGameCache, re-encodes\nevery model in the local cache byte for byte, supports two-byte billboard\ngroups, and rejects the old layout and extended skin tables.\n\nModelGeometryBuilder in Logic/Rendering derives the same geometry the decoder\nproduced, with the first-texel fallback always on; ModelTextureCoordinates\nmoves there without its fallback flag. ModelEndpoints decodes through the\ncodec, ModelGeometryDecoder is removed, and test fixtures move to the newer\nlayout. A real-cache test round-trips every model.\n\nAdds the model-type-codec OpenSpec change.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Archive the model-type-codec OpenSpec change\n\nSync its model requirements into the cache-type-codecs spec.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Model animation skeletons and frames as Types with byte-identical codecs\n\nAnimationFrameDecoder returned resolved transforms (type 6 mapped to 2,\nper-type defaults, rotation scaling, implied pivots), dropped the frame\nheader and zero-flag slots, could not encode, and needed the skeleton to\ndecode a frame.\n\nIAnimationSkeletonType/AnimationSkeletonType keep raw types, enabled bytes,\nmasks and groups; IAnimationFrameType/AnimationFrameType keep the header,\nskeleton id, raw per-slot flag bytes and the stored axis values. Both codecs\nare registered in AddGameCache and re-encode every skeleton and frame in the\nlocal cache byte for byte; the frame codec does not need the skeleton.\n\nAnimationFrameBuilder in Logic/Rendering resolves skeletons and frames into\nthe same transforms as before. GetAnimationFrame decodes through the codecs,\nAnimationFrameDecoder is removed, and a real-cache test round-trips every\nskeleton and frame.\n\nAdds the animation-type-codecs OpenSpec change.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Archive the animation-type-codecs OpenSpec change\n\nSync its skeleton and frame requirements into the cache-type-codecs spec.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Own region map files in one RegionMapArchive module\n\nRegion map files in cache index 5 (m/l/um/ul) now have one owner,\nRegionMapArchive behind IRegionMapArchive, registered in AddGameCache.\nIt holds the file names, lookup, region listing, revisions, decoded\nreads, a single corrupt-data rule and the write rules.\n\n- Terrain and landscape saves share one compare-and-swap write loop.\n  Landscape saves no longer use a plain write, and a save equal to the\n  stored landscape's canonical encoding writes nothing.\n- MapArchiveUpdateResult becomes FluentResults errors, mapped by\n  EndpointErrors.RegionMapFileFailure to the existing 404/422 responses.\n- The map endpoints, MapRenderReader, MapWorldMapRefresher and\n  MapProvider (lookup only) use the archive. MapTerrainWriter and\n  MapLandscapeWriter are removed.\n- Render reports malformed landscape data (InvalidDataException) as a\n  failed landscape with a warning instead of failing the request.\n\nA temporary comparison on a copy of the local cache found old and new\nbehaviour identical for render output, the region listing, world map\ntiles, revisions and sample save bytes. The one difference is the\nintended skip of unchanged landscape saves.\n\nOpenSpec change: region-map-archive.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Archive the region-map-archive OpenSpec change\n\nSync its landscape save requirements into cache-map-landscape-mutations\nand its per-file corrupt data requirement into web-3d-map-rendering.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Own model assembly and item icons in Cache library modules\n\nMove client model assembly, object placement and item icon composition\nout of the cache service's endpoint classes into ModelAssembler,\nItemIconComposer and TextureSource in Hagalaz.Cache/Logic/Rendering.\nEndpoints now only validate, map DTOs and encode PNGs; responses are\nunchanged, verified against a real-cache capture of the old code.\n\nAdd the model-assembly-module OpenSpec change and the Model assembly,\nObject placement and Item icon terms to CONTEXT.md.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Address PR review findings on sprite replacement, map saves and object extra data\n\n- TypeMutator.Replace treats the stored entry's canonical encoding as an\n  optional comparison, so a sprite that decodes but cannot be re-encoded\n  is still replaced instead of failing the request.\n- CacheApi.TryReplaceContainer reports a stored container that can no\n  longer be read as a lost race, so region map saves return their 422\n  unreadable response; write failures still propagate.\n- ObjectTypeCodec reports a repeated extra-data key as\n  InvalidDataException, so the world-map refresh leaves that object off\n  the map instead of stopping.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Compute flagged rendering products in wide arithmetic\n\nResolve CodeQL cs/loss-of-precision errors without changing rendered\noutput: the texture projection length, light direction scaling and\nparticle size target now multiply in double/float, matching the old\nint results whenever those did not overflow, and the item icon camera\nnames its deliberate integer offset before converting to float.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Replace placeholder purposes in nine OpenSpec specs\n\nopenspec validate --all --strict rejects the TBD Purpose that archiving\nleaves on a new capability. Describe what each admin and Cache Studio\ncapability is for, from its requirements.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* Clear Biome lint errors and warnings in the admin app\n\n- Give router-linked anchors a static href, as the other cache links\n  already do; RouterLink still sets the navigated URL.\n- Mark the widget preview tools as a toolbar instead of a group.\n- Replace non-null assertions in cache page specs with the shared\n  required() helper, so a missing element fails with a clear message.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-15T01:51:35+01:00",
+          "tree_id": "2b0e72a4c21ded4319e819a2d3b7f7038b35ac24",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/3929d030f15ebc3d4a2d1f33685fb8c5926700c2"
+        },
+        "date": 1794704681778,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 5.376785013079643,
+            "unit": "ns",
+            "range": "± 0.030392503619687424"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 2.8588676914572715,
+            "unit": "ns",
+            "range": "± 0.02162370642442746"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 504.120352935791,
+            "unit": "ns",
+            "range": "± 2.5308392183821073"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 46.17306937277317,
+            "unit": "ns",
+            "range": "± 0.07018757156294429"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 744.8555854797363,
+            "unit": "ns",
+            "range": "± 4.135040819933388"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 80.95735125541687,
+            "unit": "ns",
+            "range": "± 0.403248845159947"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 632.9256416320801,
+            "unit": "ns",
+            "range": "± 2.667607415063428"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 83.50182111263275,
+            "unit": "ns",
+            "range": "± 0.37952990537737347"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 32.29729226231575,
+            "unit": "ns",
+            "range": "± 0.03190472660382527"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 100)",
+            "value": 0.9808218432590365,
+            "unit": "ns",
+            "range": "± 0.003770952427974208"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 100)",
+            "value": 1.2679035641252994,
+            "unit": "ns",
+            "range": "± 0.012229318124349364"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 100)",
+            "value": 2090.1734625244144,
+            "unit": "ns",
+            "range": "± 1.9780174938036357"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 100)",
+            "value": 20429.66003125,
+            "unit": "ns",
+            "range": "± 129.44315108195838"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 100)",
+            "value": 324511.3421875,
+            "unit": "ns",
+            "range": "± 18272.759385764508"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 100)",
+            "value": 424594.27234375,
+            "unit": "ns",
+            "range": "± 8559.725702123944"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 444.3760681152344,
+            "unit": "ns",
+            "range": "± 0.23595070221152886"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 44.0973280787468,
+            "unit": "ns",
+            "range": "± 0.1733127364364106"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1385.7602115631103,
+            "unit": "ns",
+            "range": "± 3.0107666698081403"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 1009.8365902900696,
+            "unit": "ns",
+            "range": "± 0.5611005194496297"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 1871.273161315918,
+            "unit": "ns",
+            "range": "± 7.883382693034237"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1104.1221256256104,
+            "unit": "ns",
+            "range": "± 4.848063436529561"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1067.7790970802307,
+            "unit": "ns",
+            "range": "± 1.6862690695885736"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 96.68866178393364,
+            "unit": "ns",
+            "range": "± 0.13200315800486612"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 1376.302822113037,
+            "unit": "ns",
+            "range": "± 9.930344549492307"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 843.4529178142548,
+            "unit": "ns",
+            "range": "± 0.9377588091201091"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 748.8747943878174,
+            "unit": "ns",
+            "range": "± 1.1330552542523906"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 419.0697791099548,
+            "unit": "ns",
+            "range": "± 1.7535673140580899"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 2770.6433654785155,
+            "unit": "ns",
+            "range": "± 14.852511268569973"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.2837228102236986,
+            "unit": "ns",
+            "range": "± 0.0001068742808448418"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 51.42142363786697,
+            "unit": "ns",
+            "range": "± 0.08037682987059452"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 2.850779743492603,
+            "unit": "ns",
+            "range": "± 0.006528052191845583"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 4563.132075500488,
+            "unit": "ns",
+            "range": "± 38.1430384575395"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 451.65310502052307,
+            "unit": "ns",
+            "range": "± 0.5489074918515932"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 7220.234594726562,
+            "unit": "ns",
+            "range": "± 29.612423781297352"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 767.4093154907226,
+            "unit": "ns",
+            "range": "± 35.802936659194295"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 6119.296792984009,
+            "unit": "ns",
+            "range": "± 21.543350695616255"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 756.2829372882843,
+            "unit": "ns",
+            "range": "± 0.35975107603280576"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 171.2174071073532,
+            "unit": "ns",
+            "range": "± 1.2384600073072285"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 1000)",
+            "value": 0.9741737768054008,
+            "unit": "ns",
+            "range": "± 0.0009257911761497297"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 1000)",
+            "value": 1.0701035566627979,
+            "unit": "ns",
+            "range": "± 0.010183031573564864"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 1000)",
+            "value": 2096.56447265625,
+            "unit": "ns",
+            "range": "± 5.390342226448737"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 1000)",
+            "value": 20072.5182734375,
+            "unit": "ns",
+            "range": "± 64.07484231900126"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 1000)",
+            "value": 320665.71765625,
+            "unit": "ns",
+            "range": "± 8839.911423553873"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 1000)",
+            "value": 418167.56015625,
+            "unit": "ns",
+            "range": "± 1289.4058890347192"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 444.7078049659729,
+            "unit": "ns",
+            "range": "± 0.3750601352392482"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 158.46713364124298,
+            "unit": "ns",
+            "range": "± 1.1280949912879665"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 13347.182971954346,
+            "unit": "ns",
+            "range": "± 14.746282939030811"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 10648.969100952148,
+            "unit": "ns",
+            "range": "± 4.419642004149491"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 20080.336651611327,
+            "unit": "ns",
+            "range": "± 44.59781500399022"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 11375.40388031006,
+            "unit": "ns",
+            "range": "± 12.84964025019789"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 11142.477111816406,
+            "unit": "ns",
+            "range": "± 8.382622628846192"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 954.3776495456696,
+            "unit": "ns",
+            "range": "± 4.626306560009184"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 8556.025048828125,
+            "unit": "ns",
+            "range": "± 3.275884475296729"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 877.9393171310425,
+            "unit": "ns",
+            "range": "± 0.5545846827357997"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 6841.7677200317385,
+            "unit": "ns",
+            "range": "± 63.29977378916301"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 3762.532527923584,
+            "unit": "ns",
+            "range": "± 41.3892308775117"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 24964.305398437496,
+            "unit": "ns",
+            "range": "± 253.26155410190862"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.2835648355484009,
+            "unit": "ns",
+            "range": "± 0.00019340999368550505"
           }
         ]
       }
