@@ -133,7 +133,7 @@ public sealed class CraftingTaskTests
         task.Tick();
 
         Assert.AreEqual(1, inventory.Items.GetCountById(Hide));
-        Assert.IsTrue(inventory.Items.GetCountById(Body) > 0);
+        Assert.AreEqual(1, inventory.Items.GetCountById(Body));
         Assert.AreEqual(1, inventory.Items.GetCountById(Thread));
         performer.Statistics.Received(1).AddExperience(Arg.Any<int>(), 25.0);
     }
@@ -156,6 +156,39 @@ public sealed class CraftingTaskTests
         performer.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
 
+    [TestMethod]
+    public void Leather_OnFifthCraft_ConsumesExactlyOneThread()
+    {
+        var (inventory, _, itemBuilder, contextAccessor) = CreateScenario(
+            [Needle, Needle, Needle, Needle, Needle, Thread, Thread, .. Enumerable.Repeat(Hide, 15)]);
+        var task = CreateLeatherTask(contextAccessor, itemBuilder, requiredHides: 3, totalMakeCount: 5);
+
+        for (var i = 0; i < 27; i++) task.Tick();
+
+        Assert.AreEqual(0, inventory.Items.GetCountById(Hide));
+        Assert.AreEqual(5, inventory.Items.GetCountById(Body));
+        Assert.AreEqual(1, inventory.Items.GetCountById(Thread));
+    }
+
+    [TestMethod]
+    public void Leather_WhenThreadMissingAtFifthCraft_RestoresHidesAndGrantsNothingForThatCraft()
+    {
+        var (inventory, performer, itemBuilder, contextAccessor) = CreateScenario(
+            [Needle, Needle, Needle, Needle, Needle, Thread, .. Enumerable.Repeat(Hide, 15)]);
+        var task = CreateLeatherTask(contextAccessor, itemBuilder, requiredHides: 3, totalMakeCount: 5);
+
+        for (var i = 0; i < 24; i++) task.Tick();
+        RemoveAll(inventory, Thread);
+        task.Tick();
+        task.Tick();
+        task.Tick();
+
+        Assert.IsTrue(task.IsCancelled);
+        Assert.AreEqual(3, inventory.Items.GetCountById(Hide));
+        Assert.AreEqual(4, inventory.Items.GetCountById(Body));
+        performer.Statistics.Received(4).AddExperience(Arg.Any<int>(), 25.0);
+    }
+
     private static JewelryTask CreateJewelryTask(ICharacterContextAccessor contextAccessor, TestItemBuilder itemBuilder,
         int resourceId, int productId)
     {
@@ -167,7 +200,7 @@ public sealed class CraftingTaskTests
     }
 
     private static LeatherTask CreateLeatherTask(ICharacterContextAccessor contextAccessor, TestItemBuilder itemBuilder,
-        int requiredHides)
+        int requiredHides, int totalMakeCount = 1)
     {
         return new LeatherTask(contextAccessor, Substitute.For<IItemService>(), itemBuilder)
         {
@@ -175,7 +208,7 @@ public sealed class CraftingTaskTests
             {
                 ProductId = Body, ResourceID = Hide, RequiredResourceCount = requiredHides, RequiredLevel = 1, Experience = 25.0
             },
-            TotalMakeCount = 1
+            TotalMakeCount = totalMakeCount
         };
     }
 }
