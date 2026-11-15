@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,6 +21,8 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly ICharacterStore _characterStore;
         private readonly GameServerOptions _gameOptions;
         private readonly ILogger<GameWorkerService> _logger;
+        private readonly TimeProvider _timeProvider;
+        private long? _previousTickStart;
         private readonly TaskCompletionSource _executionCompleted =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -31,7 +34,8 @@ namespace Hagalaz.Services.GameWorld.Services
             MapRegionBackgroundService regionHousekeeping,
             ICharacterStore characterStore,
             IOptions<GameServerOptions> gameOptions,
-            ILogger<GameWorkerService> logger)
+            ILogger<GameWorkerService> logger,
+            TimeProvider timeProvider)
         {
             _rsTaskScheduler = rsTaskScheduler;
             _regionService = regionService;
@@ -39,6 +43,7 @@ namespace Hagalaz.Services.GameWorld.Services
             _characterStore = characterStore;
             _gameOptions = gameOptions.Value;
             _logger = logger;
+            _timeProvider = timeProvider;
         }
 
         public override Task StartAsync(CancellationToken cancellationToken)
@@ -109,8 +114,45 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal async Task ExecuteTickAsync(CancellationToken stoppingToken)
         {
+            if (!GameWorldMetrics.TickMetricsEnabled)
+            {
+                _previousTickStart = null;
+                await RunTickAsync(stoppingToken);
+                return;
+            }
+
+            var start = _timeProvider.GetTimestamp();
+            if (_previousTickStart is { } previousStart)
+            {
+                GameWorldMetrics.RecordTickInterval(_timeProvider.GetElapsedTime(previousStart, start));
+            }
+
+            _previousTickStart = start;
+            var outcome = TickOutcome.Failure;
+            try
+            {
+                await RunTickAsync(stoppingToken);
+                outcome = TickOutcome.Success;
+            }
+            catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested && ex.CancellationToken == stoppingToken)
+            {
+                outcome = TickOutcome.Cancelled;
+                throw;
+            }
+            finally
+            {
+                var elapsed = _timeProvider.GetElapsedTime(start);
+                GameWorldMetrics.RecordTick(outcome, elapsed, elapsed > _gameOptions.TickTimeSpan);
+            }
+        }
+
+        private async Task RunTickAsync(CancellationToken stoppingToken)
+        {
             // Execute 'major-update' tasks.
-            _rsTaskScheduler.Tick();
+            using (GameWorldMetrics.BeginTickPhase(TickPhase.Scheduler, _timeProvider))
+            {
+                _rsTaskScheduler.Tick();
+            }
 
             var stopwatch = Stopwatch.StartNew();
             var tickCompleted = false;
@@ -139,32 +181,47 @@ namespace Hagalaz.Services.GameWorld.Services
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();
-            foreach (var region in regions)
+            using (GameWorldMetrics.BeginTickPhase(TickPhase.MajorUpdate, _timeProvider))
             {
-                region.MajorUpdateTick();
+                foreach (var region in regions)
+                {
+                    region.MajorUpdateTick();
+                }
             }
 
             try
             {
-                foreach (var region in regions)
+                using (GameWorldMetrics.BeginTickPhase(TickPhase.ClientPrepare, _timeProvider))
                 {
-                    region.MajorClientPrepareUpdateTick();
+                    foreach (var region in regions)
+                    {
+                        region.MajorClientPrepareUpdateTick();
+                    }
                 }
 
-                foreach (var region in regions)
+                using (GameWorldMetrics.BeginTickPhase(TickPhase.ClientUpdate, _timeProvider))
                 {
-                    region.MajorClientUpdateTick(characters);
+                    foreach (var region in regions)
+                    {
+                        region.MajorClientUpdateTick(characters);
+                    }
                 }
             }
             finally
             {
-                foreach (var region in regions)
+                using (GameWorldMetrics.BeginTickPhase(TickPhase.ClientReset, _timeProvider))
                 {
-                    region.MajorClientUpdateResetTick();
+                    foreach (var region in regions)
+                    {
+                        region.MajorClientUpdateResetTick();
+                    }
                 }
             }
 
-            await _regionHousekeeping.ProcessRegionsIfDueAsync(characters);
+            using (GameWorldMetrics.BeginTickPhase(TickPhase.Housekeeping, _timeProvider))
+            {
+                await _regionHousekeeping.ProcessRegionsIfDueAsync(characters);
+            }
 
         }
     }

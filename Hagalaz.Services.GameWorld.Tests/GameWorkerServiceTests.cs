@@ -659,7 +659,8 @@ public sealed class GameWorkerServiceTests
                 ClientRevisionPatch = 0,
                 TickTimeSpan = tickTimeSpan
             }),
-            logger ?? new TestLogger<GameWorkerService>());
+            logger ?? new TestLogger<GameWorkerService>(),
+            TimeProvider.System);
         return (worker, characterStore);
     }
 

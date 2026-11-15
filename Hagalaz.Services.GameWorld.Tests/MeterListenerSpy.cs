@@ -37,9 +37,9 @@ internal sealed class MeterListenerSpy : IDisposable
 
         lock (_sync)
         {
-            Measurements.Add(new MetricMeasurement(instrument.Name, value, copiedTags));
+            Measurements.Add(new MetricMeasurement(instrument.Name, value, copiedTags, instrument.Unit));
         }
     }
 }
 
-internal sealed record MetricMeasurement(string InstrumentName, double Value, IReadOnlyDictionary<string, object?> Tags);
+internal sealed record MetricMeasurement(string InstrumentName, double Value, IReadOnlyDictionary<string, object?> Tags, string? Unit = null);
