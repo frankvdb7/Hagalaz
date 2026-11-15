@@ -1,4 +1,4 @@
-using System.Linq;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -98,10 +98,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             if (TickCount % 3 == 0)
             {
                 SmeltCount++;
-                var ores = Definition.SmeltDefinition.RequiredOres;
-                var removed = ores.Sum(ore => Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(ore.Id).WithCount(ore.Count).Build()));
-
-                if (removed <= 0)
+                if (!TryConsumeOres())
                 {
                     Cancel();
                     return;
@@ -119,6 +116,24 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     Performer.SendChatMessage("The ore is too impure and you fail to refine it.");
                 }
             }
+        }
+
+        /// <summary>
+        ///     Consumes the whole recipe as one commit; nothing is consumed when any ore is missing.
+        /// </summary>
+        private bool TryConsumeOres()
+        {
+            using var transaction = ItemContainerTransaction.Begin(Performer.Inventory);
+            foreach (var ore in Definition.SmeltDefinition.RequiredOres)
+            {
+                if (!Performer.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(ore.Id).WithCount(ore.Count).Build()))
+                {
+                    return false;
+                }
+            }
+
+            transaction.Commit();
+            return true;
         }
 
         /// <summary>
