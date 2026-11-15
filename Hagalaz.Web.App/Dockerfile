@@ -1,4 +1,4 @@
-FROM node:20-slim AS base
+FROM node:24-slim AS base
 ENV PNPM_HOME="/pnpm" \
     PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -7,14 +7,14 @@ WORKDIR /app
 
 # --- Install prod deps early for caching ---
 FROM base AS deps
-COPY pnpm-lock.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm fetch --frozen-lockfile && \
     pnpm install --prod --frozen-lockfile
 
 # --- Full install + build dependencies ---
 FROM base AS build
-COPY pnpm-lock.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm fetch --frozen-lockfile
 COPY . .
