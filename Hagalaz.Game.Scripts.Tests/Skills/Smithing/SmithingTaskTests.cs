@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Skills.Smithing;
 using NSubstitute;
+using static Hagalaz.Game.Scripts.Tests.SkillTaskTestSupport;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Smithing;
 
@@ -137,47 +138,5 @@ public sealed class SmithingTaskTests
             ForgeDefinition = entry,
             TotalForgeCount = 1
         };
-    }
-
-    private static void RemoveAll(ComposedTestContainer inventory, int id, int limit = int.MaxValue)
-    {
-        for (var slot = 0; slot < 28 && limit > 0; slot++)
-        {
-            if (inventory.Items[slot]?.Id != id) continue;
-            inventory.Items.Remove(inventory.Items[slot]!, slot);
-            limit--;
-        }
-    }
-
-    private static (ComposedTestContainer Inventory, ICharacter Performer, TestItemBuilder ItemBuilder,
-        ICharacterContextAccessor ContextAccessor) CreateScenario(params int[] itemIds)
-    {
-        var inventory = new ComposedTestContainer(28);
-        foreach (var id in itemIds) inventory.Items.Add(CreateItem(id, 1));
-
-        var performer = Substitute.For<ICharacter>();
-        performer.Inventory.Returns(inventory);
-        var context = Substitute.For<ICharacterContext>();
-        context.Character.Returns(performer);
-        var contextAccessor = Substitute.For<ICharacterContextAccessor>();
-        contextAccessor.Context.Returns(context);
-
-        var itemBuilder = new TestItemBuilder(CreateItem);
-        return (inventory, performer, itemBuilder, contextAccessor);
-    }
-
-    /// <summary>Item double with id-based equality and count-aware cloning, matching real item semantics.</summary>
-    private static IItem CreateItem(int id, int count)
-    {
-        var item = Substitute.For<IItem>();
-        item.Id.Returns(id);
-        item.Count.Returns(count);
-        var definition = Substitute.For<IItemDefinition>();
-        definition.Stackable.Returns(false);
-        item.ItemDefinition.Returns(definition);
-        item.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call => call.ArgAt<IItem>(0).Id == id);
-        item.Clone().Returns(_ => CreateItem(id, count));
-        item.Clone(Arg.Any<int>()).Returns(call => CreateItem(id, call.Arg<int>()));
-        return item;
     }
 }
