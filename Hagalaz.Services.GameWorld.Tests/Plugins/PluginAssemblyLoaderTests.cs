@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 using Hagalaz.Game.Abstractions.Scripts;
@@ -10,7 +10,9 @@ namespace Hagalaz.Services.GameWorld.Tests.Plugins
     [TestClass]
     public class PluginAssemblyLoaderTests
     {
-        private static string PluginsDirectory => Path.Combine(AppContext.BaseDirectory, "plugins");
+        public TestContext TestContext { get; set; } = null!;
+
+        private static string PluginsDirectory => Path.Join(AppContext.BaseDirectory, "plugins");
 
         private static Assembly LoadScripts() => PluginAssemblyLoader.LoadAll(PluginsDirectory).Single(a => a.GetName().Name == "Hagalaz.Game.Scripts");
 
@@ -19,7 +21,7 @@ namespace Hagalaz.Services.GameWorld.Tests.Plugins
         {
             var assembly = LoadScripts();
 
-            Assert.AreEqual(Path.Combine(PluginsDirectory, "Hagalaz.Game.Scripts", "Hagalaz.Game.Scripts.dll"), assembly.Location);
+            Assert.AreEqual(Path.Join(PluginsDirectory, "Hagalaz.Game.Scripts", "Hagalaz.Game.Scripts.dll"), assembly.Location);
             Assert.AreNotSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(assembly));
             Assert.IsFalse(AssemblyLoadContext.GetLoadContext(assembly)!.IsCollectible);
         }
@@ -62,24 +64,31 @@ namespace Hagalaz.Services.GameWorld.Tests.Plugins
         [TestMethod]
         public void PluginPrivateDependency_ResolvesFromPluginDirectory()
         {
-            var dir = Path.Combine(Path.GetTempPath(), "hagalaz-plugin-" + Guid.NewGuid().ToString("N"), "Fixture");
+            var dir = Path.Join(Path.GetTempPath(), "hagalaz-plugin-" + Guid.NewGuid().ToString("N"), "Fixture");
             Directory.CreateDirectory(dir);
             try
             {
-                EmitAssembly("Fixture", Path.Combine(dir, "Fixture.dll"));
-                EmitAssembly("FixturePrivateDependency", Path.Combine(dir, "FixturePrivateDependency.dll"));
+                EmitAssembly("Fixture", Path.Join(dir, "Fixture.dll"));
+                EmitAssembly("FixturePrivateDependency", Path.Join(dir, "FixturePrivateDependency.dll"));
 
-                var plugin = PluginAssemblyLoader.Load(Path.Combine(dir, "Fixture.dll"));
+                var plugin = PluginAssemblyLoader.Load(Path.Join(dir, "Fixture.dll"));
                 var context = AssemblyLoadContext.GetLoadContext(plugin)!;
                 var dependency = context.LoadFromAssemblyName(new AssemblyName("FixturePrivateDependency"));
 
                 Assert.AreSame(context, AssemblyLoadContext.GetLoadContext(dependency));
-                Assert.AreEqual(Path.Combine(dir, "FixturePrivateDependency.dll"), dependency.Location);
+                Assert.AreEqual(Path.Join(dir, "FixturePrivateDependency.dll"), dependency.Location);
             }
             finally
             {
                 // Non-collectible contexts keep the loaded files locked on Windows; cleanup is best-effort.
-                try { Directory.Delete(Path.GetDirectoryName(dir)!, recursive: true); } catch (UnauthorizedAccessException) { } catch (IOException) { }
+                try
+                {
+                    Directory.Delete(Path.GetDirectoryName(dir)!, recursive: true);
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                {
+                    TestContext.WriteLine($"Could not delete fixture directory: {ex.Message}");
+                }
             }
         }
 

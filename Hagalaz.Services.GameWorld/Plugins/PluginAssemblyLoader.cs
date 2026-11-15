@@ -1,6 +1,6 @@
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace Hagalaz.Services.GameWorld.Plugins
@@ -10,19 +10,11 @@ namespace Hagalaz.Services.GameWorld.Plugins
         /// <summary>
         /// Loads every <c>&lt;pluginsDirectory&gt;/&lt;name&gt;/&lt;name&gt;.dll</c> plugin assembly.
         /// </summary>
-        public static IEnumerable<Assembly> LoadAll(string pluginsDirectory)
-        {
-            foreach (var dir in Directory.GetDirectories(pluginsDirectory))
-            {
-                var pluginDll = Path.Combine(dir, Path.GetFileName(dir) + ".dll");
-                if (!File.Exists(pluginDll))
-                {
-                    continue;
-                }
-
-                yield return Load(pluginDll);
-            }
-        }
+        public static IEnumerable<Assembly> LoadAll(string pluginsDirectory) =>
+            Directory.GetDirectories(pluginsDirectory)
+                .Select(dir => Path.Join(dir, Path.GetFileName(dir) + ".dll"))
+                .Where(File.Exists)
+                .Select(Load);
 
         public static Assembly Load(string pluginAssemblyPath) =>
             new PluginLoadContext(pluginAssemblyPath).LoadFromAssemblyPath(Path.GetFullPath(pluginAssemblyPath));

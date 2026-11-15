@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -98,7 +98,7 @@ namespace Hagalaz.Services.GameWorld
             builder.ConfigureServices(services =>
             {
                 // Create an instance of plugin types
-                foreach (var pluginAssembly in PluginAssemblyLoader.LoadAll(Path.Combine(AppContext.BaseDirectory, "plugins")))
+                foreach (var pluginAssembly in PluginAssemblyLoader.LoadAll(Path.Join(AppContext.BaseDirectory, "plugins")))
                 {
                     services.AddSingleton(pluginAssembly);
 
