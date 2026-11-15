@@ -95,8 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             }
 
             ForgeCount++;
-            var removed = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build());
-            if (removed < ForgeDefinition.RequiredBarCount) // something went wrong
+            if (!Performer.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(Definition.BarID).WithCount(ForgeDefinition.RequiredBarCount).Build()))
             {
                 Cancel();
                 return;
