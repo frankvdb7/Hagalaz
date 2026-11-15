@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Threading;
 
 namespace Hagalaz.Services.GameWorld.Metrics;
 
@@ -42,6 +43,55 @@ internal static class GameWorldMetrics
     private static readonly Histogram<double> TickInterval = Meter.CreateHistogram<double>(
         "hagalaz.gameworld.tick.interval",
         "s");
+
+    private static readonly Histogram<int> TickRegions = Meter.CreateHistogram<int>(
+        "hagalaz.gameworld.tick.regions",
+        "{region}");
+
+    // Published by the owners of the authoritative state after a successful transition.
+    // The observable callbacks only read these fields, never a store or region collection.
+    private static int _registeredCharacters;
+    private static int _registeredNpcs;
+    private static int _readyRegions;
+    private static int _idleRegions;
+
+    // Registered characters are those held by the character store. World admission registers a
+    // character before its session is committed, so this is not the authenticated player population.
+    private static readonly ObservableGauge<int> RegisteredCharacters = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.characters.registered",
+        () => Volatile.Read(ref _registeredCharacters),
+        "{character}");
+    private static readonly ObservableGauge<int> RegisteredNpcs = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.npcs.registered",
+        () => Volatile.Read(ref _registeredNpcs),
+        "{npc}");
+    // Ready regions are the ready active regions found by the most recent game tick.
+    private static readonly ObservableGauge<int> ReadyRegions = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.regions.ready",
+        () => Volatile.Read(ref _readyRegions),
+        "{region}");
+    private static readonly ObservableGauge<int> IdleRegions = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.regions.idle",
+        () => Volatile.Read(ref _idleRegions),
+        "{region}");
+
+    public static void CharacterRegistered() => Interlocked.Increment(ref _registeredCharacters);
+
+    public static void CharacterUnregistered() => Interlocked.Decrement(ref _registeredCharacters);
+
+    public static void NpcRegistered() => Interlocked.Increment(ref _registeredNpcs);
+
+    public static void NpcUnregistered() => Interlocked.Decrement(ref _registeredNpcs);
+
+    public static void RegionSuspended() => Interlocked.Increment(ref _idleRegions);
+
+    public static void IdleRegionLeft() => Interlocked.Decrement(ref _idleRegions);
+
+    public static void RecordTickRegions(int readyRegions)
+    {
+        Volatile.Write(ref _readyRegions, readyRegions);
+        TickRegions.Record(readyRegions);
+    }
 
     public static bool TickMetricsEnabled =>
         TickDuration.Enabled || Ticks.Enabled || TickOverruns.Enabled || TickInterval.Enabled;

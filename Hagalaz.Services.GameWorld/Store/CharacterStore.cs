@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Configuration.Model;
+using Hagalaz.Services.GameWorld.Metrics;
 
 namespace Hagalaz.Services.GameWorld.Store
 {
@@ -65,7 +66,13 @@ namespace Hagalaz.Services.GameWorld.Store
                     return false;
                 }
 
-                return _characters.Add(character);
+                if (!_characters.Add(character))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.CharacterRegistered();
+                return true;
             }
         }
 
@@ -77,7 +84,13 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.WriterLockAsync())
             {
-                return _characters.Remove(character);
+                if (!_characters.Remove(character))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.CharacterUnregistered();
+                return true;
             }
         }
 
@@ -85,7 +98,13 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (_lock.WriterLock())
             {
-                return _characters.Remove(character);
+                if (!_characters.Remove(character))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.CharacterUnregistered();
+                return true;
             }
         }
 

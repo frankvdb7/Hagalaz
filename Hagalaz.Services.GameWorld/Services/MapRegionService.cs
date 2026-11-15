@@ -18,6 +18,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Regions_MapRegion = Hagalaz.Services.GameWorld.Model.Maps.Regions.MapRegion;
@@ -351,6 +352,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 throw new InvalidOperationException($"Idle region[{id}] lost canonical ownership before it could be resumed.");
             }
 
+            GameWorldMetrics.IdleRegionLeft();
             idleRegion.Resume();
             dimension.ActiveRegions[id] = idleRegion;
             _logger.LogDebug("Region[{id}] was resumed.", id);
@@ -411,6 +413,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 expectedRegion.Suspend();
                 dimension.IdleRegionStore[expectedRegion.Id] = expectedRegion;
+                GameWorldMetrics.RegionSuspended();
                 return true;
             }
         }
@@ -427,9 +430,15 @@ namespace Hagalaz.Services.GameWorld.Services
                     return false;
                 }
 
-                return mapDimension.IdleRegionStore.TryGetValue(id, out var currentRegion)
-                    && ReferenceEquals(currentRegion, expectedRegion)
-                    && mapDimension.IdleRegionStore.Remove(id);
+                if (!mapDimension.IdleRegionStore.TryGetValue(id, out var currentRegion)
+                    || !ReferenceEquals(currentRegion, expectedRegion)
+                    || !mapDimension.IdleRegionStore.Remove(id))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.IdleRegionLeft();
+                return true;
             }
         }
 

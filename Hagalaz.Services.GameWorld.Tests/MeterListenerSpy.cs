@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.Linq;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -18,12 +19,29 @@ internal sealed class MeterListenerSpy : IDisposable
                 listener.EnableMeasurementEvents(instrument);
             }
         };
+        _listener.SetMeasurementEventCallback<int>((instrument, value, tags, _) => Record(instrument, value, tags));
         _listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) => Record(instrument, value, tags));
         _listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) => Record(instrument, value, tags));
         _listener.Start();
     }
 
     public List<MetricMeasurement> Measurements { get; } = [];
+
+    /// <summary>Triggers the observable gauges and returns each one's value, keyed by instrument name.</summary>
+    public IReadOnlyDictionary<string, double> ObserveGauges()
+    {
+        int start;
+        lock (_sync)
+        {
+            start = Measurements.Count;
+        }
+
+        _listener.RecordObservableInstruments();
+        lock (_sync)
+        {
+            return Measurements.Skip(start).ToDictionary(item => item.InstrumentName, item => item.Value);
+        }
+    }
 
     public void Dispose() => _listener.Dispose();
 
