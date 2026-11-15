@@ -16,10 +16,10 @@ jobs:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
           cache: true
@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotnet-test-results
           path: "**/TestResults/*.trx"
@@ -45,10 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -67,15 +67,15 @@ jobs:
       security-events: write
     steps:
       - name: Checkout repository with history
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Scan C# duplication
         id: jscpd
-        uses: kucherenko/jscpd@db415b5d7cc34d72a324fe5eae2147646dc3558b # v5.4.2
+        uses: kucherenko/jscpd@b82d84186389590fed0813d005391f3b8147dcfa # v5.4.3
         with:
-          version: '5.4.2'
+          version: '5.4.3'
           config: .jscpd.json
           reporters: console,json,sarif
           baseline-from-ref: ${{ github.event.pull_request.base.sha }}
@@ -105,14 +105,14 @@ jobs:
       run:
         working-directory: Hagalaz.Web.App
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10
           run_install: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: "pnpm"
