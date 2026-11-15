@@ -165,6 +165,18 @@ public sealed class GameWorkerTickMetricsTests
         CollectionAssert.AreEqual(new[] { "outcome", "phase" }, tagKeys);
     }
 
+    [TestMethod]
+    public async Task ExecuteTickAsync_WithoutListeners_ReadsNoTimestamps()
+    {
+        var time = new ManualTimeProvider();
+        var worker = CreateWorker(Substitute.For<IMapRegion>(), time);
+
+        await worker.ExecuteTickAsync(CancellationToken.None);
+        await worker.ExecuteTickAsync(CancellationToken.None);
+
+        Assert.AreEqual(0, time.TimestampReads);
+    }
+
     private static List<MetricMeasurement> For(MeterListenerSpy spy, string name) =>
         spy.Measurements.Where(item => item.InstrumentName == name).ToList();
 
@@ -201,10 +213,17 @@ public sealed class GameWorkerTickMetricsTests
     private sealed class ManualTimeProvider : TimeProvider
     {
         private long _timestamp;
+        private int _reads;
 
         public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
-        public override long GetTimestamp() => Interlocked.Read(ref _timestamp);
+        public int TimestampReads => Volatile.Read(ref _reads);
+
+        public override long GetTimestamp()
+        {
+            Interlocked.Increment(ref _reads);
+            return Interlocked.Read(ref _timestamp);
+        }
 
         public void Advance(TimeSpan amount) => Interlocked.Add(ref _timestamp, amount.Ticks);
     }
