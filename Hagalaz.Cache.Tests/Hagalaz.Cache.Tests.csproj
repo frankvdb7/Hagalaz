@@ -17,6 +17,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +26,11 @@
     <ProjectReference Include="..\Hagalaz.Cache.Extensions\Hagalaz.Cache.Extensions.csproj" />
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
     <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
+    <None Include="..\TestSupport\Fixtures\black-demon-animation.json" Link="Fixtures\black-demon-animation.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\TestSupport\Fixtures\maps\*" Link="Fixtures\maps\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\TestSupport\Fixtures\models\*" Link="Fixtures\models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\TestSupport\Fixtures\fonts\*" Link="Fixtures\fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup><None Include="..\TestSupport\Fixtures\particles\*" Link="Fixtures\particles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

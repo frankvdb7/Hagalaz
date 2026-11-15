@@ -1,0 +1,20 @@
+
+                <h2 class="studio-section-title flex items-center gap-2 mb-4"><mat-icon class="studio-icon-small">tune</mat-icon>Model properties</h2>
+                <form #previewForm="ngForm">
+                @for (field of transformFields; track field.key) {
+                    <fieldset class="min-w-0 border-0 p-0 mt-4"><legend class="supporting-text text-xs mb-2">{{ field.label }}</legend><div class="grid grid-cols-3 gap-2">
+                        @for (axis of axes; track axis; let index = $index) {
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>{{ axis }}</mat-label><input matInput class="tabular-nums" type="number" [name]="field.key + index" [attr.aria-label]="field.label + ' ' + axis" [min]="field.min" [max]="field.max" [ngModel]="transform()[field.key][index]" (ngModelChange)="transformInput.emit({key: field.key, axis: index, value: $event})" required /><mat-error>Use {{ field.min }} to {{ field.max }}.</mat-error></mat-form-field>
+                        }
+                    </div></fieldset>
+                }
+                <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><p class="supporting-text text-xs">Transforms affect this preview only.</p><button mat-button type="button" (click)="reset(previewForm)">Reset preview</button></div>
+                </form>
+                <section class="model-options mt-4"><h3 class="supporting-text text-xs mb-1">Options</h3><div class="grid grid-cols-2 gap-x-2"><mat-checkbox disabled [checked]="value().positions.length > 0">Decoded model</mat-checkbox><mat-checkbox disabled [checked]="!!value().faceSkins?.length">Has face groups</mat-checkbox><mat-checkbox disabled [checked]="usesAlpha()">Uses alpha</mat-checkbox><mat-checkbox disabled [checked]="!!value().vertexSkins?.length">Has skin groups</mat-checkbox></div></section>
+                <section class="model-structure mt-4 pt-4" aria-label="Model structure"><h2 class="studio-section-title flex items-center gap-2 mb-3"><mat-icon class="studio-icon-small">account_tree</mat-icon>Model structure</h2><details open><summary><mat-icon class="studio-icon-small">deployed_code</mat-icon>Model #{{ value().id }}</summary><div class="skin-groups mt-2">
+                    @for (group of skinGroups(); track group) { <button type="button" class="group-row studio-choice flex w-full items-center gap-2.5 rounded border-0 py-1.5 pr-3 pl-7" [class.selected]="selectedGroup() === group" [attr.aria-pressed]="selectedGroup() === group" (click)="selectedGroup.set(group)"><mat-icon>deployed_code</mat-icon>Skin group {{ group }}</button> }
+                    @empty { <p class="supporting-text text-xs py-2">No vertex skin groups in this model.</p> }
+                </div></details>
+                @if (selectedGroup() >= 0) { <p class="supporting-text text-xs mt-3" role="status">Skin group {{ selectedGroup() }} · {{ groupVertices() }} vertices</p> }
+                </section>
+            

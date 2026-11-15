@@ -9,6 +9,22 @@ namespace Hagalaz.Cache.Logic.Codecs
 {
     public class ObjectTypeCodec : IObjectTypeCodec
     {
+        private static int ReadTransformId(MemoryStream stream)
+        {
+            var start = stream.Position;
+            var value = stream.ReadBigSmart();
+            // Client Buffer.readBigSmart(): the short encoding 32767 means hidden;
+            // the four-byte encoding can still represent object ID 32767.
+            return stream.Position - start == 2 && value == short.MaxValue ? -1 : value;
+        }
+
+        // A repeated key cannot be held or re-encoded, so the stored entry is malformed data, not a programming error.
+        private static void AddExtraData(ObjectType objectType, int key, object value)
+        {
+            if (!objectType.ExtraData!.TryAdd(key, value))
+                throw new InvalidDataException($"Object {objectType.Id} repeats extra-data key {key}.");
+        }
+
         public IObjectType Decode(int id, MemoryStream stream)
         {
             var objectType = new ObjectType(id);
@@ -754,9 +770,9 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                                                                                 bool isStr = buffer.ReadUnsignedByte() == 1;
                                                                                                                                                                                 int key = buffer.ReadMedInt();
                                                                                                                                                                                 if (!isStr)
-                                                                                                                                                                                    objectType.ExtraData.Add(key, buffer.ReadInt());
+                                                                                                                                                                                    AddExtraData(objectType, key, buffer.ReadInt());
                                                                                                                                                                                 else
-                                                                                                                                                                                    objectType.ExtraData.Add(key, buffer.ReadString());
+                                                                                                                                                                                    AddExtraData(objectType, key, buffer.ReadString());
                                                                                                                                                                             }
                                                                                                                                                                         }
                                                                                                                                                                     }
@@ -850,13 +866,13 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                 int i34 = -1;
                                                                                                 if (opcode == ObjectTypeOpcodes.VarpTransformWithExtra)
                                                                                                 {
-                                                                                                    i34 = buffer.ReadBigSmart();
+                                                                                                i34 = ReadTransformId(buffer);
                                                                                                 }
                                                                                                 int childrenCount = buffer.ReadUnsignedByte();
                                                                                                 objectType.TransformToIDs = new int[childrenCount + 2];
                                                                                                 for (int childIndex = 0; childIndex <= childrenCount; childIndex++)
                                                                                                 {
-                                                                                                    objectType.TransformToIDs[childIndex] = buffer.ReadBigSmart();
+                                                                                                objectType.TransformToIDs[childIndex] = ReadTransformId(buffer);
                                                                                                 }
                                                                                                 objectType.TransformToIDs[childrenCount + 1] = i34;
                                                                                             }

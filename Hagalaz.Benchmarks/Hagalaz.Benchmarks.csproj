@@ -19,5 +19,10 @@
     <ProjectReference Include="..\Hagalaz.Cache.Abstractions\Hagalaz.Cache.Abstractions.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Utilities\Hagalaz.Game.Utilities.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Cache\Hagalaz.Services.Cache.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <None Include="..\TestSupport\Fixtures\maps\*.dat" Link="Fixtures\maps\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

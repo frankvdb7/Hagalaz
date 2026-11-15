@@ -10,11 +10,11 @@ import { CacheArchivesStore } from "../features/cache/stores/cache-archives.stor
     providers: [CacheArchivesStore],
     template: `<mat-card appearance="outlined"><mat-card-content>
         <div class="flex items-center justify-between gap-3"><h2>Cache definitions</h2><mat-icon>database</mat-icon></div>
-        <p class="count mt-6">{{ definitionCount() ?? "Not loaded" }}</p>
+        <p class="count mt-2">{{ definitionCount() ?? "Not loaded" }}</p>
         <button mat-button type="button" [disabled]="cache.loading()" (click)="cache.loadArchiveSizes()">{{ loadLabel() }}</button>
         @if (cache.error()) { <p role="alert" class="accent-ember mt-2">{{ cache.error() }}</p> }
     </mat-card-content></mat-card>`,
-    styles: `:host { display: block; height: 100%; } mat-card { height: 100%; position: relative; overflow: hidden; } mat-card::before { content: ""; position: absolute; top: 0; left: 20px; height: 3px; width: 40%; background: var(--mat-sys-primary); } mat-icon { color: var(--mat-sys-primary); } h2 { font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); } .count { font: var(--mat-sys-title-large); font-weight: 700; }`,
+    styles: `:host { display: block; height: 100%; } mat-card { height: 100%; position: relative; overflow: hidden; } mat-card-content { padding: 16px 18px 8px; } mat-card::before { content: ""; position: absolute; top: 0; left: 20px; height: 3px; width: 40%; background: var(--mat-sys-primary); } mat-icon { color: var(--mat-sys-primary); } h2 { font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); } .count { font: var(--mat-sys-title-large); font-weight: 700; } button { height: 28px; }`,
 })
 export class ArchiveCountCardComponent {
     readonly cache = inject(CacheArchivesStore);

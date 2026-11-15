@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -596,6 +596,60 @@ public sealed class CacheApiSnapshotTests
             using var container = new Container(new MemoryStream());
             currentFixture.Cache.Write(1, archiveId, container);
         }
+    }
+
+    [Fact]
+    public void TryReplaceContainer_WritesWhenTheFileStillHoldsTheExpectedData()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 2], 1);
+        fixture.WriteAction = (indexId, archiveId, container) => fixture.SetArchive(indexId, archiveId, container.Data.ToArray(), 1);
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.True(fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
+
+        Assert.Equal(new byte[] { 7, 9 }, fixture.GetStoredBytes(5, 1));
+    }
+
+    [Fact]
+    public void TryReplaceContainer_WritesNothingWhenAnotherWriteChangedTheFile()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 3], 1);
+        var writes = 0;
+        fixture.WriteAction = (_, _, _) => writes++;
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.False(fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
+
+        Assert.Equal(0, writes);
+        Assert.Equal(new byte[] { 1, 3 }, fixture.GetStoredBytes(5, 1));
+    }
+
+    [Fact]
+    public void TryReplaceContainer_WritesNothingWhenTheStoredFileCanNoLongerBeRead()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 2], 1);
+        fixture.BeforeContainerDecode = () => throw new InvalidDataException("Corrupt container.");
+        var writes = 0;
+        fixture.WriteAction = (_, _, _) => writes++;
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.False(fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
+
+        Assert.Equal(0, writes);
+    }
+
+    [Fact]
+    public void TryReplaceContainer_PropagatesWriteFailures()
+    {
+        using var fixture = new CacheApiFixture();
+        fixture.SetArchive(5, 1, [1, 2], 1);
+        fixture.WriteAction = (_, _, _) => throw new IOException("Disk full.");
+        using var replacement = new Container(new MemoryStream([7, 9]));
+
+        Assert.Throws<IOException>(() => fixture.Cache.TryReplaceContainer(5, 1, [1, 2], replacement));
     }
 
     private static Task<T> StartLongRunning<T>(Func<T> action) => Task.Factory.StartNew(

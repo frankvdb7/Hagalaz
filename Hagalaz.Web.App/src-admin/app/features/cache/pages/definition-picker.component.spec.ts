@@ -40,7 +40,7 @@ describe("cache definition breadcrumb picker", () => {
         fixture.componentRef.setInput("kind", kind);
         store.loadById(7);
         TestBed.tick();
-        http.expectOne(`${environment.cacheApiUrl}types/${kind}/7`).flush(
+        http.expectOne(`${environment.cacheApiUrl}types/${kind}/7${kind === "items" ? "/definition" : ""}`).flush(
             kind === "cs2-int" ? 0 : { id: 7, ...(kind === "items" ? { name: "Runic blade" } : {}) }
         );
         fixture.componentRef.setInput("id", 7);

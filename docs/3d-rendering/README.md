@@ -21,6 +21,8 @@ Public revision-adjacent sources are used only as additional evidence. In partic
 - [GameClient parity fixtures](game-client-parity-fixtures.md) defines how Hagalaz imports/version-controls a bounded GameClient semantic reference set with source commit/schema/cache provenance and no runtime Java/network dependency.
 - [Renderer-neutral contracts](renderer-neutral-contracts.md) defines the Java-name-free terrain/model/object/material/light/environment vocabulary that cache-service DTOs and Web 3D code should use while preserving revision-742 semantics.
 
+- [Maps browser and region detail](maps-workspace.md) documents the implemented region catalog, read-only rendering APIs, 3D admin flow, ownership and validation limits.
+
 ## Which document should I use?
 
 Use the narrowest document for the question:

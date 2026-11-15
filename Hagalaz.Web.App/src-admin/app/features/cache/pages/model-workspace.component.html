@@ -1,0 +1,60 @@
+@let value = modelData();
+
+    <header class="model-heading flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div class="flex items-center gap-4 min-w-0">
+            <div class="model-emblem studio-surface"><mat-icon class="studio-icon-large">view_in_ar</mat-icon></div>
+            <div class="min-w-0">
+                <p class="model-eyebrow">Model #{{ modelId() }}</p>
+                <h1>Model #{{ modelId() }}</h1>
+                <p class="supporting-text text-sm mt-1">Geometry, projected textures and ordinary transparency preview.</p>
+            </div>
+        </div>
+        <div class="model-actions flex flex-col items-end gap-2"><ng-content select="[modelLookup]" /><div class="flex flex-wrap items-center gap-2" >
+            <button mat-stroked-button type="button" (click)="reload.emit()"><mat-icon>refresh</mat-icon>Reload model</button>
+            <span matTooltip="Cache models are read-only. Duplication is not available."><button mat-stroked-button type="button" disabled><mat-icon>content_copy</mat-icon>Duplicate</button></span>
+            <span matTooltip="Cache models are read-only. Preview transforms are not saved."><button mat-flat-button type="button" disabled><mat-icon>save</mat-icon>Save changes</button></span>
+        </div>
+        </div>
+    </header>
+        <div class="workspace-grid">
+            <div class="min-w-0">
+                <mat-tab-group class="inspection-tabs studio-surface" [selectedIndex]="tab()" (selectedIndexChange)="tab.set($event)" mat-stretch-tabs="false" animationDuration="0ms" aria-label="Model inspection">
+                    @for (item of inspectionTabs(); track item.label) { <mat-tab><ng-template mat-tab-label><mat-icon class="studio-icon-small mr-2">{{item.icon}}</mat-icon>{{item.label}}</ng-template></mat-tab> }
+                </mat-tab-group>
+                <section class="model-stage studio-surface mt-3" [hidden]="tab() !== 0 && tab() !== 4" aria-label="Model viewport">
+                    <div class="viewport-toolbar flex flex-wrap items-center justify-between gap-2">
+                        <span class="camera-label studio-control-surface">Perspective</span>
+                        <ng-content select="[particleControls]" />
+                        <div class="flex items-center gap-1">
+                            <button mat-icon-button type="button" aria-label="Toggle grid" [attr.aria-pressed]="showGrid()" [class.active-tool]="showGrid()" matTooltip="Toggle grid" (click)="showGrid.set(!showGrid())"><mat-icon>grid_on</mat-icon></button>
+                            <button mat-icon-button type="button" aria-label="Toggle wireframe" [attr.aria-pressed]="wireframe()" [class.active-tool]="wireframe()" matTooltip="Toggle wireframe" (click)="wireframe.set(!wireframe())"><mat-icon>deployed_code</mat-icon></button>
+                            <button mat-icon-button type="button" aria-label="Focus model" matTooltip="Focus model" (click)="viewer()?.reset()"><mat-icon>center_focus_strong</mat-icon></button>
+                        </div>
+                    </div>
+                    <hagalaz-model-viewer [height]="430" [geometry]="workspaceGeometry()" [textures]="textureImages()" [grid]="showGrid()" [wireframe]="wireframe()" [showReset]="false" [particlePlaybackSpeed]="particlePlaybackSpeed()" />
+                    <footer class="viewport-footer flex flex-wrap items-end justify-between gap-3">
+                        <dl class="model-stats studio-control-surface"><div><dt>Objects</dt><dd>1</dd></div><div><dt>Vertices</dt><dd>{{ value.positions.length / 3 }}</dd></div><div><dt>Triangles</dt><dd>{{ value.indices.length / 3 }}</dd></div></dl>
+                        <p class="supporting-text text-xs">Drag to orbit · Scroll to zoom · Right-drag to pan</p>
+                    </footer>
+                </section>
+                <ng-content select="[modelNotes]" />
+                @if (tab() === 0 || tab() === 1) {
+                    <section cache-model-textures class="studio-surface p-4 texture-panel mt-3" aria-label="Texture images" [ids]="textureIds()" [materials]="textureImages()" [(selected)]="selectedTexture"><ng-content select="[textureErrors]" /></section>
+                }
+                @if (tab() === 2 || tab() === 3) {
+                    <section class="studio-surface empty-panel mt-3">
+                        <mat-icon class="studio-icon-large">{{ inspectionTabs()[tab()].icon }}</mat-icon>
+                        <h2 class="studio-section-title">{{ inspectionTabs()[tab()].label }} belong to definitions</h2>
+                        <p class="supporting-text">This is the original cache model. Inspect an item or object definition to see its appearance overrides.</p>
+                        <a mat-stroked-button href="/cache/types?kind=items" routerLink="/cache/types" [queryParams]="{kind: 'items'}">Browse item definitions</a>
+                    </section>
+                }
+                @if (tab() === 4) {
+                    <section class="studio-surface p-4 mt-3"><ng-content select="[animationControls]" /></section>
+                }
+                @if (tab() === 5) {
+                    <section class="studio-surface p-4 mt-3"><h2 class="studio-section-title mb-3">Model metadata</h2><dl class="metadata-list"><div><dt>Model ID</dt><dd>{{ value.id }}</dd></div><div><dt>Coordinate scale</dt><dd>{{ value.coordinateScale }}</dd></div><div><dt>Face groups</dt><dd>{{ value.faceSkins?.length ?? 0 }} faces</dd></div><div><dt>Particle emitters</dt><dd>{{ value.particles?.length ?? 0 }}</dd></div></dl><details class="mt-4"><summary>Raw model response</summary><pre class="raw-model mt-3">{{ value | json }}</pre></details></section>
+                }
+            </div>
+            <aside cache-model-properties class="studio-surface p-4 properties-panel" aria-label="Model properties" [value]="value" [transform]="transform()" [(selectedGroup)]="selectedGroup" (transformInput)="updateTransform($event.key, $event.axis, $event.value)" (resetPreview)="resetPreview()"></aside>
+        </div>

@@ -10,6 +10,7 @@ using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Maps;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Cache.Types.Providers
@@ -19,12 +20,14 @@ namespace Hagalaz.Cache.Types.Providers
         private const int BRIDGE_FLAG = 0x2;
 
         private readonly ICacheAPI _cache;
+        private readonly IRegionMapArchive _maps;
         private readonly IMapCodec _codec;
         private readonly ITypeFactory<IMapType> _typeFactory;
         private readonly ILogger<MapProvider> _logger;
-        public MapProvider(ICacheAPI cache, IMapCodec codec, ITypeFactory<IMapType> typeFactory, ILogger<MapProvider> logger)
+        public MapProvider(ICacheAPI cache, IRegionMapArchive maps, IMapCodec codec, ITypeFactory<IMapType> typeFactory, ILogger<MapProvider> logger)
         {
             _cache = cache;
+            _maps = maps;
             _codec = codec;
             _typeFactory = typeFactory;
             _logger = logger;
@@ -125,27 +128,25 @@ namespace Hagalaz.Cache.Types.Providers
 
         private IContainer? ReadObjectContainer(int regionId, int[]? xteaKeys)
         {
-            var fileId = _cache.GetFileId(5, "l" + (regionId >> 8) + "_" + (regionId & 0xFF));
-            if (fileId == -1)
+            if (_maps.Locate(regionId, RegionMapFile.Landscape) is not { } fileId)
             {
                 _logger.LogDebug("Object data for region {RegionId} is absent", regionId);
                 return null;
             }
 
             return xteaKeys is null || xteaKeys.Length == 0
-                ? _cache.ReadContainer(5, fileId)
-                : _cache.ReadContainer(5, fileId, xteaKeys);
+                ? _cache.ReadContainer(RegionMapArchive.Index, fileId)
+                : _cache.ReadContainer(RegionMapArchive.Index, fileId, xteaKeys);
         }
         private IContainer? ReadTerrainContainer(int regionId)
         {
-            var fileId = _cache.GetFileId(5, "m" + (regionId >> 8) + "_" + (regionId & 0xFF));
-            if (fileId == -1)
+            if (_maps.Locate(regionId, RegionMapFile.Terrain) is not { } fileId)
             {
                 _logger.LogDebug("Terrain data for region {RegionId} is absent", regionId);
                 return null;
             }
 
-            return _cache.ReadContainer(5, fileId);
+            return _cache.ReadContainer(RegionMapArchive.Index, fileId);
         }
     }
 }

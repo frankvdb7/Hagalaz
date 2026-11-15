@@ -49,6 +49,7 @@ namespace Hagalaz.Services.Authorization
             builder.Services.AddTransient<ICharacterUnitOfWork, CharacterUnitOfWork>();
             builder.Services.AddTransient<IOffenceService, OffenceService>();
             builder.Services.AddTransient<IOpenIddictService, OpenIddictService>();
+            builder.Services.AddTransient<FirstPartyClientRegistration>();
 
             builder.Services.AddTransient<ICharacterStore, CharacterStore>();
             builder.Services.AddTransient<IUserStore<Character>>(provider => provider.GetRequiredService<ICharacterStore>());
@@ -174,6 +175,13 @@ namespace Hagalaz.Services.Authorization
             var app = builder.Build();
 
             app.UseServiceDefaults();
+
+            await using (var scope = app.Services.CreateAsyncScope())
+            {
+                await scope.ServiceProvider
+                    .GetRequiredService<FirstPartyClientRegistration>()
+                    .RegisterIfMissingAsync();
+            }
 
             await app.RunAsync();
         }

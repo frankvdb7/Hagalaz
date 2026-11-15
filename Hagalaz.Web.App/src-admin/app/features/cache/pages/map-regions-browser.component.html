@@ -1,0 +1,35 @@
+<section [attr.aria-busy]="store.rangeLoading()" aria-label="Map regions">
+    <mat-card appearance="outlined" class="studio-search mb-5">
+        <mat-card-content>
+            <form (submit)="$event.preventDefault(); browse()" novalidate>
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow"><mat-label>Region ID</mat-label><input matInput [formField]="searchForm.query" placeholder="Enter a region ID" /></mat-form-field>
+                    <button mat-flat-button type="submit" [disabled]="store.rangeLoading()"><mat-icon>search</mat-icon>Find map</button>
+                </div>
+                <p class="supporting-text mt-2 text-xs">Enter a region ID, or browse all available regions below.</p>
+                @if (browseError(); as message) { <p role="alert">{{ message }}</p> }
+            </form>
+        </mat-card-content>
+    </mat-card>
+    <mat-card appearance="outlined" class="overflow-hidden">
+        @if (store.rangeLoading()) { <mat-progress-bar mode="indeterminate" aria-label="Loading map regions" /> }
+        @if (store.rangeError(); as message) {
+            <mat-card-content><p role="alert">{{ message }}</p><button mat-stroked-button type="button" (click)="store.loadPage(offset(), pageSize())">Retry</button></mat-card-content>
+        } @else if (rows().length) {
+            <div class="overflow-x-auto">
+                <table mat-table [dataSource]="rows()" aria-label="Available map regions">
+                    <ng-container matColumnDef="id"><th mat-header-cell *matHeaderCellDef>Region ID</th><td mat-cell *matCellDef="let row"><a href="/cache/types/maps/{{ row.id }}" [routerLink]="['/cache/types/maps', row.id]" queryParamsHandling="preserve" [attr.aria-label]="'Open map ' + row.id">{{ row.id }}</a></td></ng-container>
+                    <ng-container matColumnDef="regionX"><th mat-header-cell *matHeaderCellDef>Region X</th><td mat-cell *matCellDef="let row">{{ row.regionX }}</td></ng-container>
+                    <ng-container matColumnDef="regionY"><th mat-header-cell *matHeaderCellDef>Region Y</th><td mat-cell *matCellDef="let row">{{ row.regionY }}</td></ng-container>
+                    <ng-container matColumnDef="terrain"><th mat-header-cell *matHeaderCellDef>Terrain file</th><td mat-cell *matCellDef="let row">{{ row.terrainFileId === null ? 'Absent' : 'Present' }}</td></ng-container>
+                    <ng-container matColumnDef="landscape"><th mat-header-cell *matHeaderCellDef>Landscape file</th><td mat-cell *matCellDef="let row">{{ row.landscapeFileId === null ? 'Absent' : 'Present' }}</td></ng-container>
+                    <ng-container matColumnDef="actions"><th mat-header-cell *matHeaderCellDef>Actions</th><td mat-cell *matCellDef="let row"><a mat-button href="/cache/types/maps/{{ row.id }}" [routerLink]="['/cache/types/maps', row.id]" queryParamsHandling="preserve">Open map</a></td></ng-container>
+                    <tr mat-header-row *matHeaderRowDef="columns"></tr><tr mat-row *matRowDef="let row; columns: columns"></tr>
+                </table>
+            </div>
+        } @else if (!store.rangeLoading()) {
+            <mat-card-content><p role="status">No map regions on this page.</p><p class="supporting-text">Return to the first page, or enter a region ID to open a map.</p></mat-card-content>
+        }
+        <mat-paginator aria-label="Map region pages" [length]="paginationLength()" [pageIndex]="pageIndex()" [pageSize]="displayedPageSize()" [pageSizeOptions]="[10, 25, 50, 100, 200]" [disabled]="store.rangeLoading() || !!store.rangeError()" showFirstLastButtons (page)="changePage($event)" />
+    </mat-card>
+</section>

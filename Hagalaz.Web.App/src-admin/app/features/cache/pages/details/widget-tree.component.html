@@ -1,0 +1,39 @@
+<mat-card appearance="outlined" class="workspace-panel">
+    <mat-tab-group [mat-stretch-tabs]="false">
+        <mat-tab label="Hierarchy">
+            <div class="panel-list">
+                <button mat-button class="tree-root" type="button" [attr.aria-pressed]="selectedId() === null" (click)="select.emit(null)">
+                    <mat-icon>view_in_ar</mat-icon>Widget {{ fileId() }}
+                </button>
+                @for (row of rows(); track row.id) {
+                    <div class="tree-row" [attr.data-tree-component]="row.id" [style.padding-inline-start.px]="row.indent" [class.selected]="row.selected">
+                        @if (row.expandable) {
+                            <button mat-icon-button class="mini-button" type="button" [attr.aria-label]="'Toggle children of ' + row.label"
+                                [attr.aria-expanded]="row.expanded" (click)="toggle.emit(row.id)">
+                                <mat-icon>{{ row.expandIcon }}</mat-icon>
+                            </button>
+                        } @else { <span class="tree-indent"></span> }
+                        <button mat-button class="tree-label" type="button" [attr.aria-pressed]="row.selected" (click)="select.emit(row.id)">
+                            <mat-icon>{{ row.icon }}</mat-icon><span class="tree-label-text">{{ row.label }}</span>
+                        </button>
+                        <button mat-icon-button class="mini-button" type="button" [attr.aria-label]="row.visibilityLabel"
+                            (click)="visibility.emit({ id: row.id, hidden: !row.hidden })"><mat-icon>{{ row.visibilityIcon }}</mat-icon></button>
+                    </div>
+                }
+                @if (unreadable().length) {
+                    <p class="panel-message">Could not decode components {{ unreadable().join(', ') }}.</p>
+                }
+            </div>
+        </mat-tab>
+        <mat-tab label="Assets">
+            <mat-action-list aria-label="Widget sprites">
+                @for (id of spriteAssets(); track id) {
+                    <button mat-list-item type="button" (click)="selectSprite.emit(id)">
+                        <cache-widget-sprite matListItemAvatar class="asset-thumb" [id]="id" />
+                        <span matListItemTitle>Sprite {{ id }}</span>
+                    </button>
+                } @empty { <p class="panel-message">No sprites referenced.</p> }
+            </mat-action-list>
+        </mat-tab>
+    </mat-tab-group>
+</mat-card>

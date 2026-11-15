@@ -1,0 +1,10 @@
+# Design
+Move read handlers and their mappings from TypeEndpoints into per-type definition endpoint classes; merge the existing type mutation handlers into those same owners. ItemDefinitionEndpoints uses the exact requested singular name; NpcDefinitionsEndpoints and other definition classes use the requested plural convention. Shared range/search validation stays single-owner in TypeQueryUtilities, and persistence remains in TypeMutationUtilities. Equipment defaults, Huffman coding and archive-size queries receive focused endpoint files. TypeEndpoints only creates the existing /types group and calls the registrations. Preserve every method body and route mapping; compiler and route integration tests verify the move.
+
+## Verification
+75 cache-service tests passed, including DefinitionRegistrations_PreserveEveryExistingMethodAndRoute, which compares all 41 original method/path pairs against the composed endpoint data source. Existing DTO/full-save, sprite disposal, range/search and persistence-coherence regressions remain green. Separate service build passed with zero errors; no source compiler warnings were introduced and existing NuGet warnings remain. git diff --check and strict OpenSpec validation passed. No running service restart or live cache mutation was performed.
+
+## Namespace ownership
+Use Rider semantic Adjust Namespaces on Hagalaz.Services.Cache/Features, including its DTO and helper subfolders, to align declarations and all indexed references. The preview reports 63 affected files with no conflicts. Route URLs and DTO JSON remain unchanged; only CLR namespaces and corresponding imports change.
+
+Rider Adjust Namespaces applied successfully to 63 files with no conflicts, updating endpoint/helper/DTO declarations and indexed references. The cache-service test build and all 75 service tests passed, including all 41 method/path registrations. Strict OpenSpec validation and git diff --check passed (Git reports an existing line-ending normalization notice). Running services were left unchanged.

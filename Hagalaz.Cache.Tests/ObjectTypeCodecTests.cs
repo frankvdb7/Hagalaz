@@ -68,6 +68,17 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void Decode_WithARepeatedExtraDataKey_ThrowsInvalidDataException()
+        {
+            // Opcode 249: two integer entries that both use key 1.
+            byte[] data = [249, 2, 0, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 6, 0];
+
+            var error = Assert.Throws<InvalidDataException>(() => new ObjectTypeCodec().Decode(7, new MemoryStream(data)));
+
+            Assert.Equal("Object 7 repeats extra-data key 1.", error.Message);
+        }
+
+        [Fact]
         public void Decode_WithUnterminatedName_ThrowsEndOfStreamException()
         {
             var codec = new ObjectTypeCodec();

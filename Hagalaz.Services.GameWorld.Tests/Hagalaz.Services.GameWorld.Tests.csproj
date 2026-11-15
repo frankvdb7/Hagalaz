@@ -18,6 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="..\TestSupport\Fixtures\maps\*12850.*"
+             Link="Fixtures\maps\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Fixtures\world-reconnect-characterization.properties"
                       LogicalName="Hagalaz.Services.GameWorld.Tests.Fixtures.world-reconnect-characterization.properties" />
   </ItemGroup>

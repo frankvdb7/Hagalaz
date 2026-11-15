@@ -320,7 +320,10 @@ namespace Hagalaz.Cache.Extensions.Tests
         [InlineData(100)]
         [InlineData(32766)]
         [InlineData(32767)]
+        [InlineData(32768)]
+        [InlineData(40000)]
         [InlineData(65534)]
+        [InlineData(70000)]
         public void WriteAndReadHugeSmart(int value)
         {
             using var stream = new MemoryStream();

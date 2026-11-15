@@ -38,6 +38,19 @@
           "Asp.Versioning.Http": "10.0.0"
         }
       },
+      "FluentResults": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "wKfdLvDnDVhXlSreU7u/NFNHH6EfoOhAloEID4ePAyk+ZliowKZJvX+aCL4hxhFc9Jj74t62amS4LyOYTjXGCg=="
+      },
+      "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": {
+        "type": "Transitive",
+        "resolved": "10.0.10",
+        "contentHash": "3MRIESzUosMgYUEvnOn+40S2q3P7NeXaXOpPUMGoVtvZtctj8ay8++6iZdvA1X5Gc3SeLnN1SLcywQHgjhnaXA==",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore.Relational": "10.0.10"
+        }
+      },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Transitive",
         "resolved": "10.0.10",
@@ -531,6 +544,7 @@
       "hagalaz.cache": {
         "type": "Project",
         "dependencies": {
+          "FluentResults": "[4.0.0, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Cache.Extensions": "[1.0.0, )",
           "Hagalaz.Security": "[1.0.0, )",
@@ -574,6 +588,24 @@
           "OpenTelemetry.Instrumentation.Runtime": "[1.17.0, )",
           "Polly": "[8.7.0, )",
           "Scalar.AspNetCore": "[2.16.16, )"
+        }
+      },
+      "hagalaz.services.abstractions": {
+        "type": "Project"
+      },
+      "hagalaz.services.common": {
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Services.Abstractions": "[1.0.0, )",
+          "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": "[10.0.10, )",
+          "Microsoft.EntityFrameworkCore": "[10.0.10, )"
+        }
+      },
+      "hagalaz.services.extensions": {
+        "type": "Project",
+        "dependencies": {
+          "Hagalaz.Services.Abstractions": "[1.0.0, )",
+          "Hagalaz.Services.Common": "[1.0.0, )"
         }
       }
     }

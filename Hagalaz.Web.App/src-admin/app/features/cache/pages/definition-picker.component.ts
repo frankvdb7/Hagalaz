@@ -10,12 +10,12 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { Router } from "@angular/router";
-import { cacheTypeNames, type DefinitionSummaryDto, type SearchResultDto, type TypeKind } from "../services/cache.models";
+import { cacheTypeNames, type DefinitionSummaryDto, type SearchDefinitionsDto, type TypeKind } from "../services/cache.models";
 
 export interface DefinitionPickerStore {
     byIdResult: Signal<unknown>;
     definitionId: Signal<number | null>;
-    searchResult?: Signal<SearchResultDto<DefinitionSummaryDto> | null>;
+    searchResult?: Signal<SearchDefinitionsDto<DefinitionSummaryDto> | null>;
     searchLoading?: Signal<boolean>;
     searchError?: Signal<string | null>;
     search?(query: string, offset: number, limit: number): void;
@@ -36,6 +36,7 @@ export interface DefinitionPickerStore {
         MatProgressBarModule,
     ],
     templateUrl: "./definition-picker.component.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./definition-picker.component.scss",
 })
 export class DefinitionPickerComponent {

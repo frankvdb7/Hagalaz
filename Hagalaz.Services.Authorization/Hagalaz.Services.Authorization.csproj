@@ -14,6 +14,9 @@
     <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Hagalaz.Services.Authorization.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="MassTransit" Version="8.5.10" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.10" />
     <PackageReference Include="OpenIddict.AspNetCore" Version="7.6.0" />
@@ -22,6 +25,7 @@
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.19.1" />
     <PackageReference Include="Refit" Version="14.0.1" />
     <PackageReference Include="Refit.HttpClientFactory" Version="14.0.1" />
+    <PackageReference Include="Refit.Reflection" Version="14.0.1" />
     <PackageReference Include="System.Linq.Async" Version="7.0.1" />
   </ItemGroup>
   <ItemGroup>

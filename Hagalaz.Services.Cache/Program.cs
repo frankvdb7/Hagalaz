@@ -17,6 +17,7 @@ builder.AddServiceDefaults();
 
 builder.Services.Configure<CacheOptions>(builder.Configuration.GetSection(CacheOptions.Key));
 builder.Services.AddGameCache();
+builder.Services.AddOutputCache(options => options.SizeLimit = 32 * 1024 * 1024);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CacheExceptionHandler>();
 
@@ -46,6 +47,7 @@ var app = builder.Build();
 
 app.UseServiceDefaults();
 app.UseExceptionHandler();
+app.UseOutputCache();
 app.MapCacheEndpoints();
 
 await app.RunAsync();

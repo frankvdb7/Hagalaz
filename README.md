@@ -74,13 +74,28 @@ The easiest way to get the entire application running is by using the .NET Aspir
     cd hagalaz
     ```
 
-2.  **Run the AppHost:**
+2.  **Configure the Cache API introspection secret:**
+
+    The Authorization and Cache API services share the Aspire parameter
+    `cache-introspection-client-secret`. Set a local value in AppHost User Secrets
+    before starting the application. Use a long, random value and keep it private; do
+    not commit it to the repository.
+
+    ```bash
+    dotnet user-secrets set "Parameters:cache-introspection-client-secret" "<your-random-secret>" --project Hagalaz.AppHost/Hagalaz.AppHost.csproj
+    ```
+
+    The same parameter is passed to both services automatically. For other hosting
+    environments, configure the same value as `Security:Introspection:ClientSecret`
+    for both Authorization and Cache API.
+
+3.  **Run the AppHost:**
 
     ```bash
     dotnet run --project Hagalaz.AppHost/Hagalaz.AppHost.csproj
     ```
 
-3.  **Launch the Aspire Dashboard:**
+4.  **Launch the Aspire Dashboard:**
     Once the project is running, .NET Aspire will start all the configured services, databases, and containers. You can view the status, logs, and traces of all resources in the Aspire Dashboard, which typically launches automatically in your web browser.
 
 ### 2. Configuration

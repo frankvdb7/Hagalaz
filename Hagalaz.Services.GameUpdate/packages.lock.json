@@ -23,6 +23,11 @@
           "Asp.Versioning.Http": "10.0.0"
         }
       },
+      "FluentResults": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "wKfdLvDnDVhXlSreU7u/NFNHH6EfoOhAloEID4ePAyk+ZliowKZJvX+aCL4hxhFc9Jj74t62amS4LyOYTjXGCg=="
+      },
       "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": {
         "type": "Transitive",
         "resolved": "10.0.10",
@@ -305,6 +310,7 @@
       "hagalaz.cache": {
         "type": "Project",
         "dependencies": {
+          "FluentResults": "[4.0.0, )",
           "Hagalaz.Cache.Abstractions": "[1.0.0, )",
           "Hagalaz.Cache.Extensions": "[1.0.0, )",
           "Hagalaz.Security": "[1.0.0, )",

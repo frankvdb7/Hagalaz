@@ -1,10 +1,11 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.ReferenceTables;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -84,6 +85,10 @@ public class ReferenceTableEndpointsTests
         public MemoryStream Read(int indexId, int fileId) => throw new NotSupportedException();
 
         public void Write(int indexId, int fileId, IContainer container) => throw new NotSupportedException();
+
+        public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement) => throw new NotSupportedException();
+
+        public (int FileId, int EntryId) AppendArchiveMemberCopy(int indexId, int sourceFileId, int sourceEntryId, int archiveMemberLimit) => throw new NotSupportedException();
 
         public void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.ReadOnlyMemory<byte> replacement) => throw new NotSupportedException();
 

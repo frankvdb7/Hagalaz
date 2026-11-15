@@ -1,4 +1,5 @@
-import { Component, computed, effect, inject, linkedSignal, signal, untracked } from "@angular/core";
+import { NgTemplateOutlet } from "@angular/common";
+import { Component, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { FormField, form } from "@angular/forms/signals";
 import { MatButtonModule } from "@angular/material/button";
@@ -6,44 +7,57 @@ import { MatCardModule } from "@angular/material/card";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
-import { MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
+import { MatMenuModule } from "@angular/material/menu";
+import { MatPaginator, MatPaginatorModule, type PageEvent } from "@angular/material/paginator";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTableModule } from "@angular/material/table";
-import { MatTabsModule } from "@angular/material/tabs";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { cacheTypeLabels, type TypeKind } from "../services/cache.models";
 import { CacheSpritesService } from "../services/cache-sprites.service";
+import {CacheModelsStore, modelCapacityResource} from "../stores/cache-models.store";
+import {getCacheErrorMessage} from "../stores/cache-error";
 import { CacheArchivesStore } from "../stores/cache-archives.store";
 import { cacheDefinitionStores } from "../stores/cache-definition-stores";
+import { ItemSpriteThumbnailComponent } from "./item-sprite-thumbnail.component";
 import { SpriteFrameThumbnailComponent } from "./sprite-frame-thumbnail.component";
+
+import { MapRegionsBrowserComponent } from "./map-regions-browser.component";
+
+type BrowserKind = TypeKind | "models";
 
 @Component({
     selector: "types-manager-page",
     imports: [
+        NgTemplateOutlet,
+        MapRegionsBrowserComponent,
         FormField,
         RouterLink,
         MatButtonModule,
         MatCardModule,
         MatIconModule,
-        MatTabsModule,
         MatTableModule,
         MatFormFieldModule,
         MatInputModule,
+        MatMenuModule,
         MatPaginatorModule,
         MatProgressBarModule,
         SpriteFrameThumbnailComponent,
+        ItemSpriteThumbnailComponent,
     ],
-    providers: [CacheSpritesService, CacheArchivesStore, ...Object.values(cacheDefinitionStores)],
+    providers: [CacheSpritesService, CacheArchivesStore, CacheModelsStore, ...Object.values(cacheDefinitionStores)],
     templateUrl: "./types-manager.page.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./types-manager.page.scss",
 })
 export class TypesManagerPageComponent {
+    readonly models = input(false);
+    readonly modelCapacity = modelCapacityResource(() => this.models());
     readonly archives = inject(CacheArchivesStore);
     private readonly router = inject(Router);
     readonly kinds = Object.keys(cacheDefinitionStores) as TypeKind[];
-    readonly kindLabels = cacheTypeLabels;
+    readonly kindLabels = {...cacheTypeLabels,models:"Models"};
     readonly supportsNameSearch = computed(() => this.activeKind() === "items" || this.activeKind() === "npcs");
-    readonly searchLabel = computed(() => (this.supportsNameSearch() ? "Name or ID" : "Definition ID"));
+    readonly searchLabel = computed(() => (this.supportsNameSearch() ? "Name or ID" : this.models() ? "Model ID" : "Definition ID"));
     readonly searchHelp = computed(() =>
         this.supportsNameSearch()
             ? "Search by name, enter an exact ID, or leave blank to browse ID ranges."
@@ -53,7 +67,8 @@ export class TypesManagerPageComponent {
     );
     private readonly route = inject(ActivatedRoute);
     private readonly params = toSignal(this.route.queryParamMap, { initialValue: this.route.snapshot.queryParamMap });
-    readonly activeKind = computed<TypeKind>(() => this.kinds.find((kind) => kind === this.params().get("kind")) ?? "items");
+    readonly activeKind = computed<BrowserKind>(() => this.models() ? "models" : this.kinds.find((kind) => kind === this.params().get("kind")) ?? "items");
+    readonly browserTemplateKey = computed(() => this.activeKind() === "maps" ? "maps" : "definitions");
     private readonly appliedQuery = computed(() => this.params().get("query")?.trim() ?? "");
     readonly pageSize = computed(() => this.validNumber(this.params().get("limit"), 10, 1, 200));
     private readonly offset = computed(() => {
@@ -61,6 +76,7 @@ export class TypesManagerPageComponent {
         return Math.floor(offset / this.pageSize()) * this.pageSize();
     });
     private readonly stores = {
+        models: inject(CacheModelsStore),
         items: inject(cacheDefinitionStores.items),
         npcs: inject(cacheDefinitionStores.npcs),
         objects: inject(cacheDefinitionStores.objects),
@@ -78,20 +94,27 @@ export class TypesManagerPageComponent {
     get store() {
         return this.stores[this.activeKind()];
     }
-    readonly resultKind = signal<TypeKind | null>(null);
-    readonly resultColumns = computed(() => (this.activeKind() === "sprites" ? ["id", "preview", "name"] : ["id", "name"]));
+    readonly resultKind = signal<BrowserKind | null>(null);
+    readonly resultColumns = computed(() =>
+        this.activeKind() === "cs2"
+            ? ["id", "name", "opcodeCount", "actions"]
+            : this.activeKind() === "sprites" || this.activeKind() === "items"
+              ? ["id", "preview", "name", "actions"]
+              : ["id", "name", "actions"]
+    );
     readonly browseError = signal<string | null>(null);
     readonly loading = computed(() => {
         const store = this.store;
         return (
-            this.archives.loading() ||
+            (this.models() ? this.modelCapacity.isLoading() : this.archives.loading()) ||
             (this.appliedQuery() ? "searchLoading" in store && store.searchLoading() : "rangeLoading" in store && store.rangeLoading())
         );
     });
+    readonly loadingFeedbackVisible = signal(false);
     readonly error = computed(() => {
         const store = this.store;
         return (
-            this.archives.error() ??
+            (this.models() ? (this.modelCapacity.error() ? getCacheErrorMessage(this.modelCapacity.error()) : null) : this.archives.error()) ??
             (this.appliedQuery() ? ("searchError" in store ? store.searchError() : null) : "rangeError" in store ? store.rangeError() : null)
         );
     });
@@ -103,6 +126,14 @@ export class TypesManagerPageComponent {
         if (this.appliedQuery()) return "searchResult" in store ? (store.searchResult()?.totalMatches ?? 0) : 0;
         return this.archiveSize();
     });
+    private readonly paginator = viewChild(MatPaginator);
+    readonly visiblePagination = computed(() => {
+        const store = this.store;
+        if (this.appliedQuery()) return "searchPagination" in store ? store.searchPagination() : null;
+        return "rangePagination" in store ? store.rangePagination() : null;
+    });
+    readonly paginatorPageIndex = computed(() => this.visiblePagination()?.pageIndex ?? this.pageIndex());
+    readonly paginatorPageSize = computed(() => this.visiblePagination()?.pageSize ?? this.pageSize());
     readonly rows = computed(() => {
         if (this.resultKind() !== this.activeKind() || this.error() || this.browseError()) return [];
         const store = this.store;
@@ -111,27 +142,51 @@ export class TypesManagerPageComponent {
             (row): row is { id: number; name?: string } => row !== null && typeof row === "object" && "id" in row && typeof row.id === "number"
         );
     });
+    readonly ariaDisabled = computed(() => (this.loading() ? "true" : null));
+    readonly paginationDisabled = computed(() => Boolean(this.error() || this.browseError()) || this.resultKind() !== this.activeKind());
+    /** Which result panel to show; quiet loading reserves space until slow-request feedback is due. */
+    readonly resultState = computed(() => {
+        if (this.loading() && !this.rows().length) return this.loadingFeedbackVisible() ? "loading" : "loading-quiet";
+        if (this.browseError()) return "browse-error";
+        if (this.error()) return "error";
+        return this.rows().length ? "rows" : "empty";
+    });
+    /** Labels that differ between the model workspace and definition workspaces. */
+    readonly copy = computed(() => {
+        const models = this.models();
+        return {
+            workspace: models ? "Model workspace" : "Definition workspace",
+            placeholder: this.supportsNameSearch() ? "Search by name or ID…" : "Enter an exact ID…",
+            find: models ? "Find models" : "Find definitions",
+            table: models ? "Matching models" : "Matching definitions",
+            preview: this.activeKind() === "items" ? "Item sprite" : "Preview",
+            actions: models ? "Actions for model " : "Actions for definition ",
+        };
+    });
     private readonly searchModel = linkedSignal(() => {
         this.activeKind();
         return { query: this.appliedQuery() };
     });
     readonly searchForm = form(this.searchModel);
     constructor() {
-        this.archives.loadArchiveSizes();
+        effect(() => { if (!this.models() && this.activeKind() !== "maps") untracked(() => { if (!this.archives.archiveSizes() && !this.archives.loading() && !this.archives.error()) this.archives.loadArchiveSizes(); }); });
+        effect((onCleanup) => {
+            if (!this.loading()) {
+                this.loadingFeedbackVisible.set(false);
+                return;
+            }
+            const timeout = setTimeout(() => this.loadingFeedbackVisible.set(true), 200);
+            onCleanup(() => clearTimeout(timeout));
+        });
         effect(() => {
             this.activeKind();
             this.appliedQuery();
             this.offset();
             this.pageSize();
-            if (this.archives.archiveSizes()) untracked(() => this.loadPage());
+            if (this.models() ? this.modelCapacity.hasValue() : this.archives.archiveSizes()) untracked(() => this.loadPage());
         });
     }
 
-    async selectKind(index: number): Promise<void> {
-        const kind = this.kinds[index];
-        if (this.loading() || !kind || kind === this.activeKind()) return;
-        await this.navigate({ kind, query: null, offset: 0 });
-    }
     async browse(): Promise<void> {
         if (this.loading()) return;
         const query = this.searchModel().query.trim();
@@ -140,28 +195,52 @@ export class TypesManagerPageComponent {
         else await this.navigate({ query: query || null, offset: 0 });
     }
     async changePage(event: PageEvent): Promise<void> {
-        if (!this.loading()) await this.navigate({ offset: event.pageIndex * event.pageSize, limit: event.pageSize });
+        const paginator = this.paginator();
+        if (paginator) {
+            paginator.pageIndex = this.paginatorPageIndex();
+            paginator.pageSize = this.paginatorPageSize();
+        }
+        if (this.loading()) return;
+        await this.navigate({ offset: event.pageIndex * event.pageSize, limit: event.pageSize });
     }
     retry(): void {
         if (this.loading()) return;
-        if (this.archives.error()) this.archives.loadArchiveSizes();
+        if (this.models() && this.modelCapacity.error()) this.modelCapacity.reload();
+        else if (!this.models() && this.archives.error()) this.archives.loadArchiveSizes();
         else this.loadPage();
     }
     private navigate(changes: Record<string, string | number | null>) {
         return this.router.navigate([], { relativeTo: this.route, queryParams: { ...this.context(), ...changes } });
     }
     private context(): Record<string, string | number | null> {
-        return { kind: this.activeKind(), query: this.appliedQuery() || null, offset: this.offset(), limit: this.pageSize() };
+        return { kind: this.models() ? null : this.activeKind(), query: this.appliedQuery() || null, offset: this.offset(), limit: this.pageSize() };
     }
     private validNumber(value: string | null, fallback: number, min: number, max: number): number {
         const parsed = value !== null && /^\d+$/.test(value) ? Number(value) : NaN;
         return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
     }
+    /** CS2 scripts show their name or "Unnamed"; other rows fall back to their type label and ID. */
+    rowName(row: { id: number; name?: string }): string {
+        const kind = this.activeKind();
+        if (kind === "cs2") return row.name || "Unnamed";
+        return row.name ?? `${this.models() ? "Model #" : `${this.kindLabels[kind]} `}${row.id}`;
+    }
+
+    inspectLink(kind: BrowserKind, id: number): (string | number)[] {
+        return kind === "models" ? ["/cache/models", id] : ["/cache/types", kind, id];
+    }
+
+    inspectLabel(kind: BrowserKind): string {
+        if (this.models()) return "Inspect model";
+        return kind === "cs2" ? "Inspect script" : "Inspect definition";
+    }
+
     spritePreviewFrame(frameCount: number): number | null {
         if (frameCount === 0) return null;
         return frameCount === 1 ? 0 : 1;
     }
     private loadPage(): void {
+        if (this.activeKind() === "maps") return;
         this.browseError.set(null);
         const query = this.appliedQuery();
         const store = this.store;
@@ -188,21 +267,22 @@ export class TypesManagerPageComponent {
                 return;
             }
             this.resultKind.set(this.activeKind());
-            store.loadRange(offset, Math.min(offset + limit, size));
+            store.loadRange(offset, Math.min(offset + limit, size), limit);
         } else this.browseError.set("This type supports lookup by ID. Enter a definition ID above.");
     }
     private openDefinition(query: string, options: { replaceUrl?: boolean } = {}): void {
         const id = Number(query);
         if (!Number.isSafeInteger(id) || id < 0) {
-            this.browseError.set("Enter a valid definition ID of zero or greater.");
+            this.browseError.set(`Enter a valid ${this.models() ? "model" : "definition"} ID of zero or greater.`);
             return;
         }
         const context = this.context();
         // An ID lookup is navigation, not an applied list search to replay on return.
         if (this.appliedQuery() === query) context.query = null;
-        void this.router.navigate(["/cache/types", this.activeKind(), id], { queryParams: context, ...options });
+        void this.router.navigate(this.models() ? ["/cache/models", id] : ["/cache/types", this.activeKind(), id], { queryParams: context, ...options });
     }
     private archiveSize(): number {
+        if (this.models()) return this.modelCapacity.hasValue() ? this.modelCapacity.value().capacity : 0;
         const sizes = this.archives.archiveSizes();
         const kind = this.activeKind();
         if (!sizes || kind === "cs2-int") return 0;
@@ -214,6 +294,6 @@ export class TypesManagerPageComponent {
                   : kind === "config-definitions"
                     ? "configDefinitions"
                     : kind;
-        return sizes[key];
+        return key === "models" ? 0 : sizes[key];
     }
 }

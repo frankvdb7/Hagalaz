@@ -1,0 +1,5 @@
+# Design
+Extract GetFileIdDto(FileId) into Features/FileLookup/Dtos and use it in the existing Results signature. Keep route parameters, required fileName query and existing validation unchanged. Test actual named reference-table lookup and the -1 missing-name sentinel using an isolated cache store; do not change the hashing owner or add a client API without a consumer.
+
+## Verification
+Service/test projects built successfully through dotnet test; all 92 service tests passed. LookupDto_RetainsFoundAndMissingNameResults verifies the real named lookup and -1 sentinel plus exact fileId JSON. LookupDto_RetainsInvalidIdAndQueryValidation covers negative index, blank name and omitted query. The initial test fixture incorrectly put its name hash in Index instead of Id; the corrected fixture passes without any lookup behavior change. Strict OpenSpec validation and git diff --check passed with the existing line-ending notice. No new source compiler warnings; pre-existing NuGet warnings remain. Isolated stores only, with no live cache writes or service restart.

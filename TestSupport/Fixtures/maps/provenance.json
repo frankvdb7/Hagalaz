@@ -1,0 +1,19 @@
+{
+  "sourceRepository": "frankvdb7/Hagalaz.GameClient",
+  "sourceCommit": "2d6d99555c87d23d5909ff0f9dfea1e58fa5bdda",
+  "revision": 742,
+  "regionId": 12850,
+  "terrainFileName": "m50_50",
+  "cacheArchiveSha256": "2674f30b06bb7831fd51711b769e62208ae8236bde399f3fee1346ef03c891b1",
+  "cacheDataSha256": "0ec9aee124926979303af7e29a156d1f33138896153df6d4c0c4bb60078aa545",
+  "terrainPayloadSha256": "6504b39027a67bbecd04ad2420a6d05fd4dce323ac3244fc90758c50bd1a324b",
+  "terrainSemanticSha256": "bafd725f7085f1f8ffe9349d523c9704b007dd8de1a7900c536c6623d51baceb",
+  "semanticEncoding": "plane, x, y order; six big-endian int32 values per tile: height, flags, underlay, overlay, shape, rotation",
+  "capture": "Call existing Class274.readLandscapeData on the raw payload, using absolute region tile coordinates. Hash outputs from the client arrays. No Hagalaz terrain decoder is used to calculate the expected semantic hash.",
+  "capturedOn": "2026-11-03",
+  "landscapeFileName": "l50_50",
+  "landscapePayloadSha256": "6bf40b28daefd20e77517d001f37dbd50a315c154e08e7cd61141a9683808dba",
+  "landscapeSemanticSha256": "bee90dfdcbf5e934e4d0c9faac97959490dbb2da4a44882c5891892513374077",
+  "landscapePlacementCount": 5934,
+  "landscapeCapture": "Existing GameClient Buffer.readIncrementor/readUnsignedSmart/readUnsignedByte, following Map.readObjectsFromLandscape source traversal before clipping. Invokes client byte primitives, not the graphics-dependent full Map method. Hash six big-endian int32 fields in source order: id, shape, rotation, x, y, source plane."
+}

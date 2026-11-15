@@ -33,6 +33,36 @@ public class CacheAuthorizationTests
     }
 
     [TestMethod]
+    public async Task CacheAdminPolicy_RequiresAdministratorRoleAndCacheScope()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCacheAuthorization();
+
+        using var provider = services.BuildServiceProvider();
+        var authorization = provider.GetRequiredService<IAuthorizationService>();
+        var administrator = CreatePrincipal(new[]
+        {
+            new Claim(OpenIddictConstants.Claims.Role, Roles.SystemAdministrator),
+            new Claim(OpenIddictConstants.Claims.Scope, Scopes.CacheApi)
+        });
+        var nonAdministrator = CreatePrincipal(new[]
+        {
+            new Claim(OpenIddictConstants.Claims.Role, "Player"),
+            new Claim(OpenIddictConstants.Claims.Scope, Scopes.CacheApi)
+        });
+        var administratorWithoutCacheScope = CreatePrincipal(new[]
+        {
+            new Claim(OpenIddictConstants.Claims.Role, Roles.SystemAdministrator),
+            new Claim(OpenIddictConstants.Claims.Scope, Scopes.CharactersApi)
+        });
+
+        Assert.IsTrue((await authorization.AuthorizeAsync(administrator, CacheAuthorization.PolicyName)).Succeeded);
+        Assert.IsFalse((await authorization.AuthorizeAsync(nonAdministrator, CacheAuthorization.PolicyName)).Succeeded);
+        Assert.IsFalse((await authorization.AuthorizeAsync(administratorWithoutCacheScope, CacheAuthorization.PolicyName)).Succeeded);
+    }
+
+    [TestMethod]
     public void HasCacheScope_ReturnsTrue_WhenScopeClaimContainsCacheApi()
     {
         var principal = CreatePrincipal(new[]
@@ -56,6 +86,10 @@ public class CacheAuthorizationTests
 
     private static ClaimsPrincipal CreatePrincipal(IEnumerable<Claim> claims)
     {
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "Bearer"));
+        return new ClaimsPrincipal(new ClaimsIdentity(
+            claims,
+            "Bearer",
+            OpenIddictConstants.Claims.Name,
+            OpenIddictConstants.Claims.Role));
     }
 }

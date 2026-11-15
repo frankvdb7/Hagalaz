@@ -1,6 +1,6 @@
 @use "@angular/material" as mat;
 
-@mixin colors() {
+@mixin theme() {
     @include mat.theme-overrides(
         (
             surface: #0b111b,
@@ -21,15 +21,34 @@
             on-secondary-container: #d4e7fa,
         )
     );
-}
-
-.admin-portal,
-.cdk-overlay-container {
     @include mat.card-overrides(
         (
-            outlined-container-shape: 24px,
+            outlined-container-shape: 16px,
             outlined-container-color: var(--mat-sys-surface-container-low),
             outlined-outline-color: var(--mat-sys-outline-variant),
+            outlined-container-elevation: none,
+            subtitle-text-color: var(--mat-sys-on-surface-variant),
+        )
+    );
+    @include mat.form-field-overrides(
+        (
+            outlined-container-shape: 12px,
+            container-height: 48px,
+            container-vertical-padding: 12px,
+        )
+    );
+    @include mat.button-overrides(
+        (
+            filled-container-shape: 12px,
+            filled-container-height: 44px,
+            outlined-container-height: 44px,
+            outlined-container-shape: 12px,
+            text-container-shape: 12px,
+            filled-container-color: var(--mat-sys-primary),
+            filled-label-text-color: var(--mat-sys-on-primary),
+            filled-label-text-transform: none,
+            outlined-label-text-transform: none,
+            text-label-text-transform: none,
         )
     );
     @include mat.sidenav-overrides(
@@ -53,26 +72,53 @@
             list-item-one-line-container-height: 48px,
         )
     );
-    @include mat.form-field-overrides(
-        (
-            outlined-container-shape: 12px,
-        )
-    );
     @include mat.tabs-overrides(
         (
             divider-color: var(--mat-sys-outline-variant),
+            active-indicator-color: var(--mat-sys-primary),
+            active-label-text-color: var(--mat-sys-on-surface),
+            inactive-label-text-color: var(--mat-sys-on-surface-variant),
+            container-height: 56px,
         )
     );
     @include mat.table-overrides(
         (
             background-color: transparent,
             row-item-outline-color: var(--mat-sys-outline-variant),
+            header-headline-size: 12px,
+            header-container-height: 48px,
+            row-item-label-text-size: 14px,
+            row-item-container-height: 52px,
         )
     );
+    @include mat.paginator-overrides(
+        (
+            container-background-color: transparent,
+        )
+    );
+    @include mat.expansion-overrides(
+        (
+            container-background-color: var(--mat-sys-surface-container-low),
+        )
+    );
+    --admin-radius: 12px;
     --portal-cyan: rgb(123 216 233);
     --portal-emerald: rgb(122 220 176);
     --portal-violet: #c7adff;
     --portal-ember: #ff9993;
+    --admin-background: url("/assets/images/admin-login-background.png");
+}
+
+.admin-neutral-action {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-surface),
+        )
+    );
+}
+
+.admin-portal,
+.cdk-overlay-container {
     color: var(--mat-sys-on-surface);
 
     .eyebrow {
@@ -87,7 +133,7 @@
         height: 44px;
         display: grid;
         place-items: center;
-        border-radius: 14px;
+        border-radius: var(--admin-radius);
         color: var(--portal-accent, var(--mat-sys-primary));
         background: color-mix(in srgb, var(--portal-accent, var(--mat-sys-primary)) 16%, transparent);
     }
@@ -115,7 +161,9 @@
         color: var(--mat-sys-on-secondary-container);
     }
     a:focus-visible,
-    button:focus-visible {
+    button:focus-visible,
+    summary:focus-visible,
+    pre:focus-visible {
         outline: 2px solid var(--mat-sys-primary);
         outline-offset: 4px;
     }
@@ -137,4 +185,234 @@
 
 .admin-portal {
     background: var(--mat-sys-surface);
+}
+
+// Contextual variants live with the shared theme, not in individual page styles.
+.toolbar-search {
+    @include mat.form-field-overrides(
+        (
+            outlined-container-shape: 18px,
+            container-height: 36px,
+            container-vertical-padding: 6px,
+            container-text-size: 12px,
+            container-text-line-height: 24px,
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+}
+.account-trigger {
+    @include mat.icon-button-overrides(
+        (
+            icon-size: 32px,
+        )
+    );
+}
+.hero {
+    @include mat.card-overrides(
+        (
+            outlined-container-color: var(--mat-sys-surface-container),
+        )
+    );
+}
+.frame-button {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-surface-variant),
+        )
+    );
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: var(--admin-radius);
+    background: var(--mat-sys-surface-container-high);
+}
+.frame-button.selected {
+    @include mat.button-overrides(
+        (
+            text-label-text-color: var(--mat-sys-on-primary-container),
+        )
+    );
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+}
+.raw-data {
+    max-height: 650px;
+    overflow: auto;
+    padding: 16px;
+    border-radius: var(--admin-radius);
+    background: var(--mat-sys-surface-container-lowest);
+}
+.raw-data pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font: var(--mat-sys-body-small);
+}
+
+.request-error {
+    @include mat.card-overrides(
+        (
+            outlined-container-color: var(--mat-sys-error-container),
+            outlined-outline-color: var(--mat-sys-error),
+        )
+    );
+    color: var(--mat-sys-on-error-container);
+}
+
+.request-success {
+    @include mat.card-overrides(
+        (
+            outlined-container-color: var(--mat-sys-secondary-container),
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    color: var(--mat-sys-on-secondary-container);
+}
+
+.json-result {
+    @include mat.form-field-overrides(
+        (
+            container-text-font: monospace,
+            container-text-size: 0.8125rem,
+            container-text-line-height: 1.5rem,
+        )
+    );
+}
+
+// Shared Cache Studio presentation. Components opt in without broad element overrides.
+.admin-portal {
+    .studio-section-title {
+        font: var(--mat-sys-title-small);
+        margin: 0;
+    }
+    .studio-icon-small {
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+    }
+    .studio-icon-large {
+        width: 36px;
+        height: 36px;
+        font-size: 36px;
+    }
+    .studio-surface,
+    .studio-control-surface {
+        border: 1px solid var(--mat-sys-outline-variant);
+    }
+    .studio-surface {
+        background: var(--mat-sys-surface-container-low);
+        border-radius: 8px;
+    }
+    .studio-control-surface {
+        background: var(--mat-sys-surface);
+        border-radius: 6px;
+    }
+    .studio-choice {
+        color: var(--mat-sys-on-surface);
+        font: var(--mat-sys-body-small);
+        text-align: left;
+        cursor: pointer;
+    }
+    .studio-choice:hover {
+        background: var(--mat-sys-surface-container-high);
+    }
+    .texture-choice.selected {
+        outline: 1px solid var(--mat-sys-primary);
+    }
+}
+
+@media (width > 920px) {
+    mat-sidenav-content:has(.map-workspace) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .map-workspace,
+    .map-workspace > cache-shell-page,
+    .map-workspace mat-tab-nav-panel,
+    .map-workspace cache-maps-detail-page {
+        display: flex;
+        flex: 1 1 0;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    mat-sidenav-content > mat-toolbar,
+    .map-workspace .studio-tabs {
+        flex-shrink: 0;
+    }
+}
+
+.admin-portal .map-scroll-area {
+    scrollbar-color: var(--mat-sys-outline-variant) transparent;
+    scrollbar-width: thin;
+}
+
+.admin-portal .map-scene-tree {
+    @include mat.tree-overrides((container-background-color: transparent, node-min-height: 32px, node-text-size: 13px));
+    @include mat.icon-button-overrides((state-layer-size: 22px, icon-size: 18px, touch-target-display: none));
+
+    mat-icon { width: 18px; height: 18px; font-size: 18px; }
+}
+
+.admin-portal .map-asset-toolbar {
+    @include mat.icon-button-overrides((state-layer-size: 32px, icon-size: 20px, touch-target-display: none, container-shape: 8px));
+    @include mat.select-overrides((trigger-text-size: 12px, trigger-text-line-height: 18px));
+
+    // The select arrow is 24px tall, so 4px padding is what yields a 32px field.
+    mat-form-field { @include mat.form-field-overrides((container-vertical-padding: 4px)); }
+    mat-icon { width: 20px; height: 20px; font-size: 20px; }
+}
+
+.admin-portal .map-edit-toolbar {
+    @include mat.icon-button-overrides((state-layer-size: 36px, icon-size: 20px, touch-target-display: none, container-shape: 8px));
+
+    mat-icon { width: 20px; height: 20px; font-size: 20px; }
+}
+
+.admin-portal .map-asset-rows {
+    @include mat.list-overrides((
+        list-item-container-shape: 8px,
+        list-item-leading-avatar-size: 48px,
+        list-item-leading-avatar-shape: 8px,
+        list-item-leading-avatar-color: var(--mat-sys-surface-container-high),
+        list-item-one-line-container-height: 60px,
+        active-indicator-color: transparent,
+    ));
+}
+
+.admin-portal .map-position-mode {
+    @include mat.button-toggle-overrides((
+        height: 34px,
+        shape: 8px,
+        selected-state-background-color: var(--mat-sys-primary),
+        selected-state-text-color: var(--mat-sys-on-primary),
+        label-text-size: 13px,
+    ));
+}
+
+.admin-portal .map-workspace-tabs {
+    @include mat.tabs-overrides((container-height: 44px));
+}
+
+.studio-compact-inspector {
+    @include mat.form-field-overrides(
+        (
+            container-height: 32px,
+            container-vertical-padding: 6px,
+            container-text-size: 12px,
+            container-text-line-height: 18px,
+            outlined-label-text-size: 12px,
+            outlined-container-shape: 6px,
+            outlined-outline-color: var(--mat-sys-outline-variant),
+        )
+    );
+    .model-options {
+        @include mat.checkbox-overrides(
+            (
+                disabled-selected-icon-color: var(--mat-sys-primary),
+                disabled-label-color: var(--mat-sys-on-surface-variant),
+                label-text-size: 12px,
+                label-text-line-height: 18px,
+                state-layer-size: 32px,
+            )
+        );
+    }
 }

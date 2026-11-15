@@ -1,0 +1,212 @@
+using System.Buffers.Binary;
+using System.Security.Cryptography;
+using Hagalaz.Cache.Extensions;
+using Hagalaz.Cache.Logic.Codecs;
+using Hagalaz.Cache.Types;
+using Xunit;
+
+namespace Hagalaz.Cache.Tests;
+
+public sealed class MapRenderDecoderTests
+{
+    [Fact]
+    public void LandscapeProjection_MatchesClientBufferTraversalForRealRegion()
+    {
+        using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "landscape-12850.dat"));
+        var placements = MapRenderDecoder.DecodeLandscape(input);
+        Assert.Equal(5934, placements.Length);
+        using var semantic = new MemoryStream();
+        foreach (var placement in placements)
+        foreach (var value in new[] { placement.Id, placement.Shape, placement.Rotation, placement.X, placement.Y, placement.Plane })
+        {
+            var bytes = new byte[4];
+            BinaryPrimitives.WriteInt32BigEndian(bytes, value);
+            semantic.Write(bytes);
+        }
+        Assert.Equal("bee90dfdcbf5e934e4d0c9faac97959490dbb2da4a44882c5891892513374077", Convert.ToHexStringLower(SHA256.HashData(semantic.ToArray())));
+    }
+
+    [Fact]
+    public void LandscapeEncoder_ReproducesARealRegionExactly()
+    {
+        var original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "landscape-12850.dat"));
+        var placements = MapRenderDecoder.DecodeLandscape(new MemoryStream(original));
+        using var encoded = MapLandscapeEncoder.Encode(placements);
+        Assert.Equal(original, encoded.ToArray());
+    }
+
+    [Fact]
+    public void LandscapeEncoder_RoundTripsSortedPlacementsAcrossLargeIdGapsAndPlanes()
+    {
+        MapRenderPlacement[] placements =
+        [
+            new(70000, 22, 3, 63, 63, 3),
+            new(5, 10, 1, 7, 9, 1),
+            new(5, 0, 0, 1, 2, 0),
+            new(32770, 4, 2, 0, 0, 2),
+            new(5, 11, 2, 1, 2, 0),
+        ];
+        using var encoded = MapLandscapeEncoder.Encode(placements);
+        Assert.Equal(
+            [new(5, 0, 0, 1, 2, 0), new(5, 11, 2, 1, 2, 0), new(5, 10, 1, 7, 9, 1), new(32770, 4, 2, 0, 0, 2), new(70000, 22, 3, 63, 63, 3)],
+            MapRenderDecoder.DecodeLandscape(encoded));
+    }
+
+    [Fact]
+    public void LandscapeEncoder_WritesAnEmptyLandscape()
+    {
+        using var encoded = MapLandscapeEncoder.Encode([]);
+        Assert.Empty(MapRenderDecoder.DecodeLandscape(encoded));
+    }
+
+    [Fact]
+    public void TerrainProjection_MatchesIndependentClientForEveryTileOfRealRegion()
+    {
+        using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", "terrain-12850.dat"));
+        var terrain = MapRenderDecoder.DecodeTerrain(input, 12850);
+        var (atmosphere, lights) = MapRenderDecoder.DecodeTerrainTrailer(input);
+        Assert.NotNull(atmosphere);
+        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600, null), atmosphere with { EnvironmentFaces = null });
+        Assert.Equal([682, 683, 684, 685, 686, 687], atmosphere.EnvironmentFaces);
+        Assert.NotNull(lights);
+        Assert.Equal(55, lights.Count);
+        var firstLight = lights[0];
+        Assert.Equal(new MapPointLight(2904, 13060, 880, 768, 0x1790, 0, 0, 0, firstLight.Rows), firstLight);
+        Assert.Equal([0x0102, 0x0102, 0x0102], firstLight.Rows);
+        using var semantic = new MemoryStream();
+        foreach (var p in terrain)
+        for (var tile = 0; tile < 4096; tile++)
+        foreach (var value in new[] { p.Heights[tile], p.Flags[tile], p.Underlays[tile], p.Overlays[tile], p.OverlayShapes[tile], p.OverlayRotations[tile] })
+        {
+            var bytes = new byte[4];
+            BinaryPrimitives.WriteInt32BigEndian(bytes, value);
+            semantic.Write(bytes);
+        }
+        // Captured by calling GameClient Class274.readLandscapeData, not by this decoder.
+        Assert.Equal("bafd725f7085f1f8ffe9349d523c9704b007dd8de1a7900c536c6623d51baceb", Convert.ToHexStringLower(SHA256.HashData(semantic.ToArray())));
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0, 0 }, 0xc8c0a8, 0)]
+    [InlineData(new byte[] { 0, 0x60, 0xff, 0x12, 0x34, 0x56, 0x02, 0x58 }, 0x123456, 600)]
+    public void AtmosphereProjection_ReadsSkyColourAndRawFogValue(byte[] record, int skyRgb, int fogValue)
+    {
+        var (atmosphere, _) = MapRenderDecoder.DecodeTerrainTrailer(new MemoryStream(record));
+        Assert.NotNull(atmosphere);
+        Assert.Equal(skyRgb, atmosphere.SkyRgb);
+        Assert.Equal(fogValue, atmosphere.FogValue);
+        Assert.Equal(0xffffff, atmosphere.LightRgb);
+        Assert.Null(atmosphere.EnvironmentFaces);
+    }
+
+    [Fact]
+    public void AtmosphereProjection_ReadsEnvironmentFacesInCubeOrderBeforeLaterRecords()
+    {
+        // Faces 1..6 and 65535, then an HDR record (opcode 2) and a terminating unknown opcode.
+        var (atmosphere, _) = MapRenderDecoder.DecodeTerrainTrailer(new MemoryStream([0, 0x80, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0xff, 0xff, 2, 9, 9, 9, 255]));
+        Assert.NotNull(atmosphere);
+        Assert.Equal([1, 2, 3, 4, 5, 65535], atmosphere.EnvironmentFaces);
+        Assert.Equal(0xc8c0a8, atmosphere.SkyRgb);
+    }
+
+    [Fact]
+    public void TerrainTrailer_ReadsLightCoverageAndResumesAtAtmosphereAfterCustomFlicker()
+    {
+        using var stream = new MemoryStream([
+            1, 2,
+            0x1a, 0x01, 0x20, 0x00, 0xa0, 0x00, 0x10, 1, 1, 1, 0, 3, 1, 1, 0xab, 0xcd, 0xff, 0x12, 0x34,
+            0x01, 0x00, 0x40, 0x00, 0x60, 0x00, 0x08, 0, 0, 1, 0x12, 0x34, 0,
+            0, 0,
+        ]);
+        var (atmosphere, lights) = MapRenderDecoder.DecodeTerrainTrailer(stream);
+        Assert.NotNull(atmosphere);
+        Assert.NotNull(lights);
+        Assert.Collection(lights,
+            light =>
+            {
+                Assert.Equal(new MapPointLight(1152, 640, 64, 768, 0xabcd, 2, 0, 3, light.Rows), light);
+                Assert.Equal([0x0101, 0x0003, 0x0101], light.Rows);
+            },
+            light =>
+            {
+                Assert.Equal(new MapPointLight(256, 384, 32, 256, 0x1234, 1, 1, 1, light.Rows), light);
+                Assert.Equal([1], light.Rows);
+            });
+    }
+
+    [Fact]
+    public void UnderwaterTerrain_ReadsOnePlaneOfDepthsAndFloors()
+    {
+        // Tile 0: underlay 5, overlay 9 (shape 1, rotation 2), ignored tile flag, depth 3. Tile 1: plain. Tile 2: depth 1 stays 32.
+        byte[] first = [86, 8, 9, 60, 1, 3, 0, 1, 1];
+        var plane = MapRenderDecoder.DecodeUnderwaterTerrain(new MemoryStream([.. first, .. new byte[4093]]));
+        Assert.Equal(96, plane.Heights[0]);
+        Assert.Equal(5, plane.Underlays[0]);
+        Assert.Equal(9, plane.Overlays[0]);
+        Assert.Equal(1, plane.OverlayShapes[0]);
+        Assert.Equal(2, plane.OverlayRotations[0]);
+        Assert.Equal(0, plane.Flags[0]);
+        Assert.Equal(0, plane.Heights[1]);
+        Assert.Equal(32, plane.Heights[2]);
+    }
+
+    [Fact]
+    public void TerrainProjection_PreservesFullTileSemanticsAndPlaneSpacing()
+    {
+        using var stream = new MemoryStream(new byte[] { 49, 200, 51, 255, 1, 5 }.Concat(new byte[16383]).ToArray());
+        var planes = MapRenderDecoder.DecodeTerrain(stream, 258);
+        Assert.Equal(4, planes.Length);
+        Assert.Equal(-160, planes[0].Heights[0]);
+        Assert.Equal(-1120, planes[1].Heights[0]);
+        Assert.Equal(-3040, planes[3].Heights[0]);
+        Assert.Equal(2, planes[0].Flags[0]);
+        Assert.Equal(174, planes[0].Underlays[0]);
+        Assert.Equal(200, planes[0].Overlays[0]);
+        Assert.Equal(11, planes[0].OverlayShapes[0]);
+        Assert.Equal(3, planes[0].OverlayRotations[0]);
+    }
+
+    [Fact]
+    public void LandscapeProjection_PreservesSourcePlaneAndPlacement()
+    {
+        using var stream = new MemoryStream();
+        stream.WriteHugeSmart(42);
+        stream.WriteSmart((1 << 12) + (3 << 6) + 4 + 1);
+        stream.WriteByte(43);
+        stream.WriteSmart(0);
+        stream.WriteHugeSmart(0);
+        stream.Position = 0;
+        var objects = MapRenderDecoder.DecodeLandscape(stream);
+        Assert.Equal(new Hagalaz.Cache.Types.MapRenderPlacement(41, 10, 3, 3, 4, 1), Assert.Single(objects));
+    }
+
+    [Fact]
+    public void FloorProjection_PreservesColorsTexturesAndScale()
+    {
+        using var overlay = new MemoryStream([1, 0x12, 0x34, 0x56, 3, 255, 255, 7, 0x65, 0x43, 0x21, 9, 0, 64, 5, 8, 10, 11, 1, 12, 13, 0, 0, 0, 14, 1, 16, 2, 20, 0, 3, 21, 4, 22, 0, 5, 0]);
+        var result = MapRenderDecoder.DecodeFloor(overlay, 3, true);
+        Assert.Equal(0x123456, result.Rgb);
+        Assert.Equal(0x654321, result.SecondaryRgb);
+        Assert.Equal(-1, result.TextureId);
+        Assert.Equal(256, result.TextureScale);
+        Assert.Equal(new Hagalaz.Cache.Types.OverlayRenderProperties(1, true, 0, 32, 2, 3, 4, 5), result.OverlayProperties);
+        using var underlay = new MemoryStream([1, 0, 255, 0, 2, 0, 7, 3, 0, 32, 4, 5, 0]);
+        var ground = MapRenderDecoder.DecodeFloor(underlay, 8, false);
+        Assert.Equal(0x00ff00, ground.Rgb);
+        Assert.Equal(7, ground.TextureId);
+        Assert.Equal(128, ground.TextureScale);
+        Assert.Null(ground.OverlayProperties);
+        using var plain = new MemoryStream([1, 0, 0, 1, 0]);
+        Assert.Equal(new Hagalaz.Cache.Types.OverlayRenderProperties(8, false, 0x122b3d, 512, 255, 63, 0, 64), MapRenderDecoder.DecodeFloor(plain, 1, true).OverlayProperties);
+    }
+
+    [Fact]
+    public void RenderDecoders_RejectTruncationAndHonorCancellation()
+    {
+        Assert.Throws<EndOfStreamException>(() => MapRenderDecoder.DecodeTerrain(new MemoryStream([1]), 0));
+        Assert.Throws<EndOfStreamException>(() => MapRenderDecoder.DecodeLandscape(new MemoryStream([1, 128])));
+        Assert.Throws<NotSupportedException>(() => MapRenderDecoder.DecodeFloor(new MemoryStream([99]), 1, true));
+        Assert.Throws<OperationCanceledException>(() => MapRenderDecoder.DecodeTerrain(new MemoryStream(new byte[16384]), 0, new CancellationToken(true)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => MapRenderDecoder.DecodeTerrain(new MemoryStream(), 65536));
+    }
+}

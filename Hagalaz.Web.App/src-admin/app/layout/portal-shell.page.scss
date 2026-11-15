@@ -1,20 +1,40 @@
-@use "@angular/material" as mat;
-
 :host {
     display: block;
 }
 .portal-container {
     height: 100dvh;
 }
+mat-sidenav-content {
+    background-image: var(--admin-background);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
 .portal-drawer {
-    width: 248px;
+    width: 228px;
 }
 .portal-content {
     box-sizing: border-box;
+    max-width: 80rem;
+    padding: 1rem;
+}
+.portal-content.cache-workspace {
+    max-width: none;
+}
+@media (min-width: 640px) {
+    .portal-content {
+        padding: 1rem 1.5rem 1.5rem;
+    }
+}
+@media (min-width: 1024px) {
+    .portal-content {
+        padding: 1rem 2rem 2rem;
+    }
 }
 .portal-toolbar {
     height: auto;
-    min-height: 64px;
+    min-height: 54px;
     position: sticky;
     top: 0;
     z-index: 20;
@@ -22,16 +42,6 @@
 }
 .toolbar-search {
     flex-shrink: 0;
-    @include mat.form-field-overrides(
-        (
-            outlined-container-shape: 18px,
-            container-height: 36px,
-            container-vertical-padding: 6px,
-            container-text-size: 12px,
-            container-text-line-height: 24px,
-            outlined-outline-color: var(--mat-sys-outline-variant),
-        )
-    );
     background: var(--mat-sys-surface-container-high);
     border-radius: 999px;
 }
@@ -40,13 +50,7 @@
     width: 18px;
     height: 18px;
 }
-.account-trigger {
-    @include mat.icon-button-overrides(
-        (
-            icon-size: 32px,
-        )
-    );
-}
+
 .account-avatar {
     display: grid;
     place-items: center;
@@ -92,17 +96,6 @@
     place-items: center;
     width: 44px;
     height: 48px;
-    border: 1px solid var(--mat-sys-primary);
-    border-radius: 14px;
-    background: var(--mat-sys-primary-container);
-}
-.rune-band {
-    padding-block: 12px;
-    text-align: center;
-    letter-spacing: 0.7em;
-    color: var(--mat-sys-outline);
-    border-block: 1px solid var(--mat-sys-outline-variant);
-    font-size: 0.75rem;
 }
 .nav-group {
     font-size: 0.625rem;

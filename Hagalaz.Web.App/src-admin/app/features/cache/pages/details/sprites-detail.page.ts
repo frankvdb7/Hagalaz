@@ -7,7 +7,7 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatTooltipModule } from "@angular/material/tooltip";
 import { PortalBreadcrumbDirective } from "../../../../layout/portal-breadcrumb.directive";
-import type { SpriteMetadataDto } from "../../services/cache.models";
+
 import { CacheSpritesService } from "../../services/cache-sprites.service";
 import { CacheSpriteDefinitionsStore } from "../../stores/cache-sprite-definitions.store";
 import { CacheSpritesStore } from "../../stores/cache-sprites.store";
@@ -33,6 +33,7 @@ import { SpriteInspectorComponent } from "../sprite-inspector.component";
     ],
     providers: [CacheSpritesService, CacheSpriteDefinitionsStore, CacheSpritesStore],
     templateUrl: "./sprites-detail.page.html",
+    host: { class: "block min-w-0" },
     styleUrl: "./sprites-detail.page.scss",
 })
 export class SpriteDefinitionsDetailPageComponent {
@@ -41,7 +42,7 @@ export class SpriteDefinitionsDetailPageComponent {
     readonly viewport = viewChild(CdkVirtualScrollViewport);
     readonly id = injectCacheDefinitionId();
     readonly metadata = computed(() => {
-        const value = this.store.byIdResult() as SpriteMetadataDto | null;
+        const value = this.store.byIdResult();
         return value?.id === this.id() ? value : null;
     });
     readonly frames = computed(() => Array.from({ length: this.metadata()?.frameCount ?? 0 }, (_, index) => index));

@@ -6,6 +6,8 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- OpenApiDocumentTests calls AddOpenApi, whose XML comment source generator emits interceptors. -->
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.OpenApi.Generated</InterceptorsNamespaces>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,4 +19,8 @@
     <ProjectReference Include="..\Hagalaz.Services.Cache\Hagalaz.Services.Cache.csproj" />
     <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
   </ItemGroup>
+  <ItemGroup><None Include="..\TestSupport\Fixtures\particles\*" Link="Fixtures\particles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="..\TestSupport\Fixtures\models\model-*.dat" Link="Fixtures\models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="..\TestSupport\Fixtures\objects\object-*.dat" Link="Fixtures\objects\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="..\TestSupport\Fixtures\fonts\*" Link="Fixtures\fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

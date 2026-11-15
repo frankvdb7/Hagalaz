@@ -4,6 +4,8 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features;
+using Hagalaz.Services.Cache.Features.Types;
+using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SixLabors.ImageSharp;
@@ -79,13 +81,13 @@ public sealed class SpriteImageMutationTests
         using var mutationResponse = await client.PostAsync($"/api/v1/cache/types/sprites/{spriteId}/image", content);
         Assert.AreEqual(HttpStatusCode.OK, mutationResponse.StatusCode, await mutationResponse.Content.ReadAsStringAsync());
 
-        var mutation = await mutationResponse.Content.ReadFromJsonAsync<TypeMutationEndpoints.SpriteMutationResponse>();
+        var mutation = await mutationResponse.Content.ReadFromJsonAsync<ReplaceSpriteImageResultDto>();
         Assert.IsNotNull(mutation);
         Assert.AreEqual(2, mutation.Width);
         Assert.AreEqual(1, mutation.Height);
         Assert.AreEqual(expectedFrameColors.Length, mutation.FrameCount);
 
-        var sprite = await client.GetFromJsonAsync<TypeEndpoints.SpriteTypeResponse>($"/api/v1/cache/types/sprites/{spriteId}");
+        var sprite = await client.GetFromJsonAsync<GetSpriteDefinitionDto>($"/api/v1/cache/types/sprites/{spriteId}");
         Assert.IsNotNull(sprite);
         Assert.AreEqual(2, sprite.Width);
         Assert.AreEqual(1, sprite.Height);

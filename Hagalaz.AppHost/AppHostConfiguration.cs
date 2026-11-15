@@ -8,13 +8,15 @@ public static class AppHostConfiguration
 {
     public static void Configure(IDistributedApplicationBuilder builder, bool includeHealthChecks = true)
     {
+        var cacheIntrospectionClientSecret = builder.AddParameter("cache-introspection-client-secret", secret: true);
+
         var database = builder.AddMySql("mysql")
             .WithImage("mysql", "8.4")
             .WithEnvironment("MYSQL_DATABASE", "hagalaz-db")
             .WithBindMount("../Data", "/docker-entrypoint-initdb.d")
             .WithDataVolume()
             .WithLifetime(ContainerLifetime.Persistent)
-            .WithPhpMyAdmin(configure => configure.WithLifetime(ContainerLifetime.Persistent))
+            .WithPhpMyAdmin(configure => configure.WithExplicitStart().WithLifetime(ContainerLifetime.Persistent))
             .AddDatabase("hagalaz-db");
 
         var messaging = builder.AddRabbitMQ("messaging")
@@ -35,14 +37,16 @@ public static class AppHostConfiguration
             .WithBindMount("Configs/prometheus", "/etc/prometheus", isReadOnly: true)
             .WithArgs("--web.enable-otlp-receiver", "--config.file=/etc/prometheus/prometheus.yml")
             .WithHttpEndpoint(targetPort: 9090, name: "http")
-            .WithLifetime(ContainerLifetime.Persistent);
+            .WithLifetime(ContainerLifetime.Persistent)
+            .WithExplicitStart();
 
         var grafana = builder.AddContainer("grafana", "grafana/grafana")
             .WithBindMount("Configs/grafana/config", "/etc/grafana", isReadOnly: true)
             .WithBindMount("Configs/grafana/dashboards", "/var/lib/grafana/dashboards", isReadOnly: true)
             .WithEnvironment("PROMETHEUS_ENDPOINT", prometheus.GetEndpoint("http"))
             .WithHttpEndpoint(targetPort: 3000, name: "http")
-            .WithLifetime(ContainerLifetime.Persistent);
+            .WithLifetime(ContainerLifetime.Persistent)
+            .WithExplicitStart();
 
         var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld-1", launchProfileName: "tcp")
             .WaitFor(messaging)
@@ -76,7 +80,8 @@ public static class AppHostConfiguration
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
             .WithEndpoint(targetPort: 443, scheme: "tcp", env: "TCP_PORT", isProxied: false)
             .WithHttpsEndpoint(port: 7011, env: "HTTPS_PORT")
-            .WithHttpEndpoint(port: 5011, env: "HTTP_PORT");
+            .WithHttpEndpoint(port: 5011, env: "HTTP_PORT")
+            .WithExplicitStart();
 
         if (includeHealthChecks)
         {
@@ -93,6 +98,7 @@ public static class AppHostConfiguration
             .WithScalarDocs();
 
         authService.WithEnvironment("OpenIddict__Issuer", authService.GetEndpoint("https"));
+        authService.WithEnvironment("Security__Introspection__ClientSecret", cacheIntrospectionClientSecret);
 
         if (includeHealthChecks)
         {
@@ -128,6 +134,7 @@ public static class AppHostConfiguration
         var cacheService = builder.AddProject<Projects.Hagalaz_Services_Cache>("hagalaz-services-cache")
             .WaitFor(authService)
             .WithReference(authService)
+            .WithEnvironment("Security__Introspection__ClientSecret", cacheIntrospectionClientSecret)
             .WithEnvironment("HAGALAZ_Hagalaz.Cache__Path", "../Cache")
             .WithScalarDocs();
 
@@ -152,14 +159,14 @@ public static class AppHostConfiguration
             .WithReference(cacheService)
             .WithReference(contactsService)
             .WithReference(charactersService)
-            .WithHttpsEndpoint(targetPort: 4400, env: "PORT")
+            .WithHttpEndpoint(port: 4400, env: "PORT")
             .WithExternalHttpEndpoints()
             .PublishAsDockerFile();
 
         var webAdminApp = builder.AddJavaScriptApp("hagalaz-web-admin", "../Hagalaz.Web.App", "start:aspire:admin")
             .WithReference(authService)
             .WithReference(cacheService)
-            .WithHttpsEndpoint(targetPort: 4410, env: "PORT")
+            .WithHttpEndpoint(port: 4410, env: "PORT")
             .WithExternalHttpEndpoints()
             .PublishAsDockerFile();
 

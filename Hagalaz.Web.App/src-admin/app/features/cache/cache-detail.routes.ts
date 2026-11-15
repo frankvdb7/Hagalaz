@@ -1,6 +1,7 @@
 import type { Routes } from "@angular/router";
 
 export const cacheDetailRoutes: Routes = [
+    { path: "models/:id", loadComponent: () => import("./pages/details/models-detail.page").then((m) => m.ModelsDetailPageComponent) },
     { path: "types/items/:id", loadComponent: () => import("./pages/details/items-detail.page").then((m) => m.ItemsDetailPageComponent) },
     { path: "types/npcs/:id", loadComponent: () => import("./pages/details/npcs-detail.page").then((m) => m.NpcsDetailPageComponent) },
     { path: "types/objects/:id", loadComponent: () => import("./pages/details/objects-detail.page").then((m) => m.ObjectsDetailPageComponent) },

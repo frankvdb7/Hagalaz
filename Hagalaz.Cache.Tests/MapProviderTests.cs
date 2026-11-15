@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Types.Factories;
@@ -27,7 +28,7 @@ namespace Hagalaz.Cache.Tests
             _codecMock = new Mock<IMapCodec>();
             _typeFactory = new MapTypeFactory();
             _loggerMock = new Mock<ILogger<MapProvider>>();
-            _provider = new MapProvider(_cacheApiMock.Object, _codecMock.Object, _typeFactory, _loggerMock.Object);
+            _provider = new MapProvider(_cacheApiMock.Object, new RegionMapArchive(_cacheApiMock.Object), _codecMock.Object, _typeFactory, _loggerMock.Object);
         }
 
         [Fact]

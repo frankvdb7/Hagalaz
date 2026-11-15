@@ -6,6 +6,12 @@ import { inject, injectable, multiInject } from "inversify";
 import IpcMainInvokeEvent = Electron.IpcMainInvokeEvent;
 import { ILogger } from "./logging/logger";
 
+/** The command type of an IPC command payload, or undefined when the payload is not a command. */
+function commandTypeOf(command: unknown): string | undefined {
+    const commandType = (command as { commandType?: unknown } | null | undefined)?.commandType;
+    return typeof commandType === "string" ? commandType : undefined;
+}
+
 @injectable()
 export class LauncherApiHandler {
     private _handlers = new Map<CommandType, CommandHandler>();
@@ -23,21 +29,22 @@ export class LauncherApiHandler {
     }
 
     private getHandler(event: IpcMainEvent | IpcMainInvokeEvent, ...args: unknown[]): CommandHandler | null {
-        if (!args?.length) {
+        if (!args.length) {
             this.logger.warn("Invalid launcher api arguments", event);
             return null;
         }
-        const command = args.shift();
-        if (typeof command !== "object" || command === null || !("commandType" in command) || typeof command.commandType !== "string") {
-            this.logger.warn("Invalid launcher api command received", command);
+        const commandType = commandTypeOf(args[0]);
+        if (commandType === undefined) {
+            this.logger.warn("Invalid launcher api command received", args[0]);
             return null;
         }
-        const handler = this._handlers.get(command.commandType as CommandType);
-        if (!handler) {
-            this.logger.warn("Invalid launcher api command type received", command.commandType);
-            return null;
-        }
-        return handler;
+        return this.handlerFor(commandType);
+    }
+
+    private handlerFor(commandType: string): CommandHandler | null {
+        const handler = this._handlers.get(commandType as CommandType);
+        if (!handler) this.logger.warn("Invalid launcher api command type received", commandType);
+        return handler ?? null;
     }
 
     private onCommandSend = async (event: IpcMainEvent, ...args: unknown[]) => {

@@ -9,6 +9,9 @@
     "src-admin/test.ts",
     "proxy.conf.mjs"
   ],
+  "typeAware": {
+    "enabled": true
+  },
   "duplicates": {
     "minOccurrences": 3
   },
@@ -17,6 +20,8 @@
   },
   "ignoreDependencies": [
     "@angular/language-service",
+    "@tailwindcss/postcss",
+    "postcss",
     "tailwindcss"
   ],
   "ignoreUnresolvedImports": [

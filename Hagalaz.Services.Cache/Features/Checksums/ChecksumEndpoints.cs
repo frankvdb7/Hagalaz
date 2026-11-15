@@ -2,18 +2,18 @@ using System;
 using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
-using Hagalaz.Services.Cache.Features.Shared;
+using Hagalaz.Services.Cache.Features.Checksums.Dtos;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Hagalaz.Services.Cache.Features;
+namespace Hagalaz.Services.Cache.Features.Checksums;
 
 public static class ChecksumEndpoints
 {
     public static IEndpointRouteBuilder MapChecksumEndpoints(this IEndpointRouteBuilder group)
     {
-        group.MapGet("/checksum-table", GetChecksumTable);
+        group.MapGet("/checksum-table", GetChecksumTable).WithSummary("Compute the checksum table for every index").Produces<GetChecksumTableDto>();
         return group;
     }
 
@@ -23,19 +23,15 @@ public static class ChecksumEndpoints
         return TypedResults.Ok(MapChecksumTable(table));
     }
 
-    private static ChecksumTableResponse MapChecksumTable(IChecksumTable table)
+    private static GetChecksumTableDto MapChecksumTable(IChecksumTable table)
     {
-        var entries = new List<ChecksumTableEntryResponse>(table.Count);
+        var entries = new List<ChecksumTableEntryDto>(table.Count);
         for (var index = 0; index < table.Count; index++)
         {
             var entry = table[index];
-            entries.Add(new ChecksumTableEntryResponse(index, entry.Crc32, entry.Version, Convert.ToBase64String(entry.Digest)));
+            entries.Add(new ChecksumTableEntryDto(index, entry.Crc32, entry.Version, Convert.ToBase64String(entry.Digest)));
         }
 
-        return new ChecksumTableResponse(entries);
+        return new GetChecksumTableDto(entries);
     }
-
-    public sealed record ChecksumTableResponse(IReadOnlyList<ChecksumTableEntryResponse> Entries);
-
-    public sealed record ChecksumTableEntryResponse(int IndexId, int Crc32, int Version, string DigestBase64);
 }

@@ -7,6 +7,7 @@ using Hagalaz.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Shared;
@@ -37,6 +38,9 @@ public class EndpointErrorsTests
             ("not-found", HttpStatusCode.NotFound, "application/json", "Cache file not found.", "missing"),
             ("io", HttpStatusCode.BadRequest, "application/json", "Cache operation failed.", "io failure"),
             ("argument", HttpStatusCode.BadRequest, "application/json", "Invalid request.", "invalid"),
+            ("unsupported", HttpStatusCode.UnprocessableEntity, "application/problem+json", "Unsupported cache data.", "unsupported format"),
+            ("invalid-data", HttpStatusCode.UnprocessableEntity, "application/problem+json", "Unsupported cache data.", "truncated"),
+            ("image", HttpStatusCode.UnprocessableEntity, "application/problem+json", "Unsupported cache data.", "unknown image"),
             ("unexpected", HttpStatusCode.InternalServerError, "application/problem+json", "Unexpected cache error.", "boom")
         };
 
@@ -86,6 +90,38 @@ public class EndpointErrorsTests
         Assert.AreEqual(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
     }
 
+    [TestMethod]
+    [DataRow("unexpected", LogLevel.Error)]
+    [DataRow("unsupported", LogLevel.Warning)]
+    [DataRow("not-found", LogLevel.Debug)]
+    public async Task CacheExceptionHandler_LogsHandledExceptionsBySeverity(string kind, LogLevel expected)
+    {
+        var logger = new RecordingLogger();
+        Exception exception = kind switch
+        {
+            "unexpected" => new InvalidOperationException("boom"),
+            "unsupported" => new NotSupportedException("unsupported format"),
+            _ => new FileNotFoundException("missing")
+        };
+        var context = CreateHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        Assert.IsTrue(await new CacheExceptionHandler(logger).TryHandleAsync(context, exception, CancellationToken.None));
+
+        var entry = logger.Entries.Single();
+        Assert.AreEqual(expected, entry.Level);
+        Assert.AreSame(exception, entry.Exception);
+    }
+
+    private sealed class RecordingLogger : ILogger<CacheExceptionHandler>
+    {
+        public List<(LogLevel Level, Exception? Exception)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, exception));
+    }
+
     private static HttpContext CreateHttpContext()
     {
         var services = new ServiceCollection()
@@ -104,6 +140,9 @@ public class EndpointErrorsTests
         "not-found" => throw new FileNotFoundException("missing"),
         "io" => throw new IOException("io failure"),
         "argument" => throw new ArgumentException("invalid"),
+        "unsupported" => throw new NotSupportedException("unsupported format"),
+        "invalid-data" => throw new InvalidDataException("truncated"),
+        "image" => throw new SixLabors.ImageSharp.UnknownImageFormatException("unknown image"),
         _ => throw new InvalidOperationException("boom")
     };
 }
