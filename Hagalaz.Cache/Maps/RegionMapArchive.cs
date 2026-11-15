@@ -166,7 +166,7 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
 
     /// <inheritdoc />
     public Result ApplyTerrain(int region, IReadOnlyCollection<MapTerrainTileChange> changes, int expectedVersion, CancellationToken cancellationToken = default) =>
-        Rewrite(region, RegionMapFile.Terrain, expectedVersion, cancellationToken, stored => DecodeTerrain(stored, region, cancellationToken), (stored, before) =>
+        Rewrite(region, RegionMapFile.Terrain, expectedVersion, null, cancellationToken, stored => DecodeTerrain(stored, region, cancellationToken), (stored, before) =>
         {
             var patched = MapTerrainPatcher.Patch(stored, changes);
             if (patched.AsSpan().SequenceEqual(stored)) return null;
@@ -176,14 +176,18 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
         });
 
     /// <inheritdoc />
-    public Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, int expectedVersion, CancellationToken cancellationToken = default) =>
-        Rewrite(region, RegionMapFile.Landscape, expectedVersion, cancellationToken, stored => DecodeLandscape(stored, cancellationToken), (_, current) =>
+    public Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, int expectedVersion, int[]? xteaKeys = null, CancellationToken cancellationToken = default)
+    {
+        if (xteaKeys is not null && (xteaKeys.Length != 4 || xteaKeys.All(key => key == 0)))
+            throw new ArgumentException("Four XTEA keys that are not all zero are required.", nameof(xteaKeys));
+        return Rewrite(region, RegionMapFile.Landscape, expectedVersion, xteaKeys, cancellationToken, stored => DecodeLandscape(stored, cancellationToken), (_, current) =>
         {
             var encoded = Encode(placements);
             if (!DecodeLandscape(encoded, cancellationToken).SequenceEqual(MapLandscapeEncoder.Canonicalize(placements)))
                 throw new InvalidOperationException($"Region {region} landscape did not survive encoding.");
             return encoded.AsSpan().SequenceEqual(Encode(current)) ? null : encoded;
         });
+    }
 
     /// <summary>Whether a read failure means the stored data cannot be decoded, rather than a defect or a cancellation.</summary>
     internal static bool IsCorruptData(Exception error) =>
@@ -227,7 +231,7 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
 
     // The single write path: `rebuild` returns the replacement, or null when the stored file would not change.
     // The edit was drawn from `expectedVersion`; a file stored under any other version was written since, so nothing is saved.
-    private Result Rewrite<TDecoded>(int region, RegionMapFile kind, int expectedVersion, CancellationToken cancellationToken, Func<byte[], TDecoded> decode, Func<byte[], TDecoded, byte[]?> rebuild)
+    private Result Rewrite<TDecoded>(int region, RegionMapFile kind, int expectedVersion, int[]? xteaKeys, CancellationToken cancellationToken, Func<byte[], TDecoded> decode, Func<byte[], TDecoded, byte[]?> rebuild)
     {
         if (Locate(region, kind) is not { } file) return new RegionMapFileAbsentError(region, kind);
 
@@ -239,9 +243,12 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
             TDecoded current;
             try
             {
-                using var container = cache.ReadContainer(Index, file);
+                using var container = ReadStored(file, xteaKeys);
                 stored = container.Data.ToArray();
                 compression = container.CompressionType;
+                // An uncompressed container carries no integrity check, so wrong keys would decrypt to bytes that may still decode.
+                if (xteaKeys is not null && compression == CompressionType.None)
+                    throw new InvalidDataException("An uncompressed protected file cannot confirm that its XTEA keys are right.");
                 // Read after the bytes: a version still at `expectedVersion` here means these bytes are the ones the edit was drawn from,
                 // and a write landing after this point fails the compare-and-swap below, which loops back to this check.
                 if ((cache.ReadReferenceTable(Index).GetEntry(file)?.Version ?? -1) is var version && version != expectedVersion)
@@ -257,16 +264,21 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
 
             cancellationToken.ThrowIfCancellationRequested();
             using var updated = new Container(compression, new MemoryStream(replacement));
-            if (cache.TryReplaceContainer(Index, file, stored, updated)) return Reopen(region, kind, file, replacement, decode);
+            var replaced = xteaKeys is null
+                ? cache.TryReplaceContainer(Index, file, stored, updated)
+                : cache.TryReplaceContainer(Index, file, stored, updated, xteaKeys);
+            if (replaced) return Reopen(region, kind, file, replacement, xteaKeys, decode);
         }
     }
 
+    private IContainer ReadStored(int file, int[]? xteaKeys) => xteaKeys is null ? cache.ReadContainer(Index, file) : cache.ReadContainer(Index, file, xteaKeys);
+
     // A write is reported saved only once reopening the file yields the bytes that were written and they decode.
-    private Result Reopen<TDecoded>(int region, RegionMapFile kind, int file, byte[] written, Func<byte[], TDecoded> decode)
+    private Result Reopen<TDecoded>(int region, RegionMapFile kind, int file, byte[] written, int[]? xteaKeys, Func<byte[], TDecoded> decode)
     {
         try
         {
-            using var container = cache.ReadContainer(Index, file);
+            using var container = ReadStored(file, xteaKeys);
             var stored = container.Data.ToArray();
             decode(stored);
             return stored.AsSpan().SequenceEqual(written) ? Result.Ok() : new RegionMapWriteUnverifiedError(region, kind, null);

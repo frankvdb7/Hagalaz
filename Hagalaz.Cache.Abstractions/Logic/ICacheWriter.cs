@@ -16,6 +16,16 @@ namespace Hagalaz.Cache.Abstractions.Logic
         /// <exception cref="System.IO.IOException">Thrown if the archive has no existing reference-table entry.</exception>
         void Write(int indexId, int fileId, IContainer container);
 
+        /// <summary>
+        /// Writes a container encrypted with XTEA. The reference-table CRC and digest cover the encrypted bytes that are stored.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index to write to.</param>
+        /// <param name="fileId">The identifier of the file to write.</param>
+        /// <param name="container">The container holding the data to be written.</param>
+        /// <param name="xteaKeys">Four keys, not all zero.</param>
+        /// <exception cref="System.ArgumentException">Thrown if the keys are not four values or are all zero.</exception>
+        void Write(int indexId, int fileId, IContainer container, int[] xteaKeys);
+
         /// <summary>Persists a container with explicit member mappings using the same checksum/version rules.</summary>
         void Write(int indexId, int fileId, IContainer container, IReferenceTable table);
     }

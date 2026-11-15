@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using Hagalaz.Cache.Abstractions.Model;
 
 namespace Hagalaz.Cache.Abstractions
@@ -111,6 +111,19 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="replacement">The container to write.</param>
         /// <returns><c>true</c> when the replacement was written; <c>false</c> when another write changed the file first or the stored file can no longer be read.</returns>
         bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement);
+
+        /// <summary>
+        /// <see cref="TryReplaceContainer(int, int, byte[], IContainer)"/> for an XTEA-protected file: the stored file is read with
+        /// <paramref name="xteaKeys"/> to compare, and the replacement is written encrypted with them.
+        /// </summary>
+        /// <param name="indexId">The identifier of the index containing the file.</param>
+        /// <param name="fileId">The identifier of the file; its reference-table entry must already exist.</param>
+        /// <param name="expected">The decoded data the replacement was built from.</param>
+        /// <param name="replacement">The container to write.</param>
+        /// <param name="xteaKeys">Four keys, not all zero.</param>
+        /// <returns><c>true</c> when the replacement was written; <c>false</c> when another write changed the file first or it cannot be read with these keys.</returns>
+        /// <exception cref="ArgumentException">Thrown if the keys are not four values or are all zero; nothing is read or written.</exception>
+        bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement, int[] xteaKeys);
 
         /// <summary>
         /// Replaces one member of an archive and persists the rebuilt archive while holding the cache's write boundary.

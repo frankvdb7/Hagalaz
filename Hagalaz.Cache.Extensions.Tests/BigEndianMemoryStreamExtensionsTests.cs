@@ -323,6 +323,7 @@ namespace Hagalaz.Cache.Extensions.Tests
         [InlineData(32768)]
         [InlineData(40000)]
         [InlineData(65534)]
+        [InlineData(65535)]
         [InlineData(70000)]
         public void WriteAndReadHugeSmart(int value)
         {
