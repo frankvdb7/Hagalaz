@@ -81,7 +81,7 @@ public sealed class RegionMapArchiveTests
 
         var terrain = new RegionMapArchive(index.Cache.Object).ReadTerrain(Region).Value;
 
-        Assert.Equal(MapRenderDecoder.DecodeTerrain(new MemoryStream(StoredTerrain), Region)[0].Underlays, terrain.Planes[0].Underlays);
+        Assert.Equal(DecodeTerrain(StoredTerrain)[0].Underlays, terrain.Planes[0].Underlays);
         Assert.NotNull(terrain.Atmosphere);
         Assert.False(terrain.TrailerTruncated);
     }
@@ -142,7 +142,7 @@ public sealed class RegionMapArchiveTests
 
         Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)], 0).IsSuccess);
 
-        var planes = MapRenderDecoder.DecodeTerrain(new MemoryStream(index.Read("m50_50")), Region);
+        var planes = DecodeTerrain(index.Read("m50_50"));
         Assert.Equal(3, planes[0].Underlays[10 * 64 + 20]);
         Assert.Equal(CompressionType.Gzip, index.CompressionOf("m50_50"));
         index.Cache.Verify(api => api.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IContainer>()), Times.Never);
@@ -177,7 +177,7 @@ public sealed class RegionMapArchiveTests
 
         Assert.True(archive.ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)], 0).HasError<RegionMapFileConflictError>());
 
-        var planes = MapRenderDecoder.DecodeTerrain(new MemoryStream(index.Read("m50_50")), Region);
+        var planes = DecodeTerrain(index.Read("m50_50"));
         Assert.Equal(5, planes[0].Underlays[30 * 64 + 40]);
         Assert.NotEqual(3, planes[0].Underlays[10 * 64 + 20]);
         Assert.Equal(1, index.Replacements);
@@ -212,7 +212,7 @@ public sealed class RegionMapArchiveTests
     {
         var index = new FakeIndex();
         index.Store("m50_50", StoredTerrain);
-        var underlay = MapRenderDecoder.DecodeTerrain(new MemoryStream(StoredTerrain), Region)[0].Underlays[10 * 64 + 20];
+        var underlay = DecodeTerrain(StoredTerrain)[0].Underlays[10 * 64 + 20];
 
         Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: underlay)], 0).IsSuccess);
 
@@ -236,7 +236,7 @@ public sealed class RegionMapArchiveTests
 
         Assert.True(new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, mine, 0).IsSuccess);
 
-        Assert.Equal(mine, MapRenderDecoder.DecodeLandscape(new MemoryStream(index.Read("l50_50"))));
+        Assert.Equal(mine, DecodeLandscape(index.Read("l50_50")));
         Assert.Equal(CompressionType.Bzip2, index.CompressionOf("l50_50"));
         index.Cache.Verify(api => api.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IContainer>()), Times.Never);
     }
@@ -256,7 +256,7 @@ public sealed class RegionMapArchiveTests
         var result = archive.ReplaceLandscape(Region, [new MapRenderPlacement(1, 10, 0, 1, 1, 0)], 0);
 
         Assert.True(result.HasError<RegionMapFileConflictError>());
-        Assert.Equal([new MapRenderPlacement(2, 10, 0, 2, 2, 0)], MapRenderDecoder.DecodeLandscape(new MemoryStream(index.Read("l50_50"))));
+        Assert.Equal([new MapRenderPlacement(2, 10, 0, 2, 2, 0)], DecodeLandscape(index.Read("l50_50")));
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public sealed class RegionMapArchiveTests
         var result = archive.ReplaceLandscape(Region, [new MapRenderPlacement(1, 10, 0, 1, 1, 0)], 0);
 
         Assert.True(result.HasError<RegionMapFileConflictError>());
-        Assert.Equal(newer, MapRenderDecoder.DecodeLandscape(new MemoryStream(index.Read("l50_50"))));
+        Assert.Equal(newer, DecodeLandscape(index.Read("l50_50")));
     }
 
     [Fact]
@@ -313,7 +313,7 @@ public sealed class RegionMapArchiveTests
         var index = new FakeIndex();
         index.Store("l50_50", StoredLandscape);
 
-        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, MapRenderDecoder.DecodeLandscape(new MemoryStream(StoredLandscape)), 0);
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, DecodeLandscape(StoredLandscape), 0);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, index.Replacements);
@@ -325,6 +325,18 @@ public sealed class RegionMapArchiveTests
         var index = new FakeIndex();
 
         Assert.True(new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0).HasError<RegionMapFileAbsentError>());
+    }
+
+    private static MapRenderPlacement[] DecodeLandscape(byte[] data)
+    {
+        using var stream = new MemoryStream(data);
+        return MapRenderDecoder.DecodeLandscape(stream);
+    }
+
+    private static TerrainRenderPlane[] DecodeTerrain(byte[] data)
+    {
+        using var stream = new MemoryStream(data);
+        return MapRenderDecoder.DecodeTerrain(stream, Region);
     }
 
     private static byte[] Fixture(string name) => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", name));
