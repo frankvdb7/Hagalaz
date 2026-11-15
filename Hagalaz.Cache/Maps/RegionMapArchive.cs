@@ -234,9 +234,6 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
         // Built without holding the cache, then written only if no other write landed on the file meanwhile.
         while (true)
         {
-            if ((cache.ReadReferenceTable(Index).GetEntry(file)?.Version ?? -1) is var version && version != expectedVersion)
-                return new RegionMapFileConflictError(region, kind, expectedVersion, version);
-
             byte[] stored;
             CompressionType compression;
             TDecoded current;
@@ -245,6 +242,10 @@ public sealed class RegionMapArchive(ICacheAPI cache) : IRegionMapArchive
                 using var container = cache.ReadContainer(Index, file);
                 stored = container.Data.ToArray();
                 compression = container.CompressionType;
+                // Read after the bytes: a version still at `expectedVersion` here means these bytes are the ones the edit was drawn from,
+                // and a write landing after this point fails the compare-and-swap below, which loops back to this check.
+                if ((cache.ReadReferenceTable(Index).GetEntry(file)?.Version ?? -1) is var version && version != expectedVersion)
+                    return new RegionMapFileConflictError(region, kind, expectedVersion, version);
                 current = decode(stored);
             }
             catch (Exception error) when (IsCorruptData(error))

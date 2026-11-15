@@ -260,6 +260,25 @@ public sealed class RegionMapArchiveTests
     }
 
     [Fact]
+    public void ReplaceLandscape_RefusesWhenAnotherSaveLandsBetweenTheLoadAndTheRead()
+    {
+        var index = new FakeIndex();
+        index.Store("l50_50", StoredLandscape);
+        var archive = new RegionMapArchive(index.Cache.Object);
+        MapRenderPlacement[] newer = [new(2, 10, 0, 2, 2, 0)];
+        index.BeforeRead = () =>
+        {
+            index.BeforeRead = () => { };
+            Assert.True(archive.ReplaceLandscape(Region, newer, 0).IsSuccess);
+        };
+
+        var result = archive.ReplaceLandscape(Region, [new MapRenderPlacement(1, 10, 0, 1, 1, 0)], 0);
+
+        Assert.True(result.HasError<RegionMapFileConflictError>());
+        Assert.Equal(newer, MapRenderDecoder.DecodeLandscape(new MemoryStream(index.Read("l50_50"))));
+    }
+
+    [Fact]
     public void ReplaceLandscape_ReportsAWriteThatReopensUnreadableAsUnverified()
     {
         var index = new FakeIndex();
@@ -325,6 +344,7 @@ public sealed class RegionMapArchiveTests
             });
             Cache.Setup(api => api.ReadContainer(5, It.IsAny<int>())).Returns((int _, int file) =>
             {
+                BeforeRead();
                 ContainerReads++;
                 var stored = _files.Values.Single(entry => entry.File == file);
                 return new Container(stored.Compression, new MemoryStream(stored.Data));
@@ -346,6 +366,7 @@ public sealed class RegionMapArchiveTests
         public bool Named { get; init; } = true;
         public Action BeforeReplace { get; set; } = () => { };
         public Action AfterReplace { get; set; } = () => { };
+        public Action BeforeRead { get; set; } = () => { };
         public int TableReads { get; private set; }
         public int ContainerReads { get; private set; }
         public int Replacements { get; private set; }
