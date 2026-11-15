@@ -24,14 +24,19 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
         private readonly IItem _item;
 
         /// <summary>
-        ///     The unEquipHandler.
+        ///     The equipment changed handler.
         /// </summary>
         private readonly EventHappened _equipChangedHandler;
 
         /// <summary>
-        ///     The logout handler.
+        ///     The pre-snapshot detach handler.
         /// </summary>
-        private readonly EventHappened _logoutHandler;
+        private readonly EventHappened _detachHandler;
+
+        /// <summary>
+        ///     The destroy handler.
+        /// </summary>
+        private readonly EventHappened _destroyHandler;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="DegradeTask" /> class.
@@ -48,40 +53,40 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
 
             _equipChangedHandler = _character.RegisterEventHandler(new EventHappened<EquipmentChangedEvent>(e =>
             {
-                if (e.ChangedSlots == null)
+                if (_character.Equipment.GetInstanceSlot(_item) == EquipmentSlot.NoSlot)
                 {
-                    return false;
-                }
-                foreach (var slot in e.ChangedSlots)
-                {
-                    var changedItem = _character.Equipment[slot];
-                    if (changedItem == null || !_item.Equals(changedItem))
-                    {
-                        continue;
-                    }
-
-                    Save(_item);
-                    return false;
+                    SaveAndCancel();
                 }
                 return false;
             }));
 
-            _logoutHandler = _character.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>(e =>
+            _detachHandler = _character.RegisterEventHandler(new EventHappened<CharacterDetachingEvent>(e =>
             {
-                Save(_item);
+                Save();
+                return false;
+            }));
+
+            _destroyHandler = _character.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>(e =>
+            {
+                UnregisterEventHandlers();
+                Cancel();
                 return false;
             }));
         }
 
         /// <summary>
-        ///     Saves the specified item.
+        ///     Stores the remaining ticks on the tracked item.
         /// </summary>
-        /// <param name="toSave">To save.</param>
-        private void Save(IItem toSave)
+        private void Save() => _item.ExtraData[0] = ExecuteDelay;
+
+        /// <summary>
+        ///     Stores the remaining ticks and stops the countdown.
+        /// </summary>
+        private void SaveAndCancel()
         {
-            toSave.ExtraData[0] = ExecuteDelay;
+            Save();
             UnregisterEventHandlers();
-            _character.QueueTask(new RsTask(Cancel, 1));
+            Cancel();
         }
 
         /// <summary>
@@ -89,15 +94,9 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
         /// </summary>
         private void UnregisterEventHandlers()
         {
-            if (_equipChangedHandler != null)
-            {
-                _character.UnregisterEventHandler<EquipmentChangedEvent>(_equipChangedHandler);
-            }
-
-            if (_logoutHandler != null)
-            {
-                _character.UnregisterEventHandler<CreatureDestroyedEvent>(_logoutHandler);
-            }
+            _character.UnregisterEventHandler<EquipmentChangedEvent>(_equipChangedHandler);
+            _character.UnregisterEventHandler<CharacterDetachingEvent>(_detachHandler);
+            _character.UnregisterEventHandler<CreatureDestroyedEvent>(_destroyHandler);
         }
 
         /// <summary>
