@@ -2,7 +2,7 @@
 
 ## 1. Regression tests
 
-- [x] 1.1 Add `DegradeTaskLifecycleTests` using a real `EquipmentContainer`, `InMemoryEventBus` and manual task ticks; confirm they fail on the old implementation.
+- [x] 1.1 Add `DegradeTaskLifecycleTests` using a stubbed equipment container, a real `InMemoryEventBus` and manual task ticks; confirm they fail on the old implementation.
 
 ## 2. Fix
 
