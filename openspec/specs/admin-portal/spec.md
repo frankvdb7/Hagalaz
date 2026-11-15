@@ -1,7 +1,7 @@
 # admin-portal Specification
 
 ## Purpose
-TBD
+Defines the shared admin portal shell and its sections, guarded by authentication, and requires the portal to offer only operations that a verified API supports.
 
 ## Requirements
 

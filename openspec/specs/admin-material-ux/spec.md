@@ -1,7 +1,7 @@
 # admin-material-ux Specification
 
 ## Purpose
-TBD
+Keeps the admin application on Angular Material and its theme, and makes cache tool operations give clear, accessible feedback without duplicate or invalid submissions.
 
 ## Requirements
 

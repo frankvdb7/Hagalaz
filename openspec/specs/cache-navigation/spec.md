@@ -1,7 +1,7 @@
 # cache-navigation Specification
 
 ## Purpose
-TBD
+Keeps Cache Studio's applied browsing context in the URL across navigation and protects unsaved definition and sprite edits with one confirmation policy.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # cache-item-forge Specification
 
 ## Purpose
-TBD
+Defines Item Forge, the admin workspace for inspecting a cache item definition, its accurate presentation of cache values, and its reuse of the existing item store and services.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # cache-definition-navigation Specification
 
 ## Purpose
-TBD
+Provides the breadcrumb picker every cache definition detail page uses to jump to another definition of the same type, with search limited to what each type supports.
 
 ## Requirements
 

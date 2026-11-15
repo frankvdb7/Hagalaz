@@ -1,7 +1,7 @@
 # admin-shared-theme Specification
 
 ## Purpose
-TBD
+Gives the admin application one visual treatment for cards, outlined fields and primary actions across the login page, signed-in pages and overlays.
 
 ## Requirements
 

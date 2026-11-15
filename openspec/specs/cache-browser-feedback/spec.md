@@ -1,7 +1,7 @@
 # cache-browser-feedback Specification
 
 ## Purpose
-TBD
+Makes Cache Studio's browser show one recoverable state per applied request and describe only the search capabilities and entry points it actually supports.
 
 ## Requirements
 

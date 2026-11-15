@@ -1,7 +1,7 @@
 # admin-overview-reference Specification
 
 ## Purpose
-TBD
+Defines the admin overview page: its navigation, overview actions and data states in a responsive layout that follows the supplied reference design.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # cache-type-details Specification
 
 ## Purpose
-TBD
+Gives each supported cache definition type its own state store and detail page, while keeping archive counts, pagination and sprite image editing available.
 
 ## Requirements
 
