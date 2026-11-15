@@ -19,24 +19,24 @@ exporters:
     tls:
       insecure: ${env:ASPIRE_INSECURE}
       insecure_skip_verify: true # Required in local development because cert is localhost and the endpoint is host.docker.internal
-  otlphttp/prometheus:
-    endpoint: ${env:PROMETHEUS_ENDPOINT}
+  # Self-hosted SigNoz (managed separately, see docs/observability-signoz.md).
+  # Each exporter keeps its own queue and retries, so an unavailable backend does not block the other.
+  otlp/signoz:
+    endpoint: ${env:SIGNOZ_OTLP_ENDPOINT}
     tls:
-      insecure: true
+      insecure: ${env:SIGNOZ_OTLP_INSECURE}
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/aspire]
+      exporters: [otlp/aspire, otlp/signoz]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/aspire]
+      exporters: [otlp/aspire, otlp/signoz]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters:
-        - otlp/aspire
-        - otlphttp/prometheus
+      exporters: [otlp/aspire, otlp/signoz]

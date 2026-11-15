@@ -117,4 +117,27 @@ public sealed class AppHostDependencyTests
         Assert.IsTrue(endpoint.IsExternal, name);
     }
 
+    [TestMethod]
+    public async Task Observability_UsesCollectorWithoutPrometheusOrGrafana()
+    {
+        var builder = DistributedApplication.CreateBuilder(["--disable-dashboard"]);
+        AppHostConfiguration.Configure(builder, includeHealthChecks: false);
+        await using var application = builder.Build();
+        var model = application.Services.GetRequiredService<DistributedApplicationModel>();
+        var names = model.Resources.Select(resource => resource.Name).ToList();
+
+        Assert.IsFalse(names.Contains("prometheus"));
+        Assert.IsFalse(names.Contains("grafana"));
+        Assert.IsTrue(names.Contains("otelcollector"));
+    }
+
+    [TestMethod]
+    public void CollectorConfig_ExportsEverySignalToAspireAndSigNoz()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Hagalaz.AppHost", "Configs", "otelcollector", "config.yaml");
+        var lines = File.ReadAllLines(path);
+
+        Assert.AreEqual(3, lines.Count(line => line.Contains("exporters: [otlp/aspire, otlp/signoz]")));
+        Assert.IsFalse(lines.Any(line => line.Contains("prometheus", StringComparison.OrdinalIgnoreCase)));
+    }
 }

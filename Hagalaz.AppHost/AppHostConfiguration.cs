@@ -6,6 +6,9 @@ namespace Hagalaz.AppHost;
 
 public static class AppHostConfiguration
 {
+    // gRPC OTLP receiver of the separately managed SigNoz stack, reached from the collector container via the host.
+    private const string DefaultSigNozOtlpEndpoint = "host.docker.internal:4317";
+
     public static void Configure(IDistributedApplicationBuilder builder, bool includeHealthChecks = true)
     {
         var cacheIntrospectionClientSecret = builder.AddParameter("cache-introspection-client-secret", secret: true);
@@ -32,21 +35,6 @@ public static class AppHostConfiguration
         var migrations = builder.AddProject<Projects.Hagalaz_Database_Migrations>("hagalaz-database-migrations")
             .WithReference(database)
             .WaitFor(database);
-
-        var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
-            .WithBindMount("Configs/prometheus", "/etc/prometheus", isReadOnly: true)
-            .WithArgs("--web.enable-otlp-receiver", "--config.file=/etc/prometheus/prometheus.yml")
-            .WithHttpEndpoint(targetPort: 9090, name: "http")
-            .WithLifetime(ContainerLifetime.Persistent)
-            .WithExplicitStart();
-
-        var grafana = builder.AddContainer("grafana", "grafana/grafana")
-            .WithBindMount("Configs/grafana/config", "/etc/grafana", isReadOnly: true)
-            .WithBindMount("Configs/grafana/dashboards", "/var/lib/grafana/dashboards", isReadOnly: true)
-            .WithEnvironment("PROMETHEUS_ENDPOINT", prometheus.GetEndpoint("http"))
-            .WithHttpEndpoint(targetPort: 3000, name: "http")
-            .WithLifetime(ContainerLifetime.Persistent)
-            .WithExplicitStart();
 
         var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld-1", launchProfileName: "tcp")
             .WaitFor(messaging)
@@ -195,7 +183,8 @@ public static class AppHostConfiguration
         }
 
         builder.AddOpenTelemetryCollector("otelcollector", "Configs/otelcollector/config.yaml")
-            .WithEnvironment("PROMETHEUS_ENDPOINT", $"{prometheus.GetEndpoint("http")}/api/v1/otlp")
+            .WithEnvironment("SIGNOZ_OTLP_ENDPOINT", builder.Configuration["SigNoz:OtlpEndpoint"] ?? DefaultSigNozOtlpEndpoint)
+            .WithEnvironment("SIGNOZ_OTLP_INSECURE", builder.Configuration["SigNoz:OtlpInsecure"] ?? "true")
             .WithLifetime(ContainerLifetime.Persistent);
     }
 }
