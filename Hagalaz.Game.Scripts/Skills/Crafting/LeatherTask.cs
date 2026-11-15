@@ -1,4 +1,5 @@
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -110,37 +111,27 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             if (TickCount % 3 == 0)
             {
                 MakeCount++;
-                if (++ThreadCount == 5)
-                {
-                    var tremoved = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.ThreadId).Build());
-                    if (tremoved <= 0)
-                    {
-                        Cancel();
-                        return;
-                    }
-
-                    Performer.SendChatMessage("You use up a reel of your thread.");
-                    ThreadCount = 0;
-                }
-
-                if (RandomStatic.Generator.Next(0, 30) <= 3)
-                {
-                    var nremoved = Performer.Inventory.RemoveItem(_itemBuilder.Create().WithId(CraftingSkillService.NeedleId).Build());
-                    if (nremoved <= 0)
-                    {
-                        Cancel();
-                        return;
-                    }
-
-                    Performer.SendChatMessage("Your needle has broken.");
-                }
-
-                var removed = Performer.Inventory.RemoveItem(
-                    _itemBuilder.Create().WithId(Definition.ResourceID).WithCount(Definition.RequiredResourceCount).Build());
-                if (removed < Definition.RequiredResourceCount)
+                var useThread = ThreadCount + 1 == 5;
+                var breakNeedle = RandomStatic.Generator.Next(0, 30) <= 3;
+                if (!TryConsumeIngredients(useThread, breakNeedle))
                 {
                     Cancel();
                     return;
+                }
+
+                if (useThread)
+                {
+                    Performer.SendChatMessage("You use up a reel of your thread.");
+                    ThreadCount = 0;
+                }
+                else
+                {
+                    ThreadCount++;
+                }
+
+                if (breakNeedle)
+                {
+                    Performer.SendChatMessage("Your needle has broken.");
                 }
 
                 Performer.Inventory.AddItem(_itemBuilder.Create().WithId(Definition.ProductId).Build());
@@ -149,7 +140,33 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         }
 
         /// <summary>
-        /// 
+        ///     Consumes hides and the thread/needle for this iteration as one commit; nothing is consumed on failure.
+        /// </summary>
+        private bool TryConsumeIngredients(bool useThread, bool breakNeedle)
+        {
+            using var transaction = ItemContainerTransaction.Begin(Performer.Inventory);
+            if (!Performer.Inventory.TryRemoveItemExact(
+                    _itemBuilder.Create().WithId(Definition.ResourceID).WithCount(Definition.RequiredResourceCount).Build()))
+            {
+                return false;
+            }
+
+            if (useThread && !Performer.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(CraftingSkillService.ThreadId).Build()))
+            {
+                return false;
+            }
+
+            if (breakNeedle && !Performer.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(CraftingSkillService.NeedleId).Build()))
+            {
+                return false;
+            }
+
+            transaction.Commit();
+            return true;
+        }
+
+        /// <summary>
+        ///
         /// </summary>
         public override void Cancel()
         {
