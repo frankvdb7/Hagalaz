@@ -544,7 +544,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                             var distance = (int)Location.GetDistance(myX + x1, myY + y1, otherX + x2, otherY + y2);
                             if (distance <= 0)
                                 onSameTile = true;
-                            else if (distance <= range) withinRange = true;
+                            else if (distance <= range && (range > 1 || CanMeleeStep(myX + x1, myY + y1, otherX + x2, otherY + y2)))
+                                withinRange = true;
                         }
                     }
                 }
@@ -595,6 +596,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             return withinRange;
         }
+
+        /// <summary>
+        ///     Checks whether movement collision allows a unit connection between two adjacent footprint tiles.
+        /// </summary>
+        private bool CanMeleeStep(int fromX, int fromY, int toX, int toY) =>
+            Owner.PathFinder.CheckStep(toX, toY, Owner.Location.Z, Math.Sign(toX - fromX), Math.Sign(toY - fromY), 1);
 
         /// <summary>
         ///     Get's if this creature is in combat.
