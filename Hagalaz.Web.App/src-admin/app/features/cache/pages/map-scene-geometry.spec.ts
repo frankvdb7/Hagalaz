@@ -179,7 +179,7 @@ describe("mapLandscapeSaves", () => {
             kept,
             added,
             { id: 5, shape: 10, rotation: 1, x: 30, y: 31, plane: 1 },
-        ] }]);
+        ] , expectedVersion: 1 }]);
     });
 
     it("keeps underwater objects out of the surface landscape", () => {
@@ -187,7 +187,7 @@ describe("mapLandscapeSaves", () => {
         const moved = { x: 9, y: 9, plane: 0, rotation: 0, scale: 1 };
         const regions = [withObjects(1, surface, underwater)];
         expect(mapLandscapeSaves(regions, { transforms: new Map([[underwater, moved]]), additions: [] })).toEqual([]);
-        expect(mapLandscapeSaves(regions, { transforms: new Map([[surface, moved]]), additions: [] })).toEqual([{ kind: "landscape", regionId: 1, objects: [{ id: 1, shape: 10, rotation: 0, x: 9, y: 9, plane: 0 }] }]);
+        expect(mapLandscapeSaves(regions, { transforms: new Map([[surface, moved]]), additions: [] })).toEqual([{ kind: "landscape", regionId: 1, objects: [{ id: 1, shape: 10, rotation: 0, x: 9, y: 9, plane: 0 }], expectedVersion: 1 }]);
     });
 
     it("notes the edits saving cannot store", () => {
@@ -270,6 +270,8 @@ function region(id = 258): MapRenderRegion {
         id,
         regionX: id >> 8,
         regionY: id & 255,
+        terrainVersion: 1,
+        landscapeVersion: 1,
         terrainStatus: "available",
         landscapeStatus: "available",
         objects: [],

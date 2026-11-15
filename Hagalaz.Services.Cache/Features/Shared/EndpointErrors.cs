@@ -43,9 +43,13 @@ internal static class EndpointErrors
         _ => throw new InvalidOperationException($"Unexpected model assembly failure: {string.Join("; ", result.Errors)}")
     };
 
-    /// <summary>The response for a failed region map save: 404 for a missing terrain or landscape file, 422 for one that cannot be decoded.</summary>
+    /// <summary>The response for a failed region map save: 404 for a missing terrain or landscape file, 409 for one written since it was loaded, 422 for one that cannot be decoded, 500 for a write that did not verify.</summary>
     public static IResult RegionMapFileFailure(ResultBase result, int id)
     {
+        if (result.Errors.OfType<RegionMapFileConflictError>().FirstOrDefault() is { } conflict)
+            return TypedResults.Conflict(Validation($"Region {id}'s {(conflict.Kind == RegionMapFile.Terrain ? "terrain" : "landscape")} was changed by another save after it was loaded. Nothing was written; reload the region and apply your edits again.", StatusCodes.Status409Conflict));
+        if (result.Errors.OfType<RegionMapWriteUnverifiedError>().FirstOrDefault() is { } unverified)
+            return TypedResults.Problem(title: "Save could not be verified", detail: $"Region {id}'s {(unverified.Kind == RegionMapFile.Terrain ? "terrain" : "landscape")} was written, but reopening it did not return the written data. Reload the region and check it before saving again.", statusCode: StatusCodes.Status500InternalServerError);
         if (result.Errors.OfType<RegionMapFileAbsentError>().FirstOrDefault() is { } absent)
             return TypedResults.NotFound(Validation($"Region {id} has no {(absent.Kind == RegionMapFile.Terrain ? "terrain" : "landscape")} archive.", StatusCodes.Status404NotFound));
         return result.Errors.OfType<RegionMapFileUnreadableError>().FirstOrDefault()?.Kind switch

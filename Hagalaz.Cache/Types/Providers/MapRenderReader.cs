@@ -19,6 +19,8 @@ public sealed class MapRenderReader(ICacheAPI cache, IRegionMapArchive maps)
         if (xteaKeys is not null && xteaKeys.Length != 4) throw new ArgumentException("Exactly four XTEA keys are required.", nameof(xteaKeys));
         if (!maps.HasNamedFiles) throw new NotSupportedException("The map index has no named reference metadata.");
         var warnings = new List<string>();
+        // Taken before the files are read, so a write landing meanwhile makes the version older than the data and a later save is refused.
+        var revision = maps.Revisions([id])[id];
         var terrain = ReadTerrain(id, warnings, cancellationToken, out var terrainStatus, out var trailer, readTrailer: true);
         var objects = Array.Empty<MapRenderPlacement>();
         var landscapeStatus = "absent";
@@ -70,7 +72,7 @@ public sealed class MapRenderReader(ICacheAPI cache, IRegionMapArchive maps)
             ReadFloors(surfaces.SelectMany(p => p.Underlays), false, floors, warnings, cancellationToken);
             ReadFloors(surfaces.SelectMany(p => p.Overlays), true, floors, warnings, cancellationToken);
         }
-        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, trailer.Atmosphere, underwaterPlane, underwaterObjects, trailer.PointLights);
+        return new MapRenderRegion(id, id >> 8, id & 255, terrainStatus, landscapeStatus, planes, objects, floors, warnings, trailer.Atmosphere, underwaterPlane, underwaterObjects, trailer.PointLights, revision.Terrain, revision.Landscape);
     }
 
     /// <summary>Every floor a terrain tile can store; underlay opcodes end at 174 and overlay IDs are one byte.</summary>

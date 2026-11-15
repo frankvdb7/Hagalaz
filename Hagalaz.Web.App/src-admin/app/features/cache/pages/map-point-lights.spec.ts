@@ -9,7 +9,7 @@ describe("map point lights", () => {
         flags: [], underlays: [], overlays: [], overlayShapes: [], overlayRotations: [],
     }));
     const region: MapRenderRegion = {
-        id: 258, regionX: 1, regionY: 2, terrainStatus: "available", landscapeStatus: "absent",
+        id: 258, regionX: 1, regionY: 2, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "absent",
         planes, floors: [], objects: [], warnings: [],
     };
 

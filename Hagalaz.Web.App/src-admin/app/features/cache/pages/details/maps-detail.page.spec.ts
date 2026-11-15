@@ -22,7 +22,7 @@ import { required } from "../../../../../testing/required";
 
 const base = `${environment.cacheApiUrl}types/maps/`;
 const worldMapUrl = `${base}worldmap/refresh`;
-const region = (id: number) => ({ id, regionX: id >> 8, regionY: id & 255, terrainStatus: "absent", landscapeStatus: "absent", planes: [], objects: [], floors: [], warnings: [] });
+const region = (id: number) => ({ id, regionX: id >> 8, regionY: id & 255, terrainVersion: 3, landscapeVersion: 7, terrainStatus: "absent", landscapeStatus: "absent", planes: [], objects: [], floors: [], warnings: [] });
 
 describe("MapsDetailPageComponent", () => {
     it("requests appearance for an unused catalog object dropped on a region tile", async () => {
@@ -402,7 +402,7 @@ describe("MapsDetailPageComponent", () => {
             await harness.fixture.whenStable();
             expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? Tile flag changes reach a running game world only after it reloads the region. World map areas other than the main map are not updated.");
             const request = http.expectOne(`${base}258/terrain`);
-            expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, flags: 4 }] });
+            expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, flags: 4 }], expectedVersion: 3 });
             request.flush({});
             (await vi.waitFor(() => http.expectOne(worldMapUrl))).flush({ refreshed: [258], unchanged: [], skipped: [] });
             await saving;
@@ -422,7 +422,7 @@ describe("MapsDetailPageComponent", () => {
             await harness.fixture.whenStable();
             expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? World map areas other than the main map are not updated.");
             const request = http.expectOne(`${base}258/terrain`);
-            expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, height: 22 }] });
+            expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, height: 22 }], expectedVersion: 3 });
             request.flush({});
             const refresh = await vi.waitFor(() => http.expectOne(worldMapUrl));
             expect(refresh.request.body).toEqual({ regions: [258] });
@@ -534,7 +534,7 @@ describe("MapsDetailPageComponent", () => {
             const saving = page.saveChanges();
             await harness.fixture.whenStable();
             const request = http.expectOne(`${base}258/landscape`);
-            expect(request.request.body).toEqual({ objects: [{ ...source, x: 5 }] });
+            expect(request.request.body).toEqual({ objects: [{ ...source, x: 5 }], expectedVersion: 7 });
             request.flush({ operation: "map-landscape-updated", id: 258, placements: 1 });
             (await vi.waitFor(() => http.expectOne(worldMapUrl))).flush({ refreshed: [258], unchanged: [], skipped: [] });
             await saving;
@@ -710,6 +710,21 @@ describe("MapsDetailPageComponent", () => {
             expect(page.edits()).toBeDefined();
             expect(required(harness.routeNativeElement, "the routed page").querySelector('[role="alert"]')?.textContent).toContain("Could not save region 258 objects. Landscape is encrypted.");
             http.expectNone(worldMapUrl);
+        });
+
+        it("keeps the draft and skips the reload when the cache moved past the loaded version", async () => {
+            const { harness, page } = await loadRegion();
+            answer(true);
+            page.changeTransform("x", 5);
+            const saving = page.saveChanges();
+            await harness.fixture.whenStable();
+            http.expectOne(`${base}258/landscape`).flush({ detail: "Region 258's landscape was changed by another save after it was loaded." }, { status: 409, statusText: "Conflict" });
+            await saving;
+            harness.detectChanges();
+            expect(page.edits()).toBeDefined();
+            expect(required(harness.routeNativeElement, "the routed page").querySelector('[role="alert"]')?.textContent).toContain("was changed by another save after it was loaded");
+            http.expectNone(worldMapUrl);
+            http.expectNone(`${base}258/render`);
         });
 
         it("reports a failed world map refresh without losing the saved edits", async () => {

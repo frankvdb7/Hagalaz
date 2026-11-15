@@ -157,7 +157,7 @@ export function mapLandscapeSaves(regions: readonly MapRenderRegion[], draft: Ma
             return [{ id, shape, rotation, x, y, plane }];
         });
         const unchanged = objects.length === surface.length && objects.every((object, index) => samePlacement(object, surface[index]));
-        return unchanged ? [] : [{ kind: "landscape" as const, regionId: region.id, objects }];
+        return unchanged ? [] : [{ kind: "landscape" as const, regionId: region.id, objects, expectedVersion: region.landscapeVersion }];
     });
 }
 

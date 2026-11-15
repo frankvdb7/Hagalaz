@@ -7,6 +7,8 @@ function region(x: number, rgb: number, textureId: number): MapRenderRegion {
         id: x << 8,
         regionX: x,
         regionY: 0,
+        terrainVersion: 1,
+        landscapeVersion: 1,
         terrainStatus: "available",
         landscapeStatus: "absent",
         objects: [],

@@ -11,8 +11,9 @@ namespace Hagalaz.Cache.Maps;
 /// another write landed first.
 /// </summary>
 /// <remarks>
-/// Compare-and-swap keeps the readability check and the write together. It does not stop one whole-landscape save from replacing
-/// another; the later one is stored.
+/// Every save names the file version its edit was drawn from and is refused when the file has been written since, so a stale
+/// whole-landscape save cannot replace a newer one. Compare-and-swap keeps the readability check and the write together.
+/// A save is reported successful only after reopening the file returns the written data.
 /// </remarks>
 public interface IRegionMapArchive
 {
@@ -40,9 +41,16 @@ public interface IRegionMapArchive
     /// <summary>Decodes the region's underwater object placements.</summary>
     Result<MapRenderPlacement[]> ReadUnderwaterLandscape(int region, CancellationToken cancellationToken = default);
 
-    /// <summary>Changes stored terrain tiles, verifying that nothing else in the file moved.</summary>
-    Result ApplyTerrain(int region, IReadOnlyCollection<MapTerrainTileChange> changes, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Changes stored terrain tiles, verifying that nothing else in the file moved. Fails with <see cref="RegionMapFileConflictError"/>
+    /// unless the file is still at <paramref name="expectedVersion"/>, and with <see cref="RegionMapWriteUnverifiedError"/> when reopening
+    /// the written file does not return what was written.
+    /// </summary>
+    Result ApplyTerrain(int region, IReadOnlyCollection<MapTerrainTileChange> changes, int expectedVersion, CancellationToken cancellationToken = default);
 
-    /// <summary>Replaces the region's landscape placements; refuses a landscape it cannot read, so unseen placements are never lost.</summary>
-    Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Replaces the region's landscape placements; refuses a landscape it cannot read, so unseen placements are never lost.
+    /// Conflict and verification failures are reported as for <see cref="ApplyTerrain"/>.
+    /// </summary>
+    Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, int expectedVersion, CancellationToken cancellationToken = default);
 }

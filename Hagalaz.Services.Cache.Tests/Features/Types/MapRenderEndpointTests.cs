@@ -191,7 +191,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 2, y = 3, height = 8, underlay = 5, overlay = 7, overlayShape = 1, overlayRotation = 2 } } });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 2, y = 3, height = 8, underlay = 5, overlay = 7, overlayShape = 1, overlayRotation = 2 } }, expectedVersion = versions.Terrain });
 
         response.EnsureSuccessStatusCode();
         using var render = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
@@ -213,8 +214,10 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var flagged = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 1, x = 2, y = 3, flags = 5 } } });
-        using var raised = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 1, x = 2, y = 3, height = 8 } } });
+        var versions = await VersionsAsync(client);
+        using var flagged = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 1, x = 2, y = 3, flags = 5 } }, expectedVersion = versions.Terrain });
+        versions = await VersionsAsync(client);
+        using var raised = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 1, x = 2, y = 3, height = 8 } }, expectedVersion = versions.Terrain });
 
         flagged.EnsureSuccessStatusCode();
         raised.EnsureSuccessStatusCode();
@@ -235,7 +238,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 1, y = 1, underlay = 3 }, new { plane = 0, x = 0, y = 0, flags } } });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 1, y = 1, underlay = 3 }, new { plane = 0, x = 0, y = 0, flags } }, expectedVersion = versions.Terrain });
 
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         StringAssert.Contains(await response.Content.ReadAsStringAsync(), "between 0 and 32");
@@ -250,7 +254,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = Array.Empty<object>() });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = Array.Empty<object>(), expectedVersion = versions.Terrain });
 
         response.EnsureSuccessStatusCode();
         CollectionAssert.AreEqual(before, Stored(store, 0));
@@ -302,7 +307,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = Array.Empty<object>() });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = Array.Empty<object>(), expectedVersion = versions.Terrain });
 
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -315,10 +321,84 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 0, y = 0, height = 8 } } });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 0, y = 0, height = 8 } }, expectedVersion = versions.Terrain });
 
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         CollectionAssert.AreEqual(before, Stored(store, 0));
+    }
+
+    private static async Task<(int Terrain, int Landscape)> VersionsAsync(HttpClient client)
+    {
+        using var render = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
+        var region = (await render.Content.ReadFromJsonAsync<MapRenderRegion>())!;
+        return (region.TerrainVersion, region.LandscapeVersion);
+    }
+
+    [TestMethod]
+    public async Task UpdateTerrain_RequiresTheVersionTheChangesWereDrawnFrom()
+    {
+        var store = Store(TerrainRegion(new byte[16384]));
+        var before = Stored(store, 0);
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 1, y = 1, underlay = 3 } } });
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        CollectionAssert.AreEqual(before, Stored(store, 0));
+    }
+
+    [TestMethod]
+    public async Task UpdateTerrain_RefusesAStaleVersionWithoutOverwritingTheNewerTerrain()
+    {
+        var store = Store(TerrainRegion(new byte[16384]));
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var loaded = await VersionsAsync(client);
+        using var other = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 4, y = 4, underlay = 6 } }, expectedVersion = loaded.Terrain });
+        other.EnsureSuccessStatusCode();
+        var newer = Stored(store, 0);
+
+        using var stale = await client.PostAsJsonAsync(TerrainUrl, new { tiles = new object[] { new { plane = 0, x = 1, y = 1, underlay = 3 } }, expectedVersion = loaded.Terrain });
+
+        Assert.AreEqual(HttpStatusCode.Conflict, stale.StatusCode);
+        CollectionAssert.AreEqual(newer, Stored(store, 0));
+        Assert.AreNotEqual(loaded.Terrain, (await VersionsAsync(client)).Terrain);
+    }
+
+    [TestMethod]
+    public async Task ReplaceLandscape_RequiresTheVersionThePlacementsWereDrawnFrom()
+    {
+        var store = Store(EditableRegion(Landscape(new MapRenderPlacement(1, 10, 0, 1, 1, 0))));
+        SeedObjectIndex(store);
+        var before = Stored(store, 1);
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>() });
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        CollectionAssert.AreEqual(before, Stored(store, 1));
+    }
+
+    [TestMethod]
+    public async Task ReplaceLandscape_RefusesAStaleVersionWithoutOverwritingTheNewerLandscape()
+    {
+        var store = Store(EditableRegion(Landscape(new MapRenderPlacement(1, 10, 0, 1, 1, 0))));
+        SeedObjectIndex(store);
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        var loaded = await VersionsAsync(client);
+        MapRenderPlacement[] newer = [new(7, 10, 1, 4, 5, 1)];
+        using var other = await client.PostAsJsonAsync(LandscapeUrl, new { objects = newer, expectedVersion = loaded.Landscape });
+        other.EnsureSuccessStatusCode();
+
+        using var stale = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>(), expectedVersion = loaded.Landscape });
+
+        Assert.AreEqual(HttpStatusCode.Conflict, stale.StatusCode);
+        using var render = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
+        CollectionAssert.AreEqual(newer, (await render.Content.ReadFromJsonAsync<MapRenderRegion>())!.Objects.ToArray());
     }
 
     [TestMethod]
@@ -365,7 +445,8 @@ public sealed class MapRenderEndpointTests
         using var client = CacheServiceTestHost.CreateClient(app);
         MapRenderPlacement[] saved = [new(300, 22, 3, 63, 62, 3), new(7, 10, 1, 4, 5, 1)];
 
-        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = saved });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = saved, expectedVersion = versions.Landscape });
 
         response.EnsureSuccessStatusCode();
         using var render = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
@@ -383,7 +464,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>() });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>(), expectedVersion = versions.Landscape });
 
         response.EnsureSuccessStatusCode();
         using var render = await client.PostAsJsonAsync("/api/v1/cache/types/maps/258/render", new { });
@@ -415,7 +497,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = stored });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = stored, expectedVersion = versions.Landscape });
 
         response.EnsureSuccessStatusCode();
         StringAssert.Contains(await response.Content.ReadAsStringAsync(), "map-landscape-updated");
@@ -440,7 +523,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = new[] { new MapRenderPlacement(id, shape, rotation, x, y, plane) } });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = new[] { new MapRenderPlacement(id, shape, rotation, x, y, plane) }, expectedVersion = versions.Landscape });
 
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         CollectionAssert.AreEqual(before, Stored(store, 1));
@@ -471,7 +555,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>() });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>(), expectedVersion = versions.Landscape });
 
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -485,7 +570,8 @@ public sealed class MapRenderEndpointTests
         await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
         using var client = CacheServiceTestHost.CreateClient(app);
 
-        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>() });
+        var versions = await VersionsAsync(client);
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>(), expectedVersion = versions.Landscape });
 
         Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         CollectionAssert.AreEqual(before, Stored(store, 1));

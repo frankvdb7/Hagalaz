@@ -3,7 +3,7 @@ import type { MapPlacement, MapRenderPlane, MapRenderRegion } from "../services/
 import { buildSceneTree, regionDetails, terrainDetails, scenePlacements, shapeLabel, type ScenePlacement } from "./map-scene-tree";
 
 const placement = (id: number, shape: number, plane = 0): MapPlacement => ({ id, shape, rotation: 0, x: id, y: 0, plane });
-const region = (id: number, objects: MapPlacement[] = []): MapRenderRegion => ({ id, regionX: 0, regionY: id, terrainStatus: "available", landscapeStatus: "available", planes: [], objects, floors: [], warnings: [] });
+const region = (id: number, objects: MapPlacement[] = []): MapRenderRegion => ({ id, regionX: 0, regionY: id, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", planes: [], objects, floors: [], warnings: [] });
 const items = (...values: MapPlacement[]): ScenePlacement[] => values.map(value => ({ placement: value, regionId: 1 }));
 const source = (placements: ScenePlacement[], overrides = {}) => ({ regions: [region(1)], placements, query: "", limit: 50, names: new Map<number, string>(), ...overrides });
 

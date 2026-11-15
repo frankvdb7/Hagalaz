@@ -25,7 +25,7 @@ describe("map fog range", () => {
 describe("underwater layer", () => {
     const plane = { cornerHeights: [], flags: [], underlays: [], overlays: [], overlayShapes: [], overlayRotations: [] };
     const placement = { id: 1, shape: 10, rotation: 0, x: 0, y: 0, plane: 0 };
-    const region: MapRenderRegion = { id: 1, regionX: 0, regionY: 1, terrainStatus: "available", landscapeStatus: "available", planes: [plane, plane, plane, plane], objects: [placement], floors: [], warnings: [] };
+    const region: MapRenderRegion = { id: 1, regionX: 0, regionY: 1, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", planes: [plane, plane, plane, plane], objects: [placement], floors: [], warnings: [] };
     it("leaves regions without underwater data untouched", () => {
         expect(withUnderwaterLayer(region)).toBe(region);
     });

@@ -135,7 +135,35 @@ public sealed class RegionMapArchiveTests
     }
 
     [Fact]
-    public void ApplyTerrain_RepatchesWhenAnotherChangeLandsBeforeTheWrite()
+    public void ApplyTerrain_WritesTheChangeAndReportsItVerified()
+    {
+        var index = new FakeIndex();
+        index.Store("m50_50", StoredTerrain);
+
+        Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)], 0).IsSuccess);
+
+        var planes = MapRenderDecoder.DecodeTerrain(new MemoryStream(index.Read("m50_50")), Region);
+        Assert.Equal(3, planes[0].Underlays[10 * 64 + 20]);
+        Assert.Equal(CompressionType.Gzip, index.CompressionOf("m50_50"));
+        index.Cache.Verify(api => api.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IContainer>()), Times.Never);
+    }
+
+    [Fact]
+    public void ApplyTerrain_RefusesAFileWrittenSinceItWasLoaded()
+    {
+        var index = new FakeIndex();
+        index.Store("m50_50", StoredTerrain);
+        index.Store("m50_50", StoredTerrain);
+
+        var result = new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)], 0);
+
+        var conflict = Assert.Single(result.Errors.OfType<RegionMapFileConflictError>());
+        Assert.Equal((Region, RegionMapFile.Terrain, 0, 1), (conflict.Region, conflict.Kind, conflict.ExpectedVersion, conflict.CurrentVersion));
+        Assert.Equal(0, index.Replacements);
+    }
+
+    [Fact]
+    public void ApplyTerrain_RefusesWhenAnotherChangeLandsBeforeTheWrite()
     {
         var index = new FakeIndex();
         index.Store("m50_50", StoredTerrain);
@@ -144,16 +172,27 @@ public sealed class RegionMapArchiveTests
         {
             // Another tile change is written after this one read the file but before it writes.
             index.BeforeReplace = () => { };
-            Assert.True(archive.ApplyTerrain(Region, [new MapTerrainTileChange(0, 30, 40, Underlay: 5)]).IsSuccess);
+            Assert.True(archive.ApplyTerrain(Region, [new MapTerrainTileChange(0, 30, 40, Underlay: 5)], 0).IsSuccess);
         };
 
-        Assert.True(archive.ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)]).IsSuccess);
+        Assert.True(archive.ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)], 0).HasError<RegionMapFileConflictError>());
 
         var planes = MapRenderDecoder.DecodeTerrain(new MemoryStream(index.Read("m50_50")), Region);
-        Assert.Equal(3, planes[0].Underlays[10 * 64 + 20]);
         Assert.Equal(5, planes[0].Underlays[30 * 64 + 40]);
-        Assert.Equal(CompressionType.Gzip, index.CompressionOf("m50_50"));
-        index.Cache.Verify(api => api.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IContainer>()), Times.Never);
+        Assert.NotEqual(3, planes[0].Underlays[10 * 64 + 20]);
+        Assert.Equal(1, index.Replacements);
+    }
+
+    [Fact]
+    public void ApplyTerrain_ReportsAWriteThatReopensDifferentlyAsUnverified()
+    {
+        var index = new FakeIndex();
+        index.Store("m50_50", StoredTerrain);
+        index.AfterReplace = () => index.Store("m50_50", StoredTerrain);
+
+        var result = new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: 3)], 0);
+
+        Assert.True(result.HasError<RegionMapWriteUnverifiedError>());
     }
 
     [Fact]
@@ -162,7 +201,7 @@ public sealed class RegionMapArchiveTests
         var index = new FakeIndex();
         index.Store("m50_50", [51]);
 
-        var result = new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 0, 0, Underlay: 3)]);
+        var result = new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 0, 0, Underlay: 3)], 0);
 
         Assert.True(result.HasError<RegionMapFileUnreadableError>());
         Assert.Equal(0, index.Replacements);
@@ -175,7 +214,7 @@ public sealed class RegionMapArchiveTests
         index.Store("m50_50", StoredTerrain);
         var underlay = MapRenderDecoder.DecodeTerrain(new MemoryStream(StoredTerrain), Region)[0].Underlays[10 * 64 + 20];
 
-        Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: underlay)]).IsSuccess);
+        Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [new MapTerrainTileChange(0, 10, 20, Underlay: underlay)], 0).IsSuccess);
 
         Assert.Equal(0, index.Replacements);
     }
@@ -185,34 +224,55 @@ public sealed class RegionMapArchiveTests
     {
         var index = new FakeIndex();
 
-        Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, []).HasError<RegionMapFileAbsentError>());
+        Assert.True(new RegionMapArchive(index.Cache.Object).ApplyTerrain(Region, [], 0).HasError<RegionMapFileAbsentError>());
     }
 
     [Fact]
-    public void ReplaceLandscape_ChecksAgainAndWritesWhenAnotherSaveLandsBeforeTheWrite()
+    public void ReplaceLandscape_WritesPlacementsKeepingTheStoredCompression()
     {
         var index = new FakeIndex();
         index.Store("l50_50", StoredLandscape, CompressionType.Bzip2);
-        var archive = new RegionMapArchive(index.Cache.Object);
         MapRenderPlacement[] mine = [new(1, 10, 0, 1, 1, 0)];
-        var reads = 0;
-        index.BeforeReplace = () =>
-        {
-            index.BeforeReplace = () => { };
-            Assert.True(archive.ReplaceLandscape(Region, [new MapRenderPlacement(2, 10, 0, 2, 2, 0)]).IsSuccess);
-            reads = index.ContainerReads;
-        };
 
-        Assert.True(archive.ReplaceLandscape(Region, mine).IsSuccess);
+        Assert.True(new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, mine, 0).IsSuccess);
 
         Assert.Equal(mine, MapRenderDecoder.DecodeLandscape(new MemoryStream(index.Read("l50_50"))));
-        Assert.True(index.ContainerReads > reads, "The save must read the newly stored landscape again before writing.");
         Assert.Equal(CompressionType.Bzip2, index.CompressionOf("l50_50"));
         index.Cache.Verify(api => api.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IContainer>()), Times.Never);
     }
 
     [Fact]
-    public void ReplaceLandscape_RefusesALandscapeThatBecameUnreadableBeforeTheWrite()
+    public void ReplaceLandscape_RefusesAStaleVersionWithoutOverwritingTheNewerLandscape()
+    {
+        var index = new FakeIndex();
+        index.Store("l50_50", StoredLandscape);
+        var archive = new RegionMapArchive(index.Cache.Object);
+        index.BeforeReplace = () =>
+        {
+            index.BeforeReplace = () => { };
+            Assert.True(archive.ReplaceLandscape(Region, [new MapRenderPlacement(2, 10, 0, 2, 2, 0)], 0).IsSuccess);
+        };
+
+        var result = archive.ReplaceLandscape(Region, [new MapRenderPlacement(1, 10, 0, 1, 1, 0)], 0);
+
+        Assert.True(result.HasError<RegionMapFileConflictError>());
+        Assert.Equal([new MapRenderPlacement(2, 10, 0, 2, 2, 0)], MapRenderDecoder.DecodeLandscape(new MemoryStream(index.Read("l50_50"))));
+    }
+
+    [Fact]
+    public void ReplaceLandscape_ReportsAWriteThatReopensUnreadableAsUnverified()
+    {
+        var index = new FakeIndex();
+        index.Store("l50_50", StoredLandscape);
+        index.AfterReplace = () => index.Store("l50_50", [0x80]);
+
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [new MapRenderPlacement(1, 10, 0, 1, 1, 0)], 0);
+
+        Assert.True(result.HasError<RegionMapWriteUnverifiedError>());
+    }
+
+    [Fact]
+    public void ReplaceLandscape_RefusesALandscapeReplacedByAnUnreadableOneBeforeTheWrite()
     {
         var index = new FakeIndex();
         index.Store("l50_50", StoredLandscape);
@@ -222,9 +282,9 @@ public sealed class RegionMapArchiveTests
             index.Store("l50_50", [0x80]);
         };
 
-        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, []);
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0);
 
-        Assert.True(result.HasError<RegionMapFileUnreadableError>());
+        Assert.True(result.HasError<RegionMapFileConflictError>());
         Assert.Equal([0x80], index.Read("l50_50"));
     }
 
@@ -234,7 +294,7 @@ public sealed class RegionMapArchiveTests
         var index = new FakeIndex();
         index.Store("l50_50", StoredLandscape);
 
-        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, MapRenderDecoder.DecodeLandscape(new MemoryStream(StoredLandscape)));
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, MapRenderDecoder.DecodeLandscape(new MemoryStream(StoredLandscape)), 0);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, index.Replacements);
@@ -245,7 +305,7 @@ public sealed class RegionMapArchiveTests
     {
         var index = new FakeIndex();
 
-        Assert.True(new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, []).HasError<RegionMapFileAbsentError>());
+        Assert.True(new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0).HasError<RegionMapFileAbsentError>());
     }
 
     private static byte[] Fixture(string name) => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", name));
@@ -277,6 +337,7 @@ public sealed class RegionMapArchiveTests
                     if (!expected.AsSpan().SequenceEqual(_files[name].Data)) return false;
                     Replacements++;
                     Store(name, replacement.Data.ToArray(), replacement.CompressionType);
+                    AfterReplace();
                     return true;
                 });
         }
@@ -284,6 +345,7 @@ public sealed class RegionMapArchiveTests
         public Mock<ICacheAPI> Cache { get; } = new(MockBehavior.Strict);
         public bool Named { get; init; } = true;
         public Action BeforeReplace { get; set; } = () => { };
+        public Action AfterReplace { get; set; } = () => { };
         public int TableReads { get; private set; }
         public int ContainerReads { get; private set; }
         public int Replacements { get; private set; }

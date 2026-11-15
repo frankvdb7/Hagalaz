@@ -13,7 +13,7 @@ function region(floors: MapFloor[], tiles: [x: number, y: number, floor: number,
         plane.overlayShapes[x * 64 + y] = shape;
         plane.overlayRotations[x * 64 + y] = rotation;
     }
-    return { id: 0, regionX: 0, regionY: 0, terrainStatus: "available", landscapeStatus: "available", planes: [plane], objects: [], floors, warnings: [] };
+    return { id: 0, regionX: 0, regionY: 0, terrainVersion: 1, landscapeVersion: 1, terrainStatus: "available", landscapeStatus: "available", planes: [plane], objects: [], floors, warnings: [] };
 }
 const claimed = (points: readonly unknown[]) => [0, 1, 2, 3, 4, 5, 6, 7].filter(point => points[point] !== undefined);
 

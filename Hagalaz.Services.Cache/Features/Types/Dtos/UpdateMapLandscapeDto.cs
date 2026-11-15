@@ -3,4 +3,4 @@ using Hagalaz.Cache.Types;
 
 namespace Hagalaz.Services.Cache.Features.Types.Dtos;
 
-public sealed record UpdateMapLandscapeDto(IReadOnlyList<MapRenderPlacement>? Objects);
+public sealed record UpdateMapLandscapeDto(IReadOnlyList<MapRenderPlacement>? Objects, int? ExpectedVersion = null);
