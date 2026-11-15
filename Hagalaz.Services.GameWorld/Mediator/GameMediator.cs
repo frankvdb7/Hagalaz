@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Mediator;
 using MassTransit;
 using MassTransit.Mediator;
-using Hagalaz.Tasks.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Mediator
 {
@@ -11,9 +11,27 @@ namespace Hagalaz.Services.GameWorld.Mediator
     {
         private readonly IMediator _mMediator;
 
-        public GameMediator(IMediator mMediator) => _mMediator = mMediator;
+        private readonly ILogger _logger;
 
-        public void Publish<TMessage>(TMessage message) where TMessage : class => _mMediator.Publish(message).Forget();
+        public GameMediator(IMediator mMediator, ILogger<GameMediator> logger)
+        {
+            _mMediator = mMediator;
+            _logger = logger;
+        }
+
+        protected GameMediator(IMediator mMediator, ILogger logger)
+        {
+            _mMediator = mMediator;
+            _logger = logger;
+        }
+
+        public void Publish<TMessage>(TMessage message) where TMessage : class =>
+            _mMediator.Publish(message).ContinueWith(
+                task => _logger.LogError(
+                    task.Exception!.GetBaseException(),
+                    "Publishing message of type '{MessageType}' failed.",
+                    typeof(TMessage).Name),
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
 
         public Task SendAsync<TMessage>(TMessage message) where TMessage : class => _mMediator.Send(message);
 
