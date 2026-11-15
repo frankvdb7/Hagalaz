@@ -13,6 +13,7 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types.Providers;
 using Hagalaz.Cache.Utilities;
+using Hagalaz.Security;
 using Hagalaz.TestSupport;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -315,6 +316,25 @@ public sealed class CacheWriterIntegrationTests
     }
 
     [Fact]
+    public void TryReplaceContainer_WithKeys_RecordsTheDigestOfTheEncryptedBytes()
+    {
+        using var store = new MemoryFileStore();
+        SeedCache(store, new ReferenceTableCodec(), ArchiveTestData.EncodeArchive([1]), flags: ReferenceTableFlags.Digests);
+        var original = new byte[100];
+        store.Set(16, 1, EncryptedGzip(original, Keys));
+        using var cache = CreateCache(store);
+        using var container = new Container(CompressionType.Gzip, new MemoryStream([9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 9, 8]));
+
+        Assert.True(cache.TryReplaceContainer(16, 1, original, container, Keys));
+
+        var stored = store.GetBytes(16, 1);
+        var entry = cache.ReadReferenceTable(16).GetEntry(1)!;
+        Assert.Equal(Whirlpool.GenerateDigest(stored, 0, stored.Length), entry.WhirlpoolDigest);
+        var plain = container.Encode(false);
+        Assert.NotEqual(Whirlpool.GenerateDigest(plain, 0, plain.Length), entry.WhirlpoolDigest);
+    }
+
+    [Fact]
     public void TryReplaceContainer_WithWrongKeys_WritesNothing()
     {
         using var store = new MemoryFileStore();
@@ -370,14 +390,15 @@ public sealed class CacheWriterIntegrationTests
             Options.Create(new CacheOptions()));
     }
 
-    private static void SeedCache(MemoryFileStore store, ReferenceTableCodec tableCodec, byte[] archiveBytes, short? version = null)
+    private static void SeedCache(MemoryFileStore store, ReferenceTableCodec tableCodec, byte[] archiveBytes, short? version = null, ReferenceTableFlags flags = 0)
     {
-        var table = new ReferenceTable(7, 5, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 5, flags, 1);
         var entry = new ReferenceTableEntry(1)
         {
             Version = version ?? 4,
             Crc32 = 123
         };
+        if (flags.HasFlag(ReferenceTableFlags.Digests)) entry.WhirlpoolDigest = new byte[64];
         entry.InitializeEntries(1);
         entry.AddEntry(0, new ReferenceTableChildEntry(0));
         table.AddEntry(1, entry);

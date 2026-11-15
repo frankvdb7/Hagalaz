@@ -8,6 +8,7 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
+using Hagalaz.Cache.Utilities;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
@@ -594,6 +595,40 @@ public sealed class MapRenderEndpointTests
         }
 
         CollectionAssert.AreEqual(before, Stored(store, 1));
+    }
+
+    [TestMethod]
+    public async Task ReplaceLandscape_SavesAProtectedLandscapeOnlyWithItsKeys()
+    {
+        int[] keys = [0x1234567, -42, 0x7fffffff, 99];
+        var store = Store(EditableRegion(Landscape()));
+        using (var original = new Container(CompressionType.Gzip, new MemoryStream(Landscape(new MapRenderPlacement(1, 10, 0, 1, 1, 0)))))
+        {
+            var bytes = original.Encode(false);
+            store.Set(5, 1, XteaEncryptor.EncryptXtea(keys, bytes, 5, bytes.Length));
+        }
+        SeedObjectIndex(store);
+        var fileBefore = Stored(store, 1);
+        var tableBefore = store.GetBytes(255, 5);
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        MapRenderPlacement[] mine = [new(2, 10, 0, 2, 2, 0)];
+
+        foreach (var wrong in new int[]?[] { null, [1, 2, 3, 4] })
+        {
+            using var refused = await client.PostAsJsonAsync(LandscapeUrl, new { objects = mine, expectedVersion = 0, xteaKeys = wrong });
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, refused.StatusCode);
+            CollectionAssert.AreEqual(fileBefore, Stored(store, 1));
+            CollectionAssert.AreEqual(tableBefore, store.GetBytes(255, 5));
+        }
+
+        using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = mine, expectedVersion = 0, xteaKeys = keys });
+        response.EnsureSuccessStatusCode();
+
+        var stored = Stored(store, 1);
+        CollectionAssert.AreNotEqual(fileBefore, stored);
+        using var reopened = new ContainerDecoder().Decode(new MemoryStream(XteaDecryptor.DecryptXtea(keys, (byte[])stored.Clone(), 5, stored.Length)));
+        CollectionAssert.AreEqual(Landscape(mine), reopened.Data.ToArray());
     }
 
     [TestMethod]
