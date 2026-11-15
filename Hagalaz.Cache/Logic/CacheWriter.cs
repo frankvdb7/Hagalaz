@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Linq;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -44,7 +46,17 @@ namespace Hagalaz.Cache.Logic
         }
 
         /// <inheritdoc />
-        public void Write(int indexId, int fileId, IContainer container, IReferenceTable table)
+        public void Write(int indexId, int fileId, IContainer container, int[] xteaKeys)
+        {
+            ValidateTarget(indexId, fileId);
+            ValidateKeys(xteaKeys);
+            Write(indexId, fileId, container, _referenceTableProvider.ReadReferenceTable(indexId), xteaKeys);
+        }
+
+        /// <inheritdoc />
+        public void Write(int indexId, int fileId, IContainer container, IReferenceTable table) => Write(indexId, fileId, container, table, null);
+
+        private void Write(int indexId, int fileId, IContainer container, IReferenceTable table, int[]? xteaKeys)
         {
             ValidateTarget(indexId, fileId);
 
@@ -60,6 +72,12 @@ namespace Hagalaz.Cache.Logic
 
             /* grab the bytes we need for the checksum */
             var bytes = container.Encode(false);
+
+            /* protected groups are encrypted after the 5 byte header, and the checksums cover the bytes as stored */
+            if (xteaKeys != null)
+            {
+                XteaEncryptor.EncryptXtea(xteaKeys, bytes, 5, bytes.Length);
+            }
 
             /* calculate the new CRC checksum */
             entry.Crc32 = BufferUtilities.GetCrcChecksum(bytes, 0, bytes.Length);
@@ -89,6 +107,21 @@ namespace Hagalaz.Cache.Logic
                     _store.Write(255, indexId, refStream);
             }
         }
+        private static void ValidateKeys(int[] xteaKeys)
+        {
+            ArgumentNullException.ThrowIfNull(xteaKeys);
+            if (xteaKeys.Length != 4)
+            {
+                throw new ArgumentException("Exactly four XTEA keys are required.", nameof(xteaKeys));
+            }
+
+            /* readers treat all-zero keys as no encryption, so a file encrypted with them could never be read back */
+            if (xteaKeys.All(key => key == 0))
+            {
+                throw new ArgumentException("All-zero XTEA keys do not encrypt.", nameof(xteaKeys));
+            }
+        }
+
         private static void ValidateTarget(int indexId, int fileId)
         {
             if (indexId == 255 && fileId == 255)

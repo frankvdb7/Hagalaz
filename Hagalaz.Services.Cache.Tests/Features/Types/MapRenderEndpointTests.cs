@@ -578,6 +578,25 @@ public sealed class MapRenderEndpointTests
     }
 
     [TestMethod]
+    public async Task ReplaceLandscape_RejectsUnusableXteaKeysWithoutWriting()
+    {
+        var store = Store(EditableRegion([1, 128]));
+        SeedObjectIndex(store);
+        var before = Stored(store, 1);
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTypeEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        var versions = await VersionsAsync(client);
+        foreach (var keys in new[] { new[] { 1, 2, 3 }, new[] { 0, 0, 0, 0 } })
+        {
+            using var response = await client.PostAsJsonAsync(LandscapeUrl, new { objects = Array.Empty<MapRenderPlacement>(), expectedVersion = versions.Landscape, xteaKeys = keys });
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        CollectionAssert.AreEqual(before, Stored(store, 1));
+    }
+
+    [TestMethod]
     public async Task RenderRegion_AddsUnderwaterDepthsToSurfaceHeightsAndReadsUnencryptedObjects()
     {
         var data = new byte[16384];

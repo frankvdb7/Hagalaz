@@ -241,6 +241,71 @@ public sealed class RegionMapArchiveTests
         index.Cache.Verify(api => api.Write(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IContainer>()), Times.Never);
     }
 
+    private static readonly int[] Keys = [11, 22, 33, 44];
+
+    [Fact]
+    public void ReplaceLandscape_WithKeysReadsAndWritesTheProtectedFileWithThem()
+    {
+        var index = new FakeIndex { ProtectedWith = Keys };
+        index.Store("l50_50", StoredLandscape, CompressionType.Bzip2);
+        MapRenderPlacement[] mine = [new(1, 10, 0, 1, 1, 0)];
+
+        Assert.True(new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, mine, 0, Keys).IsSuccess);
+
+        Assert.Equal(mine, DecodeLandscape(index.Read("l50_50")));
+        Assert.Equal(1, index.Replacements);
+    }
+
+    [Fact]
+    public void ReplaceLandscape_WithoutKeysRefusesAProtectedFileWithoutWriting()
+    {
+        var index = new FakeIndex { ProtectedWith = Keys, BeforeRead = () => throw new InvalidDataException("Encrypted bytes do not decompress.") };
+        index.Store("l50_50", StoredLandscape, CompressionType.Bzip2);
+
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0);
+
+        Assert.True(result.HasError<RegionMapFileUnreadableError>());
+        Assert.Equal(0, index.Replacements);
+    }
+
+    [Fact]
+    public void ReplaceLandscape_WithWrongKeysRefusesWithoutWriting()
+    {
+        var index = new FakeIndex { ProtectedWith = Keys };
+        index.Store("l50_50", StoredLandscape, CompressionType.Bzip2);
+        var before = index.Read("l50_50");
+
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0, [1, 2, 3, 4]);
+
+        Assert.True(result.HasError<RegionMapFileUnreadableError>());
+        Assert.Equal(0, index.Replacements);
+        Assert.Equal(before, index.Read("l50_50"));
+    }
+
+    [Fact]
+    public void ReplaceLandscape_WithKeysRefusesAnUncompressedFileThatCannotConfirmThem()
+    {
+        var index = new FakeIndex { ProtectedWith = Keys };
+        index.Store("l50_50", StoredLandscape, CompressionType.None);
+
+        var result = new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0, Keys);
+
+        Assert.True(result.HasError<RegionMapFileUnreadableError>());
+        Assert.Equal(0, index.Replacements);
+    }
+
+    [Theory]
+    [InlineData(new[] { 0, 0, 0, 0 })]
+    [InlineData(new[] { 1, 2, 3 })]
+    public void ReplaceLandscape_RejectsUnusableKeysBeforeReading(int[] keys)
+    {
+        var index = new FakeIndex();
+        index.Store("l50_50", StoredLandscape);
+
+        Assert.Throws<ArgumentException>(() => new RegionMapArchive(index.Cache.Object).ReplaceLandscape(Region, [], 0, keys));
+        Assert.Equal(0, index.ContainerReads);
+    }
+
     [Fact]
     public void ReplaceLandscape_RefusesAStaleVersionWithoutOverwritingTheNewerLandscape()
     {
@@ -361,6 +426,22 @@ public sealed class RegionMapArchiveTests
                 var stored = _files.Values.Single(entry => entry.File == file);
                 return new Container(stored.Compression, new MemoryStream(stored.Data));
             });
+            Cache.Setup(api => api.ReadContainer(5, It.IsAny<int>(), It.IsAny<int[]>())).Returns((int _, int file, int[] keys) =>
+            {
+                if (ProtectedWith is null || !keys.SequenceEqual(ProtectedWith)) throw new InvalidDataException("Wrong XTEA keys.");
+                var stored = _files.Values.Single(entry => entry.File == file);
+                return new Container(stored.Compression, new MemoryStream(stored.Data));
+            });
+            Cache.Setup(api => api.TryReplaceContainer(5, It.IsAny<int>(), It.IsAny<byte[]>(), It.IsAny<IContainer>(), It.IsAny<int[]>()))
+                .Returns((int _, int file, byte[] expected, IContainer replacement, int[] keys) =>
+                {
+                    Assert.Equal(ProtectedWith, keys);
+                    var name = _files.Single(entry => entry.Value.File == file).Key;
+                    if (!expected.AsSpan().SequenceEqual(_files[name].Data)) return false;
+                    Replacements++;
+                    Store(name, replacement.Data.ToArray(), replacement.CompressionType);
+                    return true;
+                });
             Cache.Setup(api => api.TryReplaceContainer(5, It.IsAny<int>(), It.IsAny<byte[]>(), It.IsAny<IContainer>()))
                 .Returns((int _, int file, byte[] expected, IContainer replacement) =>
                 {
@@ -374,6 +455,7 @@ public sealed class RegionMapArchiveTests
                 });
         }
 
+        public int[]? ProtectedWith { get; set; }
         public Mock<ICacheAPI> Cache { get; } = new(MockBehavior.Strict);
         public bool Named { get; init; } = true;
         public Action BeforeReplace { get; set; } = () => { };

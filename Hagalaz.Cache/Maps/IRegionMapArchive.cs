@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using FluentResults;
@@ -51,6 +52,9 @@ public interface IRegionMapArchive
     /// <summary>
     /// Replaces the region's landscape placements; refuses a landscape it cannot read, so unseen placements are never lost.
     /// Conflict and verification failures are reported as for <see cref="ApplyTerrain"/>.
+    /// A protected landscape is read and written with its <paramref name="xteaKeys"/>, which are never guessed or defaulted: without them, or with
+    /// wrong ones, the stored file does not decode and the result is <see cref="RegionMapFileUnreadableError"/> with nothing written.
     /// </summary>
-    Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, int expectedVersion, CancellationToken cancellationToken = default);
+    /// <exception cref="ArgumentException">The keys are not four values, or are all zero.</exception>
+    Result ReplaceLandscape(int region, IReadOnlyCollection<MapRenderPlacement> placements, int expectedVersion, int[]? xteaKeys = null, CancellationToken cancellationToken = default);
 }

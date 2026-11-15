@@ -87,6 +87,7 @@ public class ReferenceTableEndpointsTests
         public void Write(int indexId, int fileId, IContainer container) => throw new NotSupportedException();
 
         public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement) => throw new NotSupportedException();
+        public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement, int[] xteaKeys) => throw new NotSupportedException();
 
         public (int FileId, int EntryId) AppendArchiveMemberCopy(int indexId, int sourceFileId, int sourceEntryId, int archiveMemberLimit) => throw new NotSupportedException();
 

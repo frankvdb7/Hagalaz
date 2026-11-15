@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -282,6 +284,74 @@ public sealed class CacheWriterIntegrationTests
 
         Assert.All(results, result => Assert.Same(results[0], result));
         Assert.Equal(1, store.GetReadCount(255, 16));
+    }
+
+    private static readonly int[] Keys = [0x1234567, -42, 0x7fffffff, 99];
+
+    [Fact]
+    public void TryReplaceContainer_WithKeys_StoresEncryptedBytesThatReopenAndMatchTheReferenceTable()
+    {
+        using var store = new MemoryFileStore();
+        var tableCodec = new ReferenceTableCodec();
+        SeedCache(store, tableCodec, ArchiveTestData.EncodeArchive([1, 2, 3]));
+        var original = Enumerable.Range(0, 200).Select(i => (byte)(i * 7)).ToArray();
+        store.Set(16, 1, EncryptedGzip(original, Keys));
+        using var cache = CreateCache(store);
+        var untouched = store.GetBytes(255, 16);
+        var replacement = Enumerable.Range(0, 300).Select(i => (byte)(i * 3 + 1)).ToArray();
+        using var container = new Container(CompressionType.Gzip, new MemoryStream(replacement));
+
+        Assert.True(cache.TryReplaceContainer(16, 1, original, container, Keys));
+
+        var stored = store.GetBytes(16, 1);
+        Assert.NotEqual(container.Encode(false), stored);
+        using (var reopened = cache.ReadContainer(16, 1, Keys)) Assert.Equal(replacement, reopened.Data.ToArray());
+        Assert.ThrowsAny<Exception>(() => cache.ReadContainer(16, 1));
+        Assert.ThrowsAny<Exception>(() => cache.ReadContainer(16, 1, [1, 2, 3, 4]));
+        var entry = cache.ReadReferenceTable(16).GetEntry(1)!;
+        Assert.Equal(BufferUtilities.GetCrcChecksum(stored, 0, stored.Length), entry.Crc32);
+        Assert.Equal(5, entry.Version);
+        Assert.NotEqual(untouched, store.GetBytes(255, 16));
+    }
+
+    [Fact]
+    public void TryReplaceContainer_WithWrongKeys_WritesNothing()
+    {
+        using var store = new MemoryFileStore();
+        SeedCache(store, new ReferenceTableCodec(), ArchiveTestData.EncodeArchive([1]));
+        var original = new byte[100];
+        store.Set(16, 1, EncryptedGzip(original, Keys));
+        using var cache = CreateCache(store);
+        var fileBefore = store.GetBytes(16, 1);
+        var tableBefore = store.GetBytes(255, 16);
+        using var container = new Container(CompressionType.Gzip, new MemoryStream([9, 9]));
+
+        Assert.False(cache.TryReplaceContainer(16, 1, original, container, [5, 6, 7, 8]));
+
+        Assert.Equal(fileBefore, store.GetBytes(16, 1));
+        Assert.Equal(tableBefore, store.GetBytes(255, 16));
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0, 0)]
+    [InlineData(1, 2, 3, 0)]
+    public void TryReplaceContainer_RejectsUnusableKeysBeforeReadingOrWriting(int k0, int k1, int k2, int k3)
+    {
+        using var store = new MemoryFileStore();
+        SeedCache(store, new ReferenceTableCodec(), ArchiveTestData.EncodeArchive([1]));
+        using var cache = CreateCache(store);
+        var before = store.GetBytes(16, 1);
+        using var container = new Container(CompressionType.Gzip, new MemoryStream([9]));
+
+        var keys = k3 == 0 && k0 != 0 ? new[] { k0, k1, k2 } : new[] { k0, k1, k2, k3 };
+        Assert.Throws<ArgumentException>(() => cache.TryReplaceContainer(16, 1, [], container, keys));
+        Assert.Equal(before, store.GetBytes(16, 1));
+    }
+
+    private static byte[] EncryptedGzip(byte[] data, int[] keys)
+    {
+        using var container = new Container(CompressionType.Gzip, new MemoryStream(data));
+        return XteaEncryptor.EncryptXtea(keys, container.Encode(false), 5, container.Encode(false).Length);
     }
 
     private static CacheApi CreateCache(IFileStore store)

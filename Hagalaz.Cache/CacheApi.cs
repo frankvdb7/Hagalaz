@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Diagnostics;
 using System.IO;
@@ -352,7 +352,21 @@ namespace Hagalaz.Cache
         /// Writes <paramref name="replacement"/> only while the file still holds <paramref name="expected"/>, comparing and
         /// writing under the cache write lock so that no other write can land in between.
         /// </summary>
-        public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement)
+        public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement) =>
+            TryReplaceUnderLock(indexId, fileId, expected, replacement, null);
+
+        /// <inheritdoc />
+        public bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement, int[] xteaKeys)
+        {
+            ArgumentNullException.ThrowIfNull(xteaKeys);
+            if (xteaKeys.Length != 4 || xteaKeys.All(key => key == 0))
+            {
+                throw new ArgumentException("Four XTEA keys that are not all zero are required.", nameof(xteaKeys));
+            }
+            return TryReplaceUnderLock(indexId, fileId, expected, replacement, xteaKeys);
+        }
+
+        private bool TryReplaceUnderLock(int indexId, int fileId, byte[] expected, IContainer replacement, int[]? xteaKeys)
         {
             _snapshotReadWriteLock.EnterWriteLock();
             try
@@ -362,7 +376,7 @@ namespace Hagalaz.Cache
                 bool unchanged;
                 try
                 {
-                    using var current = ReadContainer(indexId, fileId);
+                    using var current = xteaKeys is null ? ReadContainer(indexId, fileId) : ReadContainer(indexId, fileId, xteaKeys);
                     unchanged = current.Data.ToArray().AsSpan().SequenceEqual(expected);
                 }
                 catch (Exception error) when (error is not OperationCanceledException)
@@ -370,7 +384,7 @@ namespace Hagalaz.Cache
                     unchanged = false;
                 }
                 if (!unchanged) return false;
-                WriteAndInvalidateUnderLock(indexId, fileId, replacement);
+                WriteAndInvalidateUnderLock(indexId, fileId, replacement, null, xteaKeys);
                 return true;
             }
             finally
@@ -379,11 +393,12 @@ namespace Hagalaz.Cache
             }
         }
 
-        private void WriteAndInvalidateUnderLock(int indexId, int fileId, IContainer container, IReferenceTable? table = null)
+        private void WriteAndInvalidateUnderLock(int indexId, int fileId, IContainer container, IReferenceTable? table = null, int[]? xteaKeys = null)
         {
             try
             {
-                if (table is null) _cacheWriter.Write(indexId, fileId, container);
+                if (xteaKeys is not null) _cacheWriter.Write(indexId, fileId, container, xteaKeys);
+                else if (table is null) _cacheWriter.Write(indexId, fileId, container);
                 else _cacheWriter.Write(indexId, fileId, container, table);
             }
             finally

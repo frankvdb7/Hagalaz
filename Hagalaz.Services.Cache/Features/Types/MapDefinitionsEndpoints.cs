@@ -78,11 +78,13 @@ public static class MapDefinitionsEndpoints
             return TypedResults.BadRequest(EndpointErrors.Validation("objects is required."));
         if (request.ExpectedVersion is not { } expectedVersion)
             return TypedResults.BadRequest(EndpointErrors.Validation("expectedVersion is required: the landscape version the placements were drawn from."));
+        if (request.XteaKeys is not null && (request.XteaKeys.Length != 4 || request.XteaKeys.All(key => key == 0)))
+            return TypedResults.BadRequest(EndpointErrors.Validation("xteaKeys must contain exactly 4 integers that are not all zero."));
         var objectLimit = objects.ArchiveSize;
         if (request.Objects.FirstOrDefault(placement => !IsValidPlacement(placement, objectLimit)) is { } invalid)
             return TypedResults.BadRequest(EndpointErrors.Validation($"Placement of object {invalid.Id} at {invalid.X},{invalid.Y} on plane {invalid.Plane} is out of range."));
 
-        var result = maps.ReplaceLandscape(id, request.Objects, expectedVersion, cancellationToken);
+        var result = maps.ReplaceLandscape(id, request.Objects, expectedVersion, request.XteaKeys, cancellationToken);
         return result.IsFailed ? EndpointErrors.RegionMapFileFailure(result, id) : TypedResults.Ok(new UpdateMapLandscapeResultDto("map-landscape-updated", id, request.Objects.Count));
     }
 
