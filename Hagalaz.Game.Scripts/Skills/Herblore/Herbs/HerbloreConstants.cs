@@ -35,6 +35,9 @@
         /// </summary>
         public static readonly int Grenwallspikes = 12539;
 
+        /// <summary>Spikes consumed per extreme ranging potion.</summary>
+        public const int GrenwallspikesRequired = 5;
+
         /// <summary>
         ///     The OVERLOA d_ POTIONS
         /// </summary>

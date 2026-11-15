@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -188,46 +189,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 // the character has selected an amount, we then queue an task that will create all products
                 character.QueueTask(new MakeProductTask(count,
                     2,
-                    () =>
-                    {
-                        var inventoryResource = character.Inventory.Items.GetById(ingredient.Id);
-                        if (inventoryResource == null)
-                        {
-                            return true;
-                        }
-
-                        var inventoryVail = character.Inventory.Items.GetById(vial.Id);
-                        if (inventoryVail == null)
-                        {
-                            return true;
-                        }
-
-                        var itemSlot = character.Inventory.Items.GetSlotByItem(inventoryResource);
-                        if (itemSlot == -1)
-                        {
-                            return true;
-                        }
-
-                        var vialSlot = character.Inventory.Items.GetSlotByItem(inventoryVail);
-                        if (vialSlot == -1)
-                        {
-                            return true;
-                        }
-
-                        character.Inventory.RemoveItem(inventoryResource.Id == HerbloreConstants.Grenwallspikes
-                                ? _itemBuilder.Create().WithId(HerbloreConstants.Grenwallspikes).WithCount(5).Build()
-                                : inventoryResource,
-                            itemSlot);
-                        character.Inventory.ReplaceItem(vialSlot,
-                            _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).Build());
-                        character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
-                        if (!makeUnfinished)
-                        {
-                            character.Statistics.AddExperience(StatisticsConstants.Herblore, potion.Experience);
-                        }
-
-                        return false;
-                    }));
+                    () => !TryMakePotionOnce(character, vial, ingredient, potion, makeUnfinished)));
                 return true;
             };
             var resCount = character.Inventory.Items.GetCountById(ingredient.Id);
@@ -236,6 +198,52 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
             // open a dialogue for the character to select an amount and such
             return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
+        }
+
+        /// <summary>
+        ///     Completes one potion iteration. The ingredient (all five spikes for extreme ranging) and the vial are
+        ///     committed together; nothing changes and no experience is granted when any part is missing.
+        /// </summary>
+        /// <returns><c>true</c> when the potion was made; <c>false</c> when the task should stop.</returns>
+        internal bool TryMakePotionOnce(ICharacter character, IItem vial, IItem ingredient, PotionDto potion, bool makeUnfinished)
+        {
+            var inventoryResource = character.Inventory.Items.GetById(ingredient.Id);
+            var inventoryVial = character.Inventory.Items.GetById(vial.Id);
+            if (inventoryResource == null || inventoryVial == null)
+            {
+                return false;
+            }
+
+            var itemSlot = character.Inventory.Items.GetSlotByItem(inventoryResource);
+            var vialSlot = character.Inventory.Items.GetSlotByItem(inventoryVial);
+            if (itemSlot == -1 || vialSlot == -1)
+            {
+                return false;
+            }
+
+            var required = inventoryResource.Id == HerbloreConstants.Grenwallspikes
+                ? _itemBuilder.Create().WithId(HerbloreConstants.Grenwallspikes).WithCount(HerbloreConstants.GrenwallspikesRequired).Build()
+                : inventoryResource;
+
+            using (var transaction = ItemContainerTransaction.Begin(character.Inventory))
+            {
+                if (!character.Inventory.TryRemoveItemExact(required, itemSlot))
+                {
+                    return false;
+                }
+
+                character.Inventory.ReplaceItem(vialSlot,
+                    _itemBuilder.Create().WithId(makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId).Build());
+                transaction.Commit();
+            }
+
+            character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
+            if (!makeUnfinished)
+            {
+                character.Statistics.AddExperience(StatisticsConstants.Herblore, potion.Experience);
+            }
+
+            return true;
         }
 
         /// <summary>
