@@ -1,5 +1,4 @@
 using Aspire.Hosting;
-using Hagalaz.AppHost.Telemetry;
 using Microsoft.Extensions.Hosting;
 
 namespace Hagalaz.AppHost;
@@ -32,21 +31,6 @@ public static class AppHostConfiguration
         var migrations = builder.AddProject<Projects.Hagalaz_Database_Migrations>("hagalaz-database-migrations")
             .WithReference(database)
             .WaitFor(database);
-
-        var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
-            .WithBindMount("Configs/prometheus", "/etc/prometheus", isReadOnly: true)
-            .WithArgs("--web.enable-otlp-receiver", "--config.file=/etc/prometheus/prometheus.yml")
-            .WithHttpEndpoint(targetPort: 9090, name: "http")
-            .WithLifetime(ContainerLifetime.Persistent)
-            .WithExplicitStart();
-
-        var grafana = builder.AddContainer("grafana", "grafana/grafana")
-            .WithBindMount("Configs/grafana/config", "/etc/grafana", isReadOnly: true)
-            .WithBindMount("Configs/grafana/dashboards", "/var/lib/grafana/dashboards", isReadOnly: true)
-            .WithEnvironment("PROMETHEUS_ENDPOINT", prometheus.GetEndpoint("http"))
-            .WithHttpEndpoint(targetPort: 3000, name: "http")
-            .WithLifetime(ContainerLifetime.Persistent)
-            .WithExplicitStart();
 
         var gameWorldService = builder.AddProject<Projects.Hagalaz_Services_GameWorld>("hagalaz-services-gameworld-1", launchProfileName: "tcp")
             .WaitFor(messaging)
@@ -193,9 +177,5 @@ public static class AppHostConfiguration
             webApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
             webAdminApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
         }
-
-        builder.AddOpenTelemetryCollector("otelcollector", "Configs/otelcollector/config.yaml")
-            .WithEnvironment("PROMETHEUS_ENDPOINT", $"{prometheus.GetEndpoint("http")}/api/v1/otlp")
-            .WithLifetime(ContainerLifetime.Persistent);
     }
 }

@@ -117,4 +117,17 @@ public sealed class AppHostDependencyTests
         Assert.IsTrue(endpoint.IsExternal, name);
     }
 
+    [TestMethod]
+    public async Task Observability_HasNoCollectorPrometheusOrGrafana()
+    {
+        var builder = DistributedApplication.CreateBuilder(["--disable-dashboard"]);
+        AppHostConfiguration.Configure(builder, includeHealthChecks: false);
+        await using var application = builder.Build();
+        var model = application.Services.GetRequiredService<DistributedApplicationModel>();
+        var names = model.Resources.Select(resource => resource.Name).ToList();
+
+        CollectionAssert.DoesNotContain(names, "otelcollector");
+        CollectionAssert.DoesNotContain(names, "prometheus");
+        CollectionAssert.DoesNotContain(names, "grafana");
+    }
 }

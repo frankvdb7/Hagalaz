@@ -1,0 +1,12 @@
+# Foundry casting for the self-hosted SigNoz used by Hagalaz. See docs/observability-signoz.md.
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: compose
+    mode: docker
+  signoz:
+    spec:
+      image: signoz/signoz:v0.128.0
