@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -178,6 +178,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             stoppingToken.ThrowIfCancellationRequested();
             var regions = _regionService.FindReadyRegions();
+            GameWorldMetrics.RecordTickRegions(regions.Count);
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();

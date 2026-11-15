@@ -1,8 +1,9 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Nito.AsyncEx;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Services.GameWorld.Metrics;
 
 namespace Hagalaz.Services.GameWorld.Store
 {
@@ -15,7 +16,13 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.WriterLockAsync())
             {
-                return _npcs.Add(npc);
+                if (!_npcs.Add(npc))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.NpcRegistered();
+                return true;
             }
         }
 
@@ -23,7 +30,13 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (_lock.WriterLock())
             {
-                return _npcs.Add(npc);
+                if (!_npcs.Add(npc))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.NpcRegistered();
+                return true;
             }
         }
 
@@ -31,7 +44,13 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (await _lock.WriterLockAsync())
             {
-                return _npcs.Remove(npc);
+                if (!_npcs.Remove(npc))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.NpcUnregistered();
+                return true;
             }
         }
 
@@ -39,7 +58,13 @@ namespace Hagalaz.Services.GameWorld.Store
         {
             using (_lock.WriterLock())
             {
-                return _npcs.Remove(npc);
+                if (!_npcs.Remove(npc))
+                {
+                    return false;
+                }
+
+                GameWorldMetrics.NpcUnregistered();
+                return true;
             }
         }
 
