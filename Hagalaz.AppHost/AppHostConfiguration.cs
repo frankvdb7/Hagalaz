@@ -1,14 +1,10 @@
 using Aspire.Hosting;
-using Hagalaz.AppHost.Telemetry;
 using Microsoft.Extensions.Hosting;
 
 namespace Hagalaz.AppHost;
 
 public static class AppHostConfiguration
 {
-    // gRPC OTLP receiver of the separately managed SigNoz stack, reached from the collector container via the host.
-    private const string DefaultSigNozOtlpEndpoint = "host.docker.internal:4317";
-
     public static void Configure(IDistributedApplicationBuilder builder, bool includeHealthChecks = true)
     {
         var cacheIntrospectionClientSecret = builder.AddParameter("cache-introspection-client-secret", secret: true);
@@ -181,10 +177,5 @@ public static class AppHostConfiguration
             webApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
             webAdminApp.WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0");
         }
-
-        builder.AddOpenTelemetryCollector("otelcollector", "Configs/otelcollector/config.yaml")
-            .WithEnvironment("SIGNOZ_OTLP_ENDPOINT", builder.Configuration["SigNoz:OtlpEndpoint"] ?? DefaultSigNozOtlpEndpoint)
-            .WithEnvironment("SIGNOZ_OTLP_INSECURE", builder.Configuration["SigNoz:OtlpInsecure"] ?? "true")
-            .WithLifetime(ContainerLifetime.Persistent);
     }
 }

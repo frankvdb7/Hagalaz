@@ -1,16 +1,16 @@
 ## ADDED Requirements
 
-### Requirement: Collector delivers all signals to SigNoz
+### Requirement: Services export directly to the configured backend
 
-The AppHost OpenTelemetry Collector SHALL export metrics, traces and logs to the configured SigNoz OTLP endpoint and to the Aspire Dashboard.
+Hagalaz services SHALL export metrics, traces and logs over OTLP to the endpoint in `OTEL_EXPORTER_OTLP_ENDPOINT`, with no intermediate collector in the AppHost.
 
-#### Scenario: Pipelines include both exporters
-- **WHEN** the collector configuration is loaded
-- **THEN** the metrics, traces and logs pipelines each export to Aspire and to SigNoz
+#### Scenario: Local development
+- **WHEN** the AppHost runs services
+- **THEN** telemetry goes to the Aspire Dashboard and no collector resource exists
 
-#### Scenario: SigNoz unavailable
-- **WHEN** the SigNoz endpoint is unreachable
-- **THEN** the Aspire export continues independently
+#### Scenario: Deployed
+- **WHEN** the endpoint variable points at SigNoz
+- **THEN** metrics, traces and logs are delivered to SigNoz
 
 ### Requirement: No Prometheus or Grafana runtime
 
@@ -18,4 +18,4 @@ The AppHost SHALL NOT define Prometheus or Grafana resources.
 
 #### Scenario: AppHost model
 - **WHEN** the AppHost model is built
-- **THEN** it contains the collector and no `prometheus` or `grafana` resource
+- **THEN** it contains no `prometheus`, `grafana` or `otelcollector` resource
