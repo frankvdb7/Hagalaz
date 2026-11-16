@@ -65,6 +65,11 @@ namespace Hagalaz.Cache.Tests.Types
 
         [Theory]
         [InlineData(0, 35, 0)]
+        [InlineData(1, 35, 1)]
+        [InlineData(7, 35, 7)]
+        [InlineData(8, 35, 8)]
+        [InlineData(31, 35, 31)]
+        [InlineData(32, 35, 32)]
         [InlineData(35, 35, 35)]
         [InlineData(207, 35, 207)]
         public void QuestTypeData_UsesFixedArchive35(int typeId, int expectedArchiveId, int expectedEntryId)
