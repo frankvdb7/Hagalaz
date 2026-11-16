@@ -20,5 +20,5 @@
 
 ## 4. Integration evidence
 
-- [ ] 4.1 Validate changed workflow YAML and focused regression checks; confirm existing tests, artifacts, quality gates and security configuration remain intact.
+- [x] 4.1 Validate changed workflow YAML and focused regression checks; confirm existing tests, artifacts, quality gates and security configuration remain intact.
 - [ ] 4.2 Record at least three comparable before/after PR timing samples, including queue time, benchmark critical path, CodeQL C#, .NET, web and total runner minutes; report actual savings and limitations.
