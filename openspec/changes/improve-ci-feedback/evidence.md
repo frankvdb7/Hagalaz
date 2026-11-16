@@ -14,7 +14,7 @@ Main publish jobs use GitHub's `queue: max` concurrency setting to avoid concurr
 
 ### Hosted timing samples
 
-Job durations below are GitHub job start-to-finish times in seconds, not queue time. Totals sum all non-skipped jobs in the performance, CI and CodeQL workflows, excluding other workflows. Delays from workflow creation to the initially scheduled benchmark jobs were 21s, 18s, 22s, 3s and 4s respectively; dependent comparison-job delay includes waiting for benchmarks and is not a queue measurement. The pre-change suite reported 86 executed cases but its appearance cases failed and its merged output contained only 58, so timings do not represent equivalent successful work.
+Job durations below are GitHub job start-to-finish times in seconds, not queue time. Totals sum all non-skipped jobs in the performance, CI and CodeQL workflows, excluding other workflows. Delays from workflow creation to the initially scheduled benchmark jobs were 21s, 18s, 22s, 3s, 4s and 4s respectively; dependent comparison-job delay includes waiting for benchmarks and is not a queue measurement. The pre-change suite reported 86 executed cases but its appearance cases failed and its merged output contained only 58, so timings do not represent equivalent successful work.
 
 | Run | Benchmark | Comparison | CodeQL C# | .NET | Web | Workflow runner total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -23,8 +23,9 @@ Job durations below are GitHub job start-to-finish times in seconds, not queue t
 | Before [#589](https://github.com/frankvdb7/Hagalaz/actions/runs/43766499105) | 796 | in benchmark job | 351 | 159 | 86 | 1541 |
 | After [#595](https://github.com/frankvdb7/Hagalaz/actions/runs/43936587868) | 821 | 15, unavailable | 388 | 292 | 99 | 1774 |
 | After [#595](https://github.com/frankvdb7/Hagalaz/actions/runs/43939294875) | 816 | 7, unavailable | 370 | 204 | 89 | 1650 |
+| After [#595](https://github.com/frankvdb7/Hagalaz/actions/runs/43941916718) | 780 | 6, unavailable | 495 | 200 | 103 | 1741 |
 
-The after sample includes an additional comparison job and both repaired appearance cases. It does not demonstrate a wall-time or runner-minute reduction. Three comparable after runs and a successful complete-baseline comparison remain outstanding.
+The after samples include an additional comparison job and both repaired appearance cases. They do not demonstrate a wall-time or runner-minute reduction. A successful complete-baseline comparison remains outstanding.
 
 The log also records a tracked `Hagalaz.Game.Common.Tests.csproj` blocking `git switch gh-pages` but contains no diff. A local Windows dry run did not reproduce it. A diagnostic step records status and that file's diff on a future hosted run.
 
@@ -40,4 +41,4 @@ For [#589](https://github.com/frankvdb7/Hagalaz/actions/runs/43766499164/job/132
 
 [GitHub's guidance](https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/analysis-takes-too-long) suggests larger runners or reducing/splitting analysis; the language matrix is already parallel. Extraction itself took approximately 210s, 213s, and 209s, and finalization took 13s, 14s, and 14s. In the first run the extractor attempted isolated NuGet restores and logged failed restores for some packages, including EF Core dependencies. The log says it scans all C# in the working directory; generated-code and dependency resolution completeness were not independently established.
 
-The advanced workflow does not enable [CodeQL dependency caching](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/codeql-for-compiled-languages#enable-dependency-caching-for-codeql), which defaults to off. GitHub's action includes a C# none-mode cache behind a feature flag. A warm-cache comparison has not been made, so no saving or fix for the restore failures is claimed. No change to coverage, build mode, or runner size is justified by the samples.
+The advanced workflow originally left [CodeQL dependency caching](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/manage-your-configuration/codeql-for-compiled-languages#enable-dependency-caching-for-codeql) off. GitHub's action includes a C# none-mode cache behind a feature flag. The workflow now enables the supported cache for C# as an experiment. Cold and warm hosted runs must establish whether it applies and saves time; no saving or fix for restore failures is claimed. No change to coverage, build mode, or runner size is justified by the samples.
