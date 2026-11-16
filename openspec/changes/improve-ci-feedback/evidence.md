@@ -12,6 +12,20 @@ The [PR #595 hosted run](https://github.com/frankvdb7/Hagalaz/actions/runs/43936
 
 Main publish jobs use GitHub's `queue: max` concurrency setting to avoid concurrent writes while retaining pending runs. GitHub documents this setting, but actionlint 1.7.12 does not recognize it; linting with that specific unsupported-key diagnostic suppressed found no other workflow errors. GitHub queues jobs by arrival, not commit order, so the resulting history order needs hosted verification.
 
+### Hosted timing samples
+
+Job durations below are GitHub job start-to-finish times in seconds, not queue time. Totals sum all non-skipped jobs in the performance, CI and CodeQL workflows, excluding other workflows. Delays from workflow creation to the initially scheduled benchmark jobs were 21s, 18s, 22s, 3s and 4s respectively; dependent comparison-job delay includes waiting for benchmarks and is not a queue measurement. The pre-change suite reported 86 executed cases but its appearance cases failed and its merged output contained only 58, so timings do not represent equivalent successful work.
+
+| Run | Benchmark | Comparison | CodeQL C# | .NET | Web | Workflow runner total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Before [#571](https://github.com/frankvdb7/Hagalaz/actions/runs/43658506056) | 788 | in benchmark job | 365 | 149 | 89 | 1590 |
+| Before [#585](https://github.com/frankvdb7/Hagalaz/actions/runs/43751748814) | 828 | in benchmark job | 362 | 214 | 88 | 1650 |
+| Before [#589](https://github.com/frankvdb7/Hagalaz/actions/runs/43766499105) | 796 | in benchmark job | 351 | 159 | 86 | 1541 |
+| After [#595](https://github.com/frankvdb7/Hagalaz/actions/runs/43936587868) | 821 | 15, unavailable | 388 | 292 | 99 | 1774 |
+| After [#595](https://github.com/frankvdb7/Hagalaz/actions/runs/43939294875) | 816 | 7, unavailable | 370 | 204 | 89 | 1650 |
+
+The after sample includes an additional comparison job and both repaired appearance cases. It does not demonstrate a wall-time or runner-minute reduction. Three comparable after runs and a successful complete-baseline comparison remain outstanding.
+
 The log also records a tracked `Hagalaz.Game.Common.Tests.csproj` blocking `git switch gh-pages` but contains no diff. A local Windows dry run did not reproduce it. A diagnostic step records status and that file's diff on a future hosted run.
 
 Per-class elapsed times in that run, excluding initial generation/build: archive LRU 17.8s, object workload 29.7s, reference memoization 19.7s, concurrent read 22.7s, member read 25.7s, shared HagalazBenchmarks 545.0s, Huffman 24.1s, map appearance 1.2s (failed), map terrain 18.1s, process states 1.6s. These are one sample and cannot establish a safe fast lane.
