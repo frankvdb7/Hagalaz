@@ -82,7 +82,7 @@ The runtime provider plus all registered factory outputs are authoritative for *
 |---|---:|---|
 | [Item equipment degradation stages](equipment-degradation-script-stages.csv) | 140 | Seven script families, four equipment parts by five source-declared stages, exact next-ID rules, 22500 noninitial ticks and 0.80 death factor; not cache verified |
 | [Potion dose stages](potion-dose-script-stages.csv) | 104 | 26 named four-ID sequences; dose transitions based on base `Potion` script, last dose to vial ID 229; no claim that all drinks/actions are historically validated |
-| [Equipment script coverage review](equipment-script-registration-gaps.csv) | 10 | Five source-chain IDs absent from each of two equipment attributes; may be intentional specialized ownership, requires runtime check |
+| [Equipment script coverage review](equipment-script-registration-gaps.csv) | 10 | Five weapon IDs each absent from the Guthan and Karil armour attributes; registered by `GuthansWarSpear` and `KarilsCrossbow` (tested) |
 | [NPC pickpocket source rules](npc-pickpocket-source-rules.csv) | 104 | 18 archetypes, level/XP/fail damage and extra-loot thresholds; values are server source, not historic proof |
 | [World object script registrations](object-script-registrations.csv) | 321 | Numeric object IDs and index-16 shard coordinates registered in 116 object-script files; not actual placements |
 | [Object opcode names](object-opcode-constants.csv) | 68 | Decoder constant names/values, not observed fixture opcodes |
