@@ -17,11 +17,11 @@ public static class QuestDefinitionsEndpoints
         return types;
     }
 
-    private static IResult GetQuestType(int id, ITypeProvider<IQuestType> provider) => TypedResults.Ok(new GetQuestDefinitionDto(provider.Get(id).Id));
+    private static IResult GetQuestType(int id, ITypeProvider<IQuestType> provider) => TypedResults.Ok(GetQuestDefinitionDto.FromQuest(provider.Get(id)));
 
     private static IResult GetQuestTypeRange(int startId, int endIdExclusive, ITypeProvider<IQuestType> provider)
     {
         var error = ValidateRange(startId, endIdExclusive, provider.ArchiveSize);
-        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(q => new GetQuestDefinitionDto(q.Id)).ToArray());
+        return error ?? TypedResults.Ok(provider.GetRange(startId, endIdExclusive).Select(GetQuestDefinitionDto.FromQuest).ToArray());
     }
 }

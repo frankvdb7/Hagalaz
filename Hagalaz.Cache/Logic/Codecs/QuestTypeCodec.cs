@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
@@ -6,208 +8,77 @@ using Hagalaz.Cache.Types;
 
 namespace Hagalaz.Cache.Logic.Codecs;
 
+/// <summary>
+/// Revision-742 quest definitions, index 2 archive 35.
+/// </summary>
+/// <remarks>
+/// Decode fails on opcodes the client does not define: skipping one would desynchronise the rest of the definition.
+/// Encode is a semantic inverse of decode, including the opcodes whose meaning is still unproven (2, 5, 10, 12),
+/// so decoding, mutating verified fields and encoding never drops cache data. Encode emits opcodes in ascending
+/// order and omits empty or default fields, so it does not reproduce a source definition byte for byte.
+/// </remarks>
 public class QuestTypeCodec : IQuestTypeCodec
 {
     public IQuestType Decode(int id, MemoryStream stream)
     {
         var questType = new QuestType(id);
-        Decode(questType, stream);
-        return questType;
-    }
-
-    private void Decode(QuestType questType, MemoryStream buffer)
-    {
         while (true)
         {
-            int opcode = buffer.ReadUnsignedByte();
+            int opcode = stream.ReadUnsignedByte();
             if (opcode == 0)
             {
-                return;
+                return questType;
             }
 
-            if (opcode == 1)
+            switch (opcode)
             {
-                questType.Name = buffer.ReadVString();
-            }
-            else if (opcode == 2)
-            {
-                questType.SortName = buffer.ReadVString();
-            }
-            else if (3 == opcode)
-            {
-                int count = buffer.ReadUnsignedByte();
-                questType.ProgressVarps = new int[count, 3];
-                for (int slot = 0; slot < count; slot++)
-                {
-                    questType.ProgressVarps[slot, 0] = buffer.ReadUnsignedShort();
-                    questType.ProgressVarps[slot, 1] = buffer.ReadInt();
-                    questType.ProgressVarps[slot, 2] = buffer.ReadInt();
-                }
-            }
-            else if (opcode == 4)
-            {
-                int count = buffer.ReadUnsignedByte();
-                questType.ProgressVarBits = new int[count, 3];
-                for (int slot = 0; slot < count; slot++)
-                {
-                    questType.ProgressVarBits[slot, 0] = buffer.ReadUnsignedShort();
-                    questType.ProgressVarBits[slot, 1] = buffer.ReadInt();
-                    questType.ProgressVarBits[slot, 2] = buffer.ReadInt();
-                }
-            }
-            else if (5 == opcode)
-            {
-                buffer.ReadUnsignedShort();
-            }
-            else if (opcode == 6)
-            {
-                questType.Category = buffer.ReadUnsignedByte();
-            }
-            else if (7 == opcode)
-            {
-                questType.Difficulty = buffer.ReadUnsignedByte();
-            }
-            else if (opcode == 8)
-            {
-                questType.Members = true;
-            }
-            else if (opcode == 9)
-            {
-                questType.QuestPoints = buffer.ReadUnsignedByte();
-            }
-            else if (opcode == 10)
-            {
-                // not used
-                int count = buffer.ReadUnsignedByte();
-                questType.AnIntArray4092 = new int[count];
-                for (int slot = 0; slot < count; slot++)
-                {
-                    questType.AnIntArray4092[slot] =
-                        buffer.ReadInt(); // & 0xFF = componentID | >> 16 = interfaceID
-                }
-            }
-            else if (opcode == 12)
-            {
-                buffer.ReadInt();
-            }
-            else if (opcode == 13)
-            {
-                int count = buffer.ReadUnsignedByte();
-                questType.QuestRequirements = new int[count];
-                for (int slot = 0; slot < count; slot++)
-                {
-                    questType.QuestRequirements[slot] = buffer.ReadUnsignedShort();
-                }
-            }
-            else if (opcode == 14)
-            {
-                int count = buffer.ReadUnsignedByte();
-                questType.StatRequirements = new int[count, 2];
-                for (int slot = 0; slot < count; slot++)
-                {
-                    questType.StatRequirements[slot, 0] = buffer.ReadUnsignedByte();
-                    questType.StatRequirements[slot, 1] = buffer.ReadUnsignedByte();
-                }
-            }
-            else if (opcode == 15)
-            {
-                questType.QuestPointRequirement = buffer.ReadUnsignedShort();
-            }
-            else if (17 == opcode)
-            {
-                questType.GraphicId = buffer.ReadBigSmart(); // sprite
-            }
-            else if (opcode == 18)
-            {
-                int count = buffer.ReadUnsignedByte();
-                questType.VarpRequirements = new int[count];
-                questType.MinVarpValue = new int[count];
-                questType.MaxVarpValue = new int[count];
-                questType.VarpRequirementNames = new string[count];
-                for (int i32 = 0; i32 < count; i32++)
-                {
-                    questType.VarpRequirements[i32] = buffer.ReadInt();
-                    questType.MinVarpValue[i32] = buffer.ReadInt();
-                    questType.MaxVarpValue[i32] = buffer.ReadInt();
-                    questType.VarpRequirementNames[i32] = buffer.ReadString();
-                }
-            }
-            else if (19 == opcode)
-            {
-                int count = buffer.ReadUnsignedByte();
-                questType.VarBitRequirements = new int[count];
-                questType.MinVarBitValue = new int[count];
-                questType.MaxVarBitValue = new int[count];
-                questType.VarbitRequirementNames = new string[count];
-                for (int i34 = 0; i34 < count; i34++)
-                {
-                    questType.VarBitRequirements[i34] = buffer.ReadInt();
-                    questType.MinVarBitValue[i34] = buffer.ReadInt();
-                    questType.MaxVarBitValue[i34] = buffer.ReadInt();
-                    questType.VarbitRequirementNames[i34] = buffer.ReadString();
-                }
-            }
-            else if (opcode == 249)
-            {
-                int size = buffer.ReadUnsignedByte();
-                for (int i37 = 0; i37 < size; i37++)
-                {
-                    bool stringInstance = buffer.ReadUnsignedByte() == 1;
-                    int key = buffer.ReadMedInt();
-                    object val;
-                    if (stringInstance)
-                        val = buffer.ReadString();
-                    else
-                        val = buffer.ReadInt();
-
-                    if (questType.ExtraData.ContainsKey(key))
-                        questType.ExtraData.Remove(key);
-
-                    questType.ExtraData.Add(key, val);
-                }
+                case 1: questType.Name = stream.ReadVString(); break;
+                case 2: questType.Opcode2Text = stream.ReadVString(); break;
+                case 3: questType.ProgressVarps = ReadProgress(stream); break;
+                case 4: questType.ProgressVarBits = ReadProgress(stream); break;
+                case 5: questType.Opcode5Value = stream.ReadUnsignedShort(); break;
+                case 6: questType.Category = stream.ReadUnsignedByte(); break;
+                case 7: questType.Difficulty = stream.ReadUnsignedByte(); break;
+                case 8: questType.Members = true; break;
+                case 9: questType.QuestPoints = stream.ReadUnsignedByte(); break;
+                case 10: questType.Opcode10Values = ReadList(stream, static s => s.ReadInt()); break;
+                case 12: questType.Opcode12Value = stream.ReadInt(); break;
+                case 13: questType.PrerequisiteQuestIds = ReadList(stream, static s => s.ReadUnsignedShort()); break;
+                case 14: questType.SkillRequirements = ReadList(stream, static s => new QuestSkillRequirement(s.ReadUnsignedByte(), s.ReadUnsignedByte())); break;
+                case 15: questType.QuestPointRequirement = stream.ReadUnsignedShort(); break;
+                case 17: questType.GraphicId = stream.ReadBigSmart(); break;
+                case 18: questType.VarpRequirements = ReadVariableRequirements(stream); break;
+                case 19: questType.VarbitRequirements = ReadVariableRequirements(stream); break;
+                case 249: questType.ExtraData = ReadParams(stream); break;
+                default: throw new InvalidDataException($"Unknown quest opcode {opcode}.");
             }
         }
     }
 
     public MemoryStream Encode(IQuestType instance)
     {
-        var stream = new MemoryStream();
         var questType = (QuestType)instance;
+        var stream = new MemoryStream();
 
-        if (questType.Name != null)
+        if (questType.Name.Length > 0)
         {
             stream.WriteByte(1);
             stream.WriteVString(questType.Name);
         }
 
-        if (questType.SortName != null)
+        if (questType.Opcode2Text is { } opcode2Text)
         {
             stream.WriteByte(2);
-            stream.WriteVString(questType.SortName);
+            stream.WriteVString(opcode2Text);
         }
 
-        if (questType.ProgressVarps != null)
-        {
-            stream.WriteByte(3);
-            stream.WriteByte((byte)questType.ProgressVarps.GetLength(0));
-            for (int i = 0; i < questType.ProgressVarps.GetLength(0); i++)
-            {
-                stream.WriteShort(questType.ProgressVarps[i, 0]);
-                stream.WriteInt(questType.ProgressVarps[i, 1]);
-                stream.WriteInt(questType.ProgressVarps[i, 2]);
-            }
-        }
+        WriteProgress(stream, 3, questType.ProgressVarps);
+        WriteProgress(stream, 4, questType.ProgressVarBits);
 
-        if (questType.ProgressVarBits != null)
+        if (questType.Opcode5Value is { } opcode5Value)
         {
-            stream.WriteByte(4);
-            stream.WriteByte((byte)questType.ProgressVarBits.GetLength(0));
-            for (int i = 0; i < questType.ProgressVarBits.GetLength(0); i++)
-            {
-                stream.WriteShort(questType.ProgressVarBits[i, 0]);
-                stream.WriteInt(questType.ProgressVarBits[i, 1]);
-                stream.WriteInt(questType.ProgressVarBits[i, 2]);
-            }
+            stream.WriteByte(5);
+            stream.WriteShort(opcode5Value);
         }
 
         if (questType.Category != 0)
@@ -227,34 +98,28 @@ public class QuestTypeCodec : IQuestTypeCodec
             stream.WriteByte(8);
         }
 
-        if (questType.QuestPoints > 0)
+        if (questType.QuestPoints != 0)
         {
             stream.WriteByte(9);
             stream.WriteByte((byte)questType.QuestPoints);
         }
 
-        if (questType.QuestRequirements != null)
+        WriteList(stream, 10, questType.Opcode10Values, static (s, value) => s.WriteInt(value));
+
+        if (questType.Opcode12Value is { } opcode12Value)
         {
-            stream.WriteByte(13);
-            stream.WriteByte((byte)questType.QuestRequirements.Length);
-            foreach (var req in questType.QuestRequirements)
-            {
-                stream.WriteShort(req);
-            }
+            stream.WriteByte(12);
+            stream.WriteInt(opcode12Value);
         }
 
-        if (questType.StatRequirements != null)
+        WriteList(stream, 13, questType.PrerequisiteQuestIds, static (s, value) => s.WriteShort(value));
+        WriteList(stream, 14, questType.SkillRequirements, static (s, requirement) =>
         {
-            stream.WriteByte(14);
-            stream.WriteByte((byte)questType.StatRequirements.GetLength(0));
-            for (int i = 0; i < questType.StatRequirements.GetLength(0); i++)
-            {
-                stream.WriteByte((byte)questType.StatRequirements[i, 0]);
-                stream.WriteByte((byte)questType.StatRequirements[i, 1]);
-            }
-        }
+            s.WriteByte((byte)requirement.SkillId);
+            s.WriteByte((byte)requirement.Level);
+        });
 
-        if (questType.QuestPointRequirement > 0)
+        if (questType.QuestPointRequirement != 0)
         {
             stream.WriteByte(15);
             stream.WriteShort(questType.QuestPointRequirement);
@@ -266,43 +131,20 @@ public class QuestTypeCodec : IQuestTypeCodec
             stream.WriteBigSmart(questType.GraphicId);
         }
 
-        if (questType.VarpRequirements != null)
-        {
-            stream.WriteByte(18);
-            stream.WriteByte((byte)questType.VarpRequirements.Length);
-            for (int i = 0; i < questType.VarpRequirements.Length; i++)
-            {
-                stream.WriteInt(questType.VarpRequirements[i]);
-                stream.WriteInt(questType.MinVarpValue[i]);
-                stream.WriteInt(questType.MaxVarpValue[i]);
-                stream.WriteString(questType.VarpRequirementNames[i]);
-            }
-        }
+        WriteVariableRequirements(stream, 18, questType.VarpRequirements);
+        WriteVariableRequirements(stream, 19, questType.VarbitRequirements);
 
-        if (questType.VarBitRequirements != null)
-        {
-            stream.WriteByte(19);
-            stream.WriteByte((byte)questType.VarBitRequirements.Length);
-            for (int i = 0; i < questType.VarBitRequirements.Length; i++)
-            {
-                stream.WriteInt(questType.VarBitRequirements[i]);
-                stream.WriteInt(questType.MinVarBitValue[i]);
-                stream.WriteInt(questType.MaxVarBitValue[i]);
-                stream.WriteString(questType.VarbitRequirementNames[i]);
-            }
-        }
-
-        if (questType.ExtraData?.Count > 0)
+        if (questType.ExtraData.Count > 0)
         {
             stream.WriteByte(249);
-            stream.WriteByte((byte)questType.ExtraData.Count);
+            WriteCount(stream, questType.ExtraData.Count);
             foreach (var (key, value) in questType.ExtraData)
             {
                 stream.WriteByte((byte)(value is string ? 1 : 0));
                 stream.WriteMedInt(key);
-                if (value is string s)
+                if (value is string text)
                 {
-                    stream.WriteString(s);
+                    stream.WriteString(text);
                 }
                 else
                 {
@@ -311,8 +153,80 @@ public class QuestTypeCodec : IQuestTypeCodec
             }
         }
 
-
-        stream.WriteByte(0); // End of data
+        stream.WriteByte(0);
         return stream;
+    }
+
+    private static IReadOnlyList<QuestProgressThreshold> ReadProgress(MemoryStream stream) =>
+        ReadList(stream, static s => new QuestProgressThreshold(s.ReadUnsignedShort(), s.ReadInt(), s.ReadInt()));
+
+    private static IReadOnlyList<QuestVariableRequirement> ReadVariableRequirements(MemoryStream stream) =>
+        ReadList(stream, static s => new QuestVariableRequirement(s.ReadInt(), s.ReadInt(), s.ReadInt(), s.ReadString()));
+
+    private static IReadOnlyList<T> ReadList<T>(MemoryStream stream, Func<MemoryStream, T> readItem)
+    {
+        var items = new T[stream.ReadUnsignedByte()];
+        for (var index = 0; index < items.Length; index++)
+        {
+            items[index] = readItem(stream);
+        }
+
+        return items;
+    }
+
+    private static IReadOnlyDictionary<int, object> ReadParams(MemoryStream stream)
+    {
+        var values = new Dictionary<int, object>();
+        var count = stream.ReadUnsignedByte();
+        for (var index = 0; index < count; index++)
+        {
+            var isString = stream.ReadUnsignedByte() == 1;
+            var key = stream.ReadMedInt();
+            values[key] = isString ? stream.ReadString() : stream.ReadInt();
+        }
+
+        return values;
+    }
+
+    private static void WriteProgress(MemoryStream stream, int opcode, IReadOnlyList<QuestProgressThreshold> rows) =>
+        WriteList(stream, opcode, rows, static (s, row) =>
+        {
+            s.WriteShort(row.Id);
+            s.WriteInt(row.StartedThreshold);
+            s.WriteInt(row.CompletedThreshold);
+        });
+
+    private static void WriteVariableRequirements(MemoryStream stream, int opcode, IReadOnlyList<QuestVariableRequirement> rows) =>
+        WriteList(stream, opcode, rows, static (s, row) =>
+        {
+            s.WriteInt(row.Id);
+            s.WriteInt(row.Minimum);
+            s.WriteInt(row.Maximum);
+            s.WriteString(row.Description);
+        });
+
+    private static void WriteList<T>(MemoryStream stream, int opcode, IReadOnlyList<T> items, Action<MemoryStream, T> writeItem)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        stream.WriteByte((byte)opcode);
+        WriteCount(stream, items.Count);
+        foreach (var item in items)
+        {
+            writeItem(stream, item);
+        }
+    }
+
+    private static void WriteCount(MemoryStream stream, int count)
+    {
+        if (count > byte.MaxValue)
+        {
+            throw new InvalidOperationException($"A quest definition list holds at most {byte.MaxValue} entries, got {count}.");
+        }
+
+        stream.WriteByte((byte)count);
     }
 }
