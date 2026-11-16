@@ -16,6 +16,7 @@ Use this workflow for design or implementation decisions where ownership, distri
 
 ## Efficient source reads and diagnostic output
 
+- **C# navigation, refactoring, build and tests: use Rider first** (find usages/implementations before changing a symbol, Rider refactorings and Safe Delete, `get_file_problems`, Rider test runs). Read [Rider tooling](references/rider-tooling.md) first; it covers `rootFolder`, worktree limits and tool loading.
 - Discover candidate files with scoped `rg --files` / `rg -n` queries, then read relevant implementations, callers, registrations and tests. Widen only when dependencies or contradictory evidence require it. Do not repeat identical searches or reread unchanged source without a reason.
 - Keep **full** build, test and analyzer logs available, but present a concise exit status, meaningful summary and relevant diagnostics to the model first. Open the complete failure context whenever the summary is insufficient; never hide failures, newly introduced warnings, or required checks.
 - Start with focused tests; expand to full build, integration, or cross-service validation whenever the change warrants it. Do not use arbitrary read, line, tool-call or log-output limits that can weaken correctness.

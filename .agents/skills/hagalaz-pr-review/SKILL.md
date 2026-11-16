@@ -16,6 +16,7 @@ Apply for code reviews and review-driven fixes. Read [review and remediation gui
 ## Efficient full-PR coverage
 
 - Record the actual PR base/head, inventory all changed files and their sizes, and inspect the **complete cumulative diff** in manageable file or subsystem batches. Keep track of what was examined; never treat the latest commit or a truncated diff as full coverage.
+- For C# production callers and implementations use Rider `find_usages` / `find_implementations` rather than grep, when the reviewed checkout is open in Rider ([Rider tooling](../hagalaz-engineering-design/references/rider-tooling.md)).
 - Prefer targeted path/symbol searches and relevant source ranges to broad repository dumps. Expand into **all relevant production callers, tests, registrations, and failure paths** until each material finding is adequately grounded.
 - During follow-up rounds, use incremental diffs to locate changes and prioritize reinspection, then recheck the cumulative PR for architectural consistency and regressions. Reuse earlier evidence only if it remains valid; do not skip files that need renewed inspection.
 - Keep full diagnostic logs available and report exit status, relevant failures, warning deltas and checks not run. Avoid returning repetitive success output, but never suppress evidence or reduce review scope for token savings.

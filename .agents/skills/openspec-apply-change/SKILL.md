@@ -108,6 +108,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
+   - For C# changes use Rider first: find usages/implementations before changing a symbol, Rider refactorings and Safe Delete, `get_file_problems` on edited files, and Rider test runs. See `../hagalaz-engineering-design/references/rider-tooling.md` (worktree and `rootFolder` caveats)
    - Before editing, confirm the checkbox at the returned `sourcePath` and `line` still matches the task description; if it does not, rerun the apply instructions and use the refreshed location
    - Mark the task complete at its returned `sourcePath` and `line`: `- [ ]` → `- [x]`
    - Rerun the apply instructions and confirm that task is now done and progress changed
