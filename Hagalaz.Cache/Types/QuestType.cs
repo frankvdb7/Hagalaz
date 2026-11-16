@@ -60,7 +60,9 @@ namespace Hagalaz.Cache.Types
         /// <summary>
         /// Opcode 2 string. Proven: the client calls it eventName, falls back to the quest name when absent, and exposes it
         /// through CS2 command 719. Present in 12 of 208 quests: equal to the name in 8, otherwise the literal text
-        /// <c>"Name (sort)"</c> including the quotes. Its purpose is not proven, so it stays neutral.
+        /// <c>"Name (sort)"</c> including the quotes. None of the 6959 CS2 scripts in the local cache (all decoded, instruction
+        /// streams verified) calls command 719 or any other client quest command, so no script consumer proves its purpose
+        /// and it stays neutral.
         /// </summary>
         internal string? Opcode2Text { get; set; }
 
