@@ -37,10 +37,22 @@ public class QuestTypeCodecTests
 
     private readonly QuestTypeCodec _codec = new();
 
+    private IQuestType Decode(int id, byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        return _codec.Decode(id, stream);
+    }
+
+    private byte[] EncodeToBytes(IQuestType quest)
+    {
+        using var stream = _codec.Encode(quest);
+        return stream.ToArray();
+    }
+
     [Fact]
     public void Decode_RepresentativeBytes_ExposesVerifiedMetadataThroughTheAbstraction()
     {
-        IQuestType quest = _codec.Decode(3, new MemoryStream(RepresentativeBytes));
+        IQuestType quest = Decode(3, RepresentativeBytes);
 
         Assert.Equal(3, quest.Id);
         Assert.Equal("Cook", quest.Name);
@@ -64,7 +76,7 @@ public class QuestTypeCodecTests
     [Fact]
     public void Decode_RepresentativeBytes_KeepsUnverifiedOpcodesUnderNeutralNames()
     {
-        var quest = (QuestType)_codec.Decode(3, new MemoryStream(RepresentativeBytes));
+        var quest = (QuestType)Decode(3, RepresentativeBytes);
 
         Assert.Equal("ev", quest.Opcode2Text);
         Assert.Equal(7, quest.Opcode5Value);
@@ -75,19 +87,19 @@ public class QuestTypeCodecTests
     [Fact]
     public void Encode_DecodedRepresentativeQuest_ReproducesTheSourceBytes()
     {
-        var quest = _codec.Decode(3, new MemoryStream(RepresentativeBytes));
+        var quest = Decode(3, RepresentativeBytes);
 
-        Assert.Equal(RepresentativeBytes, _codec.Encode(quest).ToArray());
+        Assert.Equal(RepresentativeBytes, EncodeToBytes(quest));
     }
 
     [Fact]
     public void Encode_AfterMutatingAVerifiedField_PreservesTheUnprovenOpcodes()
     {
-        var quest = (QuestType)_codec.Decode(3, new MemoryStream(RepresentativeBytes));
+        var quest = (QuestType)Decode(3, RepresentativeBytes);
         quest.Name = "Cooking";
         quest.QuestPoints = 5;
 
-        var reloaded = (QuestType)_codec.Decode(3, new MemoryStream(_codec.Encode(quest).ToArray()));
+        var reloaded = (QuestType)Decode(3, EncodeToBytes(quest));
 
         Assert.Equal("Cooking", reloaded.Name);
         Assert.Equal(5, reloaded.QuestPoints);
@@ -100,7 +112,7 @@ public class QuestTypeCodecTests
     [Fact]
     public void Decode_EmptyDefinition_YieldsDefaultsAndEncodesToTheTerminatorOnly()
     {
-        var quest = (QuestType)_codec.Decode(9, new MemoryStream([0]));
+        var quest = (QuestType)Decode(9, [0]);
 
         Assert.Equal(string.Empty, quest.Name);
         Assert.Equal(-1, quest.GraphicId);
@@ -108,7 +120,7 @@ public class QuestTypeCodecTests
         Assert.Empty(quest.ExtraData);
         Assert.Null(quest.Opcode2Text);
         Assert.Null(quest.Opcode5Value);
-        Assert.Equal([0], _codec.Encode(quest).ToArray());
+        Assert.Equal([0], EncodeToBytes(quest));
     }
 
     [Fact]
@@ -116,7 +128,7 @@ public class QuestTypeCodecTests
     {
         var bytes = Convert.FromHexString("F9" + "02" + "00" + "000001" + "00000001" + "00" + "000001" + "00000002" + "00");
 
-        var quest = _codec.Decode(1, new MemoryStream(bytes));
+        var quest = Decode(1, bytes);
 
         Assert.Equal(2, Assert.Single(quest.ExtraData).Value);
     }
@@ -124,7 +136,7 @@ public class QuestTypeCodecTests
     [Fact]
     public void Decode_UnknownOpcode_FailsInsteadOfDesynchronisingTheStream()
     {
-        var exception = Assert.Throws<InvalidDataException>(() => _codec.Decode(1, new MemoryStream([0x0B, 0x00])));
+        var exception = Assert.Throws<InvalidDataException>(() => Decode(1, [0x0B, 0x00]));
 
         Assert.Contains("opcode 11", exception.Message);
     }
@@ -132,7 +144,7 @@ public class QuestTypeCodecTests
     [Fact]
     public void Decode_TruncatedDefinition_Throws()
     {
-        Assert.ThrowsAny<IOException>(() => _codec.Decode(3, new MemoryStream(RepresentativeBytes[..^8])));
+        Assert.ThrowsAny<IOException>(() => Decode(3, RepresentativeBytes[..^8]));
     }
 
     // Raw bytes of quest 84 from the local revision-742 cache. Opcode 5 precedes opcode 1, so real data is not in ascending order.
@@ -148,7 +160,7 @@ public class QuestTypeCodecTests
     [Fact]
     public void Decode_RealQuestWithOpcode5BeforeTheName_ReadsEveryField()
     {
-        var quest = (QuestType)_codec.Decode(84, new MemoryStream(RealQuest84));
+        var quest = (QuestType)Decode(84, RealQuest84);
 
         Assert.Equal("Recipe for Disaster: Starting Out", quest.Name);
         Assert.Equal(1, quest.QuestPoints);
@@ -159,7 +171,7 @@ public class QuestTypeCodecTests
     [Fact]
     public void Decode_RealQuestWithSkillsOpcode10AndParams_ReadsEveryField()
     {
-        var quest = (QuestType)_codec.Decode(77, new MemoryStream(RealQuest77));
+        var quest = (QuestType)Decode(77, RealQuest77);
 
         Assert.Equal("Missing My Mummy", quest.Name);
         Assert.Equal("\"Missing My Mummy (sort)\"", quest.Opcode2Text);
@@ -181,9 +193,9 @@ public class QuestTypeCodecTests
     [InlineData(77)]
     public void Encode_DecodedRealQuest_DecodesBackToTheSameDefinition(int id)
     {
-        var source = (QuestType)_codec.Decode(id, new MemoryStream(id == 84 ? RealQuest84 : RealQuest77));
+        var source = (QuestType)Decode(id, id == 84 ? RealQuest84 : RealQuest77);
 
-        var reloaded = (QuestType)_codec.Decode(id, new MemoryStream(_codec.Encode(source).ToArray()));
+        var reloaded = (QuestType)Decode(id, EncodeToBytes(source));
 
         Assert.Equal(source.Name, reloaded.Name);
         Assert.Equal(source.QuestPoints, reloaded.QuestPoints);
