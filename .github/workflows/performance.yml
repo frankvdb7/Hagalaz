@@ -27,8 +27,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: performance-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   benchmark:
@@ -63,17 +63,28 @@ jobs:
           --job short --warmupCount 3 --iterationCount 5 --filter "*"
           --exporters json --artifacts ./BenchmarkDotNet.Artifacts
 
+      - name: Diagnose tracked project changes
+        if: always()
+        run: |
+          git status --short
+          git diff -- Hagalaz.Game.Common.Tests/Hagalaz.Game.Common.Tests.csproj
+
       - name: Merge Benchmark Results
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t reports < <(find BenchmarkDotNet.Artifacts/results -type f -name '*-report-full.json' -print | sort)
+          mapfile -t reports < <(find BenchmarkDotNet.Artifacts/results -type f -name '*-report-full-compressed.json' -print | sort)
           if (( ${#reports[@]} == 0 )); then
             echo "No BenchmarkDotNet JSON reports were produced."
             exit 1
           fi
           jq -s '.[0] * {Benchmarks: (map(.Benchmarks // []) | add)}' "${reports[@]}" \
             > BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks-report-full.json
+          jq -e '.Benchmarks | length > 0 and all(.[]; .Statistics != null)' \
+            BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks-report-full.json > /dev/null || {
+            echo '::error::Benchmark results are incomplete; comparison and baseline publication are unavailable.'
+            exit 1
+          }
 
       - name: Upload Benchmark Results
         if: always()
@@ -84,9 +95,40 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Compare Benchmark Results (advisory)
-        if: github.event_name != 'push'
-        continue-on-error: true
+  compare:
+    name: Compare Benchmark Results
+    if: github.event_name != 'push'
+    needs: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download Benchmark Results
+        uses: actions/download-artifact@v8
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: BenchmarkDotNet.Artifacts/results
+
+      - name: Verify comparison baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          git show FETCH_HEAD:dev/bench/data.js | sed '1s/^window\.BENCHMARK_DATA = //' > "$RUNNER_TEMP/benchmark-baseline.json"
+          jq -e --slurpfile baseline "$RUNNER_TEMP/benchmark-baseline.json" '
+            .Benchmarks as $current |
+            ($baseline[0].entries["Hagalaz Performance Benchmarks"] | last | .benches) as $previous |
+            ($current | length > 0) and ($previous | length > 0) and
+            ([$current[].FullName] - [$previous[].name] | length == 0)
+          ' BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks-report-full.json > /dev/null || {
+            echo '::error::Benchmark comparison unavailable: the main baseline is missing or lacks current benchmark cases.'
+            exit 1
+          }
+
+      - name: Compare Benchmark Results (advisory regressions)
         uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: Hagalaz Performance Benchmarks
