@@ -32,6 +32,7 @@ public sealed class DuelRulesTests
             rules,
             null,
             null,
+            new DuelResult(),
             Substitute.For<IHintIconBuilder>(),
             Substitute.For<ILogger<DuelArenaCombatScript>>());
 
@@ -83,6 +84,7 @@ public sealed class DuelRulesTests
                 rules,
                 null,
                 null,
+                new DuelResult(),
                 Substitute.For<IHintIconBuilder>(),
                 Substitute.For<ILogger<DuelArenaCombatScript>>());
 
@@ -124,6 +126,7 @@ public sealed class DuelRulesTests
             new DuelRules(_ => { }),
             null,
             null,
+            new DuelResult(),
             Substitute.For<IHintIconBuilder>(),
             Substitute.For<ILogger<DuelArenaCombatScript>>());
 
@@ -189,6 +192,7 @@ public sealed class DuelRulesTests
                 rules,
                 null,
                 null,
+                new DuelResult(),
                 Substitute.For<IHintIconBuilder>(),
                 Substitute.For<ILogger<DuelArenaCombatScript>>());
 

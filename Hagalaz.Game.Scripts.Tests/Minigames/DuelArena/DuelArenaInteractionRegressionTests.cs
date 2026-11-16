@@ -571,7 +571,7 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(0, duel.Self.MoneyPouch.Count);
         Assert.AreEqual(150L, TotalCoinCount(duel));
         Assert.AreEqual(1, familiar.Items.GetCountById(familiarItem.Id));
-        duel.Target.Widgets.Received(2).OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
+        duel.Target.Widgets.Received(1).OpenWidget(1365, 0, Arg.Any<IWidgetScript>(), false);
         Assert.IsNull(losingCombat);
         Assert.IsNull(winningCombat);
         Assert.IsFalse(characterCombat.IsDead);

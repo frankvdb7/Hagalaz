@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             var contextAccessor = Substitute.For<ICharacterContextAccessor>();
             contextAccessor.Context.Returns(characterContext);
 
-            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder,
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, new DuelResult(), hintIconBuilder,
                 Substitute.For<ILogger<DuelArenaCombatScript>>());
 
             // Act
@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             context.Character.Returns(character);
             var contextAccessor = Substitute.For<ICharacterContextAccessor>();
             contextAccessor.Context.Returns(context);
-            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder,
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, new DuelResult(), hintIconBuilder,
                 Substitute.For<ILogger<DuelArenaCombatScript>>());
 
             script.OnRegistered();
@@ -103,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             provider.GetService(typeof(DuelEndScreenScript)).Returns(endScreen);
             character.ServiceProvider.Returns(provider);
 
-            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, hintIconBuilder,
+            var script = new DuelArenaCombatScript(contextAccessor, target, rules, null, null, new DuelResult(), hintIconBuilder,
                 Substitute.For<ILogger<DuelArenaCombatScript>>());
             script.OnRegistered();
 
