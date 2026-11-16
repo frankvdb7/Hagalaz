@@ -135,6 +135,69 @@ public class QuestTypeCodecTests
         Assert.ThrowsAny<IOException>(() => _codec.Decode(3, new MemoryStream(RepresentativeBytes[..^8])));
     }
 
+    // Raw bytes of quest 84 from the local revision-742 cache. Opcode 5 precedes opcode 1, so real data is not in ascending order.
+    private static readonly byte[] RealQuest84 = Convert.FromHexString(
+        "090105001E010052656369706520666F722044697361737465723A205374617274696E67204F7574000401073A000000010000000200");
+
+    // Raw bytes of quest 77 from the local revision-742 cache: opcode 2 with literal quotes, opcode 10, skills and params.
+    private static readonly byte[] RealQuest77 = Convert.FromHexString(
+        "09010200224D697373696E67204D79204D756D6D792028736F727429220007010801004D697373696E67204D79204D756D6D7900"
+        + "040117E00000000A0000003C0A01030A4CBF0D03008D000300CD0E0506230C23052307231623"
+        + "F9030000034F0000009B0100034D4D697373696E67204D79204D756D6D7900000003B80000253D00");
+
+    [Fact]
+    public void Decode_RealQuestWithOpcode5BeforeTheName_ReadsEveryField()
+    {
+        var quest = (QuestType)_codec.Decode(84, new MemoryStream(RealQuest84));
+
+        Assert.Equal("Recipe for Disaster: Starting Out", quest.Name);
+        Assert.Equal(1, quest.QuestPoints);
+        Assert.Equal(30, quest.Opcode5Value);
+        Assert.Equal([new QuestProgressThreshold(1850, 1, 2)], quest.ProgressVarBits);
+    }
+
+    [Fact]
+    public void Decode_RealQuestWithSkillsOpcode10AndParams_ReadsEveryField()
+    {
+        var quest = (QuestType)_codec.Decode(77, new MemoryStream(RealQuest77));
+
+        Assert.Equal("Missing My Mummy", quest.Name);
+        Assert.Equal("\"Missing My Mummy (sort)\"", quest.Opcode2Text);
+        Assert.Equal(1, quest.Difficulty);
+        Assert.True(quest.Members);
+        Assert.Equal(1, quest.QuestPoints);
+        Assert.Equal([new QuestProgressThreshold(6112, 10, 60)], quest.ProgressVarBits);
+        Assert.Equal([0x030A4CBF], quest.Opcode10Values);
+        Assert.Equal([141, 3, 205], quest.PrerequisiteQuestIds);
+        Assert.Equal([6, 12, 5, 7, 22], quest.SkillRequirements.Select(skill => skill.SkillId));
+        Assert.All(quest.SkillRequirements, skill => Assert.Equal(35, skill.Level));
+        Assert.Equal(155, quest.ExtraData[847]);
+        Assert.Equal("Missing My Mummy", quest.ExtraData[845]);
+        Assert.Equal(9533, quest.ExtraData[952]);
+    }
+
+    [Theory]
+    [InlineData(84)]
+    [InlineData(77)]
+    public void Encode_DecodedRealQuest_DecodesBackToTheSameDefinition(int id)
+    {
+        var source = (QuestType)_codec.Decode(id, new MemoryStream(id == 84 ? RealQuest84 : RealQuest77));
+
+        var reloaded = (QuestType)_codec.Decode(id, new MemoryStream(_codec.Encode(source).ToArray()));
+
+        Assert.Equal(source.Name, reloaded.Name);
+        Assert.Equal(source.QuestPoints, reloaded.QuestPoints);
+        Assert.Equal(source.Difficulty, reloaded.Difficulty);
+        Assert.Equal(source.Members, reloaded.Members);
+        Assert.Equal(source.ProgressVarBits, reloaded.ProgressVarBits);
+        Assert.Equal(source.PrerequisiteQuestIds, reloaded.PrerequisiteQuestIds);
+        Assert.Equal(source.SkillRequirements, reloaded.SkillRequirements);
+        Assert.Equal(source.ExtraData.OrderBy(pair => pair.Key), reloaded.ExtraData.OrderBy(pair => pair.Key));
+        Assert.Equal(source.Opcode2Text, reloaded.Opcode2Text);
+        Assert.Equal(source.Opcode5Value, reloaded.Opcode5Value);
+        Assert.Equal(source.Opcode10Values, reloaded.Opcode10Values);
+    }
+
     [Fact]
     public void Encode_ListLongerThanOneByteCount_Throws()
     {
