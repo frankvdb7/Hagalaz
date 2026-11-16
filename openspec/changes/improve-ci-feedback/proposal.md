@@ -7,6 +7,7 @@ PR feedback is delayed by the full benchmark run, and its comparison currently f
 ## What Changes
 
 - Repair benchmark comparison using the existing artifact and benchmark action in a clean checkout, with visible failure or unavailability and no PR baseline writes.
+- Repair the benchmark-only map appearance fixture and reject incomplete results before comparison or baseline publication.
 - Investigate a measured, coverage-preserving PR benchmark lane with a full-run fallback; retain complete main and manual reports.
 - Cancel superseded PR runs independently per workflow while preserving main and scheduled runs.
 - Profile CodeQL before considering changes and record hosted timing and validation evidence.

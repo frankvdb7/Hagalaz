@@ -224,8 +224,9 @@ public class MapAppearanceRequestBenchmarks
         }
         table.AddEntry(0, entry);
         using var encoded = new ReferenceTableCodec().Encode(table);
-        // Real legacy model bytecode, also used by the model assembly regression fixtures.
-        byte[] model = [0, 1, 3, 1, 2, 64, 65, 65, 0, 42, 0, 0, 0, 1, 0, 2, 74, 54, 84, 0, 3, 0, 1, 1, 1, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3];
+        // Modern-layout triangle also covered by ModelTypeCodecTests.
+        byte[] model = [0, 1, 3, 1, 64, 65, 65, 0x12, 0x34, 74, 54, 84,
+            0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 3, 0, 0, 255, 255];
         return new BenchmarkFileStore(new Dictionary<(int, int), byte[]> {
             [(255, 16)] = ContainerBytes(encoded.ToArray()),
             [(16, 0)] = ContainerBytes(CacheBenchmarkFixture.EncodeArchive(members)),

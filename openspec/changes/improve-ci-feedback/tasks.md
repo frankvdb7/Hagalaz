@@ -2,6 +2,7 @@
 
 ## 1. Benchmark correctness
 
+- [x] 1.0 Repair the map appearance fixture and verify both benchmark cases produce measurements while setup checks the responses.
 - [ ] 1.1 Reproduce the tracked project modification and record the actual diff and cause without discarding changes.
 - [ ] 1.2 Move comparison to a clean read-only artifact-consuming job; validate success, missing baseline/report and action failure, plus fork permissions.
 - [ ] 1.3 Verify the existing main publisher writes a valid comparable baseline and retains historical reports in a hosted run.
