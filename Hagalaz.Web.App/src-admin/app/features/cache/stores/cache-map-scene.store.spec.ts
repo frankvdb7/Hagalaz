@@ -48,18 +48,21 @@ describe("CacheMapSceneStore", () => {
     const landscapeUrl = (id: number) => `${base}types/maps/${id}/landscape`;
     const flushed = () => vi.advanceTimersByTimeAsync(0);
 
-    it("saves each region in order and reports success", async () => {
+    it("saves regions in order and sends keys only for the keyed landscape", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         const objects = [placement(4)];
-        const result = store.saveRegions([{ kind: "landscape", regionId: 1, objects, expectedVersion: 9 }, { kind: "landscape", regionId: 2, objects: [], expectedVersion: 9 }]);
+        const xteaKeys = [1, 0, -3, 4];
+        const result = store.saveRegions([{ kind: "landscape", regionId: 1, objects, expectedVersion: 9, xteaKeys }, { kind: "landscape", regionId: 2, objects: [], expectedVersion: 9 }]);
         expect(store.saving()).toBe(true);
         const first = http.expectOne(landscapeUrl(1));
-        expect(first.request.body).toEqual({ objects, expectedVersion: 9 });
+        expect(first.request.body).toEqual({ objects, expectedVersion: 9, xteaKeys });
         http.expectNone(landscapeUrl(2));
         first.flush({});
         await flushed();
-        http.expectOne(landscapeUrl(2)).flush({});
-        await expect(result).resolves.toBe(true);
+        const second = http.expectOne(landscapeUrl(2));
+        expect(second.request.body).toEqual({ objects: [], expectedVersion: 9 });
+        second.flush({});
+        await expect(result).resolves.toMatchObject({ saved: expect.any(Array), unattempted: [] });
         expect(store.saving()).toBe(false);
         expect(store.saveError()).toBeNull();
     });
@@ -70,15 +73,15 @@ describe("CacheMapSceneStore", () => {
         http.expectOne(landscapeUrl(1)).flush({});
         await flushed();
         http.expectOne(landscapeUrl(2)).flush({ detail: "Landscape is encrypted." }, { status: 422, statusText: "Unprocessable" });
-        await expect(result).resolves.toBe(false);
+        await expect(result).resolves.toMatchObject({ saved: [{ regionId: 1 }], failed: { regionId: 2 } });
         http.expectNone(landscapeUrl(3));
         expect(store.saving()).toBe(false);
-        expect(store.saveError()).toBe("Could not save region 2 objects. Landscape is encrypted. Already saved: region 1 objects.");
+        expect(store.saveError()).toContain("Could not save region 2 objects. Landscape is encrypted. Already saved: region 1 objects. Not attempted: region 3 objects.");
 
         const retry = store.saveRegions([{ kind: "landscape", regionId: 2, objects: [], expectedVersion: 9 }]);
         expect(store.saveError()).toBeNull();
         http.expectOne(landscapeUrl(2)).flush({});
-        await expect(retry).resolves.toBe(true);
+        await expect(retry).resolves.toMatchObject({ saved: [{ regionId: 2 }], unattempted: [] });
     });
 
     it("reports a save refused for a stale version, keeps the earlier saves named and never retries it", async () => {
@@ -87,9 +90,9 @@ describe("CacheMapSceneStore", () => {
         http.expectOne(landscapeUrl(1)).flush({});
         await flushed();
         http.expectOne(landscapeUrl(2)).flush({ detail: "Region 2's landscape was changed by another save after it was loaded." }, { status: 409, statusText: "Conflict" });
-        await expect(result).resolves.toBe(false);
+        await expect(result).resolves.toMatchObject({ saved: [{ regionId: 1 }], failed: { regionId: 2 } });
         http.expectNone(landscapeUrl(2));
-        expect(store.saveError()).toBe("Could not save region 2 objects. Region 2's landscape was changed by another save after it was loaded. Already saved: region 1 objects.");
+        expect(store.saveError()).toContain("Could not save region 2 objects. Region 2's landscape was changed by another save after it was loaded. Already saved: region 1 objects.");
     });
 
     it("saves a region's terrain before its objects", async () => {
@@ -102,7 +105,7 @@ describe("CacheMapSceneStore", () => {
         terrain.flush({});
         await flushed();
         http.expectOne(landscapeUrl(1)).flush({});
-        await expect(result).resolves.toBe(true);
+        await expect(result).resolves.toMatchObject({ saved: expect.any(Array), unattempted: [] });
     });
 
     it("refreshes the world map and reports a failure separately", async () => {
@@ -155,10 +158,10 @@ describe("CacheMapSceneStore", () => {
     it("ignores a save while another is running", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         const first = store.saveRegions([{ kind: "landscape", regionId: 1, objects: [], expectedVersion: 9 }]);
-        await expect(store.saveRegions([{ kind: "landscape", regionId: 9, objects: [], expectedVersion: 9 }])).resolves.toBe(false);
+        await expect(store.saveRegions([{ kind: "landscape", regionId: 9, objects: [], expectedVersion: 9 }])).resolves.toBeNull();
         http.expectNone(landscapeUrl(9));
         http.expectOne(landscapeUrl(1)).flush({});
-        await expect(first).resolves.toBe(true);
+        await expect(first).resolves.toMatchObject({ saved: [{ regionId: 1 }] });
     });
 
     beforeEach(() => {

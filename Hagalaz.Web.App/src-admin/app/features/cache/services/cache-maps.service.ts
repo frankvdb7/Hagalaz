@@ -18,8 +18,8 @@ export class CacheMapsService {
         return this.http.post<MapRenderRegion>(`${this.baseUrl}/${id}/render`, { xteaKeys });
     }
 
-    saveLandscape(id: number, objects: readonly MapPlacement[], expectedVersion: number) {
-        return this.http.post<UpdateMapLandscapeResultDto>(`${this.baseUrl}/${id}/landscape`, { objects, expectedVersion });
+    saveLandscape(id: number, objects: readonly MapPlacement[], expectedVersion: number, xteaKeys?: number[]) {
+        return this.http.post<UpdateMapLandscapeResultDto>(`${this.baseUrl}/${id}/landscape`, { objects, expectedVersion, ...(xteaKeys && { xteaKeys }) });
     }
 
     saveTerrain(id: number, tiles: readonly MapTerrainTileChange[], expectedVersion: number) {

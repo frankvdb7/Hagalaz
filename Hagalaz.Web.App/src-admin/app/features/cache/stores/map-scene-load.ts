@@ -5,10 +5,12 @@ import {
     mapAppearanceKey,
     selectedMapIds,
     withUnderwaterLayer,
+    underwaterPlaneIndex,
     type MapLoadProgress,
     type MapLoadRequest,
     type MapObjectClip,
     type MapPlacement,
+    type MapRegionSave,
     type MapRenderRegion,
     type MapVisibility,
     type ObjectAppearanceResult,
@@ -63,6 +65,7 @@ export class MapSceneLoad {
     private readonly settledAppearances = new Set<string>();
     private readonly settledTextures = new Set<number>();
     private readonly warnings = new Set<string>();
+    private readonly regionWarnings = new Map<number, string[]>();
     private regionList: MapRenderRegion[] = [];
     private remainingRegions: number;
     private appearanceRequests = 0;
@@ -98,13 +101,7 @@ export class MapSceneLoad {
                             this.service.render(id, this.request.keys[id]).pipe(
                                 map(withUnderwaterLayer),
                                 tap((region) => {
-                                    this.regions.set(id, region);
-                                    this.regionList = this.ids.flatMap((id) => this.regions.get(id) ?? []);
-                                    for (const warning of region.warnings) this.warnings.add(warning);
-                                    for (const kind of ["terrain", "landscape"] as const)
-                                        if (region[`${kind}Status`] !== "available") this.warnings.add(`Region ${id}: ${kind} ${region[`${kind}Status`]}.`);
-                                    this.flush();
-                                    this.pump();
+                                    this.setRegion(region, region.warnings);
                                 }),
                                 catchError((error) => {
                                     this.fail(`Region ${id}: ${getCacheErrorMessage(error)}`);
@@ -120,6 +117,60 @@ export class MapSceneLoad {
                 )
                 .subscribe()
         );
+    }
+
+    replaceKinds(fresh: MapRenderRegion, kinds: readonly MapRegionSave["kind"][], keepPlacements = false): boolean {
+        const current = this.regions.get(fresh.id);
+        if (!current || this.cancelled) return false;
+        const terrain = kinds.includes("terrain");
+        const landscape = kinds.includes("landscape");
+        const region: MapRenderRegion = {
+            ...current,
+            ...(terrain && {
+                terrainStatus: fresh.terrainStatus, terrainVersion: fresh.terrainVersion, planes: fresh.planes,
+                floors: fresh.floors, atmosphere: fresh.atmosphere, pointLights: fresh.pointLights, underwaterPlane: fresh.underwaterPlane,
+            }),
+            ...(landscape && {
+                landscapeStatus: fresh.landscapeStatus, landscapeVersion: fresh.landscapeVersion,
+                objects: keepPlacements ? current.objects : [...fresh.objects.filter(object => object.plane !== underwaterPlaneIndex), ...current.objects.filter(object => object.plane === underwaterPlaneIndex)],
+            }),
+        };
+        if (terrain) this.updateTerrainBorders(region);
+        this.setRegion(region, fresh.warnings);
+        return true;
+    }
+
+    private updateTerrainBorders(region: MapRenderRegion): void {
+        for (const neighbor of this.regionList) {
+            const dx = region.regionX - neighbor.regionX;
+            const dy = region.regionY - neighbor.regionY;
+            if (dx < 0 || dx > 1 || dy < 0 || dy > 1 || (!dx && !dy)) continue;
+            const planes = neighbor.planes.map((plane, index) => {
+                const source = region.planes[index];
+                if (source?.cornerHeights.length !== 65 * 65 || plane.cornerHeights.length !== 65 * 65) return plane;
+                const cornerHeights = [...plane.cornerHeights];
+                for (let x = dx * 64; x < 64 + dx; x++) {
+                    for (let y = dy * 64; y < 64 + dy; y++) {
+                        cornerHeights[x * 65 + y] = source.cornerHeights[(x - dx * 64) * 65 + y - dy * 64];
+                    }
+                }
+                return { ...plane, cornerHeights };
+            });
+            this.regions.set(neighbor.id, { ...neighbor, planes });
+        }
+    }
+
+    private setRegion(region: MapRenderRegion, warnings: readonly string[]): void {
+        this.regions.set(region.id, region);
+        this.regionList = this.ids.flatMap(id => this.regions.get(id) ?? []);
+        const issues = [...warnings];
+        for (const kind of ["terrain", "landscape"] as const) {
+            const status = region[`${kind}Status`];
+            if (status !== "available") issues.push(`Region ${region.id}: ${kind} ${status}.`);
+        }
+        this.regionWarnings.set(region.id, issues);
+        this.flush();
+        this.pump();
     }
 
     setVisibility(visibility: MapVisibility): void {
@@ -352,7 +403,7 @@ export class MapSceneLoad {
             animations: this.animations,
             textures: this.publishedTextures,
             environmentFaces: this.publishedEnvironmentFaces,
-            warnings: [...this.warnings],
+            warnings: [...new Set([...this.warnings, ...[...this.regionWarnings.values()].flat()])],
             loading: this.isLoading(),
             progress: {
                 regionsSettled: this.ids.length - this.remainingRegions,

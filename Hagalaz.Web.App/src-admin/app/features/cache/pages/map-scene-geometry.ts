@@ -149,16 +149,36 @@ export function mapLandscapeSaves(regions: readonly MapRenderRegion[], draft: Ma
     return regions.flatMap(region => {
         const added = draft.additions.filter(addition => addition.regionId === region.id).map(addition => addition.placement);
         const surface = region.objects.filter(isSurfacePlacement);
-        const objects = [...surface, ...added.filter(isSurfacePlacement)].flatMap(placement => {
-            const transform = draft.transforms.get(placement);
-            if (transform === null) return [];
-            const { id, shape } = placement;
-            const { rotation, x, y, plane } = transform ?? placement;
-            return [{ id, shape, rotation, x, y, plane }];
-        });
+        const objects = [...surface, ...added.filter(isSurfacePlacement)].flatMap(placement => storedPlacement(placement, draft) ?? []);
         const unchanged = objects.length === surface.length && objects.every((object, index) => samePlacement(object, surface[index]));
         return unchanged ? [] : [{ kind: "landscape" as const, regionId: region.id, objects, expectedVersion: region.landscapeVersion }];
     });
+}
+
+function storedPlacement(placement: MapPlacement, draft: MapSceneDraft): MapPlacement | null {
+    const transform = draft.transforms.get(placement);
+    if (transform === null) return null;
+    const { id, shape } = placement;
+    const { rotation, x, y, plane } = transform ?? placement;
+    return { id, shape, rotation, x, y, plane };
+}
+
+export function landscapeReview(region: MapRenderRegion, draft: MapSceneDraft): string[] {
+    const changes = region.objects.filter(isSurfacePlacement).flatMap(before => {
+        const after = storedPlacement(before, draft);
+        if (!after) return [`Remove ${placementLabel(before)}`];
+        return samePlacement(before, after) ? [] : [`${placementLabel(before)} → ${placementLabel(after)}`];
+    });
+    for (const { regionId, placement } of draft.additions) {
+        if (regionId !== region.id || !isSurfacePlacement(placement)) continue;
+        const after = storedPlacement(placement, draft);
+        if (after) changes.push(`Add ${placementLabel(after)}`);
+    }
+    return changes.sort();
+}
+
+function placementLabel({ id, x, y, plane, shape, rotation }: MapPlacement): string {
+    return `Object ${id} at (${x}, ${y}), source plane ${plane}, shape ${shape}, rotation ${rotation}`;
 }
 
 /** What the draft changes that saving cannot store, phrased for the save confirmation. */

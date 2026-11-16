@@ -1,6 +1,10 @@
 <ng-template portalBreadcrumb><span>Region {{ regionLabel() }}</span></ng-template>
 <section class="region-editor" aria-label="Map region detail" [attr.aria-busy]="store.loading()">
     @if (store.saveError(); as message) { <p role="alert">{{ message }}</p> }
+    @if (reloadError(); as message) {
+        <p role="alert">{{ message }}</p>
+        <button mat-button type="button" [disabled]="readingRegion()" (click)="retrySavedReads()">Retry cache reload</button>
+    }
     @if (store.worldMapError(); as message) { <p role="alert">{{ message }}</p> }
     @if (!selectedIds().length) { <p role="alert">Invalid region selection. Use a region ID from 0 to 65535 and dimensions from 1 to 3 without crossing coordinate 255.</p> }
     <div class="region-workspace">
@@ -49,6 +53,19 @@
             </mat-menu>
         </mat-card>
         <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">
+            @if (landscapeKeyRegions().length) {
+                <details class="p-3">
+                    <summary>Landscape XTEA keys</summary>
+                    @for (region of landscapeKeyRegions(); track region.id) {
+                        <form class="mt-2" (submit)="$event.preventDefault(); loadLandscapeKeys(region, keys.value); keys.value = ''">
+                            <label class="block" [for]="'landscape-keys-' + region.id">Region {{ region.id }}</label>
+                            <input #keys class="w-full rounded border px-2 py-1" [id]="'landscape-keys-' + region.id" type="password" autocomplete="off" placeholder="Four signed integers" [disabled]="!canLoadKeys()" />
+                            <button mat-button type="submit" [disabled]="!canLoadKeys()">Load landscape</button>
+                        </form>
+                    }
+                </details>
+            }
+            @if (keyError(); as message) { <p class="p-3" role="alert">{{ message }}</p> }
             @if (editTool() === 'terrain') {
                 <cache-map-terrain-panel [brush]="brush()" (brushChange)="changeBrush($event)" [floors]="store.floors()" [loading]="store.floorsLoading()" [error]="store.floorsError()" />
             } @else {

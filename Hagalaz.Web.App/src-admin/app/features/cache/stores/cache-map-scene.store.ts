@@ -4,9 +4,19 @@ import { rxMethod } from "@ngrx/signals/rxjs-interop";
 import { firstValueFrom, Observable, pipe, switchMap, tap } from "rxjs";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
 import { CacheMapsService } from "../services/cache-maps.service";
-import type { MapFloor, MapLoadRequest, MapObjectClip, MapRegionSave, MapRenderRegion, MapVisibility, MapWorldMapRefreshResult, ObjectRenderAppearance } from "../services/map-render.models";
+import { withUnderwaterLayer, type MapFloor, type MapLoadRequest, type MapObjectClip, type MapRegionSave, type MapRenderRegion, type MapVisibility, type MapWorldMapRefreshResult, type ObjectRenderAppearance } from "../services/map-render.models";
 import { getCacheErrorMessage } from "./cache-error";
 import { emptyMapProgress, MapSceneLoad, type MapSceneState } from "./map-scene-load";
+
+interface MapSaveResult {
+    saved: MapRegionSave[];
+    failed?: MapRegionSave;
+    unattempted: readonly MapRegionSave[];
+}
+
+function saveLabel(save: MapRegionSave): string {
+    return `region ${save.regionId} ${save.kind === "terrain" ? "terrain" : "objects"}`;
+}
 
 export const CacheMapSceneStore = signalStore(
     withState({
@@ -47,24 +57,52 @@ export const CacheMapSceneStore = signalStore(
                     tap((state) => patchState(store, state))
                 )
             ),
-            /** Saves in order and stops at the first failure. A save from a version the cache has moved past is refused, so the region must be reloaded before saving again. */
-            async saveRegions(saves: readonly MapRegionSave[]): Promise<boolean> {
-                if (store.saving()) return false;
+            async saveRegions(saves: readonly MapRegionSave[], unverifiedKeys?: ReadonlySet<number>): Promise<MapSaveResult | null> {
+                if (store.saving()) return null;
                 patchState(store, { saving: true, saveError: null });
-                const saved: string[] = [];
+                const saved: MapRegionSave[] = [];
                 for (const save of saves) {
-                    const label = `region ${save.regionId} ${save.kind === "terrain" ? "terrain" : "objects"}`;
                     try {
-                        await firstValueFrom<unknown>(save.kind === "terrain" ? service.saveTerrain(save.regionId, save.tiles, save.expectedVersion) : service.saveLandscape(save.regionId, save.objects, save.expectedVersion));
-                        saved.push(label);
+                        if (save.kind === "terrain") {
+                            await firstValueFrom(service.saveTerrain(save.regionId, save.tiles, save.expectedVersion));
+                        } else {
+                            if (unverifiedKeys?.has(save.regionId) || store.regions().find(region => region.id === save.regionId)?.landscapeStatus === "failed") {
+                                throw new Error("Load this landscape with the correct region XTEA keys before publishing.");
+                            }
+                            await firstValueFrom(service.saveLandscape(save.regionId, save.objects, save.expectedVersion, save.xteaKeys));
+                        }
+                        saved.push(save);
                     } catch (error) {
-                        const progress = saved.length ? ` Already saved: ${saved.join(", ")}.` : "";
-                        patchState(store, { saving: false, saveError: `Could not save ${label}. ${getCacheErrorMessage(error)}${progress}` });
-                        return false;
+                        const unattempted = saves.slice(saved.length + 1);
+                        const progress = saved.length ? ` Already saved: ${saved.map(saveLabel).join(", ")}.` : "";
+                        const skipped = unattempted.length ? ` Not attempted: ${unattempted.map(saveLabel).join(", ")}.` : "";
+                        const status = (error as { status?: number }).status;
+                        const recovery = status === 409 ? " Review the latest cache state before applying this edit again."
+                            : status === 0 || (status !== undefined && status >= 500) ? " The write could not be confirmed. Check the cache before reapplying this edit."
+                            : status === 422 && save.kind === "landscape" ? " Check the XTEA keys for this region." : "";
+                        patchState(store, { saving: false, saveError: `Could not save ${saveLabel(save)}. ${getCacheErrorMessage(error)}${progress}${skipped}${recovery}` });
+                        return { saved, failed: save, unattempted };
                     }
                 }
                 patchState(store, { saving: false });
-                return true;
+                return { saved, unattempted: [] };
+            },
+            async reloadRegion(id: number, kinds: readonly MapRegionSave["kind"][], keys?: number[], preserveLandscapeVersion?: number): Promise<string | null> {
+                const selection = active;
+                try {
+                    const fresh = withUnderwaterLayer(await firstValueFrom(service.render(id, keys)));
+                    const unavailable = kinds.find(kind => fresh[`${kind}Status`] !== "available");
+                    if (unavailable === "landscape") return `Region ${id} landscape is unreadable. Check the four XTEA keys for this region.`;
+                    if (unavailable) return `Region ${id} terrain is unreadable.`;
+                    if (preserveLandscapeVersion !== undefined && fresh.landscapeVersion !== preserveLandscapeVersion) {
+                        return `Region ${id} landscape has changed. Review the latest cache state before applying this draft again.`;
+                    }
+                    const current = store.regions().find(region => region.id === id);
+                    const keepPlacements = current?.landscapeStatus === "available" && current.landscapeVersion === fresh.landscapeVersion;
+                    return selection?.replaceKinds(fresh, kinds, keepPlacements) ? null : `Region ${id} is no longer loaded.`;
+                } catch (error) {
+                    return `Could not reload region ${id}. ${getCacheErrorMessage(error)}`;
+                }
             },
             /** Kept apart from saving, because a failure here leaves the saved map edits intact. */
             async refreshWorldMap(regions: readonly number[]): Promise<MapWorldMapRefreshResult | null> {

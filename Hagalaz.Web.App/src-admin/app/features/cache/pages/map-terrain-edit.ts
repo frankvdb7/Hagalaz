@@ -153,6 +153,25 @@ export function mapTerrainSaves(regions: readonly MapRenderRegion[], edits: Terr
     });
 }
 
+export function terrainReview(region: MapRenderRegion, tiles: readonly MapTerrainTileChange[]): string[] {
+    return [...tiles].sort((a, b) => a.plane - b.plane || a.x - b.x || a.y - b.y).map(tile => {
+        const { plane, x, y } = tile;
+        const stored = region.planes[plane];
+        const index = x * 64 + y;
+        const fields = [
+            ["Height", relativeHeight(region, plane, x, y), tile.height],
+            ["Underlay", stored.underlays[index], tile.underlay],
+            ["Overlay", stored.overlays[index], tile.overlay],
+            ["Overlay shape", stored.overlayShapes[index], tile.overlay === 0 ? 0 : tile.overlayShape],
+            ["Overlay rotation", stored.overlayRotations[index], tile.overlay === 0 ? 0 : tile.overlayRotation],
+            ["Flags", stored.flags[index], tile.flags],
+        ] as const;
+        const changes = fields.flatMap(([label, before, after]) =>
+            after === undefined || before === after ? [] : [`${label} ${before ?? "unset"} → ${after}`]);
+        return `Source plane ${plane}, tile (${x}, ${y}) · ${changes.join(", ")}`;
+    });
+}
+
 function tileChange(region: MapRenderRegion, key: number, edit: TerrainTileEdit): MapTerrainTileChange[] {
     const { plane, x, y } = splitKey(key);
     const stored = region.planes[plane], tile = x * 64 + y;
