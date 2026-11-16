@@ -664,6 +664,17 @@ public sealed class ShopStockContainerTests
         Assert.AreEqual(3, scenario.Stock.Items.GetCountById(ItemId));
     }
 
+    [TestMethod]
+    public void BuyFromShop_WhenFullCostIsUnaffordable_ShrinksToAffordableQuantity()
+    {
+        var scenario = CreateScenario(cost: 25, inventoryCurrency: 60, inventoryCapacity: 3, originalStock: SingleStock(5));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 5));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(10, GetTotalCoins(scenario));
+    }
+
     private static IList<IItem> SingleStock(int count) => [new ComposedTestItem(ItemId, count, stackable: false)];
 
     private static ShopScenario CreateScenario(

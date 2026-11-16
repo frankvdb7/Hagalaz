@@ -218,6 +218,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             {
                 viewer.SendChatMessage("Not enough space in your inventory.");
                 if (stack) return false; // a smaller count does not need fewer slots.
+                count = Math.Min(count, inventory.Capacity); // a non-stackable purchase cannot exceed inventory size.
                 while (count > 0 && !Fits(count)) count--;
                 if (count <= 0) return false;
             }
@@ -279,7 +280,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 remaining -= held.Count;
             }
 
-            return emptied;
+            return remaining > 0 ? 0 : emptied; // an unaffordable payment will be rejected and releases nothing.
         }
 
         /// <summary>
