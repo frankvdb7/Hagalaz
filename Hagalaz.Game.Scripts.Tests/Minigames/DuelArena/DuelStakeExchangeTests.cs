@@ -80,7 +80,7 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(8, scenario.Stake.GetCountById(995));
         Assert.AreEqual(inventoryUpdates + 1, scenario.Inventory.UpdateCount);
         eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
-            change.PreviousCount == 5 && change.Count == 0));
+            change!.PreviousCount == 5 && change.Count == 0));
     }
 
     [TestMethod]
@@ -97,7 +97,7 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(4, scenario.Pouch.Count);
         Assert.AreEqual(0, scenario.Stake.GetCountById(995));
         eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
-            change.PreviousCount == 0 && change.Count == 4));
+            change!.PreviousCount == 0 && change.Count == 4));
     }
 
     [TestMethod]
@@ -192,6 +192,56 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(1, winner.InventoryItems.GetCountById(1001));
         Assert.AreEqual(0, firstStake.Stake.TakenSlots);
         Assert.AreEqual(0, secondStake.Stake.TakenSlots);
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenCombinedCoinStakesExceedIntMaxValue_SpillsOverflowIntoInventoryAndIsNotRepeated()
+    {
+        const int stakeCoins = 1_500_000_000;
+        const long inventoryCoins = 852_516_353L;
+        var winner = CreateScenario();
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, stakeCoins, stackable: true)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(995, stakeCoins, stackable: true)));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(int.MaxValue, winner.Pouch.Count);
+        Assert.AreEqual(inventoryCoins, CountCoinsInSlots(winner.InventoryItems));
+        Assert.AreEqual(1, winner.InventoryItems.TakenSlots);
+        Assert.AreEqual(0, firstStake.Stake.TakenSlots);
+        Assert.AreEqual(0, secondStake.Stake.TakenSlots);
+        Assert.AreEqual(2L * stakeCoins, winner.Pouch.Count + CountCoinsInSlots(winner.InventoryItems));
+
+        Assert.IsTrue(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(int.MaxValue, winner.Pouch.Count);
+        Assert.AreEqual(inventoryCoins, CountCoinsInSlots(winner.InventoryItems));
+        Assert.AreEqual(1, winner.InventoryItems.TakenSlots);
+    }
+
+    [TestMethod]
+    public void TrySettleWinner_WhenCombinedCoinStakesCannotOverflowIntoInventory_LeavesParticipantsUnchanged()
+    {
+        const int stakeCoins = 1_500_000_000;
+        var winner = CreateScenario(inventoryCapacity: 1);
+        var firstStake = CreateScenario();
+        var secondStake = CreateScenario();
+        Assert.IsTrue(winner.InventoryItems.Add(new TestItem(2000, 1)));
+        Assert.IsTrue(firstStake.Stake.Add(new TestItem(995, stakeCoins, stackable: true)));
+        Assert.IsTrue(secondStake.Stake.Add(new TestItem(995, stakeCoins, stackable: true)));
+
+        Assert.IsFalse(DuelStakeExchange.TrySettleWinner(winner.Character, firstStake.Stake, secondStake.Stake));
+
+        Assert.AreEqual(stakeCoins, CountCoinsInSlots(firstStake.Stake));
+        Assert.AreEqual(1, firstStake.Stake.TakenSlots);
+        Assert.AreEqual(stakeCoins, CountCoinsInSlots(secondStake.Stake));
+        Assert.AreEqual(1, secondStake.Stake.TakenSlots);
+        Assert.AreEqual(0, winner.Pouch.Count);
+        Assert.AreEqual(0, CountCoinsInSlots(winner.InventoryItems));
+        Assert.AreEqual(1, winner.InventoryItems.TakenSlots);
+        Assert.AreEqual(1, winner.InventoryItems.GetCountById(2000));
     }
 
     [TestMethod]
@@ -311,6 +361,9 @@ public sealed class DuelStakeExchangeTests
         return new Scenario(character, inventory, inventory.Items, pouch, new ItemContainer(StorageType.Normal, (short)stakeCapacity),
             new DuelStakeExchange(itemBuilder));
     }
+
+    private static long CountCoinsInSlots(IItemContainer container) =>
+        container.Where(item => item is { Id: 995 }).Sum(item => (long)item!.Count);
 
     private sealed record Scenario(ICharacter Character, ComposedTestContainer Inventory, IItemContainer InventoryItems, MoneyPouchContainer Pouch,
         ItemContainer Stake, DuelStakeExchange Exchange);
