@@ -8,7 +8,7 @@ Both `MapAppearanceRequestBenchmarks` cases had null statistics. Their setup thr
 
 The fixture now uses a modern-layout triangle already exercised by `ModelTypeCodecTests`. A local Windows BenchmarkDotNet Dry run produced statistics for both appearance cases and passed the setup's 32-key response-equivalence checks.
 
-The [PR #595 hosted run](https://github.com/frankvdb7/Hagalaz/actions/runs/43936587868) produced and uploaded all 86 results with statistics, including both repaired appearance cases. The benchmark job took 13m41s and BenchmarkDotNet reported 12m51s. The tracked checkout was clean after the run, so the original dirty-file cause was not reproduced. The separate comparison job failed explicitly because the current main baseline lacks the additional cases; successful full-baseline comparison and main publication remain unverified. CI and all CodeQL language jobs passed for the same commit.
+The [PR #595 hosted run](https://github.com/frankvdb7/Hagalaz/actions/runs/43936587868) produced and uploaded all 86 results with statistics, including both repaired appearance cases. The benchmark job took 13m41s and BenchmarkDotNet reported 12m51s. Its post-benchmark status was clean; the isolated test below reproduced the underlying line-ending issue. The separate comparison job failed explicitly because the current main baseline lacks the additional cases; successful full-baseline comparison and main publication remain unverified. CI and all CodeQL language jobs passed for the same commit.
 
 Main publish jobs use GitHub's `queue: max` concurrency setting to avoid concurrent writes while retaining pending runs. GitHub documents this setting, but actionlint 1.7.12 does not recognize it; linting with that specific unsupported-key diagnostic suppressed found no other workflow errors. GitHub queues jobs by arrival, not commit order, so the resulting history order needs hosted verification.
 
@@ -27,7 +27,9 @@ Job durations below are GitHub job start-to-finish times in seconds, not queue t
 
 The after samples include an additional comparison job and both repaired appearance cases. They do not demonstrate a wall-time or runner-minute reduction. A successful complete-baseline comparison remains outstanding.
 
-The log also records a tracked `Hagalaz.Game.Common.Tests.csproj` blocking `git switch gh-pages` but contains no diff. A local Windows dry run did not reproduce it. A diagnostic step records status and that file's diff on a future hosted run.
+The original log records a tracked `Hagalaz.Game.Common.Tests.csproj` blocking `git switch gh-pages` but contains no diff. A separate clean main publish job hit the same error, so benchmark execution was not necessary to trigger it. Git stored this project blob with CRLF despite `.gitattributes` setting `*.csproj text eol=crlf`, which requires LF in the index. The tracked blob hash was `bd555a2c57a7f29ea73d8245fae4e6cf66884e23`; Git's normalized hash was `74e8515850cf57e1fb795bbf276509c368a27592`. Git documents the [index and worktree normalization rules](https://git-scm.com/docs/gitattributes#_text).
+
+In an isolated worktree, changing only the file's timestamp forced Git to recheck it: the actual diff contained only CRLF-to-LF changes on all 23 lines, and switching to `gh-pages` failed with the same error. After staging normalization of this file only, a second isolated checkout with the same timestamp change remained clean and switched to `gh-pages` successfully. The staged diff is empty with `--ignore-space-at-eol`; no project settings changed. A diagnostic step remains for hosted verification.
 
 Per-class elapsed times in that run, excluding initial generation/build: archive LRU 17.8s, object workload 29.7s, reference memoization 19.7s, concurrent read 22.7s, member read 25.7s, shared HagalazBenchmarks 545.0s, Huffman 24.1s, map appearance 1.2s (failed), map terrain 18.1s, process states 1.6s. These are one sample and cannot establish a safe fast lane.
 
