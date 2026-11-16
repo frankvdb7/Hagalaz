@@ -47,7 +47,7 @@ The Cache service MUST reject a landscape save and leave the cache unchanged whe
 
 ### Requirement: Only replace landscapes that can be read
 
-The Cache service MUST NOT overwrite a region's landscape unless its stored archive exists and decodes without keys, because unread placements would otherwise be lost.
+The Cache service MUST NOT overwrite a region's landscape unless its stored archive exists and decodes with the keys supplied for the save (none when none are supplied), because unread placements would otherwise be lost. Keys are never guessed or defaulted.
 
 #### Scenario: Region has no landscape archive
 
@@ -56,55 +56,72 @@ The Cache service MUST NOT overwrite a region's landscape unless its stored arch
 
 #### Scenario: Stored landscape cannot be decoded
 
-- **GIVEN** a region whose landscape is encrypted or corrupt
+- **GIVEN** a region whose landscape is corrupt, or is encrypted and the save supplies no keys or wrong keys
 - **WHEN** a save targets that region
 - **THEN** the service responds that the landscape cannot be replaced and writes nothing
 
 ### Requirement: Save map editor edits to the cache
 
-The map editor SHALL offer saving local edits, only after the administrator confirms, and SHALL submit each edited region's resulting placements, then reload from the cache once all succeed.
+The editor SHALL present the exact before and after values of each stored placement change, grouped deterministically by region and kind, and require confirmation of the displayed changes before writing. It SHALL explain that requests commit independently and that the operation updates static cache data. Live spawns and the running world remain outside the operation.
 
-#### Scenario: Nothing to save
+#### Scenario: Review exact placement edits
 
-- **WHEN** there are no local edits, or a save is in progress
-- **THEN** the save action is unavailable
+- **GIVEN** changes to stored placements across one or more regions
+- **WHEN** the administrator opens the review
+- **THEN** it shows the object ID, local coordinates, source plane, shape and rotation for the applicable before and after placements, including additions and removals
+- **AND** it discloses scale and underwater edits that will not be stored
 
 #### Scenario: Cancelling confirmation
 
-- **WHEN** the administrator cancels the confirmation
-- **THEN** nothing is written and the local edits remain
-
-#### Scenario: Successful save
-
-- **WHEN** the administrator confirms and every edited region saves
-- **THEN** only edited regions were submitted, local edits and undo history are cleared, and the scene is reloaded from the cache
+- **WHEN** the administrator cancels, or the reviewed batch changes before confirmation
+- **THEN** the editor writes nothing and preserves the draft
 
 #### Scenario: Scale edits are disclosed
 
-- **GIVEN** local edits that change an object's scale
-- **WHEN** the administrator is asked to confirm
-- **THEN** the confirmation states that scale changes are not stored
+- **GIVEN** an edit changes an object's scale
+- **WHEN** the administrator opens the review
+- **THEN** the review states that scale changes are not stored
 
 #### Scenario: Underwater objects are left alone
 
-- **GIVEN** a region with underwater objects, and local edits to some of them
-- **WHEN** the administrator saves
-- **THEN** underwater objects are not submitted as surface placements, and the confirmation states that underwater object changes are not stored
+- **GIVEN** edits to underwater objects
+- **WHEN** the administrator publishes the batch
+- **THEN** the review discloses that those edits are not stored and the write excludes underwater placements
+
+#### Scenario: Successful save
+
+- **WHEN** the administrator confirms and all reviewed writes succeed
+- **THEN** the editor reloads the scene from the cache and clears the saved draft and its undo history
+
+#### Scenario: Nothing to save
+
+- **WHEN** there are no writable edits or the editor is already publishing
+- **THEN** the save action is unavailable
 
 ### Requirement: Keep edits when a save fails
 
-The map editor MUST keep local edits and report the failure when any region fails to save, and retrying MUST be safe for regions already saved.
+The editor SHALL track outcomes by region and kind and stop at the first failed request. It SHALL retain unsaved edits and their original version checks and reconcile confirmed saves against the cache before allowing further edits against those baselines.
 
 #### Scenario: One region fails
 
-- **GIVEN** edits in two regions
-- **WHEN** the first region saves and the second fails
-- **THEN** the editor reports which region failed and that the first was saved, stops submitting, and keeps the local edits
+- **GIVEN** an earlier terrain or landscape request succeeds
+- **WHEN** a later request fails
+- **THEN** the editor identifies the confirmed, failed and unattempted region/kind requests
 
 #### Scenario: Retrying after a partial failure
 
-- **WHEN** the administrator saves again after a partial failure
-- **THEN** already-saved regions receive the same placements again and their stored placements do not change
+- **WHEN** the administrator reviews and publishes again after partial success
+- **THEN** the batch omits confirmed writes while retaining unsaved edits, including edits of a different kind in the same region
+
+#### Scenario: Conflict or failed write verification
+
+- **WHEN** the server reports a version conflict or cannot verify a write
+- **THEN** the editor reports the failure, retains the affected edit and never treats it as confirmed or silently replaces its expected version
+
+#### Scenario: Reload of a confirmed write fails
+
+- **WHEN** a confirmed write cannot be reloaded
+- **THEN** the editor reports the reload failure and allows read recovery without resending the confirmed write
 
 ### Requirement: Landscape saves never overwrite a landscape they did not check
 
@@ -137,3 +154,18 @@ The Cache service MUST NOT write a region's landscape when the submitted placeme
 - **GIVEN** a landscape save that was written
 - **WHEN** the same save is submitted again
 - **THEN** nothing is written, so the region's world map entry is not regenerated because of the retry
+
+### Requirement: Use region-specific keys when publishing protected landscapes
+
+The editor SHALL use the supplied, verified XTEA keys for the target landscape during publish and reconciliation.
+
+#### Scenario: Known keys for one region
+
+- **GIVEN** keys for a protected landscape that has been read successfully
+- **WHEN** the administrator publishes changes
+- **THEN** the editor supplies those keys for that landscape and does not apply them to other regions
+
+#### Scenario: Missing or unverifiable keys
+
+- **WHEN** a protected landscape cannot be verified with the keys available for that region
+- **THEN** the editor explains how to supply or correct its keys, preserves the edit and does not fall back to a write without keys

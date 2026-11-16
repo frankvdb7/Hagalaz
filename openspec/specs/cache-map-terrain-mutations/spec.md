@@ -117,27 +117,26 @@ The map editor SHALL let the user raise, lower or flatten terrain and paint or c
 
 ### Requirement: Save terrain edits to the cache
 
-The map editor SHALL include terrain edits in the existing save, only after confirmation, submitting only edited regions and only changed tiles, then reload from the cache once all succeed.
+The map editor SHALL review terrain changes in the existing publish flow. The review SHALL show affected region, source plane, coordinates and before and after values for each changed tile field. The editor SHALL submit only confirmed changed tiles.
 
 #### Scenario: Saving terrain and objects
 
-- **GIVEN** terrain and object edits in one region
-- **WHEN** the administrator confirms the save
-- **THEN** both are stored and the scene is reloaded from the cache
+- **GIVEN** both kinds of edits in one region
+- **WHEN** the administrator confirms the review
+- **THEN** the editor submits terrain before landscape and reloads successfully saved data
 
 #### Scenario: A tile returned to its original state
 
 - **WHEN** a tile's edits leave it equal to its stored values
-- **THEN** that tile is not submitted, and a region with nothing left to store is not submitted
+- **THEN** the tile is omitted from the review and write
 
 #### Scenario: Failure keeps edits
 
-- **GIVEN** edits across several saves
-- **WHEN** one save fails
-- **THEN** the editor reports what was and was not saved, stops submitting, and keeps all local edits
+- **WHEN** a request fails after a terrain request succeeded
+- **THEN** the editor reports the separate outcomes, reloads confirmed terrain and keeps unsaved edits available without resending the confirmed terrain
 
 #### Scenario: Unsaved flags warning
 
-- **GIVEN** terrain height edits in a region
+- **GIVEN** edits that change heights without changing flags
 - **WHEN** the administrator is asked to confirm
-- **THEN** the confirmation states that walkability and other tile flags are not changed
+- **THEN** the review states that walkability and other tile flags are not changed
