@@ -1,6 +1,6 @@
 # Targeted repository inspection and command output
 
-Examples only; replace the project, symbols, and PR base with the actual task.
+Examples only; replace the project, symbols, and PR base with the actual task. For C# symbol lookup, usages, refactoring, builds and test runs prefer Rider first ([rider-tooling.md](rider-tooling.md)); the `rg` and `dotnet` commands below are the fallback when Rider cannot answer or the CLI result is required.
 
 ## Discover before reading
 
