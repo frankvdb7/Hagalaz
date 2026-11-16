@@ -9,7 +9,7 @@
 
 ## 2. Benchmark latency
 
-- [ ] 2.1 Measure per-class runtimes and map benchmark dependencies to source paths; record required checks and the resulting coverage rationale.
+- [x] 2.1 Measure per-class runtimes and map benchmark dependencies to source paths; record required checks and the resulting coverage rationale.
 - [x] 2.2 Implement and test a conservative PR selection with a full fallback only if mapping and savings are demonstrated; otherwise document rejection and retain the full run.
 - [ ] 2.3 Validate cache-focused and unrelated PR behavior, full main/manual coverage, baseline compatibility and artifact upload using hosted results.
 
