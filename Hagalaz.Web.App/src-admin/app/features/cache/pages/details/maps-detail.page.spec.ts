@@ -493,7 +493,7 @@ describe("MapsDetailPageComponent", () => {
                 expect(page.edits()).toBeUndefined();
                 http.expectOne(`${base}258/render`).flush(first);
                 http.expectOne(`${base}259/render`).flush(second);
-                http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => batch.flush([]));
+                http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => { batch.flush([]); });
                 return;
             }
             retryLandscape.flush({ detail: "Landscape version changed." }, { status: 409, statusText: "Conflict" });
@@ -637,7 +637,7 @@ describe("MapsDetailPageComponent", () => {
         });
 
         it("verifies keys for one region, rejects a wrong key without falling back, and publishes with the verified keys", async () => {
-            const { page } = await loadRegion();
+            const { harness, page } = await loadRegion();
             const loaded = page.store.regions()[0];
             page.changeTransform("x", 5);
             const draft = page.edits();
@@ -645,12 +645,16 @@ describe("MapsDetailPageComponent", () => {
             expect(page.keyError()).toContain("at least one nonzero");
             http.expectNone(`${base}258/render`);
 
-            const wrong = page.loadLandscapeKeys(loaded, "1 2 3 4");
+            harness.detectChanges();
+            const field = required(harness.routeNativeElement?.querySelector<HTMLInputElement>("cache-map-landscape-keys input"), "the XTEA field");
+            expect(field.labels?.[0].textContent).toContain("Region 258");
+            field.value = "1 2 3 4";
+            required(field.form, "the XTEA form").dispatchEvent(new Event("submit", { cancelable: true }));
+            expect(field.value).toBe("");
             const keyedRead = http.expectOne(`${base}258/render`);
             expect(keyedRead.request.body).toEqual({ xteaKeys: [1, 2, 3, 4] });
             keyedRead.flush({ ...region(258), landscapeStatus: "failed" });
-            await wrong;
-            expect(page.keyError()).toContain("landscape is unreadable");
+            await vi.waitFor(() => expect(page.keyError()).toContain("landscape is unreadable"));
             expect(page.edits()).toBe(draft);
             http.expectNone(`${base}258/render`);
             answer(true);

@@ -24,6 +24,7 @@ import { buildMapScene, landscapeReview, mapLandscapeSaves, MapScenePreparation,
 import { mapLightField, mapSceneOrigin } from "../map-point-lights";
 import { regionDetails, sceneGroups, scenePlacements, terrainDetails, type SceneDetails, type SceneSelection } from "../map-scene-tree";
 import { MapAssetPanelComponent } from "../map-asset-panel.component";
+import { MapLandscapeKeysComponent } from "../map-landscape-keys.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapObjectInspectorComponent } from "../map-object-inspector.component";
 import { MapOverlayLegendComponent, type MapLegendEntry } from "../map-overlay-legend.component";
@@ -50,7 +51,7 @@ interface TileSelection { regionId: number; x: number; y: number; plane: number 
 
 @Component({
     selector: "cache-maps-detail-page",
-    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapOverlayLegendComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
+    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapOverlayLegendComponent, MapLandscapeKeysComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
     providers: [CacheMapSceneStore, CacheMapsService],
     templateUrl: "./maps-detail.page.html",
     styleUrl: "./maps-detail.page.scss",
@@ -447,41 +448,35 @@ export class MapsDetailPageComponent {
         const selection = this.selectionKey();
         const unverifiedKeys = this.unverifiedKeys();
         const saves = this.regionSaves();
-        const regionIds = [...new Set(saves.map(save => save.regionId))];
-        const review: CacheWriteReview = {
-            description: "Publish these edits to the static cache? Each region and change type commits independently. Live spawns and the running world are unaffected.",
-            notes: [...unstoredEditNotes(draft), ...terrainEditNotes(draft.terrain), otherAreasNote],
-            groups: saves.map(save => {
-                const region = regions.find(candidate => candidate.id === save.regionId)!;
-                return {
-                    label: `Region ${save.regionId} · ${save.kind}`,
-                    changes: save.kind === "terrain" ? terrainReview(region, save.tiles) : landscapeReview(region, draft),
-                };
-            }),
-        };
-        if (saves.some(save => save.kind === "terrain" && save.tiles.some(tile => tile.height !== undefined))
-            && !saves.some(save => save.kind === "terrain" && save.tiles.some(tile => tile.flags !== undefined))) {
-            review.notes = [...review.notes, "These height edits leave walkability and tile flags unchanged."];
-        }
-        if (!(await this.confirmWrite(review))) return;
-        if (selection !== this.selectionKey() || draft !== this.edits() || regions !== this.store.regions()
-            || saves !== this.regionSaves() || unverifiedKeys !== this.unverifiedKeys() || !this.canSave()) return;
+        const review = mapSaveReview(saves, regions, draft);
+        if (!review || !(await this.confirmWrite(review))) return;
+        if (!this.publishReviewIsCurrent(selection, saves, unverifiedKeys)) return;
         const result = await this.store.saveRegions(saves, unverifiedKeys);
         if (!result || selection !== this.selectionKey()) return;
+        await this.finishPublish(regions, result);
+    }
+    private publishReviewIsCurrent(selection: string, saves: readonly MapRegionSave[], unverifiedKeys: ReadonlySet<number>): boolean {
+        return selection === this.selectionKey() && saves === this.regionSaves()
+            && unverifiedKeys === this.unverifiedKeys() && this.canSave();
+    }
+    private async finishPublish(regions: readonly MapRenderRegion[], result: NonNullable<Awaited<ReturnType<typeof this.store.saveRegions>>>): Promise<void> {
         if (result.failed) {
-            if (result.saved.length) {
-                this.edits.update(current => retainPendingEdits(current, regions, result.saved));
-                this.editHistory.update(history => history.map(entry => retainPendingEdits(entry, regions, result.saved)));
-                this.selectedObject.set(null);
-                this.pendingSelection.set(null);
-                this.pendingReloads.set(result.saved);
-                await this.retrySavedReads();
-            }
+            await this.reconcileSavedRegions(regions, result.saved);
             return;
         }
+        const regionIds = [...new Set(result.saved.map(save => save.regionId))];
         this.reload();
         const refresh = await this.store.refreshWorldMap(regionIds);
         this.notify(`Saved ${regionList(regionIds)} to the cache.${refresh ? ` ${describeWorldMapRefresh(refresh)}` : ""}`);
+    }
+    private async reconcileSavedRegions(regions: readonly MapRenderRegion[], saved: readonly MapRegionSave[]): Promise<void> {
+        if (!saved.length) return;
+        this.edits.update(current => retainPendingEdits(current, regions, saved));
+        this.editHistory.update(history => history.map(entry => retainPendingEdits(entry, regions, saved)));
+        this.selectedObject.set(null);
+        this.pendingSelection.set(null);
+        this.pendingReloads.set(saved);
+        await this.retrySavedReads();
     }
     async loadLandscapeKeys(region: MapRenderRegion, value: string): Promise<void> {
         if (!this.canLoadKeys()) return;
@@ -571,6 +566,27 @@ export class MapsDetailPageComponent {
     }
     togglePlane(plane: number, checked: boolean): void { this.planes.update(planes => planes.map((value, index) => index === plane ? checked : value)); }
     private showPlane(plane: number): void { if (!this.planes()[plane]) this.togglePlane(plane, true); }
+}
+
+function mapSaveReview(saves: readonly MapRegionSave[], regions: readonly MapRenderRegion[], draft: MapSceneDraft): CacheWriteReview | null {
+    const groups = saves.flatMap(save => {
+        const region = regions.find(candidate => candidate.id === save.regionId);
+        return region ? [{
+            label: `Region ${save.regionId} · ${save.kind}`,
+            changes: save.kind === "terrain" ? terrainReview(region, save.tiles) : landscapeReview(region, draft),
+        }] : [];
+    });
+    if (groups.length !== saves.length) return null;
+    const review: CacheWriteReview = {
+        description: "Publish these edits to the static cache? Each region and change type commits independently. Live spawns and the running world are unaffected.",
+        notes: [...unstoredEditNotes(draft), ...terrainEditNotes(draft.terrain), otherAreasNote],
+        groups,
+    };
+    if (saves.some(save => save.kind === "terrain" && save.tiles.some(tile => tile.height !== undefined))
+        && !saves.some(save => save.kind === "terrain" && save.tiles.some(tile => tile.flags !== undefined))) {
+        review.notes = [...review.notes, "These height edits leave walkability and tile flags unchanged."];
+    }
+    return review;
 }
 
 function retainPendingEdits(draft: MapSceneDraft | undefined, regions: readonly MapRenderRegion[], saved: readonly MapRegionSave[]): MapSceneDraft | undefined {

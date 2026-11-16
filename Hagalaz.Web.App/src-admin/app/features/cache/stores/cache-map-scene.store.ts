@@ -18,6 +18,27 @@ function saveLabel(save: MapRegionSave): string {
     return `region ${save.regionId} ${save.kind === "terrain" ? "terrain" : "objects"}`;
 }
 
+async function writeRegion(service: CacheMapsService, save: MapRegionSave, unreadable: boolean): Promise<void> {
+    if (save.kind === "terrain") {
+        await firstValueFrom(service.saveTerrain(save.regionId, save.tiles, save.expectedVersion));
+    } else {
+        if (unreadable) {
+            throw new Error("Load this landscape with the correct region XTEA keys before publishing.");
+        }
+        await firstValueFrom(service.saveLandscape(save.regionId, save.objects, save.expectedVersion, save.xteaKeys));
+    }
+}
+
+function saveFailure(save: MapRegionSave, error: unknown, saved: readonly MapRegionSave[], unattempted: readonly MapRegionSave[]): string {
+    const progress = saved.length ? ` Already saved: ${saved.map(saveLabel).join(", ")}.` : "";
+    const skipped = unattempted.length ? ` Not attempted: ${unattempted.map(saveLabel).join(", ")}.` : "";
+    const status = (error as { status?: number }).status;
+    const recovery = status === 409 ? " Review the latest cache state before applying this edit again."
+        : status === 0 || (status !== undefined && status >= 500) ? " The write could not be confirmed. Check the cache before reapplying this edit."
+        : status === 422 && save.kind === "landscape" ? " Check the XTEA keys for this region." : "";
+    return `Could not save ${saveLabel(save)}. ${getCacheErrorMessage(error)}${progress}${skipped}${recovery}`;
+}
+
 export const CacheMapSceneStore = signalStore(
     withState({
         regions: [] as MapRenderRegion[],
@@ -63,24 +84,12 @@ export const CacheMapSceneStore = signalStore(
                 const saved: MapRegionSave[] = [];
                 for (const save of saves) {
                     try {
-                        if (save.kind === "terrain") {
-                            await firstValueFrom(service.saveTerrain(save.regionId, save.tiles, save.expectedVersion));
-                        } else {
-                            if (unverifiedKeys?.has(save.regionId) || store.regions().find(region => region.id === save.regionId)?.landscapeStatus === "failed") {
-                                throw new Error("Load this landscape with the correct region XTEA keys before publishing.");
-                            }
-                            await firstValueFrom(service.saveLandscape(save.regionId, save.objects, save.expectedVersion, save.xteaKeys));
-                        }
+                        const unreadable = unverifiedKeys?.has(save.regionId) || store.regions().find(region => region.id === save.regionId)?.landscapeStatus === "failed";
+                        await writeRegion(service, save, unreadable);
                         saved.push(save);
                     } catch (error) {
                         const unattempted = saves.slice(saved.length + 1);
-                        const progress = saved.length ? ` Already saved: ${saved.map(saveLabel).join(", ")}.` : "";
-                        const skipped = unattempted.length ? ` Not attempted: ${unattempted.map(saveLabel).join(", ")}.` : "";
-                        const status = (error as { status?: number }).status;
-                        const recovery = status === 409 ? " Review the latest cache state before applying this edit again."
-                            : status === 0 || (status !== undefined && status >= 500) ? " The write could not be confirmed. Check the cache before reapplying this edit."
-                            : status === 422 && save.kind === "landscape" ? " Check the XTEA keys for this region." : "";
-                        patchState(store, { saving: false, saveError: `Could not save ${saveLabel(save)}. ${getCacheErrorMessage(error)}${progress}${skipped}${recovery}` });
+                        patchState(store, { saving: false, saveError: saveFailure(save, error, saved, unattempted) });
                         return { saved, failed: save, unattempted };
                     }
                 }
