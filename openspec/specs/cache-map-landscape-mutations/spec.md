@@ -47,7 +47,7 @@ The Cache service MUST reject a landscape save and leave the cache unchanged whe
 
 ### Requirement: Only replace landscapes that can be read
 
-The Cache service MUST NOT overwrite a region's landscape unless its stored archive exists and decodes without keys, because unread placements would otherwise be lost.
+The Cache service MUST NOT overwrite a region's landscape unless its stored archive exists and decodes with the keys supplied for the save (none when none are supplied), because unread placements would otherwise be lost. Keys are never guessed or defaulted.
 
 #### Scenario: Region has no landscape archive
 
@@ -56,7 +56,7 @@ The Cache service MUST NOT overwrite a region's landscape unless its stored arch
 
 #### Scenario: Stored landscape cannot be decoded
 
-- **GIVEN** a region whose landscape is encrypted or corrupt
+- **GIVEN** a region whose landscape is corrupt, or is encrypted and the save supplies no keys or wrong keys
 - **WHEN** a save targets that region
 - **THEN** the service responds that the landscape cannot be replaced and writes nothing
 
