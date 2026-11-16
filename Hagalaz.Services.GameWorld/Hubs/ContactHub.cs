@@ -80,11 +80,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var observationBoundary = contacts.BeginObservationWindow();
             try
             {
-                var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
+                var response = await _addContactRequestClient.GetResponse<AddContactResponse, ContactMutationFailedResponse>(new AddContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
                 });
-                var message = response.Message;
+                if (!response.Is(out Response<AddContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                var message = success.Message;
                 var friend = _mapper.Map<Friend>(message.Contact);
                 var onlineOwner = message.Contact.SessionGeneration is { } sessionGeneration
                     && message.Contact.SessionConnectionId is { } connectionId
@@ -125,34 +130,8 @@ namespace Hagalaz.Services.GameWorld.Hubs
         }
 
         [RaidoMessageHandler(typeof(RemoveFriendMessage))]
-        public async Task RemoveFriend(RemoveFriendMessage request)
-        {
-            var masterId = Context.GetMasterId();
-            if (masterId == null)
-            {
-                await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
-                return;
-            }
-            var contacts = Context.GetContacts();
-            try
-            {
-                await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
-                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
-                {
-                    MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
-                });
-                var message = response.Message;
-                contacts.RemoveFriend(message.Contact.MasterId);
-            }
-            catch (NotFoundException)
-            {
-                await Clients.Caller.SendAsync(new ChatMessage { Text = string.Format(GameStrings.PlayerXDoesNotExist, request.DisplayName), Type = ChatMessageType.ChatboxText });
-            }
-            catch (Exception)
-            {
-                await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
-            }
-        }
+        public Task RemoveFriend(RemoveFriendMessage request) =>
+            RemoveContact(request.DisplayName, ignore: false, (contacts, contactId) => contacts.RemoveFriend(contactId));
 
         [RaidoMessageHandler(typeof(AddIgnoreMessage))]
         public async Task AddIgnore(AddIgnoreMessage request)
@@ -167,11 +146,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
             try
             {
                 await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
-                var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
+                var response = await _addContactRequestClient.GetResponse<AddContactResponse, ContactMutationFailedResponse>(new AddContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true
                 });
-                var message = response.Message;
+                if (!response.Is(out Response<AddContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                var message = success.Message;
                 var ignore = _mapper.Map<Ignore>(message.Contact);
                 contacts.Ignores.Add(ignore);
 
@@ -196,7 +180,10 @@ namespace Hagalaz.Services.GameWorld.Hubs
         }
 
         [RaidoMessageHandler(typeof(RemoveIgnoreMessage))]
-        public async Task RemoveIgnore(RemoveIgnoreMessage request)
+        public Task RemoveIgnore(RemoveIgnoreMessage request) =>
+            RemoveContact(request.DisplayName, ignore: true, (contacts, contactId) => contacts.Ignores.Remove(contactId));
+
+        private async Task RemoveContact(string displayName, bool ignore, Action<IContactsFeature, uint> removeLocal)
         {
             var masterId = Context.GetMasterId();
             if (masterId == null)
@@ -208,16 +195,20 @@ namespace Hagalaz.Services.GameWorld.Hubs
             try
             {
                 await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
-                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
+                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse, ContactMutationFailedResponse>(new RemoveContactRequest
                 {
-                    MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true
+                    MasterId = masterId.Value, ContactDisplayName = displayName, Ignore = ignore
                 });
-                var message = response.Message;
-                contacts.Ignores.Remove(message.Contact.MasterId);
+                if (!response.Is(out Response<RemoveContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                removeLocal(contacts, success.Message.Contact.MasterId);
             }
             catch (NotFoundException)
             {
-                await Clients.Caller.SendAsync(new ChatMessage { Text = string.Format(GameStrings.PlayerXDoesNotExist, request.DisplayName), Type = ChatMessageType.ChatboxText });
+                await Clients.Caller.SendAsync(new ChatMessage { Text = string.Format(GameStrings.PlayerXDoesNotExist, displayName), Type = ChatMessageType.ChatboxText });
             }
             catch (Exception)
             {
