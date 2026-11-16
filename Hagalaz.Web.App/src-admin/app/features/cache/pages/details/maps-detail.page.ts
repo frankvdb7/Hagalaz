@@ -238,8 +238,8 @@ export class MapsDetailPageComponent {
     });
     // Terrain first, so a region's two saves stay together and in a fixed order.
     private readonly regionSaves = computed(() => [...mapTerrainSaves(this.store.regions(), this.terrainEdits()), ...mapLandscapeSaves(this.store.regions(), this.edits()).map(save => ({ ...save, xteaKeys: this.regionKeys()[save.regionId] }))].sort((left, right) => left.regionId - right.regionId));
-    readonly canSave = computed(() => this.regionSaves().length > 0 && this.editable());
-    readonly canRebuildWorldMap = computed(() => this.store.regions().length > 0 && !this.store.worldMapRefreshing() && !this.store.saving());
+    readonly canSave = computed(() => this.regionSaves().length > 0 && this.editable() && !this.store.worldMapRefreshing());
+    readonly canRebuildWorldMap = computed(() => this.store.regions().length > 0 && this.editable() && !this.store.worldMapRefreshing());
     private readonly pendingChanges = inject(CachePendingChangesService);
     private readonly dialog = inject(MatDialog);
     private readonly snackBar = inject(MatSnackBar);
@@ -460,17 +460,14 @@ export class MapsDetailPageComponent {
             && unverifiedKeys === this.unverifiedKeys() && this.canSave();
     }
     private async finishPublish(regions: readonly MapRenderRegion[], result: NonNullable<Awaited<ReturnType<typeof this.store.saveRegions>>>): Promise<void> {
-        if (result.failed) {
-            await this.reconcileSavedRegions(regions, result.saved);
-            return;
-        }
         const regionIds = [...new Set(result.saved.map(save => save.regionId))];
-        this.reload();
+        if (!regionIds.length) return;
+        if (result.failed) await this.reconcileSavedRegions(regions, result.saved);
+        else this.reload();
         const refresh = await this.store.refreshWorldMap(regionIds);
         this.notify(`Saved ${regionList(regionIds)} to the cache.${refresh ? ` ${describeWorldMapRefresh(refresh)}` : ""}`);
     }
     private async reconcileSavedRegions(regions: readonly MapRenderRegion[], saved: readonly MapRegionSave[]): Promise<void> {
-        if (!saved.length) return;
         this.edits.update(current => retainPendingEdits(current, regions, saved));
         this.editHistory.update(history => history.map(entry => retainPendingEdits(entry, regions, saved)));
         this.selectedObject.set(null);
@@ -536,6 +533,7 @@ export class MapsDetailPageComponent {
     async rebuildWorldMap(): Promise<void> {
         const regionIds = this.store.regions().map(region => region.id);
         if (!(await this.confirmWrite(`Rebuild the world map for ${regionList(regionIds)}? ${otherAreasNote}`))) return;
+        if (!this.canRebuildWorldMap()) return;
         const refresh = await this.store.refreshWorldMap(regionIds);
         if (refresh) this.notify(describeWorldMapRefresh(refresh));
     }

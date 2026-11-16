@@ -128,6 +128,33 @@ describe("CacheMapSceneStore", () => {
         expect(store.saveError()).toBeNull();
     });
 
+    it("updates a western underwater border from the owner's surface when that owner has no underwater plane", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const terrain = (height: number) => ({
+            cornerHeights: Array<number>(65 * 65).fill(height),
+            flags: [], underlays: [], overlays: [], overlayShapes: [], overlayRotations: [],
+        });
+        const surfaces = () => Array.from({ length: 4 }, () => terrain(-640));
+        const west = { ...region(258), planes: surfaces(), underwaterPlane: terrain(-512) };
+        const east = { ...region(514), planes: surfaces() };
+        const border = 64 * 65 + 1;
+        west.underwaterPlane.cornerHeights[border] = -640;
+        store.load({ id: 258, width: 2, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush(west);
+        http.expectOne(`${base}types/maps/514/render`).flush(east);
+
+        const updated = terrain(-640);
+        updated.cornerHeights[1] = -704;
+        const reload = store.reloadRegion(514, ["terrain"]);
+        http.expectOne(`${base}types/maps/514/render`).flush({ ...east, terrainVersion: 5, planes: [updated, ...east.planes.slice(1)] });
+        await expect(reload).resolves.toBeNull();
+        const westPlanes = store.regions()[0].planes;
+        expect(westPlanes[0].cornerHeights[border]).toBe(-704);
+        expect(westPlanes[4].cornerHeights[border]).toBe(-704);
+        expect(westPlanes[4].cornerHeights[1]).toBe(-512);
+        expect(store.regions()[0].terrainVersion).toBe(4);
+    });
+
     it("loads the floor catalog once and reports a failure", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         const failed = store.loadFloors();

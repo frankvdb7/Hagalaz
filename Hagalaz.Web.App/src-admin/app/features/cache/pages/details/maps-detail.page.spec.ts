@@ -461,6 +461,9 @@ describe("MapsDetailPageComponent", () => {
             expect(landscape.request.body).toEqual({ objects: [{ ...object, x: 5 }], expectedVersion: 7 });
             landscape.flush({ detail: "Post-write verification failed." }, { status: 500, statusText: "Error" });
             (await vi.waitFor(() => http.expectOne(`${base}258/render`))).flush({ detail: "Read unavailable." }, { status: 500, statusText: "Error" });
+            const partialRefresh = await vi.waitFor(() => http.expectOne(worldMapUrl));
+            expect(partialRefresh.request.body).toEqual({ regions: [258] });
+            partialRefresh.flush({ refreshed: [258], unchanged: [], skipped: [] });
             await publishing;
             harness.detectChanges();
             expect(page.store.saveError()).toContain("Already saved: region 258 terrain. Not attempted: region 259 terrain. The write could not be confirmed.");

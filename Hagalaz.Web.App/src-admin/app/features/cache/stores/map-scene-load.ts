@@ -146,7 +146,8 @@ export class MapSceneLoad {
             const dy = region.regionY - neighbor.regionY;
             if (dx < 0 || dx > 1 || dy < 0 || dy > 1 || (!dx && !dy)) continue;
             const planes = neighbor.planes.map((plane, index) => {
-                const source = region.planes[index];
+                // A corner owned by a region without underwater terrain has zero underwater depth.
+                const source = region.planes[index] ?? (index === underwaterPlaneIndex ? region.planes[0] : undefined);
                 if (source?.cornerHeights.length !== 65 * 65 || plane.cornerHeights.length !== 65 * 65) return plane;
                 const cornerHeights = [...plane.cornerHeights];
                 for (let x = dx * 64; x < 64 + dx; x++) {
