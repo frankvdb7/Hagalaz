@@ -80,7 +80,7 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(8, scenario.Stake.GetCountById(995));
         Assert.AreEqual(inventoryUpdates + 1, scenario.Inventory.UpdateCount);
         eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
-            change.PreviousCount == 5 && change.Count == 0));
+            change!.PreviousCount == 5 && change.Count == 0));
     }
 
     [TestMethod]
@@ -97,7 +97,7 @@ public sealed class DuelStakeExchangeTests
         Assert.AreEqual(4, scenario.Pouch.Count);
         Assert.AreEqual(0, scenario.Stake.GetCountById(995));
         eventManager.Received(1).SendEvent(Arg.Is<MoneyPouchChangedEvent>(change =>
-            change.PreviousCount == 0 && change.Count == 4));
+            change!.PreviousCount == 0 && change.Count == 4));
     }
 
     [TestMethod]
