@@ -415,6 +415,268 @@ public sealed class ShopStockContainerTests
         scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopStockChangedEvent>());
     }
 
+    [TestMethod]
+    public void BuyFromShop_WhenExactInventoryCoinsFreeTheOnlySlot_UsesReleasedSlot()
+    {
+        var scenario = CreateScenario(cost: 100, inventoryCurrency: 100, inventoryCapacity: 1, originalStock: SingleStock(1));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(0, GetTotalCoins(scenario));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Is<ShopItemBoughtEvent>(e => e!.Item.Count == 1));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenInventoryCoinsArePartiallyConsumed_RejectsAndPreservesState()
+    {
+        var scenario = CreateScenario(cost: 100, inventoryCurrency: 101, inventoryCapacity: 1, originalStock: SingleStock(1));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(101, GetTotalCoins(scenario));
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenPouchCoversPaymentAndInventoryIsFull_DoesNotInventCapacity()
+    {
+        var scenario = CreateScenario(cost: 100, pouchCoins: 100, inventoryCurrency: 50, inventoryCapacity: 1,
+            originalStock: SingleStock(1));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(100, scenario.MoneyPouch.Count);
+        Assert.AreEqual(50, scenario.Inventory.Items.GetCountById(CoinId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenSplitPaymentEmptiesInventoryCoins_UsesReleasedSlot()
+    {
+        var scenario = CreateScenario(cost: 100, pouchCoins: 40, inventoryCurrency: 60, inventoryCapacity: 1,
+            originalStock: SingleStock(1));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(0, GetTotalCoins(scenario));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenSplitPaymentLeavesInventoryCoins_DoesNotReleaseSlot()
+    {
+        var scenario = CreateScenario(cost: 100, pouchCoins: 40, inventoryCurrency: 70, inventoryCapacity: 1,
+            originalStock: SingleStock(1));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(110, GetTotalCoins(scenario));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenExactAlternativeCurrencyFreesSlot_UsesReleasedSlot()
+    {
+        const int currencyId = 2000;
+        var scenario = CreateScenario(cost: 5, currencyId, inventoryCurrency: 5, inventoryCapacity: 1,
+            originalStock: SingleStock(1));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenPaymentFreesExtraSlot_CommitsLargerQuantityAndChargesIt()
+    {
+        // Capacity 2: one free slot plus the slot released by the single 200-coin stack.
+        var scenario = CreateScenario(cost: 100, inventoryCurrency: 200, inventoryCapacity: 2, originalStock: SingleStock(5));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 2));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, GetTotalCoins(scenario));
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Is<ShopItemBoughtEvent>(e => e!.Item.Count == 2));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenCapacityLimitsQuantity_ChargesOnlyCommittedQuantity()
+    {
+        var scenario = CreateScenario(cost: 10, pouchCoins: 1_000, inventoryCapacity: 2, originalStock: SingleStock(5));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 5));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(980, scenario.MoneyPouch.Count);
+        Assert.AreEqual(3, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Is<ShopItemBoughtEvent>(e => e!.Item.Count == 2));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenRequestExceedsStock_ChargesOnlyAvailableStock()
+    {
+        var scenario = CreateScenario(cost: 10, pouchCoins: 1_000, originalStock: SingleStock(2));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 5));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(980, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenCostExceedsIntMax_RejectsWithoutMutation()
+    {
+        var scenario = CreateScenario(cost: int.MaxValue, pouchCoins: 1_000, originalStock: SingleStock(2));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 2));
+
+        Assert.AreEqual(1_000, scenario.MoneyPouch.Count);
+        Assert.AreEqual(2, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenAlternativeCurrencySpansSlots_OnlyEmptiedSlotsCountAsReleased()
+    {
+        const int currencyId = 2000;
+        var scenario = CreateScenario(cost: 2, currencyId, inventoryCapacity: 3, originalStock: SingleStock(1));
+        for (var i = 0; i < 3; i++)
+            Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(currencyId, 1, stackable: false)));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenAlternativeCurrencyOnlyPartiallyConsumed_RejectsAndPreservesCurrency()
+    {
+        const int currencyId = 2000;
+        var scenario = CreateScenario(cost: 3, currencyId, inventoryCurrency: 5, inventoryCapacity: 1,
+            originalStock: SingleStock(1));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(currencyId));
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenPaymentReleasesFewerSlotsThanRequested_CommitsLargestFeasibleQuantity()
+    {
+        var scenario = CreateScenario(cost: 25, inventoryCurrency: 100, inventoryCapacity: 3, originalStock: SingleStock(5));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 5));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(50, GetTotalCoins(scenario));
+        Assert.AreEqual(3, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Is<ShopItemBoughtEvent>(e => e!.Item.Count == 2));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenStackableItemJoinsExistingStack_NeedsNoFreeSlot()
+    {
+        var scenario = CreateScenario(cost: 10, pouchCoins: 100, inventoryCapacity: 1,
+            originalStock: [new ComposedTestItem(ItemId, 5, stackable: true)]);
+        Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(ItemId, 3, stackable: true)));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 2));
+
+        Assert.AreEqual(5, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(80, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenDestinationStackWouldOverflow_RejectsWithoutMutation()
+    {
+        var scenario = CreateScenario(cost: 10, pouchCoins: 100,
+            originalStock: [new ComposedTestItem(ItemId, 5, stackable: true)]);
+        Assert.IsTrue(scenario.Inventory.Items.Add(new ComposedTestItem(ItemId, int.MaxValue - 1, stackable: true)));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 2));
+
+        Assert.AreEqual(100, scenario.MoneyPouch.Count);
+        Assert.AreEqual(5, scenario.Stock.Items.GetCountById(ItemId));
+        Assert.AreEqual(int.MaxValue - 1, scenario.Inventory.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenSampleStockAndInventoryFull_DoesNotInventPaymentCapacity()
+    {
+        var scenario = CreateScenario(cost: 100, inventoryCurrency: 100, inventoryCapacity: 1, sampleStock: true,
+            originalStock: SingleStock(1));
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(100, GetTotalCoins(scenario));
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenRepeatedAfterStockSoldOut_ChargesOnlyOnceAndStockStaysZero()
+    {
+        var scenario = CreateScenario(cost: 10, pouchCoins: 100);
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(90, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(0, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.Received(1).SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenRepeatedFailuresOccur_DoNotConsumeCurrency()
+    {
+        var scenario = CreateScenario(cost: 100, pouchCoins: 99);
+
+        for (var attempt = 0; attempt < 3; attempt++)
+            Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 1));
+
+        Assert.AreEqual(99, scenario.MoneyPouch.Count);
+        Assert.AreEqual(1, scenario.Stock.Items.GetCountById(ItemId));
+        scenario.ShopEvents.DidNotReceive().SendEvent(Arg.Any<ShopItemBoughtEvent>());
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenQuantityIsNotPositive_Rejects()
+    {
+        var scenario = CreateScenario(cost: 10, pouchCoins: 100);
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 0));
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, -1));
+
+        Assert.AreEqual(100, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenCostMultiplicationExceedsIntRange_RejectsWithoutWrapping()
+    {
+        var scenario = CreateScenario(cost: 1_500_000_000, pouchCoins: 1_000, originalStock: [new ComposedTestItem(ItemId, 3, stackable: true)]);
+
+        Assert.IsFalse(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 2));
+
+        Assert.AreEqual(1_000, scenario.MoneyPouch.Count);
+        Assert.AreEqual(3, scenario.Stock.Items.GetCountById(ItemId));
+    }
+
+    [TestMethod]
+    public void BuyFromShop_WhenFullCostIsUnaffordable_ShrinksToAffordableQuantity()
+    {
+        var scenario = CreateScenario(cost: 25, inventoryCurrency: 60, inventoryCapacity: 3, originalStock: SingleStock(5));
+
+        Assert.IsTrue(scenario.Stock.BuyFromShop(scenario.Character, scenario.StockItem, 5));
+
+        Assert.AreEqual(2, scenario.Inventory.Items.GetCountById(ItemId));
+        Assert.AreEqual(10, GetTotalCoins(scenario));
+    }
+
+    private static IList<IItem> SingleStock(int count) => [new ComposedTestItem(ItemId, count, stackable: false)];
+
     private static ShopScenario CreateScenario(
         int cost,
         int currencyId = CoinId,
