@@ -8,7 +8,7 @@ import { MatSnackBar } from "@angular/material/snack-bar";
 import { By } from "@angular/platform-browser";
 import { provideRouter } from "@angular/router";
 import { RouterTestingHarness } from "@angular/router/testing";
-import { of } from "rxjs";
+import { of, Subject } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { environment } from "../../../../../environments/environment";
 import { CachePendingChangesService } from "../../cache-pending-changes.service";
@@ -400,7 +400,7 @@ describe("MapsDetailPageComponent", () => {
             viewport.brushStroke.emit([{ x: 512, z: 512 }]);
             const saving = page.saveChanges();
             await harness.fixture.whenStable();
-            expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? Tile flag changes reach a running game world only after it reloads the region. World map areas other than the main map are not updated.");
+            expect(open.mock.calls[0][1]?.data).toMatchObject({ groups: [{ label: "Region 258 · terrain", changes: ["Source plane 0, tile (1, 1) · Flags 0 → 4"] }], notes: expect.arrayContaining(["Tile flag changes reach a running game world only after it reloads the region."]) });
             const request = http.expectOne(`${base}258/terrain`);
             expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, flags: 4 }], expectedVersion: 3 });
             request.flush({});
@@ -420,7 +420,7 @@ describe("MapsDetailPageComponent", () => {
             viewport.brushStroke.emit([{ x: 512, z: 512 }]);
             const saving = page.saveChanges();
             await harness.fixture.whenStable();
-            expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? World map areas other than the main map are not updated.");
+            expect(open.mock.calls[0][1]?.data).toMatchObject({ groups: [{ label: "Region 258 · terrain", changes: ["Source plane 0, tile (1, 1) · Height 20 → 22"] }] });
             const request = http.expectOne(`${base}258/terrain`);
             expect(request.request.body).toEqual({ tiles: [{ plane: 0, x: 1, y: 1, height: 22 }], expectedVersion: 3 });
             request.flush({});
@@ -430,6 +430,82 @@ describe("MapsDetailPageComponent", () => {
             await saving;
             expect(page.edits()).toBeUndefined();
             http.expectOne(`${base}258/render`).flush({ ...region(258), terrainStatus: "available", planes: planes() });
+        });
+
+        it.each([false, true])("reconciles confirmed terrain and retries pending requests (concurrent landscape write: %s)", async concurrentWrite => {
+            const harness = await RouterTestingHarness.create();
+            const page = await harness.navigateByUrl("/cache/types/maps/258?height=2", MapsDetailPageComponent);
+            const object = { id: 8, shape: 10, rotation: 0, plane: 0, x: 1, y: 1 };
+            const first = { ...region(258), terrainStatus: "available", landscapeStatus: "available", planes: planes(), objects: [object] };
+            const second = { ...region(259), terrainStatus: "available", planes: planes() };
+            http.expectOne(`${base}259/render`).flush(second);
+            http.expectOne(`${base}258/render`).flush(first);
+            http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`).flush([]);
+            const placement = page.store.regions()[0].objects[0];
+            page.selectedObject.set({ regionId: 258, placement, startVertex: 0, endVertex: 0 });
+            page.changeTransform("x", 5);
+            page.brush.update(brush => ({ ...brush, size: 1 }));
+            page.applyStroke([{ x: 512, z: 512 }]);
+            page.applyStroke([{ x: 512, z: 65 * 512 }]);
+            const open = vi.spyOn(TestBed.inject(MatDialog), "open").mockReturnValue({ afterClosed: () => of(true) } as MatDialogRef<unknown>);
+
+            const publishing = page.saveChanges();
+            const terrain = await vi.waitFor(() => http.expectOne(`${base}258/terrain`));
+            expect(open.mock.calls[0][1]?.data).toMatchObject({ groups: [
+                { label: "Region 258 · terrain", changes: [expect.stringContaining("Height 20 → 22")] },
+                { label: "Region 258 · landscape", changes: [expect.stringContaining("at (5, 1)")] },
+                { label: "Region 259 · terrain", changes: [expect.stringContaining("Height 20 → 22")] },
+            ] });
+            terrain.flush({});
+            const landscape = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+            expect(landscape.request.body).toEqual({ objects: [{ ...object, x: 5 }], expectedVersion: 7 });
+            landscape.flush({ detail: "Post-write verification failed." }, { status: 500, statusText: "Error" });
+            (await vi.waitFor(() => http.expectOne(`${base}258/render`))).flush({ detail: "Read unavailable." }, { status: 500, statusText: "Error" });
+            const partialRefresh = await vi.waitFor(() => http.expectOne(worldMapUrl));
+            expect(partialRefresh.request.body).toEqual({ regions: [258] });
+            partialRefresh.flush({ refreshed: [258], unchanged: [], skipped: [] });
+            await publishing;
+            harness.detectChanges();
+            expect(page.store.saveError()).toContain("Already saved: region 258 terrain. Not attempted: region 259 terrain. The write could not be confirmed.");
+            expect(harness.routeNativeElement?.textContent).toContain("Saved changes are awaiting a cache reload.");
+            expect(page.reloadError()).toContain("Read unavailable");
+            expect(page.edits()?.terrain?.has(258)).toBe(false);
+            expect(page.canSave()).toBe(false);
+
+            const retryRead = [...(harness.routeNativeElement?.querySelectorAll("button") ?? [])]
+                .find(button => button.textContent?.trim() === "Retry cache reload");
+            required(retryRead, "the retry cache reload button").click();
+            http.expectOne(`${base}258/render`).flush({ ...first, terrainVersion: 4, landscapeVersion: concurrentWrite ? 8 : 7, objects: concurrentWrite ? [{ ...object, x: 9 }] : [object] });
+            await vi.waitFor(() => expect(page.reloadError()).toBeNull());
+            expect(page.store.regions()[0]).toMatchObject({ terrainVersion: 4, landscapeVersion: 7 });
+            expect(page.store.regions()[0].objects[0]).toBe(placement);
+            expect(page.edits()?.terrain?.has(259)).toBe(true);
+            http.expectNone(`${base}259/render`);
+
+            const retry = page.saveChanges();
+            const retryLandscape = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+            expect(retryLandscape.request.body).toEqual(landscape.request.body);
+            http.expectNone(`${base}258/terrain`);
+            if (!concurrentWrite) {
+                retryLandscape.flush({});
+                const retryTerrain = await vi.waitFor(() => http.expectOne(`${base}259/terrain`));
+                expect(retryTerrain.request.body).toEqual({ expectedVersion: 3, tiles: [{ height: 22, plane: 0, x: 1, y: 1 }] });
+                retryTerrain.flush({});
+                (await vi.waitFor(() => http.expectOne(worldMapUrl))).flush({ refreshed: [258, 259], unchanged: [], skipped: [] });
+                await retry;
+                expect(page.edits()).toBeUndefined();
+                http.expectOne(`${base}258/render`).flush(first);
+                http.expectOne(`${base}259/render`).flush(second);
+                http.match(`${environment.cacheApiUrl}types/objects/render-appearances`).forEach(batch => { batch.flush([]); });
+                return;
+            }
+            retryLandscape.flush({ detail: "Landscape version changed." }, { status: 409, statusText: "Conflict" });
+            await retry;
+            expect(page.edits()?.transforms.get(placement)?.x).toBe(5);
+            expect(page.edits()?.terrain?.has(259)).toBe(true);
+            http.expectNone(`${base}258/terrain`);
+            http.expectNone(`${base}259/terrain`);
+            http.expectNone(worldMapUrl);
         });
 
         it("turns the brush off and ignores strokes while a save writes the draft", async () => {
@@ -513,9 +589,45 @@ describe("MapsDetailPageComponent", () => {
             const open = answer(false);
             page.changeTransform("x", 5);
             await page.saveChanges();
-            expect(open.mock.calls[0][1]?.data).toBe("Save placement changes to region 258? World map areas other than the main map are not updated.");
+            expect(open.mock.calls[0][1]?.data).toMatchObject({
+                description: expect.stringContaining("commits independently"),
+                groups: [{ label: "Region 258 · landscape", changes: [
+                    `Object ${source.id} at (${source.x}, ${source.y}), source plane ${source.plane}, shape ${source.shape}, rotation ${source.rotation} → Object ${source.id} at (5, ${source.y}), source plane ${source.plane}, shape ${source.shape}, rotation ${source.rotation}`,
+                ] }],
+            });
             http.expectNone(`${base}258/landscape`);
             expect(page.edits()).toBeDefined();
+        });
+
+        it("does not publish a stale confirmation after the draft changes", async () => {
+            const { page } = await loadRegion();
+            const closed = new Subject<boolean>();
+            vi.spyOn(TestBed.inject(MatDialog), "open").mockReturnValue({ afterClosed: () => closed.asObservable() } as MatDialogRef<unknown>);
+            page.changeTransform("x", 5);
+            const saving = page.saveChanges();
+            page.changeTransform("x", 6);
+            closed.next(true);
+            await saving;
+
+            http.expectNone(`${base}258/landscape`);
+            expect(page.edits()?.transforms.get(page.store.regions()[0].objects[0])?.x).toBe(6);
+        });
+
+        it("renders the review and leaves the draft intact when the administrator cancels it", async () => {
+            const { page } = await loadRegion();
+            page.changeTransform("x", 5);
+            const publishing = page.saveChanges();
+            TestBed.tick();
+            const dialog = required(document.querySelector('[role="dialog"]'), "the publish review");
+            expect(dialog.textContent).toContain("Review map changes");
+            expect(dialog.textContent).toContain("Each region and change type commits independently.");
+            expect(dialog.textContent).toContain("Region 258 · landscape");
+            expect(dialog.textContent).toContain("at (5,");
+            const cancel = [...dialog.querySelectorAll("button")].find(button => button.textContent?.trim() === "Cancel");
+            required(cancel, "the cancel button").click();
+            await publishing;
+            expect(page.edits()).toBeDefined();
+            http.expectNone(`${base}258/landscape`);
         });
 
         it("states that scale is not stored", async () => {
@@ -524,7 +636,50 @@ describe("MapsDetailPageComponent", () => {
             page.changeTransform("x", 5);
             page.changeTransform("scale", 2);
             await page.saveChanges();
-            expect(open.mock.calls[0][1]?.data).toContain("Scale changes are not stored.");
+            expect(open.mock.calls[0][1]?.data).toMatchObject({ notes: expect.arrayContaining(["Scale changes are not stored."]) });
+        });
+
+        it("verifies keys for one region, rejects a wrong key without falling back, and publishes with the verified keys", async () => {
+            const { harness, page } = await loadRegion();
+            const loaded = page.store.regions()[0];
+            page.changeTransform("x", 5);
+            const draft = page.edits();
+            await page.loadLandscapeKeys(loaded, "0 0 0 0");
+            expect(page.keyError()).toContain("at least one nonzero");
+            http.expectNone(`${base}258/render`);
+
+            harness.detectChanges();
+            const field = required(harness.routeNativeElement?.querySelector<HTMLInputElement>("cache-map-landscape-keys input"), "the XTEA field");
+            expect(field.labels?.[0].textContent).toContain("Region 258");
+            field.value = "1 2 3 4";
+            required(field.form, "the XTEA form").dispatchEvent(new Event("submit", { cancelable: true }));
+            expect(field.value).toBe("");
+            const keyedRead = http.expectOne(`${base}258/render`);
+            expect(keyedRead.request.body).toEqual({ xteaKeys: [1, 2, 3, 4] });
+            keyedRead.flush({ ...region(258), landscapeStatus: "failed" });
+            await vi.waitFor(() => expect(page.keyError()).toContain("landscape is unreadable"));
+            expect(page.edits()).toBe(draft);
+            http.expectNone(`${base}258/render`);
+            answer(true);
+            await page.saveChanges();
+            http.expectNone(`${base}258/landscape`);
+            expect(page.store.saveError()).toContain("correct region XTEA keys");
+
+            const verified = page.loadLandscapeKeys(loaded, "-1, 0, 3, 4");
+            http.expectOne(`${base}258/render`).flush({ ...region(258), landscapeStatus: "available", objects: [source] });
+            await verified;
+            expect(page.keyError()).toBeNull();
+            expect(page.edits()).toBe(draft);
+
+            const saving = page.saveChanges();
+            const request = await vi.waitFor(() => http.expectOne(`${base}258/landscape`));
+            expect(request.request.body).toEqual({ objects: [{ ...source, x: 5 }], expectedVersion: 7, xteaKeys: [-1, 0, 3, 4] });
+            request.flush({});
+            (await vi.waitFor(() => http.expectOne(worldMapUrl))).flush({ refreshed: [258], unchanged: [], skipped: [] });
+            await saving;
+            const reload = http.expectOne(`${base}258/render`);
+            expect(reload.request.body).toEqual({ xteaKeys: [-1, 0, 3, 4] });
+            reload.flush(region(258));
         });
 
         it("saves the region, clears edits and reloads from the cache", async () => {

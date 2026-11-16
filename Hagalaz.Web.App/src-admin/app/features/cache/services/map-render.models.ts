@@ -17,7 +17,7 @@ export interface MapRenderPlane {
 }
 export interface MapPlacement { id: number; shape: number; rotation: number; x: number; y: number; plane: number; }
 /** `expectedVersion` is the stored file version the edit was drawn from; the server refuses the save when the file has been written since. */
-export interface MapLandscapeSave { kind: "landscape"; regionId: number; objects: readonly MapPlacement[]; expectedVersion: number; }
+export interface MapLandscapeSave { kind: "landscape"; regionId: number; objects: readonly MapPlacement[]; expectedVersion: number; xteaKeys?: number[]; }
 export interface MapTerrainTileChange { plane: number; x: number; y: number; height?: number; underlay?: number; overlay?: number; overlayShape?: number; overlayRotation?: number; flags?: number; }
 export interface MapTerrainSave { kind: "terrain"; regionId: number; tiles: readonly MapTerrainTileChange[]; expectedVersion: number; }
 export type MapRegionSave = MapLandscapeSave | MapTerrainSave;

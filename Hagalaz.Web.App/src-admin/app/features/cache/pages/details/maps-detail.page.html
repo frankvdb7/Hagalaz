@@ -2,6 +2,10 @@
 <section class="region-editor" aria-label="Map region detail" [attr.aria-busy]="store.loading()">
     @if (store.saveError(); as message) { <p role="alert">{{ message }}</p> }
     @if (store.worldMapError(); as message) { <p role="alert">{{ message }}</p> }
+    <div [hidden]="!reloadError()">
+        <p role="alert">{{ reloadError() }}</p>
+        <button mat-button type="button" [disabled]="readingRegion()" (click)="retrySavedReads()">Retry cache reload</button>
+    </div>
     @if (!selectedIds().length) { <p role="alert">Invalid region selection. Use a region ID from 0 to 65535 and dimensions from 1 to 3 without crossing coordinate 255.</p> }
     <div class="region-workspace">
         <div class="region-browser">
@@ -49,6 +53,8 @@
             </mat-menu>
         </mat-card>
         <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">
+            <cache-map-landscape-keys [regions]="landscapeKeyRegions()" [disabled]="!canLoadKeys()" (keysEntered)="loadLandscapeKeys($event.region, $event.value)" />
+            <p class="p-3" role="alert" [hidden]="!keyError()">{{ keyError() }}</p>
             @if (editTool() === 'terrain') {
                 <cache-map-terrain-panel [brush]="brush()" (brushChange)="changeBrush($event)" [floors]="store.floors()" [loading]="store.floorsLoading()" [error]="store.floorsError()" />
             } @else {
