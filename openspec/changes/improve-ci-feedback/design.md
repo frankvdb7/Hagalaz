@@ -15,6 +15,7 @@ Use existing Actions and artifacts to provide observable, comparable results and
 - Replace the obsolete model fixture in the map appearance benchmark with a modern-layout model already exercised by codec tests. Merge all full compressed reports and reject missing statistics before comparing or publishing. Preserve the benchmark's existing setup checks that single and batch responses agree.
 - Measure benchmark classes and map source dependencies before selecting a PR subset. The 58-case shared class takes approximately nine minutes in one observed run, so class selection alone is insufficient. Preserve full runs when impact is unknown and keep comparable baseline names and units. Reject a reduced lane if coverage or meaningful savings cannot be demonstrated.
 - Scope concurrency groups to workflow and PR identity. Main and scheduled events must not cancel in-progress work; verify GitHub's pending-run semantics as well as cancellation. Avoid altering CodeQL scan configuration without measured evidence.
+- Serialize main baseline writes using GitHub's job concurrency queue so independently running main benchmarks cannot concurrently push to `gh-pages`. Queue order follows arrival at the publish job, which can differ from commit order; verify publication behavior on hosted runs.
 
 ## Risks / Trade-offs
 

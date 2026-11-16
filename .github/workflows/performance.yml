@@ -146,6 +146,9 @@ jobs:
     name: Publish Benchmark Baseline
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: benchmark
+    concurrency:
+      group: performance-baseline-publish
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

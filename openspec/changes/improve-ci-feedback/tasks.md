@@ -10,13 +10,13 @@
 ## 2. Benchmark latency
 
 - [ ] 2.1 Measure per-class runtimes and map benchmark dependencies to source paths; record required checks and the resulting coverage rationale.
-- [ ] 2.2 Implement and test a conservative PR selection with a full fallback only if mapping and savings are demonstrated; otherwise document rejection and retain the full run.
+- [x] 2.2 Implement and test a conservative PR selection with a full fallback only if mapping and savings are demonstrated; otherwise document rejection and retain the full run.
 - [ ] 2.3 Validate cache-focused and unrelated PR behavior, full main/manual coverage, baseline compatibility and artifact upload using hosted results.
 
 ## 3. Superseded work and CodeQL
 
 - [ ] 3.1 Add workflow-specific PR cancellation and unique non-PR groups; validate rapid pushes, independent workflows, main publication and scheduled scans.
-- [ ] 3.2 Profile at least three CodeQL C# runs by phase and evaluate supported options; preserve all coverage and document measured results or rejected tuning.
+- [x] 3.2 Profile at least three CodeQL C# runs by phase and evaluate supported options; preserve all coverage and document measured results or rejected tuning.
 
 ## 4. Integration evidence
 
