@@ -193,41 +193,37 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
                 count = toRemove.Count;
             }
 
-            toRemove.Count = count;
+            var inventory = viewer.Inventory.Items;
             var stack = toRemove.ItemDefinition.Stackable;
-            var needSlots = 0;
+            var needsNewSlot = false;
             if (stack)
             {
-                if (viewer.Inventory.Items.GetSlotByItem(toRemove) != -1)
+                toRemove.Count = count;
+                if (inventory.GetSlotByItem(toRemove) != -1)
                 {
-                    var total = viewer.Inventory.Items.GetCount(toRemove) + (long)count;
-                    if (total > int.MaxValue)
-                    {
-                        return false;
-                    }
+                    if (inventory.GetCount(toRemove) + (long)count > int.MaxValue) return false;
                 }
                 else
-                    needSlots = 1;
-            }
-            else
-            {
-                needSlots = count;
+                {
+                    needsNewSlot = true;
+                }
             }
 
-            int freeSlots;
-            if ((freeSlots = viewer.Inventory.Items.FreeSlots) < needSlots)
+            // One final quantity: payment can empty inventory currency slots, so capacity is judged after payment.
+            var unitPrice = _sampleContainer ? 0 : _shop.GetBuyValue(item);
+            bool Fits(int quantity) =>
+                (stack ? needsNewSlot ? 1 : 0 : quantity) <=
+                inventory.FreeSlots + CountSlotsEmptiedByPayment(viewer, unitPrice * (long)quantity);
+            if (!Fits(count))
             {
                 viewer.SendChatMessage("Not enough space in your inventory.");
-                if (stack || freeSlots <= 0) // we can't do anything since decreasing item count won't decrease needSlots.
-                {
-                    return false;
-                }
-
-                count = freeSlots;
-                toRemove.Count = count;
+                if (stack) return false; // a smaller count does not need fewer slots.
+                while (count > 0 && !Fits(count)) count--;
+                if (count <= 0) return false;
             }
 
-            var cost = _sampleContainer ? 0 : _shop.GetBuyValue(item) * (long)count;
+            toRemove.Count = count;
+            var cost = unitPrice * (long)count;
             if (cost > int.MaxValue)
             {
                 viewer.SendChatMessage("The shop does not have enough money for this amount of items.");
@@ -263,6 +259,27 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             }
             _eventManager.SendEvent(new ShopItemBoughtEvent(viewer, _shop, toRemove));
             return true;
+        }
+
+        /// <summary>
+        /// Counts inventory currency slots that exact payment of <paramref name="cost"/> would empty,
+        /// mirroring pouch-first coin payment and in-order inventory removal.
+        /// </summary>
+        private int CountSlotsEmptiedByPayment(ICharacter viewer, long cost)
+        {
+            var remaining = _shop.CurrencyId == 995 ? cost - viewer.MoneyPouch.Count : cost;
+            if (remaining <= 0) return 0;
+            var currency = _itemBuilder.Create().WithId(_shop.CurrencyId).WithCount(1).Build();
+            var inventory = viewer.Inventory.Items;
+            var emptied = 0;
+            for (var slot = 0; remaining > 0 && slot < inventory.Capacity; slot++)
+            {
+                if (inventory[slot] is not { Count: > 0 } held || !held.Equals(currency, true)) continue;
+                if (held.Count <= remaining) emptied++;
+                remaining -= held.Count;
+            }
+
+            return emptied;
         }
 
         /// <summary>
