@@ -27,15 +27,17 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
     {
         private readonly IHintIconBuilder _hintIconBuilder;
         private readonly ILogger<DuelArenaCombatScript> _logger;
+        private readonly DuelResult _result;
         private readonly List<Action> _ruleHandlerUnregistrations = [];
         private EventHappened? _targetDestroyedHandler;
         private EventHappened? _characterDestroyedHandler;
 
-        public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, IHintIconBuilder hintIconBuilder, ILogger<DuelArenaCombatScript> logger)
+        public DuelArenaCombatScript(ICharacterContextAccessor contextAccessor, ICharacter target, DuelRules rules, DuelContainer? selfContainer, DuelContainer? targetContainer, DuelResult result, IHintIconBuilder hintIconBuilder, ILogger<DuelArenaCombatScript> logger)
             : base(contextAccessor)
         {
             _hintIconBuilder = hintIconBuilder;
             _logger = logger;
+            _result = result;
             Target = target;
             Rules = rules;
             SelfContainer = selfContainer;
@@ -133,42 +135,52 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// This method respawns only the victor. Combat death continuations respawn their owner; non-death
         /// outcomes must handle the loser's lifecycle themselves.
         /// </remarks>
-        /// <returns>True when the victory stage starts; false when the duel is inactive or stake settlement fails.</returns>
+        /// <returns>True when the victory stage starts; false when the duel is inactive, already decided, or stake settlement fails.</returns>
         public bool StartVictoryStage(ICharacter victor, ICharacter loser)
             => StartVictoryStage(victor, loser, false);
 
         private bool StartVictoryStage(ICharacter victor, ICharacter loser, bool loserDestroyed)
         {
-            if (!DuelSession)
+            if (!DuelSession || !_result.TryClaim())
             {
                 return false;
             }
 
             IReadOnlyList<IItem?>? spoils = null;
-            if (IsStaking)
+            try
             {
-                var spoilsContainer = (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!;
-                spoils = spoilsContainer.Items.ToArray();
-                try
+                if (IsStaking)
                 {
-                    if (!DuelStakeExchange.TrySettleWinner(
-                            victor,
-                            SelfContainer!.Items,
-                            TargetContainer!.Items))
+                    var spoilsContainer = (ReferenceEquals(victor, Character) ? TargetContainer : SelfContainer)!;
+                    spoils = spoilsContainer.Items.ToArray();
+                    try
                     {
-                        victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
-                        return false;
+                        if (!DuelStakeExchange.TrySettleWinner(
+                                victor,
+                                SelfContainer!.Items,
+                                TargetContainer!.Items))
+                        {
+                            victor.SendChatMessage("You don't have enough room to receive the duel stakes. Free some inventory or Money Pouch space and try again.");
+                            return false;
+                        }
+                    }
+                    catch (Exception exception) when (exception is
+                        ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
+                    {
+                        // The typed exception guarantees settlement committed; log the callback failure and finish victory.
+                        _logger.LogError(exception,
+                            "Duel stakes were committed for {Victor} and {Loser}, but completion or publication failed.",
+                            victor.DisplayName,
+                            loser.DisplayName);
                     }
                 }
-                catch (Exception exception) when (exception is
-                    ItemContainerPostCommitCompletionException or ItemContainerPostCommitPublicationException)
-                {
-                    // The typed exception guarantees settlement committed; log the callback failure and finish victory.
-                    _logger.LogError(exception,
-                        "Duel stakes were committed for {Victor} and {Loser}, but completion or publication failed.",
-                        victor.DisplayName,
-                        loser.DisplayName);
-                }
+
+                _result.Complete();
+            }
+            finally
+            {
+                // No-op once completed; a rejected or failed payout stays retryable.
+                _result.Release();
             }
 
             victor.Respawn();

@@ -1063,11 +1063,13 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Prayers.DeactivateAllPrayers();
             Target.Prayers.DeactivateAllPrayers();
 
+            var result = new DuelResult();
             Character.AddScript(new DuelArenaCombatScript(Character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
                 Target,
                 CurrentRules,
                 SelfContainer,
                 TargetContainer,
+                result,
                 _hintIconBuilder,
                 Character.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
             Target.AddScript(new DuelArenaCombatScript(Target.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
@@ -1075,6 +1077,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 CurrentRules,
                 TargetContainer,
                 SelfContainer,
+                result,
                 _hintIconBuilder,
                 Target.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
 

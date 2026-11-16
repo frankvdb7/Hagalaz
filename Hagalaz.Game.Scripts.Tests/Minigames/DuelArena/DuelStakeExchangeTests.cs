@@ -240,7 +240,7 @@ public sealed class DuelStakeExchangeTests
         hintIconTarget.Build().Returns(hintIcon);
 
         var combat = new DuelArenaCombatScript(loserContextAccessor, winner.Character, new DuelRules(_ => { }),
-            loserStake, winnerStake, hintIconBuilder, Substitute.For<ILogger<DuelArenaCombatScript>>());
+            loserStake, winnerStake, new DuelResult(), hintIconBuilder, Substitute.For<ILogger<DuelArenaCombatScript>>());
         loser.GetScript<DuelArenaCombatScript>().Returns(combat);
 
         var winnerContext = Substitute.For<ICharacterContext>();
