@@ -80,11 +80,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var observationBoundary = contacts.BeginObservationWindow();
             try
             {
-                var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
+                var response = await _addContactRequestClient.GetResponse<AddContactResponse, ContactMutationFailedResponse>(new AddContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
                 });
-                var message = response.Message;
+                if (!response.Is(out Response<AddContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                var message = success.Message;
                 var friend = _mapper.Map<Friend>(message.Contact);
                 var onlineOwner = message.Contact.SessionGeneration is { } sessionGeneration
                     && message.Contact.SessionConnectionId is { } connectionId
@@ -137,11 +142,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
             try
             {
                 await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
-                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
+                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse, ContactMutationFailedResponse>(new RemoveContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = false
                 });
-                var message = response.Message;
+                if (!response.Is(out Response<RemoveContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                var message = success.Message;
                 contacts.RemoveFriend(message.Contact.MasterId);
             }
             catch (NotFoundException)
@@ -167,11 +177,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
             try
             {
                 await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
-                var response = await _addContactRequestClient.GetResponse<AddContactResponse>(new AddContactRequest
+                var response = await _addContactRequestClient.GetResponse<AddContactResponse, ContactMutationFailedResponse>(new AddContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true
                 });
-                var message = response.Message;
+                if (!response.Is(out Response<AddContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                var message = success.Message;
                 var ignore = _mapper.Map<Ignore>(message.Contact);
                 contacts.Ignores.Add(ignore);
 
@@ -208,11 +223,16 @@ namespace Hagalaz.Services.GameWorld.Hubs
             try
             {
                 await contacts.WaitForInitialSnapshotAsync(Context.ConnectionAborted);
-                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse>(new RemoveContactRequest
+                var response = await _removeContactRequestClient.GetResponse<RemoveContactResponse, ContactMutationFailedResponse>(new RemoveContactRequest
                 {
                     MasterId = masterId.Value, ContactDisplayName = request.DisplayName, Ignore = true
                 });
-                var message = response.Message;
+                if (!response.Is(out Response<RemoveContactResponse>? success))
+                {
+                    await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+                    return;
+                }
+                var message = success.Message;
                 contacts.Ignores.Remove(message.Contact.MasterId);
             }
             catch (NotFoundException)

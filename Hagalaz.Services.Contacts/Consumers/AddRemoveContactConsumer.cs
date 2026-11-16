@@ -46,7 +46,8 @@ namespace Hagalaz.Services.Contacts.Consumers
 
             if (!result.Succeeded)
             {
-                throw new NotImplementedException(nameof(result.Succeeded));
+                await context.RespondAsync(new ContactMutationFailedResponse { MasterId = message.MasterId });
+                return;
             }
 
             var contactFriend = await _contactService.FindFriendByIdAsync(characterContact.MasterId, message.MasterId);
@@ -105,7 +106,8 @@ namespace Hagalaz.Services.Contacts.Consumers
 
             if (!result.Succeeded)
             {
-                throw new NotImplementedException(nameof(result.Succeeded));
+                await context.RespondAsync(new ContactMutationFailedResponse { MasterId = message.MasterId });
+                return;
             }
 
             var masterDto = _mapper.Map<ContactDto>(character);

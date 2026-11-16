@@ -84,6 +84,69 @@ namespace Hagalaz.Services.Contacts.Tests
         }
 
         [TestMethod]
+        public async Task Consume_AddContactRequest_FailedResult_RespondsWithFailureAndDoesNotPublish()
+        {
+            uint masterId = 100;
+            uint contactId = 200;
+            string contactName = "ContactUser";
+            _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId))
+                .ReturnsAsync(new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = masterId, DisplayName = "Master" });
+            _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName))
+                .ReturnsAsync(new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = contactId, DisplayName = contactName });
+            _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Fail);
+
+            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+
+            await _consumer.Consume(contextMock.Object);
+
+            contextMock.Verify(x => x.RespondAsync(It.Is<ContactMutationFailedResponse>(r => r.MasterId == masterId)), Times.Once);
+            contextMock.Verify(x => x.RespondAsync(It.IsAny<AddContactResponse>()), Times.Never);
+            contextMock.Verify(x => x.Publish(It.IsAny<ContactAddedMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task Consume_RemoveContactRequest_FailedResult_RespondsWithFailureAndDoesNotPublish()
+        {
+            uint masterId = 100;
+            uint contactId = 200;
+            string contactName = "ContactUser";
+            _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId))
+                .ReturnsAsync(new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = masterId, DisplayName = "Master" });
+            _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName))
+                .ReturnsAsync(new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = contactId, DisplayName = contactName });
+            _contactServiceMock.Setup(x => x.RemoveContactAsync(masterId, contactId)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Fail);
+
+            var contextMock = new Mock<ConsumeContext<RemoveContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new RemoveContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+
+            await _consumer.Consume(contextMock.Object);
+
+            contextMock.Verify(x => x.RespondAsync(It.Is<ContactMutationFailedResponse>(r => r.MasterId == masterId)), Times.Once);
+            contextMock.Verify(x => x.RespondAsync(It.IsAny<RemoveContactResponse>()), Times.Never);
+            contextMock.Verify(x => x.Publish(It.IsAny<ContactRemovedMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task Consume_AddContactRequest_UnexpectedServiceException_StillFaults()
+        {
+            uint masterId = 100;
+            uint contactId = 200;
+            string contactName = "ContactUser";
+            _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId))
+                .ReturnsAsync(new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = masterId, DisplayName = "Master" });
+            _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName))
+                .ReturnsAsync(new Hagalaz.Services.Contacts.Services.Model.CharacterDto { MasterId = contactId, DisplayName = contactName });
+            _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ThrowsAsync(new InvalidOperationException("db down"));
+
+            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => _consumer.Consume(contextMock.Object));
+            contextMock.Verify(x => x.Publish(It.IsAny<ContactAddedMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task Consume_AddContactRequest_SetsCorrectAvailabilityFromSettings()
         {
             // Arrange
