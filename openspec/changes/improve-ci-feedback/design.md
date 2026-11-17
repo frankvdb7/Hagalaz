@@ -1,0 +1,31 @@
+# Design
+
+## Context
+
+The benchmark job uploads JSON then compares in the same checkout. Recorded runs fail when switching branches because a tracked test project changed. The main publish job already downloads the artifact in a fresh checkout and writes to `gh-pages`. The branch and `dev/bench/data.js` exist. The main ruleset currently exposes no required status checks, but requires CodeQL scanning. Recheck this at implementation time.
+
+## Goals / Non-Goals
+
+Use existing Actions and artifacts to provide observable, comparable results and preserve coverage. See the proposal for exclusions.
+
+## Decisions
+
+- GitHub Actions owns job scheduling and cancellation. The benchmark job owns report production; a separate read-only comparison job downloads its artifact into a clean checkout. The existing main publish job alone owns baseline updates. Failed or missing baseline comparison must be visible. No automatic retry owner is added; rerun the workflow through GitHub Actions.
+- The comparison reads a temporary JSON copy of the `gh-pages` baseline using the existing benchmark action's external-data option. It compares matching cases, lists cases without baselines in the job summary, and fails when no cases match or required data is missing. It does not write or publish baseline data.
+- Diagnose the tracked project diff after the benchmark instead of resetting arbitrary modifications. A clean job avoids coupling comparison to build side effects. Keeping comparison in the dirty job was rejected because it requires discarding or masking changes.
+- Replace the obsolete model fixture in the map appearance benchmark with a modern-layout model already exercised by codec tests. Merge all full compressed reports and reject missing statistics before comparing or publishing. Preserve the benchmark's existing setup checks that single and batch responses agree.
+- Measure benchmark classes and map source dependencies before selecting a PR subset. The 58-case shared class takes approximately nine minutes in one observed run, so class selection alone is insufficient. Preserve full runs when impact is unknown and keep comparable baseline names and units. Reject a reduced lane if coverage or meaningful savings cannot be demonstrated.
+- For PRs limited to the cache snapshot implementation files and associated C# tests or OpenSpec records, select all cache snapshot and map benchmark classes plus the shared class's file-store methods. The pinned paths-filter action compares the checked-out merge result with the PR base using Git and treats renames as deletions and additions. Any other changed file, empty diff, unavailable base or failed detection selects the entire suite. Main and manual runs always use the full suite.
+- Scope concurrency groups to workflow and PR identity. Main and scheduled events must not cancel in-progress work; verify GitHub's pending-run semantics as well as cancellation. Avoid altering CodeQL scan configuration without measured evidence.
+- Serialize main baseline writes using GitHub's job concurrency queue so independently running main benchmarks cannot concurrently push to `gh-pages`. Queue order follows arrival at the publish job, which can differ from commit order; verify publication behavior on hosted runs.
+
+## Risks / Trade-offs
+
+- Shared runner noise can conceal regressions. Compare repeated runs and retain warmups and iterations.
+- Path impact maps can become stale. Conservative fallback and focused mapping tests are required.
+- A clean comparison job adds startup time and runner minutes. Measure it along with the benchmark critical path.
+- GitHub concurrency may replace pending runs even when cancellation is disabled. Use unique groups for non-PR runs to preserve baseline publication.
+
+## Migration Plan
+
+Validate workflow configuration and focused behavior locally, then verify on hosted PR runs and main publication. Revert workflow changes if comparison or required checks regress; preserve existing benchmark history.
