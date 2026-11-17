@@ -442,6 +442,18 @@ describe("CacheMapSceneStore", () => {
         expect(batch.request.body.map((key: MapPlacement) => key.id)).toEqual([3, 7, 2, 4, 6, 8, 1, 5]);
     });
 
+    it("requests objects nearest the camera's focus tile first within each plane", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        // Region 258 spans world tiles 64-127 by 128-191; focus near its north-east corner.
+        store.setVisibility({ planes: [true, true], landscape: true, focusPlane: 0, focusTile: { x: 126, y: 190 } });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        const at = (id: number, plane: number, x: number, y: number): MapPlacement => ({ ...placement(id, plane), x, y });
+        source.objects = [at(1, 0, 0, 0), at(2, 1, 63, 63), at(3, 0, 60, 60), at(4, 0, 30, 30)];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        expect(http.expectOne(batchUrl).request.body.map((key: MapPlacement) => key.id)).toEqual([3, 4, 1, 2]);
+    });
+
     it("bounds batches and concurrency and drops unstarted hidden work during loading", () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.load({ id: 258, width: 1, height: 1, keys: {} });

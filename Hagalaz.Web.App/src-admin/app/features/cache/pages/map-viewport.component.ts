@@ -177,6 +177,8 @@ export class MapViewportComponent implements OnDestroy {
     readonly ghostedPlanes = input<readonly number[]>([]);
     /** Planes in the geometry that draw nothing, which picks pass through. Hiding them this way needs no rebuild. */
     readonly hiddenPlanes = input<readonly number[]>([]);
+    /** Where the camera looks in scene units, reported after moves of about eight tiles. */
+    readonly viewTarget = output<BrushPoint>();
     /** Why the last click selected something in front of the active plane, if it did. */
     readonly pickNote = signal<string | null>(null);
     readonly canRebuildWorldMap = input(false);
@@ -242,6 +244,7 @@ export class MapViewportComponent implements OnDestroy {
                 const { ModelScene } = await import("../../../../../shared/model-viewer/model-scene");
                 if (!this.destroyed) {
                     const scene = new ModelScene(this.viewport().nativeElement, "Interactive 3D map regions", "map");
+                    scene.onViewTarget(target => this.viewTarget.emit({ x: target.x, z: target.z }));
                     this.scene.set(scene);
                     scene.showOrientationGizmo();
                 }

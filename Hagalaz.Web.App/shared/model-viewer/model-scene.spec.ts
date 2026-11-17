@@ -373,6 +373,23 @@ describe("ModelScene resource ownership", () => {
         }
     });
 
+    it("reports a map camera's focus after it moves about eight tiles", () => {
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            const targets: { x: number; z: number }[] = [];
+            map.onViewTarget(target => targets.push(target));
+            const controls = gpu.controlsCreated.mock.lastCall![0] as { target: THREE.Vector3 };
+            map.captureImage();
+            controls.target.set(4000, 0, 0);
+            map.captureImage();
+            controls.target.set(4200, 0, 0);
+            map.captureImage();
+            expect(targets).toEqual([{ x: 0, z: 0 }, { x: 4200, z: 0 }]);
+        } finally {
+            map.dispose();
+        }
+    });
+
     it("clears a map to the sky colour, fogs towards it and restores the transparent canvas", () => {
         const frames = vi.mocked(requestAnimationFrame);
         const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");

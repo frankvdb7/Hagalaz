@@ -79,8 +79,8 @@ export interface ObjectRenderAppearance {
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }
-/** `focusPlane` is loaded first, then the planes nearest to it. */
-export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; focusPlane?: number; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
+/** `focusPlane` is loaded first, then the planes nearest to it; within a plane, assets nearest the world tile `focusTile` load first. */
+export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; focusPlane?: number; focusTile?: { x: number; y: number }; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
 export interface ObjectCollision {
     sizeX: number;
     sizeY: number;

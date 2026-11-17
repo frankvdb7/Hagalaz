@@ -133,6 +133,8 @@ const minAnimatedPixels = 4;
  */
 const fullRateWaterPixels = 96;
 const smallWaterInterval = 100;
+/** Eight tiles: smaller camera moves do not re-prioritise loading. */
+const viewTargetStep = 8 * 512;
 
 function createMeshSurface(): MeshSurface {
     return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], chunks: [], waterChunks: [], materials: new Map(), texturesDirty: false, animatedWater: false };
@@ -226,6 +228,8 @@ export class ModelScene {
     private readonly viewProjection = new THREE.Matrix4();
     private reorderTimer?: ReturnType<typeof setTimeout>;
     private waterTimer?: ReturnType<typeof setTimeout>;
+    private viewTargetListener?: (target: { x: number; z: number }) => void;
+    private readonly reportedTarget = new THREE.Vector3(Infinity, 0, Infinity);
     private showMapGrid = false;
     private orientationGizmo?: OrientationGizmo;
     private selectionBounds?: THREE.Box3Helper;
@@ -710,8 +714,22 @@ export class ModelScene {
         this.updateDrawRanges();
         this.renderer.render(this.scene, this.camera);
         for (const surface of this.surfaces) surface.wholeIndexPending = false;
+        this.reportViewTarget();
         this.renderOrientationGizmo();
     };
+
+    /** Reports where a map camera looks once it has moved about eight tiles, so loading can favour what is near. */
+    onViewTarget(listener: (target: { x: number; z: number }) => void): void {
+        this.viewTargetListener = listener;
+        this.reportedTarget.set(Infinity, 0, Infinity);
+    }
+
+    private reportViewTarget(): void {
+        const target = this.controls.target;
+        if (!this.viewTargetListener || Math.max(Math.abs(target.x - this.reportedTarget.x), Math.abs(target.z - this.reportedTarget.z)) < viewTargetStep) return;
+        this.reportedTarget.copy(target);
+        this.viewTargetListener({ x: target.x, z: target.z });
+    }
 
     private updateMaterialEffects(seconds: number): void {
         for (const [id, texture] of this.textures) {

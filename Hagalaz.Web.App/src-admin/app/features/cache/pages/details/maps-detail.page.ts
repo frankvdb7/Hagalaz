@@ -77,6 +77,14 @@ export class MapsDetailPageComponent {
     readonly ghostedPlanes = computed(() => [0, 1, 2, 3].filter(plane => this.planes()[plane] && this.seeThrough()[plane]));
     readonly combinedView = computed(() => this.planes().every(Boolean) && !this.ghostedPlanes().length);
     readonly hiddenPlanes = computed(() => [0, 1, 2, 3].filter(plane => !this.planes()[plane]));
+    /** The camera's focus in scene units, which orders asset loading by distance. */
+    readonly viewTarget = linkedSignal<BrushPoint | null>(() => { this.selectionKey(); return null; });
+    private readonly focusTile = computed(() => {
+        const target = this.viewTarget();
+        if (!target) return undefined;
+        const origin = mapSceneOrigin(this.store.regions());
+        return { x: origin.x + Math.floor(target.x / 512), y: origin.y + Math.floor(target.z / 512) };
+    }, { equal: (left, right) => left?.x === right?.x && left?.y === right?.y });
     readonly landscape = signal(true);
     readonly underwater = signal(true);
     readonly waterSurface = signal(true);
@@ -337,7 +345,7 @@ export class MapsDetailPageComponent {
     constructor() {
         this.pendingChanges.register({ dirty: () => this.edits() !== undefined, saving: () => this.store.saving() || this.readingRegion() || this.store.worldMapRefreshing() }, inject(DestroyRef));
         effect(() => {
-            const value = { planes: this.visiblePlanes(), landscape: this.landscape(), focusPlane: this.activePlane(), previewPlacements: this.previewPlacements(), previewTextures: this.previewTextures() };
+            const value = { planes: this.visiblePlanes(), landscape: this.landscape(), focusPlane: this.activePlane(), focusTile: this.focusTile(), previewPlacements: this.previewPlacements(), previewTextures: this.previewTextures() };
             untracked(() => this.store.setVisibility(value));
         });
         effect(() => {

@@ -186,16 +186,27 @@ export class MapSceneLoad {
     private interest(): { placements: Map<string, MapPlacement>; textures: Set<number>; environment: number[] } {
         const placements = new Map<string, MapPlacement>();
         const textures = new Set<number>(this.visibility.previewTextures);
-        // Requests follow insertion order, so the focused plane's floors and objects load before the others.
+        // Requests follow insertion order: the focused plane first, and within a plane what lies nearest the camera's focus.
         const rank = this.planeRank();
+        const distance = this.focusDistance();
         const levels = [...this.visibility.planes.keys()].filter(level => this.visibility.planes[level]).sort((left, right) => rank(left) - rank(right));
-        for (const level of levels) for (const region of this.regionList) this.floorTextures(region, level, textures);
+        const regions = [...this.regionList].sort((left, right) => distance(left.regionX * 64 + 32, left.regionY * 64 + 32) - distance(right.regionX * 64 + 32, right.regionY * 64 + 32));
+        for (const level of levels) for (const region of regions) this.floorTextures(region, level, textures);
         const environment = this.anchorEnvironmentFaces();
         if (!this.visibility.landscape) return { placements, textures, environment };
-        const visible = this.regionList.flatMap(region => region.objects.filter(placement => this.visibility.planes[placement.plane]))
-            .sort((left, right) => rank(left.plane) - rank(right.plane));
+        const visible = this.regionList.flatMap(region => region.objects
+            .filter(placement => this.visibility.planes[placement.plane])
+            .map(placement => ({ placement, rank: rank(placement.plane), distance: distance(region.regionX * 64 + placement.x, region.regionY * 64 + placement.y) })))
+            .sort((left, right) => left.rank - right.rank || left.distance - right.distance)
+            .map(({ placement }) => placement);
         for (const placement of [...visible, ...(this.visibility.previewPlacements ?? [])]) this.addInterest(placement, placements, textures);
         return { placements, textures, environment };
+    }
+
+    /** Tiles from the camera's focus, or zero for everything before the viewer reports one. */
+    private focusDistance(): (x: number, y: number) => number {
+        const focus = this.visibility.focusTile;
+        return focus ? (x, y) => Math.max(Math.abs(x - focus.x), Math.abs(y - focus.y)) : () => 0;
     }
 
     /** Distance from the focused plane; underwater terrain sits just below plane 0. */
