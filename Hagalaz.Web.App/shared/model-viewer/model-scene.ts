@@ -35,6 +35,8 @@ export interface ModelGeometry {
     billboards?: readonly RenderBillboard[];
     particleScale?: number;
     animations?: readonly ModelAnimationRange[];
+    /** Faces whose alpha an animation drives elsewhere, so they draw translucent although they start opaque. */
+    alphaAnimatedFaces?: Uint8Array;
     /** This geometry equals `base` except for the vertices in `ranges`, as [start, end) pairs. */
     patchOf?: { base: ModelGeometry; ranges: readonly (readonly [number, number])[] };
 }
@@ -196,6 +198,8 @@ export class ModelScene {
     private animatedRanges: { range: ModelAnimationRange; start: number }[] = [];
     private readonly animatedParts = new WeakMap<ModelGeometry, ModelGeometry>();
     private readonly animationBounds = new WeakMap<ModelAnimationRange, THREE.Sphere>();
+    /** When each range was last posed; a range skipped since then has none, so it poses again when it returns. */
+    private readonly rangeSampleTimes = new WeakMap<ModelAnimationRange, number>();
     /** Whether the last tick left ranges unposed because they were out of view, and the camera it judged that from. */
     private animationViewSkipped = false;
     private readonly animationCamera = new THREE.Matrix4();
@@ -846,12 +850,13 @@ export class ModelScene {
     private poseAnimationRange(animation: ModelAnimationRange, positions: THREE.BufferAttribute, colors: THREE.BufferAttribute, elapsed: number,
         visible: ((range: ModelAnimationRange) => boolean) | undefined): { delay: number; posed: boolean } {
         // Posing is the costliest part of an animation tick.
-        if (animation.plane !== undefined && this.planeFocus.hidden.has(animation.plane)) return { delay: Infinity, posed: false };
+        if (animation.plane !== undefined && this.planeFocus.hidden.has(animation.plane)) return this.skipAnimationRange(animation);
         if (visible && !visible(animation)) {
             this.animationViewSkipped = true;
-            return { delay: Infinity, posed: false };
+            return this.skipAnimationRange(animation);
         }
-        const { delay, pose } = animation.sample(elapsed, this.lastObjectAnimationTime);
+        const { delay, pose } = animation.sample(elapsed, this.rangeSampleTimes.get(animation));
+        this.rangeSampleTimes.set(animation, elapsed);
         if (!pose) return { delay, posed: false };
         positions.array.set(pose.positions, animation.startVertex * 3);
         colors.array.set(pose.rgba, animation.startVertex * 4);
@@ -859,8 +864,14 @@ export class ModelScene {
         return { delay, posed: true };
     }
 
+    private skipAnimationRange(animation: ModelAnimationRange): { delay: number; posed: boolean } {
+        this.rangeSampleTimes.delete(animation);
+        return { delay: Infinity, posed: false };
+    }
+
     private restoreAnimationRange(animation: ModelAnimationRange, positions: THREE.BufferAttribute, colors: THREE.BufferAttribute,
         basePositions: readonly number[] | Float32Array, baseColors: Float32Array): { delay: number; posed: boolean } {
+        this.rangeSampleTimes.delete(animation);
         const start = animation.startVertex, end = start + animation.vertexCount;
         positions.array.set(basePositions.slice(start * 3, end * 3), start * 3);
         colors.array.set(baseColors.subarray(start * 4, end * 4), start * 4);
@@ -1752,6 +1763,8 @@ function copyVertexRanges(model: ModelGeometry, ranges: readonly ModelAnimationR
         mapPlanes: model.mapPlanes && copyRanges(model.mapPlanes, ranges, 1, new Uint8Array(count)),
         textureIds: copyRanges(model.textureIds ?? new Int32Array(count / 3).fill(-1), faces, 1, new Int32Array(count / 3)),
         facePriorities: copyRanges(model.facePriorities ?? new Int16Array(count / 3), faces, 1, new Int16Array(count / 3)),
+        // The copy carries no animations of its own, but its animated fades must still draw translucent.
+        alphaAnimatedFaces: Uint8Array.from(ranges.flatMap(range => Array.from({ length: range.vertexCount / 3 }, (_, face) => range.alphaFaces[face] ? 1 : 0))),
     };
 }
 
@@ -1832,6 +1845,7 @@ function hasObjectAnimations(model: ModelGeometry): boolean {
 
 function animatedAlphaFaces(model: ModelGeometry): Set<number> {
     const faces = new Set<number>();
+    model.alphaAnimatedFaces?.forEach((animated, face) => { if (animated) faces.add(face); });
     for (const range of model.animations ?? []) {
         range.alphaFaces.forEach((animated, face) => {
             if (animated) faces.add(range.startVertex / 3 + face);

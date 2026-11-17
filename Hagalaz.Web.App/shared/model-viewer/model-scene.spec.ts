@@ -985,6 +985,36 @@ describe("ModelScene resource ownership", () => {
             }
         });
 
+        it("poses a range afresh when it returns from being skipped, and keeps alpha-animated faces translucent in the drawn copy", () => {
+            vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+            let now = 0;
+            vi.spyOn(performance, "now").mockImplementation(() => now += 100);
+            try {
+                const sample = vi.fn((_elapsed: number, _previous?: number) => ({ delay: 20, pose: { positions: new Float32Array(9), rgba: new Float32Array(12).fill(1) } }));
+                map.setSceneGeometry({ terrain: null, objects: {
+                    preparedLighting: true, mapPlanes: [2, 2, 2], vertexRgba: new Float32Array(12).fill(1),
+                    positions: [0, 0, 0, 0, 0, 10, 10, 0, 0], indices: [0, 1, 2],
+                    animations: [{ startVertex: 0, vertexCount: 3, plane: 2, alphaFaces: [true], sample }],
+                } }, false);
+                const animated = meshes(lastScene())[1];
+                // Opaque at rest, but its animation fades it: the plain translucent material.
+                expect(animated.geometry.groups.map(group => group.materialIndex)).toEqual([1]);
+
+                map.captureImage();
+                expect(sample.mock.lastCall![1]).toBeDefined();
+                map.setPlaneFocus(0, [], [2]);
+                map.captureImage();
+                sample.mockClear();
+                map.setPlaneFocus(0, [], []);
+                map.captureImage();
+                expect(sample).toHaveBeenCalledOnce();
+                expect(sample.mock.lastCall![1]).toBeUndefined();
+            } finally {
+                map.dispose();
+                vi.useRealTimers();
+            }
+        });
+
         describe("frustum culling", () => {
             // One opaque and one translucent face in each of two chunks 40 tiles apart.
             const chunked = () => {
