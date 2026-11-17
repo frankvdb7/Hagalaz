@@ -58,7 +58,7 @@ export class TerrainMaterial extends THREE.MeshBasicMaterial {
     }
 }
 
-export function applyTerrainMaterials(geometry: THREE.BufferGeometry, materials: THREE.Material[], weights: readonly number[] | undefined, blends: readonly TerrainBlend[] | undefined, textures: ReadonlyMap<number, THREE.Texture>, resolve = (blend: TerrainBlend) => terrainMaterial(blend, textures)): void {
+export function applyTerrainMaterials(geometry: THREE.BufferGeometry, materials: THREE.Material[], weights: ArrayLike<number> | undefined, blends: readonly TerrainBlend[] | undefined, textures: ReadonlyMap<number, THREE.Texture>, resolve = (blend: TerrainBlend) => terrainMaterial(blend, textures)): void {
     if (weights && blends?.length) {
         const buffer = new THREE.InterleavedBuffer(new Float32Array(weights), 8);
         geometry.setAttribute("terrainWeightsA", new THREE.InterleavedBufferAttribute(buffer, 4, 0));

@@ -19,6 +19,7 @@
 }
 .edit-toolbar .is-active { border-radius: 8px; color: var(--mat-sys-primary); outline: 1px solid currentColor; outline-offset: -1px; }
 h3 mat-icon { color: var(--mat-sys-primary); }
+
 aside section { padding: 16px; }
 section + section { border-top: 1px solid var(--mat-sys-outline-variant); }
 .region-inspector h3 { @include inspector.heading; }

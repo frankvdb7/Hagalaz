@@ -17,19 +17,19 @@ type SurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
 export interface ModelGeometry {
     sourceId?: number;
     preparedLighting?: boolean;
-    positions: readonly number[];
+    positions: readonly number[] | Float32Array;
     indices: readonly number[] | Uint16Array | Uint32Array;
-    colors?: readonly number[];
-    opacities?: readonly number[];
+    colors?: readonly number[] | Float32Array;
+    opacities?: readonly number[] | Float32Array;
     vertexRgba?: Float32Array;
     uvs?: readonly number[] | Float32Array;
     firstTexel?: readonly number[] | Uint8Array;
-    textureIds?: readonly number[];
+    textureIds?: readonly number[] | Int32Array;
     terrainBlends?: readonly TerrainBlend[];
-    terrainWeights?: readonly number[];
-    mapPlanes?: readonly number[];
-    waterDepth?: readonly number[];
-    facePriorities?: readonly number[];
+    terrainWeights?: readonly number[] | Float32Array;
+    mapPlanes?: readonly number[] | Uint8Array;
+    waterDepth?: readonly number[] | Float32Array;
+    facePriorities?: readonly number[] | Int16Array;
     particles?: readonly ModelParticle[];
     effectors?: readonly PosedEffector[];
     billboards?: readonly RenderBillboard[];
@@ -43,6 +43,8 @@ export interface ModelGeometry {
 export interface ModelAnimationRange {
     startVertex: number;
     vertexCount: number;
+    /** The map plane the range belongs to; hidden planes do not animate. */
+    plane?: number;
     alphaFaces: readonly boolean[];
     startBillboard?: number;
     billboardCount?: number;
@@ -50,11 +52,12 @@ export interface ModelAnimationRange {
     sample(elapsed: number, previousElapsed?: number): { delay: number; pose?: { positions: Float32Array; rgba: Float32Array; billboards?: readonly RenderBillboard[] } };
 }
 
-/** Unindexed triangles drawn over a scene: six vertices and one sRGB colour per tile. */
-function mapGridGeometry({ positions, indices }: ModelGeometry): THREE.BufferGeometry {
+/** Tile edges of one plane's terrain, so the grid marks the active plane. */
+function mapGridGeometry({ positions, indices, mapPlanes }: ModelGeometry, plane: number): THREE.BufferGeometry {
     const tileSize = 512;
     const lines: number[] = [];
     for (let face = 0; face < indices.length; face += 3) {
+        if (mapPlanes && mapPlanes[indices[face]] !== plane) continue;
         for (let edge = 0; edge < 3; edge++) {
             const from = indices[face + edge] * 3;
             const to = indices[face + (edge + 1) % 3] * 3;
@@ -82,17 +85,49 @@ interface MeshSurface {
     currentModel?: ModelGeometry;
     orderingDirty: boolean;
     sourceIndices: ModelGeometry["indices"];
-    opaqueGroups: { start: number; count: number; materialIndex: number }[];
-    blendedSurfaces: { sourceStart: number; material: number; depth: number; priority: number }[];
+    /** Opaque draw ranges, laid out by material and then by chunk, so the chunks in view merge into few draw calls. */
+    opaqueGroups: { start: number; count: number; materialIndex: number; chunk: number }[];
+    blendedSurfaces: { sourceStart: number; material: number; depth: number; bin: number; priority: number; chunk: number }[];
+    /** Bounds of each spatial chunk, in row order. A surface with one chunk is never culled. */
+    chunks: THREE.Box3[];
+    /** Chunks in the camera frustum at the last cull, or undefined while all of them are drawn. */
+    visibleChunks?: Uint8Array;
+    /** The draw ranges must be rewritten for a new set of visible chunks. */
+    groupsDirty?: boolean;
     materials: Map<string, { material: SurfaceMaterial; texture?: THREE.Texture; asset?: ModelTexture }>;
     texturesDirty: boolean;
     animatedWater: boolean;
+    /** The draw index needs a whole upload at the next render, so a re-sort must not narrow it to a range. */
+    wholeIndexPending?: boolean;
 }
 
-interface SurfaceHit { surface: MeshSurface; vertex: number; x: number; z: number; distance: number; }
+interface SurfaceHit { surface: MeshSurface; vertex: number; plane?: number; x: number; z: number; distance: number; }
+
+/** The active plane carries the grid; see-through and hidden planes let picks through to the floors below. */
+interface PlaneFocus { plane: number; ghosted: ReadonlySet<number>; hidden: ReadonlySet<number>; }
+
+/**
+ * Translucent faces sort back to front in depth slabs, by material within a slab. Exact per-face order split large maps
+ * into one draw call per material change, tens of thousands per frame. Each slab spans this fraction of its distance from
+ * the camera, so close faces keep a fine order and distant ones, whose errors are too small to see, share draw calls.
+ * Slabs only grow with depth, so pans and zooms keep a valid back-to-front order without a re-sort.
+ */
+const blendedSlabGrowth = Math.log(1.02);
+/** Faces closer than this share the nearest slab. */
+const nearestSlabDistance = 64;
+/** About a quarter degree: smaller turns, and pans, leave translucent order unchanged. */
+const reorderTurn = 1e-5;
+/** Milliseconds between translucent re-sorts while a map camera keeps turning. */
+const reorderInterval = 120;
+/** Map geometry is culled in square chunks of 16 tiles; smaller chunks would split the draw calls of a full view further. */
+const cullChunkSize = 16 * 512;
+/** Animated parts may move a little beyond the bounds of their rest pose. */
+const cullChunkMargin = 512;
+/** Animated map objects smaller than this many pixels on screen, or outside the view, keep their last pose. */
+const minAnimatedPixels = 4;
 
 function createMeshSurface(): MeshSurface {
-    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], materials: new Map(), texturesDirty: false, animatedWater: false };
+    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], chunks: [], materials: new Map(), texturesDirty: false, animatedWater: false };
 }
 
 export interface ModelTexture extends MaterialEffect {
@@ -142,9 +177,20 @@ export class ModelScene {
     private readonly primary = createMeshSurface();
     /** Only map scenes use it, so strokes can replace the ground without touching objects. */
     private readonly terrain = createMeshSurface();
+    /**
+     * A map scene's animated objects, copied out of the primary surface and drawn here instead. Updating part of a large
+     * static buffer stalled the GPU in proportion to the whole buffer, so animation ticks only upload this small one.
+     */
+    private readonly animated = createMeshSurface();
+    /** Where each animation range of the primary model starts in the animated surface. */
+    private animatedRanges: { range: ModelAnimationRange; start: number }[] = [];
+    private readonly animatedParts = new WeakMap<ModelGeometry, ModelGeometry>();
+    private readonly animationBounds = new WeakMap<ModelAnimationRange, THREE.Sphere>();
+    /** Whether the last tick left ranges unposed because they were out of view, and the camera it judged that from. */
+    private animationViewSkipped = false;
+    private readonly animationCamera = new THREE.Matrix4();
     private readonly mapLighting = new MapLightMaterial();
     private readonly viewDepthAxis = new THREE.Vector3(0, 0, -1);
-    private readonly centroid = new THREE.Vector3();
     private epoch?: number;
     private lastTime?: number;
     private particleTickRemainder = 0;
@@ -165,6 +211,12 @@ export class ModelScene {
     private readonly gridFittedTo = new THREE.Box3();
     private mapGrid?: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
     private mapGridTerrain?: ModelGeometry;
+    private mapGridPlane?: number;
+    private planeFocus: PlaneFocus = { plane: 0, ghosted: new Set(), hidden: new Set() };
+    private lastBlendedOrder = -Infinity;
+    private readonly frustum = new THREE.Frustum();
+    private readonly viewProjection = new THREE.Matrix4();
+    private reorderTimer?: ReturnType<typeof setTimeout>;
     private showMapGrid = false;
     private orientationGizmo?: OrientationGizmo;
     private selectionBounds?: THREE.Box3Helper;
@@ -202,7 +254,10 @@ export class ModelScene {
     /** The primary surface's vertex under the point, unless other geometry is in front of it. */
     pickVertex(clientX: number, clientY: number): number | null {
         const hit = this.nearestHit(clientX, clientY, this.surfaces);
-        return hit?.surface === this.primary ? hit.vertex : null;
+        if (hit?.surface === this.primary) return hit.vertex;
+        if (hit?.surface !== this.animated) return null;
+        const entry = this.animatedRanges.find(({ range, start }) => hit.vertex >= start && hit.vertex < start + range.vertexCount);
+        return entry ? entry.range.startVertex + hit.vertex - entry.start : null;
     }
 
     /** The ground under the point, looking through objects. */
@@ -211,10 +266,51 @@ export class ModelScene {
         return hit ? { vertex: hit.vertex, x: hit.x, z: hit.z } : null;
     }
 
+    /** The map planes of every pickable surface under the point, nearest first. */
+    pickPlanes(clientX: number, clientY: number): number[] {
+        const ray = this.pointerRay(clientX, clientY);
+        if (!ray) return [];
+        const hits = this.surfaces.flatMap(surface => pickableHits(ray, surface, this.planeFocus)).sort((left, right) => left.distance - right.distance);
+        return [...new Set(hits.flatMap(hit => hit.plane === undefined ? [] : [hit.plane]))];
+    }
+
+    /**
+     * Marks `plane` with the grid, draws `ghosted` planes see-through and `hidden` planes not at all; picks pass both.
+     * Geometry and materials stay as they are, so toggling a plane costs no rebuild.
+     */
+    setPlaneFocus(plane: number, ghosted: readonly number[], hidden: readonly number[] = []): void {
+        const shown = [...this.planeFocus.hidden].some(previous => !hidden.includes(previous));
+        this.planeFocus = { plane, ghosted: new Set(ghosted), hidden: new Set(hidden) };
+        // Animations on a hidden plane were skipped without scheduling a tick, so a shown plane must resume them now.
+        if (shown) this.nextObjectAnimationTime = 0;
+        this.mapLighting.setPlaneMasks(ghosted, hidden);
+        this.updateMapGrid();
+        this.requestRender();
+    }
+
+    /** Centres the camera on the geometry of one plane, keeping its distance and direction. False when the plane draws nothing. */
+    focusMapPlane(plane: number): boolean {
+        const box = new THREE.Box3();
+        const point = new THREE.Vector3();
+        for (const { mesh, currentModel } of this.surfaces) {
+            const planes = currentModel?.mapPlanes;
+            if (!mesh || !planes) continue;
+            const position = mesh.geometry.getAttribute("position");
+            for (let vertex = 0; vertex < position.count; vertex++) if (planes[vertex] === plane) box.expandByPoint(point.fromBufferAttribute(position, vertex));
+        }
+        if (box.isEmpty()) return false;
+        const offset = this.camera.position.clone().sub(this.controls.target);
+        box.getCenter(this.controls.target);
+        this.camera.position.copy(this.controls.target).add(offset);
+        this.controls.update();
+        this.requestRender();
+        return true;
+    }
+
     private nearestHit(clientX: number, clientY: number, surfaces: readonly MeshSurface[]): SurfaceHit | null {
         const ray = this.pointerRay(clientX, clientY);
         if (!ray) return null;
-        const hits = surfaces.flatMap(surface => visibleHit(ray, surface));
+        const hits = surfaces.flatMap(surface => pickableHits(ray, surface, this.planeFocus).slice(0, 1));
         return hits.reduce<SurfaceHit | null>((nearest, hit) => !nearest || hit.distance < nearest.distance ? hit : nearest, null);
     }
 
@@ -392,10 +488,13 @@ export class ModelScene {
 
     private updateMapGrid(): void {
         const terrain = this.terrain.currentModel;
-        if (terrain !== this.mapGridTerrain) this.releaseMapGrid();
+        // A hidden active plane has no grid.
+        const plane = this.planeFocus.hidden.has(this.planeFocus.plane) ? -1 : this.planeFocus.plane;
+        if (terrain !== this.mapGridTerrain || plane !== this.mapGridPlane) this.releaseMapGrid();
         if (this.showMapGrid && terrain && !this.mapGrid) {
-            this.mapGrid = new THREE.LineSegments(mapGridGeometry(terrain), new THREE.LineBasicMaterial({ color: 0x253141 }));
+            this.mapGrid = new THREE.LineSegments(mapGridGeometry(terrain, plane), new THREE.LineBasicMaterial({ color: 0x253141 }));
             this.mapGridTerrain = terrain;
+            this.mapGridPlane = plane;
             this.scene.add(this.mapGrid);
         }
         if (this.mapGrid) this.mapGrid.visible = this.showMapGrid;
@@ -407,7 +506,7 @@ export class ModelScene {
         this.mapGrid.geometry.dispose();
         this.mapGrid.material.dispose();
         this.mapGrid = undefined;
-        this.mapGridTerrain = undefined;
+        this.mapGridTerrain = this.mapGridPlane = undefined;
     }
 
     /**
@@ -562,29 +661,44 @@ export class ModelScene {
     private readonly renderFrame = (time: number): void => {
         this.epoch ??= time;
         const seconds = (time - this.epoch) / 1000;
-        for (const [id, texture] of this.textures) {
-            const phase = sampleMaterialEffect(this.textureImages?.get(id) ?? {}, seconds);
-            texture.offset.set(phase.u, phase.v);
-        }
-        for (const update of this.effectUpdates.values()) update(seconds);
+        this.updateMaterialEffects(seconds);
         this.updateParticles(time);
         this.lastTime = time;
         if (this.framing === "map") this.renderObjectAnimations(time);
         this.controls.update();
         this.updateBillboards();
         this.placementGizmo?.fitToCamera();
-        this.orderSurfaces();
+        this.updateDrawRanges();
         this.renderer.render(this.scene, this.camera);
-        if (this.orientationGizmo) {
-            const autoClear = this.renderer.autoClear;
-            this.renderer.autoClear = false;
-            try {
-                this.orientationGizmo.render(this.renderer);
-            } finally {
-                this.renderer.autoClear = autoClear;
-            }
-        }
+        for (const surface of this.surfaces) surface.wholeIndexPending = false;
+        this.renderOrientationGizmo();
     };
+
+    private updateMaterialEffects(seconds: number): void {
+        for (const [id, texture] of this.textures) {
+            const phase = sampleMaterialEffect(this.textureImages?.get(id) ?? {}, seconds);
+            texture.offset.set(phase.u, phase.v);
+        }
+        for (const update of this.effectUpdates.values()) update(seconds);
+    }
+
+    /** Culls chunks, re-sorts translucent faces when due, and rewrites draw ranges whose visible chunks changed. */
+    private updateDrawRanges(): void {
+        this.cullSurfaces();
+        this.orderSurfaces();
+        for (const surface of this.surfaces) if (surface.groupsDirty && surface.mesh) this.writeDrawGroups(surface.mesh.geometry, surface);
+    }
+
+    private renderOrientationGizmo(): void {
+        if (!this.orientationGizmo) return;
+        const autoClear = this.renderer.autoClear;
+        this.renderer.autoClear = false;
+        try {
+            this.orientationGizmo.render(this.renderer);
+        } finally {
+            this.renderer.autoClear = autoClear;
+        }
+    }
 
     setObjectAnimationsEnabled(enabled: boolean): void {
         this.objectAnimationsEnabled = enabled;
@@ -596,7 +710,9 @@ export class ModelScene {
         const model = surface.currentModel;
         const mesh = surface.mesh;
         const animations = model?.animations;
-        if (animations && this.waitingForObjectAnimation(time)) return;
+        // Ranges skipped as out of view or too small resume as soon as the camera moves.
+        this.camera.updateMatrixWorld();
+        if (animations && this.waitingForObjectAnimation(time) && !(this.animationViewSkipped && !this.animationCamera.equals(this.camera.matrixWorld))) return;
         clearTimeout(this.animationTimer);
         this.animationTimer = undefined;
         if (!animations || !model.vertexRgba || !mesh) return this.resetObjectAnimationTime();
@@ -629,25 +745,36 @@ export class ModelScene {
         this.lastObjectAnimationTime = undefined;
     }
 
-    private restoreObjectAnimationPose(mesh: NonNullable<MeshSurface["mesh"]>, animations: readonly ModelAnimationRange[], positions: readonly number[], colors: Float32Array): void {
+    private restoreObjectAnimationPose(mesh: NonNullable<MeshSurface["mesh"]>, animations: readonly ModelAnimationRange[], positions: readonly number[] | Float32Array, colors: Float32Array): void {
         if (this.lastObjectAnimationTime !== undefined) this.updateObjectAnimationRanges(mesh, animations, positions, colors, null);
         this.resetObjectAnimationTime();
     }
 
     private updateObjectAnimationRanges(
         mesh: NonNullable<MeshSurface["mesh"]>, animations: readonly ModelAnimationRange[],
-        basePositions: readonly number[], baseColors: Float32Array, elapsed: number | null,
+        basePositions: readonly number[] | Float32Array, baseColors: Float32Array, elapsed: number | null,
     ): number {
         const { geometry } = mesh;
+        // The primary arrays keep the pose for picking, bounds, handles and billboards; only a drawn copy is uploaded.
         const positions = geometry.getAttribute("position") as THREE.BufferAttribute;
         const colors = geometry.getAttribute("color") as THREE.BufferAttribute;
-        const normals = geometry.getAttribute("normal") as THREE.BufferAttribute;
+        const drawn = this.animated.mesh?.geometry ?? geometry;
+        const offsets = new Map(this.animatedRanges.map(({ range, start }) => [range, start]));
+        const visible = elapsed === null ? undefined : this.animationVisibility(basePositions);
+        this.animationViewSkipped = false;
         let next = Infinity;
         let updated = false;
         for (const animation of animations) {
             const start = animation.startVertex;
             const end = start + animation.vertexCount;
             if (elapsed !== null) {
+                // Posing is the costliest part of an animation tick; a hidden plane, or a part off screen or a few pixels
+                // small, has nothing worth posing.
+                if (animation.plane !== undefined && this.planeFocus.hidden.has(animation.plane)) continue;
+                if (visible && !visible(animation)) {
+                    this.animationViewSkipped = true;
+                    continue;
+                }
                 const { delay, pose } = animation.sample(elapsed, this.lastObjectAnimationTime);
                 next = Math.min(next, delay);
                 if (!pose) continue;
@@ -659,20 +786,40 @@ export class ModelScene {
                 colors.array.set(baseColors.subarray(start * 4, end * 4), start * 4);
                 this.writeBillboards(animation);
             }
-            positions.addUpdateRange(start * 3, animation.vertexCount * 3);
-            colors.addUpdateRange(start * 4, animation.vertexCount * 4);
-            writeTriangleNormals(positions, normals, start, end);
+            const target = drawn === geometry ? start : offsets.get(animation);
+            if (target !== undefined) writeDrawnPose(drawn, positions, colors, start, target, animation.vertexCount);
             updated = true;
         }
         if (updated) {
-            positions.needsUpdate = true;
-            colors.needsUpdate = true;
-            normals.needsUpdate = true;
-            geometry.boundingBox = null;
-            geometry.boundingSphere = null;
-            this.primary.orderingDirty = true;
+            for (const name of ["position", "color", "normal"]) drawn.getAttribute(name).needsUpdate = true;
+            // The renderer recomputes a null bounding sphere every frame to sort objects, which cost large maps most of a frame.
+            // The drawn copy keeps a sphere grown for animation, and the primary geometry no longer draws its animated faces.
+            if (drawn === geometry) {
+                geometry.boundingBox = null;
+                geometry.boundingSphere = null;
+            }
+            // Poses move parts within their depth slab, so the translucent order is left to camera turns. Re-sorting every face
+            // on each tick cost a large map most of its frame.
         }
         return next;
+    }
+
+    /** Whether an animation range is in view and large enough on screen to be worth posing. */
+    private animationVisibility(basePositions: ArrayLike<number>): (range: ModelAnimationRange) => boolean {
+        this.camera.updateMatrixWorld();
+        this.animationCamera.copy(this.camera.matrixWorld);
+        this.frustum.setFromProjectionMatrix(this.viewProjection.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
+        const pixelsPerUnit = this.host.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)));
+        return range => {
+            let bounds = this.animationBounds.get(range);
+            if (!bounds) {
+                bounds = vertexRangeSphere(basePositions, range.startVertex, range.vertexCount);
+                this.animationBounds.set(range, bounds);
+            }
+            if (!this.frustum.intersectsSphere(bounds)) return false;
+            const distance = Math.max(bounds.center.distanceTo(this.camera.position), 1);
+            return bounds.radius * 2 * pixelsPerUnit / distance >= minAnimatedPixels;
+        };
     }
 
     setGeometry(model: ModelGeometry, fitCamera = true, surface = this.primary): void {
@@ -869,6 +1016,12 @@ export class ModelScene {
     setSceneGeometry({ terrain, objects }: { terrain: ModelGeometry | null; objects: ModelGeometry | null }, fitCamera: boolean): void {
         this.setSurface(this.terrain, terrain);
         this.setSurface(this.primary, objects);
+        this.setSurface(this.animated, this.framing === "map" && objects ? this.animatedPart(objects) : null);
+        const drawn = this.animated.mesh?.geometry;
+        if (drawn) {
+            drawn.computeBoundingSphere();
+            drawn.boundingSphere!.radius += cullChunkMargin;
+        }
         this.updateMapGrid();
         if (fitCamera) this.resetCamera();
     }
@@ -876,6 +1029,28 @@ export class ModelScene {
     setMapPointLights(field: MapLightField | null, enabled: boolean): void {
         this.mapLighting.set(field, enabled);
         this.requestRender();
+    }
+
+    /** The primary model's animated vertices as their own geometry, or null when nothing animates. */
+    private animatedPart(model: ModelGeometry): ModelGeometry | null {
+        const ranges = [...model.animations ?? []].sort((left, right) => left.startVertex - right.startVertex);
+        if (!ranges.length) {
+            this.animatedRanges = [];
+            return null;
+        }
+        let start = 0;
+        this.animatedRanges = ranges.map(range => {
+            const entry = { range, start };
+            start += range.vertexCount;
+            return entry;
+        });
+        // A terrain patch keeps the animated vertices, which it never moves, so the copy is shared with the patch base.
+        const source = model.patchOf?.base ?? model;
+        const cached = this.animatedParts.get(source);
+        if (cached) return cached;
+        const part = copyVertexRanges(source, ranges);
+        this.animatedParts.set(source, part);
+        return part;
     }
 
     private setSurface(surface: MeshSurface, model: ModelGeometry | null): void {
@@ -908,7 +1083,7 @@ export class ModelScene {
     }
 
     private get surfaces(): MeshSurface[] {
-        return [this.terrain, this.primary];
+        return [this.terrain, this.primary, this.animated];
     }
 
     /** The sphere one buffer holding every surface would have; merging spheres would overestimate it. */
@@ -1011,6 +1186,7 @@ export class ModelScene {
         else this.controls.removeEventListener("change", this.requestRender);
         if (this.pendingFrame !== undefined) cancelAnimationFrame(this.pendingFrame);
         clearTimeout(this.animationTimer);
+        clearTimeout(this.reorderTimer);
         this.resizeObserver.disconnect();
         this.mapNavigation?.dispose();
         this.controls.dispose();
@@ -1019,6 +1195,7 @@ export class ModelScene {
         this.releaseOverlays();
         this.releaseMapGrid();
         this.clear(false, false, this.terrain);
+        this.clear(false, false, this.animated);
         this.clear();
         if (this.grid) {
             this.scene.remove(this.grid);
@@ -1188,15 +1365,59 @@ export class ModelScene {
         this.camera.updateMatrixWorld();
         const view = this.camera.matrixWorldInverse.elements;
         const x = -view[2], y = -view[6], z = -view[10];
-        // Translation adds the same depth to every face. Ignore roundoff in the axis during a pan.
+        // Translation adds the same depth to every face, so pans and tiny turns keep the current order.
         const axis = this.viewDepthAxis;
-        const turned = Math.max(Math.abs(x - axis.x), Math.abs(y - axis.y), Math.abs(z - axis.z)) > 1e-10;
+        let turned = 1 - (x * axis.x + y * axis.y + z * axis.z) > reorderTurn;
+        if (turned && this.framing === "map") turned = this.blendedOrderDue();
         if (turned) axis.set(x, y, z);
         for (const surface of this.surfaces) {
             if (!surface.mesh || !surface.currentModel || (!turned && !surface.orderingDirty)) continue;
             surface.orderingDirty = false;
             this.orderBlendedSurfaces(surface.mesh.geometry, surface.currentModel, surface);
         }
+    }
+
+    /**
+     * Sorting every translucent face of a large map costs more than a frame, so a turning map camera re-sorts at most once per
+     * interval and draws one more frame when the interval ends, leaving the final view correctly ordered.
+     */
+    private blendedOrderDue(): boolean {
+        const now = performance.now();
+        const wait = this.lastBlendedOrder + reorderInterval - now;
+        if (wait <= 0) {
+            this.lastBlendedOrder = now;
+            return true;
+        }
+        this.reorderTimer ??= setTimeout(() => {
+            this.reorderTimer = undefined;
+            this.requestRender();
+        }, wait);
+        return false;
+    }
+
+    /** Marks the map chunks outside the camera frustum, so their draw ranges are left out until they come back into view. */
+    private cullSurfaces(): void {
+        if (this.framing !== "map") return;
+        this.camera.updateMatrixWorld();
+        this.frustum.setFromProjectionMatrix(this.viewProjection.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
+        for (const surface of this.surfaces) {
+            if (!surface.mesh || surface.chunks.length < 2) continue;
+            const next = this.chunksInView(surface.chunks);
+            if (sameChunks(next, surface.visibleChunks)) continue;
+            surface.visibleChunks = next;
+            surface.groupsDirty = true;
+        }
+    }
+
+    /** The chunks the frustum intersects, or undefined when it intersects all of them. */
+    private chunksInView(chunks: readonly THREE.Box3[]): Uint8Array | undefined {
+        const visible = new Uint8Array(chunks.length);
+        let all = true;
+        chunks.forEach((box, chunk) => {
+            visible[chunk] = this.frustum.intersectsBox(box) ? 1 : 0;
+            all &&= visible[chunk] === 1;
+        });
+        return all ? undefined : visible;
     }
 
     private textureDrawModes(textureIds: number[]): { transparent: Set<number>; animated: Set<number> } {
@@ -1218,21 +1439,28 @@ export class ModelScene {
         surface.sourceIndices = model.sourceId === undefined ? model.indices : Uint32Array.from(model.indices);
         surface.opaqueGroups = [];
         surface.blendedSurfaces = [];
+        surface.visibleChunks = undefined;
         surface.animatedWater = false;
         const textureIds = [...this.textures.keys()];
         const textureIndices = new Map(textureIds.map((id, index) => [id, index]));
         const modes = this.textureDrawModes(textureIds);
-        const opaque = new Map<number, number[]>();
-        this.collectSurfaceFaces(model, surface, textureIndices, modes, opaque);
-        this.writeOpaqueGroups(geometry, surface, opaque);
+        const opaque = new Map<number, Map<number, number[]>>();
+        const chunks = new SurfaceChunks(model.positions);
+        // The animated surface draws a map's animated faces.
+        const skipped = surface === this.primary && this.framing === "map" ? animatedFaces(model) : undefined;
+        this.collectSurfaceFaces(model, surface, textureIndices, modes, opaque, chunks, skipped);
+        const order = chunks.finish(surface);
+        for (const face of surface.blendedSurfaces) face.chunk = order.get(face.chunk) ?? 0;
+        this.writeOpaqueGroups(geometry, surface, opaque, order);
     }
 
     private collectSurfaceFaces(model: ModelGeometry, surface: MeshSurface, textureIndices: ReadonlyMap<number, number>,
-        modes: ReturnType<ModelScene["textureDrawModes"]>, opaque: Map<number, number[]>): void {
+        modes: ReturnType<ModelScene["textureDrawModes"]>, opaque: Map<number, Map<number, number[]>>, chunks: SurfaceChunks, skipped?: Uint8Array): void {
         const sourceIndices = surface.sourceIndices;
         const isTranslucent = faceTranslucency(model);
         for (let start = 0; start < model.indices.length; start += 3) {
             const face = start / 3;
+            if (skipped?.[face]) continue;
             const a = sourceIndices[start];
             const b = sourceIndices[start + 1];
             const c = sourceIndices[start + 2];
@@ -1241,10 +1469,11 @@ export class ModelScene {
             const material = this.faceMaterial(model, textureIndices, textureId, translucent);
             if (modes.animated.has(textureId)) surface.animatedWater = true;
             const transparent = translucent || modes.transparent.has(textureId);
+            const chunk = chunks.add(a, b, c);
             if (transparent) {
-                surface.blendedSurfaces.push({ sourceStart: start, material, depth: 0, priority: model.facePriorities?.[face] ?? 0 });
+                surface.blendedSurfaces.push({ sourceStart: start, material, depth: 0, bin: 0, priority: model.facePriorities?.[face] ?? 0, chunk });
             } else {
-                appendOpaqueFace(opaque, material, a, b, c);
+                appendOpaqueFace(opaque, material, chunk, a, b, c);
             }
         }
     }
@@ -1254,53 +1483,80 @@ export class ModelScene {
         return terrainSurfaceMaterial(textureId, model.terrainBlends, textureIndices.size, (textureIndex < 0 ? 0 : (textureIndex + 1) * 2) + (translucent ? 1 : 0));
     }
 
-    private writeOpaqueGroups(geometry: THREE.BufferGeometry, surface: MeshSurface, opaque: ReadonlyMap<number, number[]>): void {
+    private writeOpaqueGroups(geometry: THREE.BufferGeometry, surface: MeshSurface, opaque: ReadonlyMap<number, ReadonlyMap<number, number[]>>, order: ReadonlyMap<number, number>): void {
         // Only the renderer's draw index is permuted. Animation and particles retain source face IDs.
         const index = geometry.index!;
         let cursor = 0;
-        for (const [materialIndex, indices] of opaque) {
-            surface.opaqueGroups.push({ start: cursor, count: indices.length, materialIndex });
-            index.array.set(indices, cursor);
-            cursor += indices.length;
+        for (const [materialIndex, byChunk] of opaque) {
+            const runs = [...byChunk].map(([key, indices]) => ({ chunk: order.get(key) ?? 0, indices })).sort((left, right) => left.chunk - right.chunk);
+            for (const { chunk, indices } of runs) {
+                surface.opaqueGroups.push({ start: cursor, count: indices.length, materialIndex, chunk });
+                index.array.set(indices, cursor);
+                cursor += indices.length;
+            }
         }
+        // A whole-buffer upload, since the opaque layout changed.
+        index.clearUpdateRanges();
         index.needsUpdate = true;
+        surface.wholeIndexPending = true;
         // The next frame writes the transparent tail using its final camera transform.
     }
 
     private updateBlendedDepths(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
-        const positions = geometry.getAttribute("position");
+        // Read the array directly: attribute accessors dominate on large maps.
+        const positions = geometry.getAttribute("position").array;
+        const { x, y, z } = this.viewDepthAxis;
+        const camera = this.camera.position;
+        const cameraDepth = camera.x * x + camera.y * y + camera.z * z;
+        const indices = model.indices;
         for (const face of surface.blendedSurfaces) {
-            this.centroid.set(0, 0, 0);
-            for (let corner = 0; corner < 3; corner++) {
-                const vertex = model.indices[face.sourceStart + corner];
-                this.centroid.x += positions.getX(vertex) / 3;
-                this.centroid.y += positions.getY(vertex) / 3;
-                this.centroid.z += positions.getZ(vertex) / 3;
-            }
-            face.depth = this.centroid.dot(this.viewDepthAxis);
+            const a = indices[face.sourceStart] * 3, b = indices[face.sourceStart + 1] * 3, c = indices[face.sourceStart + 2] * 3;
+            face.depth = ((positions[a] + positions[b] + positions[c]) * x + (positions[a + 1] + positions[b + 1] + positions[c + 1]) * y
+                + (positions[a + 2] + positions[b + 2] + positions[c + 2]) * z) / 3;
+            face.bin = Math.floor(Math.log(Math.max(face.depth - cameraDepth, nearestSlabDistance)) / blendedSlabGrowth);
         }
     }
 
     private orderBlendedSurfaces(geometry: THREE.BufferGeometry, model: ModelGeometry, surface: MeshSurface): void {
         // Opaque/cutout draw ranges are camera-independent; never rescan them during an orbit.
-        if (!surface.blendedSurfaces.length && geometry.groups.length) return;
-        geometry.clearGroups();
-        for (const group of surface.opaqueGroups) geometry.addGroup(group.start, group.count, group.materialIndex);
+        if (!surface.blendedSurfaces.length && geometry.groups.length && !surface.groupsDirty) return;
         this.updateBlendedDepths(geometry, model, surface);
         // Groups share one object/depth in Three's stable transparent render list.
         surface.blendedSurfaces.sort(compareBlendedFaces);
+        this.writeDrawGroups(geometry, surface);
+    }
+
+    /** Draws the opaque ranges and the sorted translucent faces of the chunks in view, merging adjacent ranges of one material. */
+    private writeDrawGroups(geometry: THREE.BufferGeometry, surface: MeshSurface): void {
+        surface.groupsDirty = false;
+        geometry.clearGroups();
+        const visible = surface.visibleChunks;
+        // Frames are bound by draw calls more than triangles, so opaque culling applies only while it adds no draw calls;
+        // gaps between culled chunks split each material's ranges.
+        const opaqueVisible = visible && opaqueRuns(surface.opaqueGroups, visible) <= opaqueRuns(surface.opaqueGroups) ? visible : undefined;
+        const opaqueCount = addOpaqueGroups(geometry, surface.opaqueGroups, opaqueVisible);
+        this.writeBlendedGroups(geometry, surface, opaqueCount, visible);
+    }
+
+    /** Writes the visible translucent faces after the opaque prefix, re-uploading only that range. */
+    private writeBlendedGroups(geometry: THREE.BufferGeometry, surface: MeshSurface, opaqueCount: number, visible: Uint8Array | undefined): void {
+        let previous = geometry.groups.at(-1);
         const index = geometry.index!;
         const drawIndices = index.array;
-        let cursor = surface.opaqueGroups.reduce((count, group) => count + group.count, 0);
+        let cursor = opaqueCount;
         let changed = false;
-        let previous = geometry.groups[geometry.groups.length - 1];
         for (const face of surface.blendedSurfaces) {
+            if (visible && !visible[face.chunk]) continue;
             const start = cursor;
             changed = this.writeBlendedFace(drawIndices, cursor, surface.sourceIndices, face.sourceStart) || changed;
             cursor += 3;
             previous = extendBlendedGroup(geometry, previous, start, face.material);
         }
-        if (changed) index.needsUpdate = true;
+        if (!changed) return;
+        // Only the translucent tail moves; re-uploading the opaque indices of a large map stalled every re-sort. A whole-buffer
+        // upload that has not been drawn yet must stay whole.
+        if (!surface.wholeIndexPending) index.addUpdateRange(opaqueCount, cursor - opaqueCount);
+        index.needsUpdate = true;
     }
 
     private writeBlendedFace(drawIndices: ArrayLike<number> & { [index: number]: number }, cursor: number, sourceIndices: ArrayLike<number>, start: number): boolean {
@@ -1327,7 +1583,7 @@ function extendBlendedGroup(geometry: THREE.BufferGeometry, previous: THREE.Buff
 }
 
 function compareBlendedFaces(a: MeshSurface["blendedSurfaces"][number], b: MeshSurface["blendedSurfaces"][number]): number {
-    return a.priority - b.priority || b.depth - a.depth || a.sourceStart - b.sourceStart;
+    return a.priority - b.priority || b.bin - a.bin || a.material - b.material || b.depth - a.depth || a.sourceStart - b.sourceStart;
 }
 
 function faceTranslucency(model: ModelGeometry): (face: number, a: number, b: number, c: number) => boolean {
@@ -1338,13 +1594,141 @@ function faceTranslucency(model: ModelGeometry): (face: number, a: number, b: nu
     return (face, a, b, c) => animatedAlpha.has(face) || hasTranslucentVertex(opacities, stride, offset, a, b, c);
 }
 
-function appendOpaqueFace(opaque: Map<number, number[]>, material: number, a: number, b: number, c: number): void {
-    let indices = opaque.get(material);
+function appendOpaqueFace(opaque: Map<number, Map<number, number[]>>, material: number, chunk: number, a: number, b: number, c: number): void {
+    let byChunk = opaque.get(material);
+    if (!byChunk) {
+        byChunk = new Map();
+        opaque.set(material, byChunk);
+    }
+    let indices = byChunk.get(chunk);
     if (!indices) {
         indices = [];
-        opaque.set(material, indices);
+        byChunk.set(chunk, indices);
     }
     indices.push(a, b, c);
+}
+
+function sameChunks(next: Uint8Array | undefined, previous: Uint8Array | undefined): boolean {
+    if (!next || !previous) return next === previous;
+    return next.every((value, chunk) => value === previous[chunk]);
+}
+
+/** Adds the visible opaque ranges, merging adjacent ranges of one material, and returns the opaque prefix length. */
+function addOpaqueGroups(geometry: THREE.BufferGeometry, groups: MeshSurface["opaqueGroups"], visible: Uint8Array | undefined): number {
+    let previous: THREE.BufferGeometry["groups"][number] | undefined;
+    let count = 0;
+    for (const group of groups) {
+        count += group.count;
+        if (visible && !visible[group.chunk]) continue;
+        if (previous && previous.materialIndex === group.materialIndex && previous.start + previous.count === group.start) previous.count += group.count;
+        else {
+            geometry.addGroup(group.start, group.count, group.materialIndex);
+            previous = geometry.groups.at(-1);
+        }
+    }
+    return count;
+}
+
+/** Copies a posed range into the drawn geometry and recomputes its flat normals there, uploading only that range. */
+function writeDrawnPose(drawn: THREE.BufferGeometry, positions: THREE.BufferAttribute, colors: THREE.BufferAttribute, source: number, target: number, count: number): void {
+    const drawnPositions = drawn.getAttribute("position") as THREE.BufferAttribute;
+    const drawnColors = drawn.getAttribute("color") as THREE.BufferAttribute;
+    const normals = drawn.getAttribute("normal") as THREE.BufferAttribute;
+    if (drawn.getAttribute("position") !== positions) {
+        drawnPositions.array.set(positions.array.subarray(source * 3, (source + count) * 3), target * 3);
+        drawnColors.array.set(colors.array.subarray(source * 4, (source + count) * 4), target * 4);
+    }
+    drawnPositions.addUpdateRange(target * 3, count * 3);
+    drawnColors.addUpdateRange(target * 4, count * 4);
+    normals.addUpdateRange(target * 3, count * 3);
+    writeTriangleNormals(drawnPositions, normals, target, target + count);
+}
+
+/** The bounding sphere of a vertex range at rest, grown for animation. */
+function vertexRangeSphere(positions: ArrayLike<number>, start: number, count: number): THREE.Sphere {
+    const box = new THREE.Box3(), point = new THREE.Vector3();
+    for (let vertex = start; vertex < start + count; vertex++) box.expandByPoint(point.set(positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]));
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    sphere.radius += cullChunkMargin;
+    return sphere;
+}
+
+/** Faces inside the model's animation ranges. */
+function animatedFaces(model: ModelGeometry): Uint8Array | undefined {
+    if (!model.animations?.length) return undefined;
+    const faces = new Uint8Array(model.indices.length / 3);
+    for (const { startVertex, vertexCount } of model.animations) faces.fill(1, startVertex / 3, (startVertex + vertexCount) / 3);
+    return faces;
+}
+
+/** A geometry of the given vertex ranges, with their attributes and face data. Map geometry is unindexed: face `n` is vertices `3n` to `3n + 2`. */
+function copyVertexRanges(model: ModelGeometry, ranges: readonly ModelAnimationRange[]): ModelGeometry {
+    const count = ranges.reduce((total, range) => total + range.vertexCount, 0);
+    const positions = new Float32Array(count * 3);
+    const rgba = model.vertexRgba && new Float32Array(count * 4);
+    const uvs = model.uvs && new Float32Array(count * 2);
+    const firstTexel = model.firstTexel && new Uint8Array(count);
+    const mapPlanes = model.mapPlanes && new Uint8Array(count);
+    const textureIds: number[] = [], facePriorities: number[] = [];
+    let cursor = 0;
+    for (const { startVertex, vertexCount } of ranges) {
+        for (let value = 0; value < vertexCount * 3; value++) positions[cursor * 3 + value] = model.positions[startVertex * 3 + value];
+        rgba?.set(model.vertexRgba!.subarray(startVertex * 4, (startVertex + vertexCount) * 4), cursor * 4);
+        for (let value = 0; uvs && value < vertexCount * 2; value++) uvs[cursor * 2 + value] = model.uvs![startVertex * 2 + value];
+        for (let vertex = 0; vertex < vertexCount; vertex++) {
+            if (firstTexel) firstTexel[cursor + vertex] = model.firstTexel![startVertex + vertex];
+            if (mapPlanes) mapPlanes[cursor + vertex] = model.mapPlanes![startVertex + vertex];
+        }
+        for (let face = startVertex / 3; face < (startVertex + vertexCount) / 3; face++) {
+            textureIds.push(model.textureIds?.[face] ?? -1);
+            facePriorities.push(model.facePriorities?.[face] ?? 0);
+        }
+        cursor += vertexCount;
+    }
+    const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
+    for (let index = 0; index < count; index++) indices[index] = index;
+    return { preparedLighting: model.preparedLighting, positions, indices, vertexRgba: rgba, uvs, firstTexel, mapPlanes, textureIds, facePriorities };
+}
+
+/** The draw calls the opaque ranges of the visible chunks need once adjacent ranges of one material merge. */
+function opaqueRuns(groups: MeshSurface["opaqueGroups"], visible?: Uint8Array): number {
+    let runs = 0;
+    let end = -1, material = -1;
+    for (const group of groups) {
+        if (visible && !visible[group.chunk]) continue;
+        if (group.start !== end || group.materialIndex !== material) runs++;
+        end = group.start + group.count;
+        material = group.materialIndex;
+    }
+    return runs;
+}
+
+/** Groups faces into square ground chunks by their first vertex and collects each chunk's bounds. */
+class SurfaceChunks {
+    private readonly bounds = new Map<number, THREE.Box3>();
+    private readonly point = new THREE.Vector3();
+
+    constructor(private readonly positions: ModelGeometry["positions"]) {}
+
+    /** The chunk key of a face; keys are only ordered by `finish`. */
+    add(a: number, b: number, c: number): number {
+        const positions = this.positions;
+        const key = Math.floor(positions[a * 3] / cullChunkSize) * 65536 + Math.floor(positions[a * 3 + 2] / cullChunkSize);
+        let box = this.bounds.get(key);
+        if (!box) {
+            box = new THREE.Box3();
+            this.bounds.set(key, box);
+        }
+        for (const vertex of [a, b, c]) box.expandByPoint(this.point.set(positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]));
+        return key;
+    }
+
+    /** Numbers the chunks in row order, so chunks in view tend to be adjacent in each material's ranges, and stores their bounds. */
+    finish(surface: MeshSurface): Map<number, number> {
+        const keys = [...this.bounds.keys()].sort((left, right) => (left % 65536) - (right % 65536) || left - right);
+        surface.chunks = keys.map(key => this.bounds.get(key)!.expandByScalar(cullChunkMargin));
+        return new Map(keys.map((key, chunk) => [key, chunk]));
+    }
 }
 
 function surfaceColorSize(model: ModelGeometry): number {
@@ -1401,7 +1785,7 @@ function writeColors(colors: THREE.BufferAttribute | THREE.InterleavedBufferAttr
     colors.needsUpdate = true;
 }
 
-function channel(values: readonly number[] | undefined, index: number): number {
+function channel(values: ArrayLike<number> | undefined, index: number): number {
     return values?.[index] ?? 1;
 }
 
@@ -1440,7 +1824,7 @@ function colorAttribute(model: ModelGeometry): THREE.BufferAttribute | undefined
     return model.colors ? new THREE.Float32BufferAttribute(model.colors, 3) : undefined;
 }
 
-function colorsWithOpacity(model: ModelGeometry, opacities: readonly number[]): Float32Array {
+function colorsWithOpacity(model: ModelGeometry, opacities: ArrayLike<number>): Float32Array {
     const rgba = new Float32Array(opacities.length * 4);
     const colors = model.colors;
     for (let vertex = 0; vertex < opacities.length; vertex++) {
@@ -1450,12 +1834,17 @@ function colorsWithOpacity(model: ModelGeometry, opacities: readonly number[]): 
     return rgba;
 }
 
-/** The closest face that is not fully transparent, since invisible surfaces must not block a pick. */
-function visibleHit(ray: THREE.Raycaster, surface: MeshSurface): SurfaceHit[] {
+/** Faces under the ray, nearest first, except fully transparent ones and see-through planes, which must not block a pick. */
+function pickableHits(ray: THREE.Raycaster, surface: MeshSurface, focus: PlaneFocus): SurfaceHit[] {
     if (!surface.mesh?.visible) return [];
     const shown = vertexVisibility(surface.currentModel);
-    const hit = ray.intersectObject(surface.mesh, false).find(({ face }) => face && (shown(face.a) || shown(face.b) || shown(face.c)));
-    return hit?.face ? [{ surface, vertex: hit.face.a, x: hit.point.x, z: hit.point.z, distance: hit.distance }] : [];
+    const planes = surface.currentModel?.mapPlanes;
+    const passesThrough = (plane: number | undefined) => plane !== undefined && plane < 4 && (focus.ghosted.has(plane) || focus.hidden.has(plane));
+    return ray.intersectObject(surface.mesh, false).flatMap(({ face, point, distance }) => {
+        if (!face || !(shown(face.a) || shown(face.b) || shown(face.c))) return [];
+        const plane = planes?.[face.a];
+        return passesThrough(plane) ? [] : [{ surface, vertex: face.a, plane, x: point.x, z: point.z, distance }];
+    });
 }
 
 function vertexVisibility(model: ModelGeometry | undefined): (vertex: number) => boolean {

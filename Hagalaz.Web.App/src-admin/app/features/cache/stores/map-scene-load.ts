@@ -27,6 +27,9 @@ function addModelTextures(part: GetModelDto, textures: Set<number>): void {
     }
 }
 
+/** Milliseconds between progressive publications for each selected region. */
+const publicationInterval = 250;
+
 export interface MapSceneState {
     regions: MapRenderRegion[];
     appearances: Map<string, ObjectRenderAppearance>;
@@ -183,12 +186,22 @@ export class MapSceneLoad {
     private interest(): { placements: Map<string, MapPlacement>; textures: Set<number>; environment: number[] } {
         const placements = new Map<string, MapPlacement>();
         const textures = new Set<number>(this.visibility.previewTextures);
-        for (const region of this.regionList) this.floorTextures(region, textures);
+        // Requests follow insertion order, so the focused plane's floors and objects load before the others.
+        const rank = this.planeRank();
+        const levels = [...this.visibility.planes.keys()].filter(level => this.visibility.planes[level]).sort((left, right) => rank(left) - rank(right));
+        for (const level of levels) for (const region of this.regionList) this.floorTextures(region, level, textures);
         const environment = this.anchorEnvironmentFaces();
         if (!this.visibility.landscape) return { placements, textures, environment };
-        const visible = this.regionList.flatMap(region => region.objects.filter(placement => this.visibility.planes[placement.plane]));
+        const visible = this.regionList.flatMap(region => region.objects.filter(placement => this.visibility.planes[placement.plane]))
+            .sort((left, right) => rank(left.plane) - rank(right.plane));
         for (const placement of [...visible, ...(this.visibility.previewPlacements ?? [])]) this.addInterest(placement, placements, textures);
         return { placements, textures, environment };
+    }
+
+    /** Distance from the focused plane; underwater terrain sits just below plane 0. */
+    private planeRank(): (plane: number) => number {
+        const focus = this.visibility.focusPlane ?? 0;
+        return plane => Math.abs((plane === underwaterPlaneIndex ? -1 : plane) - focus);
     }
 
     /** Records the first placement of each appearance together with the textures that appearance needs. */
@@ -204,13 +217,12 @@ export class MapSceneLoad {
         return this.regions.get(this.request.id)?.atmosphere?.environmentFaces ?? [];
     }
 
-    private floorTextures(region: MapRenderRegion, textures: Set<number>): void {
+    private floorTextures(region: MapRenderRegion, level: number, textures: Set<number>): void {
+        const plane = region.planes[level];
+        if (!plane) return;
         const floors = new Set<string>();
-        region.planes.forEach((plane, level) => {
-            if (!this.visibility.planes[level]) return;
-            for (const id of plane.underlays) floors.add(`false:${id}`);
-            for (const id of plane.overlays) floors.add(`true:${id}`);
-        });
+        for (const id of plane.underlays) floors.add(`false:${id}`);
+        for (const id of plane.overlays) floors.add(`true:${id}`);
         for (const floor of region.floors) if (floors.has(`${floor.overlay}:${floor.id}`) && floor.textureId >= 0) textures.add(floor.textureId);
     }
 
@@ -369,7 +381,9 @@ export class MapSceneLoad {
         this.publication ??= setTimeout(() => {
             this.publication = undefined;
             this.flush();
-        }, 250);
+        // Each publication rebuilds the whole scene, which takes far longer for nine regions than for one; publishing as often
+        // left large selections rebuilding back to back and churning gigabytes of geometry.
+        }, publicationInterval * Math.max(1, this.ids.length));
     }
 
     private isLoading(): boolean {

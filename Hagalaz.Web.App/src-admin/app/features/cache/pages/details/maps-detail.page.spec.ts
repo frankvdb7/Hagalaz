@@ -15,6 +15,8 @@ import { CachePendingChangesService } from "../../cache-pending-changes.service"
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
 import { MapViewportComponent } from "../map-viewport.component";
+import { MapPlaneMenusComponent } from "../map-plane-menus.component";
+import type { MatMenu } from "@angular/material/menu";
 import { projectileObjectRgb, walkableRgb } from "../map-walkability";
 import { MapsDetailPageComponent } from "./maps-detail.page";
 import { CacheObjectsService } from "../../services/cache-objects.service";
@@ -48,7 +50,7 @@ describe("MapsDetailPageComponent", () => {
         const viewport = required(harness.routeDebugElement, "the routed page").query(By.directive(MapViewportComponent)).componentInstance as MapViewportComponent;
         const placement = page.store.regions()[0].objects[0];
         page.selectedObject.set({ regionId: 258, placement, startVertex: 0, endVertex: 0 });
-        expect(page.planes()[1]).toBe(false);
+        page.togglePlane(1, false);
 
         viewport.objectGizmo.emit({ x: 5, y: 6, plane: 1, turns: 2, scale: 1.5 });
 
@@ -163,6 +165,73 @@ describe("MapsDetailPageComponent", () => {
         };
         const flushFloors = () => http.expectOne(`${base}floors`).flush([{ id: 2, overlay: false, rgb: 1, textureId: -1, secondaryRgb: null, textureScale: 512 }]);
 
+        it("draws all four planes by default and keeps them visible and unchanged while the active plane changes", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            const root = required(harness.routeNativeElement, "the routed page");
+            const status = () => root.querySelector("cache-map-plane-stack .summary")?.textContent ?? "";
+            expect(page.planes()).toEqual([true, true, true, true]);
+            const geometry = page.scene().geometry;
+            expect(status()).toBe("Plane 0 active");
+
+            page.activePlane.set(2);
+            harness.detectChanges();
+            expect(page.planes()).toEqual([true, true, true, true]);
+            expect(page.scene().geometry).toBe(geometry);
+            expect(viewport.activePlane()).toBe(2);
+            expect(viewport.ghostedPlanes()).toEqual([]);
+            expect(status()).toContain("Plane 2 active");
+            expect(page.combinedView()).toBe(true);
+
+            viewport.tilePick.emit({ x: 550, z: 700, plane: 2 });
+            harness.detectChanges();
+            const row = Array.from(root.querySelectorAll("cache-map-region-details dt")).find(cell => cell.textContent?.trim() === "Plane");
+            expect(row?.nextElementSibling?.textContent?.trim()).toBe("2 (active)");
+        });
+
+        it("draws planes see-through for presentation only, says so, and resets to the combined view", async () => {
+            const { harness, page, viewport } = await loadTerrain();
+            const root = required(harness.routeNativeElement, "the routed page");
+            const status = () => root.querySelector("cache-map-plane-stack .summary")?.textContent ?? "";
+            const regions = page.store.regions();
+            const geometry = page.scene().geometry;
+            page.walkability.set(true);
+            harness.detectChanges();
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === walkableRgb)).toHaveLength(4 * 4096);
+
+            page.activePlane.set(1);
+            page.cyclePlane(2);
+            page.cyclePlane(3);
+            harness.detectChanges();
+            expect(viewport.ghostedPlanes()).toEqual([2, 3]);
+            expect(page.planes()).toEqual([true, true, true, true]);
+            expect(page.scene().geometry).toBe(geometry);
+            expect(viewport.tileOverlay()?.rgb.filter(rgb => rgb === walkableRgb)).toHaveLength(2 * 4096);
+            expect(status()).toBe("Plane 1 active. Planes 2 and 3 see-through");
+
+            page.togglePlane(0, false);
+            page.cyclePlane(3);
+            harness.detectChanges();
+            expect(status()).toBe("Plane 1 active. Plane 2 see-through. Planes 0 and 3 hidden");
+            expect(page.combinedView()).toBe(false);
+            page.showAllPlanes();
+            harness.detectChanges();
+
+            expect(page.planes()).toEqual([true, true, true, true]);
+            expect(page.ghostedPlanes()).toEqual([]);
+            expect(page.activePlane()).toBe(1);
+            expect(page.combinedView()).toBe(true);
+            expect(page.store.regions()).toBe(regions);
+            http.expectNone(`${base}258/render`);
+        });
+
+        it("places dropped objects on the active plane", async () => {
+            const { page } = await loadTerrain();
+            page.activePlane.set(2);
+            page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
+            page.placeDroppedObject({ id: 99, x: 512, z: 512 });
+            expect(page.edits()?.additions).toEqual([{ regionId: 258, placement: { id: 99, shape: 10, rotation: 0, x: 1, y: 1, plane: 2 } }]);
+        });
+
         it("loads floors and turns the brush on with the terrain tool", async () => {
             const { harness, page, viewport } = await loadTerrain();
             page.chooseTool("terrain");
@@ -261,6 +330,8 @@ describe("MapsDetailPageComponent", () => {
 
         it("keeps walkability off until asked, then follows flag strokes and undo without rebuilding the scene geometry", async () => {
             const { harness, page, viewport } = await loadTerrain();
+            page.planes.set([true, false, false, false]);
+            harness.detectChanges();
             expect(page.walkability()).toBe(false);
             expect(viewport.tileOverlay()).toBeNull();
             const terrain = page.scene().geometry?.terrain;
@@ -391,6 +462,59 @@ describe("MapsDetailPageComponent", () => {
             item.click();
             expect(page.walkability()).toBe(true);
             view.destroy();
+        });
+
+        it("cycles a plane through see-through, hidden and visible when its slab is clicked, leaving the active plane alone", async () => {
+            const { harness, page } = await loadTerrain();
+            const stack = required(required(harness.routeNativeElement, "the routed page").querySelector("cache-map-plane-stack"), "the plane stack");
+            const slab = (plane: number) => required([...stack.querySelectorAll<HTMLButtonElement>("button")].find(button => button.getAttribute("aria-label")?.startsWith(`Plane ${plane}`)), `plane ${plane}`);
+            expect([...stack.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual(["Plane 3, visible", "Plane 2, visible", "Plane 1, visible", "Plane 0, visible, active"]);
+            expect(stack.querySelector(".mat-mdc-icon-button, mat-icon")).toBeNull();
+            const states: unknown[] = [];
+            for (let click = 0; click < 3; click++) {
+                slab(2).click();
+                harness.detectChanges();
+                states.push([slab(2).getAttribute("aria-label"), page.planes()[2], page.ghostedPlanes()]);
+            }
+            expect(states).toEqual([["Plane 2, see-through", true, [2]], ["Plane 2, hidden", false, []], ["Plane 2, visible", true, []]]);
+            expect(page.activePlane()).toBe(0);
+        });
+
+        it("hides and shows a loaded plane through the viewport mask without rebuilding the scene, dropping a selection on it", async () => {
+            const { harness, page, viewport } = await loadTerrain([{ id: 8, shape: 10, rotation: 0, plane: 2, x: 1, y: 1 }]);
+            http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`).flush([{ id: 8, shape: 10, rotation: 0, status: 404, appearance: null }]);
+            harness.detectChanges();
+            const geometry = page.scene().geometry;
+            page.selectObject({ regionId: 258, placement: page.store.regions()[0].objects[0], startVertex: 0, endVertex: 0 });
+            page.cyclePlane(2);
+            page.cyclePlane(2);
+            harness.detectChanges();
+            expect(viewport.hiddenPlanes()).toEqual([2]);
+            expect(page.scene().geometry).toBe(geometry);
+            expect(page.selectedObject()).toBeNull();
+            page.cyclePlane(2);
+            harness.detectChanges();
+            expect(viewport.hiddenPlanes()).toEqual([]);
+            expect(page.scene().geometry).toBe(geometry);
+            http.expectNone(`${base}258/render`);
+        });
+
+        it("chooses the active plane from the layer submenu", async () => {
+            const { harness, page } = await loadTerrain();
+            const menus = required(harness.routeDebugElement, "the routed page").query(By.directive(MapPlaneMenusComponent)).componentInstance as MapPlaneMenusComponent;
+            const items = (menu: MatMenu) => {
+                const view = menu.templateRef.createEmbeddedView({});
+                view.detectChanges();
+                const panel = document.createElement("div");
+                panel.append(...view.rootNodes as Node[]);
+                return { view, buttons: [...panel.querySelectorAll<HTMLButtonElement>("button[mat-menu-item]")] };
+            };
+            const planes = items(menus.activePlaneMenu());
+            expect(planes.buttons.map(button => button.getAttribute("aria-checked"))).toEqual(["true", "false", "false", "false"]);
+            required(planes.buttons[3], "plane 3").click();
+            expect(page.activePlane()).toBe(3);
+            expect(page.planes()).toEqual([true, true, true, true]);
+            planes.view.destroy();
         });
 
         it("saves a flag stroke with the running game world note", async () => {
@@ -809,6 +933,7 @@ describe("MapsDetailPageComponent", () => {
             const selected = { regionId: 258, placement, startVertex: 0, endVertex: 0 };
             page.selectedObject.set(selected);
             page.landscape.set(false);
+            page.planes.set([true, false, false, false]);
             page.selectedAsset.set({ id: 99, name: "Fence", shape: 10 });
             page.placeDroppedObject({ id: 99, x: 512, z: 512 });
             page.changeTransform("plane", 2);
@@ -1015,7 +1140,11 @@ describe("MapsDetailPageComponent", () => {
     it("reports incremental progress and requests a newly visible plane without reloading its region", async () => {
         const harness = await RouterTestingHarness.create();
         const page = await harness.navigateByUrl("/cache/types/maps/258", MapsDetailPageComponent);
+        page.togglePlane(1, false);
+        harness.detectChanges();
         http.expectOne(`${base}258/render`).flush({ ...region(258), objects: [{ id: 8, shape: 10, rotation: 0, plane: 1, x: 0, y: 0 }] });
+        harness.detectChanges();
+        http.expectNone(`${environment.cacheApiUrl}types/objects/render-appearances`);
         page.togglePlane(1, true);
         harness.detectChanges();
         await harness.fixture.whenStable();

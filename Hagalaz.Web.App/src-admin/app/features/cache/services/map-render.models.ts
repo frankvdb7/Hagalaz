@@ -79,7 +79,8 @@ export interface ObjectRenderAppearance {
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }
-export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
+/** `focusPlane` is loaded first, then the planes nearest to it. */
+export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; focusPlane?: number; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
 export interface ObjectCollision {
     sizeX: number;
     sizeY: number;

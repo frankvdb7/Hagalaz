@@ -383,7 +383,10 @@ describe("CacheMapSceneStore", () => {
         const batch = http.expectOne(batchUrl);
         expect(batch.request.body).toEqual([{ id: 1, shape: 10, rotation: 0 }]);
         texture(7);
-        await vi.advanceTimersByTimeAsync(250);
+        // Publications wait 250 ms for each selected region, so two regions publish after 500 ms.
+        await vi.advanceTimersByTimeAsync(499);
+        expect(store.textures().size).toBe(0);
+        await vi.advanceTimersByTimeAsync(1);
         expect(store.textures().size).toBe(1);
         expect(store.appearances().size).toBe(0);
         expect(store.loading()).toBe(true);
@@ -420,6 +423,23 @@ describe("CacheMapSceneStore", () => {
         http.expectNone(() => true);
         expect(store.appearances().size).toBe(2);
         expect(store.loading()).toBe(false);
+    });
+
+    it("requests the focused plane's floors and objects first, then the planes nearest to it", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.setVisibility({ planes: [true, true, true, true], landscape: true, focusPlane: 2 });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        const level = (underlay: number) => ({ cornerHeights: [], flags: [], underlays: [underlay], overlays: [], overlayShapes: [], overlayRotations: [] });
+        source.planes = [level(1), level(2), level(3), level(4)];
+        source.floors = [1, 2, 3, 4].map(id => ({ id, overlay: false, rgb: 1, textureId: 10 + id, textureScale: 512, secondaryRgb: null }));
+        source.objects = [1, 2, 3, 4, 5, 6, 7, 8].map(id => placement(id, (id - 1) % 4));
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+
+        const textures = http.match(request => request.url.startsWith(`${base}textures/`)).map(request => Number(request.request.url.match(/textures\/(\d+)/)?.[1]));
+        expect(textures).toEqual([13, 12, 14, 11]);
+        const batch = http.expectOne(batchUrl);
+        expect(batch.request.body.map((key: MapPlacement) => key.id)).toEqual([3, 7, 2, 4, 6, 8, 1, 5]);
     });
 
     it("bounds batches and concurrency and drops unstarted hidden work during loading", () => {

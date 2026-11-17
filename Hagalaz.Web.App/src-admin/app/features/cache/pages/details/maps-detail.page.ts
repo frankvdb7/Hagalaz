@@ -28,6 +28,8 @@ import { MapLandscapeKeysComponent } from "../map-landscape-keys.component";
 import { MapLoadStatusComponent } from "../map-load-status.component";
 import { MapObjectInspectorComponent } from "../map-object-inspector.component";
 import { MapOverlayLegendComponent, type MapLegendEntry } from "../map-overlay-legend.component";
+import { MapPlaneMenusComponent } from "../map-plane-menus.component";
+import { MapPlaneStackComponent } from "../map-plane-stack.component";
 import { MapRegionDetailsComponent } from "../map-region-details.component";
 import { MapScenePanelComponent } from "../map-scene-panel.component";
 import { collisionPlane, tileFlag, tileFlagOptions } from "../map-tile-flags";
@@ -51,7 +53,7 @@ interface TileSelection { regionId: number; x: number; y: number; plane: number 
 
 @Component({
     selector: "cache-maps-detail-page",
-    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapOverlayLegendComponent, MapLandscapeKeysComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
+    imports: [MatButtonModule, MapObjectInspectorComponent, PortalBreadcrumbDirective, MapViewportComponent, MapOverlayLegendComponent, MapPlaneStackComponent, MapPlaneMenusComponent, MapLandscapeKeysComponent, MapLoadStatusComponent, MapScenePanelComponent, MapAssetPanelComponent, MapRegionDetailsComponent, MapTerrainPanelComponent, MatCardModule, MatDividerModule, MatIconModule, MatMenuModule, MatTabsModule, MatTooltipModule],
     providers: [CacheMapSceneStore, CacheMapsService],
     templateUrl: "./maps-detail.page.html",
     styleUrl: "./maps-detail.page.scss",
@@ -65,7 +67,16 @@ export class MapsDetailPageComponent {
     readonly selection = computed(() => ({ id: this.id() ?? NaN, width: dimension(this.params().get("width")), height: dimension(this.params().get("height")) }));
     readonly selectedIds = computed(() => selectedMapIds(this.selection()));
     readonly selectionKey = computed(() => `${this.selection().id}:${this.selection().width}:${this.selection().height}`);
-    readonly planes = signal([true, false, false, false]);
+    /** Every plane is drawn together by default; hiding one is an explicit choice. */
+    readonly planes = signal([true, true, true, true]);
+    /** The plane being inspected: drop target, ghosting threshold and camera focus. It never changes visibility. */
+    readonly activePlane = signal(0);
+    /** Planes drawn see-through, independent of visibility; a hidden plane comes back opaque. */
+    readonly seeThrough = signal([false, false, false, false]);
+    /** Visible see-through planes. Picks pass through them. */
+    readonly ghostedPlanes = computed(() => [0, 1, 2, 3].filter(plane => this.planes()[plane] && this.seeThrough()[plane]));
+    readonly combinedView = computed(() => this.planes().every(Boolean) && !this.ghostedPlanes().length);
+    readonly hiddenPlanes = computed(() => [0, 1, 2, 3].filter(plane => !this.planes()[plane]));
     readonly landscape = signal(true);
     readonly underwater = signal(true);
     readonly waterSurface = signal(true);
@@ -92,6 +103,11 @@ export class MapsDetailPageComponent {
         hiddenPlacements: this.hiddenPlacements(),
     }));
     private readonly visiblePlanes = computed(() => [...this.planes(), this.underwater()]);
+    /**
+     * The geometry keeps every source plane whose assets have loaded; the viewport hides planes with a shader mask, so showing
+     * or hiding a loaded plane rebuilds nothing. Asset loading still follows `visiblePlanes`.
+     */
+    private readonly scenePlanes = computed(() => [true, true, true, true, this.underwater()]);
     private readonly preparation = linkedSignal(() => { this.selectionKey(); return new MapScenePreparation(); });
     readonly useRegionAtmosphere = signal(true);
     readonly selectedObject = signal<MapObjectRange | null>(null);
@@ -159,7 +175,7 @@ export class MapsDetailPageComponent {
                 { label: "Region", value: String(regionId) },
                 { label: "World tile", value: `${region.regionX * 64 + x}, ${region.regionY * 64 + y}` },
                 { label: "Region tile", value: `${x}, ${y}` },
-                { label: "Plane", value: String(plane) },
+                { label: "Plane", value: plane === this.activePlane() ? `${plane} (active)` : String(plane) },
                 { label: "Height", value: height == null ? "Unavailable" : String(-height) },
                 { label: "Underlay ID", value: String(surface.underlays[index]) },
                 { label: "Overlay ID", value: String(surface.overlays[index]) },
@@ -178,12 +194,11 @@ export class MapsDetailPageComponent {
     readonly brushPoint = signal<MapHoverPoint | null>(null);
     readonly strokePoints = signal<readonly BrushPoint[] | null>(null);
     readonly dropPoint = signal<BrushPoint | null>(null);
-    private readonly dropPlane = computed(() => Math.max(0, this.planes().indexOf(true)));
     /** The tiles a dragged object would cover, one tile until its definition has loaded. */
     readonly dropOutline = computed(() => {
         const point = this.dropPoint();
         const size = this.assetDefinition.hasValue() ? this.assetDefinition.value() : { sizeX: 1, sizeY: 1 };
-        return point && footprintOutline(this.previewRegions(), this.dropPlane(), point, size.sizeX, size.sizeY);
+        return point && footprintOutline(this.previewRegions(), this.activePlane(), point, size.sizeX, size.sizeY);
     });
     readonly strokePreview = computed(() => {
         const points = this.strokePoints();
@@ -211,10 +226,12 @@ export class MapsDetailPageComponent {
     private readonly collision = computed(() => this.walkability()
         ? buildCollisionMap(this.previewRegions(), this.collisionPlacements(), this.collisionDefinitions.value())
         : new Map());
-    /** The overlay is independent of the terrain and object geometry. */
-    readonly walkabilityOverlay = computed(() => this.walkability()
-        ? buildWalkabilityOverlay(this.previewRegions(), this.planes(), this.collision())
-        : null);
+    /** The overlay is independent of the terrain and object geometry, and leaves out ghosted planes so it does not cover the floors below. */
+    readonly walkabilityOverlay = computed(() => {
+        if (!this.walkability()) return null;
+        const ghosted = this.ghostedPlanes();
+        return buildWalkabilityOverlay(this.previewRegions(), this.planes().map((visible, plane) => visible && !ghosted.includes(plane)), this.collision());
+    });
     readonly hoveredTile = computed<HoveredTileReadout | null>(() => {
         const point = this.brushPoint();
         if (!point || point.plane === undefined) return null;
@@ -284,7 +301,7 @@ export class MapsDetailPageComponent {
     });
     readonly regionAtmosphere = computed(() => this.store.regions().find(region => region.id === this.selection().id)?.atmosphere ?? null);
     readonly scene = computed(() => buildMapScene(
-        this.previewRegions(), this.store.appearances(), this.store.textures(), this.visiblePlanes(), this.landscape(), this.preparation(),
+        this.previewRegions(), this.store.appearances(), this.store.textures(), this.scenePlanes(), this.landscape(), this.preparation(),
         this.useRegionAtmosphere() ? this.selection().id : null, this.edits(), this.sceneFilter(), this.store.loading(), this.store.animations(),
     ));
     readonly objectNames = computed(() => {
@@ -320,7 +337,7 @@ export class MapsDetailPageComponent {
     constructor() {
         this.pendingChanges.register({ dirty: () => this.edits() !== undefined, saving: () => this.store.saving() || this.readingRegion() || this.store.worldMapRefreshing() }, inject(DestroyRef));
         effect(() => {
-            const value = { planes: this.visiblePlanes(), landscape: this.landscape(), previewPlacements: this.previewPlacements(), previewTextures: this.previewTextures() };
+            const value = { planes: this.visiblePlanes(), landscape: this.landscape(), focusPlane: this.activePlane(), previewPlacements: this.previewPlacements(), previewTextures: this.previewTextures() };
             untracked(() => this.store.setVisibility(value));
         });
         effect(() => {
@@ -420,7 +437,7 @@ export class MapsDetailPageComponent {
     }
     private placeCatalogObject(asset: ObjectCatalogEntry, regionId: number, x: number, y: number): void {
         if (asset.shape === null) return;
-        const plane = this.dropPlane();
+        const plane = this.activePlane();
         const placement = { id: asset.id, shape: asset.shape, rotation: 0, x, y, plane };
         const added = this.commitEdit(draft => ({
             ...draft,
@@ -562,7 +579,24 @@ export class MapsDetailPageComponent {
         this.resetEdits();
         this.store.load({ ...this.selection(), keys: this.regionKeys() });
     }
-    togglePlane(plane: number, checked: boolean): void { this.planes.update(planes => planes.map((value, index) => index === plane ? checked : value)); }
+    /** Restores the combined view: every plane visible and none ghosted. The active plane and camera stay. */
+    showAllPlanes(): void {
+        this.planes.set([true, true, true, true]);
+        this.seeThrough.set([false, false, false, false]);
+    }
+    /** Visible, then see-through, then hidden, then visible again. */
+    cyclePlane(plane: number): void {
+        if (!this.planes()[plane]) this.togglePlane(plane, true);
+        else if (this.seeThrough()[plane]) this.togglePlane(plane, false);
+        else this.seeThrough.update(planes => planes.map((value, index) => index === plane || value));
+    }
+    togglePlane(plane: number, checked: boolean): void {
+        this.planes.update(planes => planes.map((value, index) => index === plane ? checked : value));
+        if (checked) return;
+        this.seeThrough.update(planes => planes.map((value, index) => index !== plane && value));
+        // The object stays in the geometry, but a hidden plane cannot be selected.
+        if (this.objectTransform()?.plane === plane) this.selectObject(null);
+    }
     private showPlane(plane: number): void { if (!this.planes()[plane]) this.togglePlane(plane, true); }
 }
 

@@ -212,23 +212,58 @@ export interface MapSceneGeometry {
 type SceneObjects = { geometry: MapSceneObjects | null; warnings: string[] };
 type CornerHeights = readonly (number | null)[];
 
-type SceneGeometry = Omit<MapSceneObjects, "uvs" | "animations" | "billboards"> & {
+type SceneGeometry = Omit<MapSceneObjects, "uvs" | "animations" | "billboards" | "positions" | "colors" | "opacities" | "textureIds" | "facePriorities" | "terrainWeights" | "mapPlanes" | "waterDepth"> & {
     animations?: ModelAnimationRange[];
     billboards?: RenderBillboard[];
     placements: MapObjectRange[];
     firstTexelVertices: number[];
-    positions: number[];
-    colors: number[];
-    opacities: number[];
-    uvs: number[];
-    textureIds: number[];
-    facePriorities: number[];
+    positions: GrowableArray<Float32Array>;
+    colors: GrowableArray<Float32Array>;
+    opacities: GrowableArray<Float32Array>;
+    uvs: GrowableArray<Float32Array>;
+    textureIds: GrowableArray<Int32Array>;
+    facePriorities: GrowableArray<Int16Array>;
     preparedLighting: boolean;
     terrainBlends: TerrainBlend[];
-    terrainWeights: number[];
-    mapPlanes: number[];
-    waterDepth?: number[];
+    terrainWeights: GrowableArray<Float32Array>;
+    mapPlanes: GrowableArray<Uint8Array>;
+    waterDepth?: GrowableArray<Float32Array>;
 };
+
+/**
+ * A typed array that grows as values are appended. Map geometry has millions of values per attribute; plain number arrays
+ * took eight bytes per value and doubled again while growing, which exhausted the heap for large selections.
+ */
+class GrowableArray<T extends Float32Array | Int32Array | Int16Array | Uint8Array> {
+    private array: T;
+    length = 0;
+
+    constructor(private readonly create: (length: number) => T) {
+        this.array = create(1024);
+    }
+
+    push(...values: number[]): void {
+        const length = this.length + values.length;
+        if (length > this.array.length) {
+            const grown = this.create(Math.max(length, this.array.length * 2));
+            grown.set(this.array);
+            this.array = grown;
+        }
+        for (let value = 0; value < values.length; value++) this.array[this.length + value] = values[value];
+        this.length = length;
+    }
+
+    at(index: number): number {
+        return this.array[index];
+    }
+
+    /** An exact-size copy, so the spare capacity can be released. */
+    finish(): T {
+        return this.array.slice(0, this.length) as T;
+    }
+}
+
+const floats = (length: number) => new Float32Array(length);
 type SceneContext = {
     regions: readonly MapRenderRegion[];
     hasUnderwater: boolean;
@@ -263,21 +298,22 @@ interface PlacementProjection {
 }
 
 interface PreparedMapPart {
-    positions: Float64Array;
+    /** Single precision, which the renderer's buffers hold anyway, halves the prepared-part cache and the pose budget's use. */
+    positions: Float32Array;
     positionIndices?: Uint16Array | Uint32Array;
     indices: Uint16Array | Uint32Array;
-    colors?: Float64Array;
-    opacities?: Float64Array;
-    uvs?: Float64Array;
+    colors?: Float32Array;
+    opacities?: Float32Array;
+    uvs?: Float32Array;
     textureIds?: Int32Array;
     firstTexel?: Uint8Array;
-    facePriorities?: readonly number[];
+    facePriorities?: readonly number[] | Int16Array;
     maxHeight: number;
     billboards?: readonly RenderBillboard[];
 }
 
 // Limit retained frame arrays across the landscape, regardless of clip size or placement count.
-const maxCachedPoseBytes = 16 * 1024 * 1024;
+const maxCachedPoseBytes = 32 * 1024 * 1024;
 
 function animatePart(model: GetModelDto, base: PreparedMapPart, clip: MapObjectClip, { textures, atmosphere, poseBudget }: SceneContext) {
     const sample = mapAnimationTimeline(clip);
@@ -315,18 +351,18 @@ function animatedPartBytes(part: PreparedMapPart): number {
 
 /** Posing changes coordinates and shading. The base part still owns topology, UVs and materials. */
 function packAnimatedPart(base: PreparedMapPart, prepared: ModelGeometry): PreparedMapPart {
-    const positions = new Float64Array(base.positions.length);
+    const positions = new Float32Array(base.positions.length);
     for (let vertex = 0; vertex < prepared.positions.length / 3; vertex++) {
         const target = (base.positionIndices?.[vertex] ?? vertex) * 3;
         for (let axis = 0; axis < 3; axis++) positions[target + axis] = prepared.positions[vertex * 3 + axis];
     }
     let maxHeight = 1;
     for (let coordinate = 1; coordinate < positions.length; coordinate += 3) maxHeight = Math.max(maxHeight, positions[coordinate]);
-    return { ...base, positions, maxHeight, colors: prepared.colors && Float64Array.from(prepared.colors), opacities: prepared.opacities && Float64Array.from(prepared.opacities), billboards: prepared.billboards };
+    return { ...base, positions, maxHeight, colors: prepared.colors && Float32Array.from(prepared.colors), opacities: prepared.opacities && Float32Array.from(prepared.opacities), billboards: prepared.billboards };
 }
 
 function packPartPositions(source: Pick<CacheModelGeometry, "positions" | "indices" | "faceColors">, prepared: ModelGeometry): Pick<PreparedMapPart, "positions" | "positionIndices"> {
-    let positions: Float64Array;
+    let positions: Float32Array;
     let positionIndices: PreparedMapPart["positionIndices"];
     if (source.faceColors && source.positions.length < prepared.positions.length) {
         const vertexCount = source.positions.length / 3;
@@ -345,9 +381,9 @@ function packPartPositions(source: Pick<CacheModelGeometry, "positions" | "indic
                 mapping[expandedVertex++] = remap[original];
             }
         }
-        positions = Float64Array.from(compact);
+        positions = Float32Array.from(compact);
         positionIndices = mapping;
-    } else positions = Float64Array.from(prepared.positions);
+    } else positions = Float32Array.from(prepared.positions);
     return { positions, positionIndices };
 }
 
@@ -358,9 +394,9 @@ function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | 
     const indices = prepared.positions.length / 3 <= 65536 ? Uint16Array.from(prepared.indices) : Uint32Array.from(prepared.indices);
     return {
         positions, positionIndices, indices, maxHeight,
-        colors: prepared.colors && Float64Array.from(prepared.colors),
-        opacities: prepared.opacities && Float64Array.from(prepared.opacities),
-        uvs: prepared.uvs && Float64Array.from(prepared.uvs),
+        colors: prepared.colors && Float32Array.from(prepared.colors),
+        opacities: prepared.opacities && Float32Array.from(prepared.opacities),
+        uvs: prepared.uvs && Float32Array.from(prepared.uvs),
         textureIds: prepared.textureIds && Int32Array.from(prepared.textureIds),
         firstTexel: prepared.firstTexel && Uint8Array.from(prepared.firstTexel),
         facePriorities: prepared.facePriorities,
@@ -371,7 +407,7 @@ function packMapPart(source: Pick<CacheModelGeometry, "positions" | "indices" | 
 /** Selection-scoped reuse; no global model/terrain cache. */
 export class MapScenePreparation {
     private shadows?: ObjectShadowField;
-    private ground?: { inputs: readonly unknown[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: SceneGeometry };
+    private ground?: { inputs: readonly unknown[]; planes: string; modes: string[]; atmosphere?: MapAtmosphere; geometry: ModelGeometry };
     private sampling?: { regions: readonly MapRenderRegion[]; sample: ReturnType<typeof terrainSampler> };
     private readonly models = new WeakMap<ObjectRenderAppearance, { dependencies: { id: number; prepared: boolean }[]; modes: string[]; atmosphere?: MapAtmosphere; parts: PreparedMapPart[] }>();
     private objects?: { inputs: readonly unknown[]; heights: readonly CornerHeights[]; result: SceneObjects };
@@ -383,7 +419,7 @@ export class MapScenePreparation {
         return this.shadows;
     }
 
-    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], filter: MapSceneFilter, atmosphere: MapAtmosphere | undefined, shadows: string, build: () => SceneGeometry): SceneGeometry {
+    terrain(regions: readonly MapRenderRegion[], textures: ReadonlyMap<number, ModelTexture>, planes: readonly boolean[], filter: MapSceneFilter, atmosphere: MapAtmosphere | undefined, shadows: string, build: () => ModelGeometry): ModelGeometry {
         const modes = regions.flatMap(region => region.floors.map(floor => {
             const texture = textures.get(floor.textureId);
             return `${texture?.alphaMode ?? 0}:${texture?.effectId ?? 0}`;
@@ -463,24 +499,49 @@ function sameValues<T>(left: readonly T[], right: readonly T[]): boolean {
 }
 
 function emptySceneGeometry(): SceneGeometry {
-    return { placements: [], firstTexelVertices: [], positions: [], indices: [], colors: [], opacities: [], uvs: [], textureIds: [], facePriorities: [], preparedLighting: true, terrainBlends: [], terrainWeights: [], mapPlanes: [] };
+    return {
+        placements: [], firstTexelVertices: [], positions: new GrowableArray(floats), indices: [], colors: new GrowableArray(floats),
+        opacities: new GrowableArray(floats), uvs: new GrowableArray(floats), textureIds: new GrowableArray(length => new Int32Array(length)),
+        facePriorities: new GrowableArray(length => new Int16Array(length)), preparedLighting: true, terrainBlends: [],
+        terrainWeights: new GrowableArray(floats), mapPlanes: new GrowableArray(length => new Uint8Array(length)),
+    };
+}
+
+/** The attributes both surfaces share, as exact-size typed arrays. */
+function finishedAttributes({ positions, textureIds, facePriorities, mapPlanes }: SceneGeometry) {
+    return { positions: positions.finish(), textureIds: textureIds.finish(), facePriorities: facePriorities.finish(), mapPlanes: mapPlanes.finish() };
 }
 
 function buildObjects(context: SceneContext, draft: MapSceneDraft | undefined): SceneObjects {
     context.geometry = emptySceneGeometry();
     addLandscape(context, draft);
-    const { firstTexelVertices, colors, opacities, uvs, ...attributes } = context.geometry;
-    const firstTexel = firstTexelVertices.length ? new Uint8Array(opacities.length) : undefined;
+    const geometry = context.geometry;
+    const { firstTexelVertices, colors, opacities } = geometry;
+    const vertices = opacities.length;
+    const firstTexel = firstTexelVertices.length ? new Uint8Array(vertices) : undefined;
     if (firstTexel) for (const vertex of firstTexelVertices) firstTexel[vertex] = 1;
-    const vertexRgba = new Float32Array(opacities.length * 4);
-    for (let vertex = 0; vertex < opacities.length; vertex++) {
+    const vertexRgba = new Float32Array(vertices * 4);
+    for (let vertex = 0; vertex < vertices; vertex++) {
         const rgb = vertex * 3, rgba = vertex * 4;
-        vertexRgba[rgba] = colors[rgb];
-        vertexRgba[rgba + 1] = colors[rgb + 1];
-        vertexRgba[rgba + 2] = colors[rgb + 2];
-        vertexRgba[rgba + 3] = opacities[vertex];
+        vertexRgba[rgba] = colors.at(rgb);
+        vertexRgba[rgba + 1] = colors.at(rgb + 1);
+        vertexRgba[rgba + 2] = colors.at(rgb + 2);
+        vertexRgba[rgba + 3] = opacities.at(vertex);
     }
-    return { geometry: { ...attributes, indices: sequentialIndices(opacities.length), firstTexel, vertexRgba, uvs: Float32Array.from(uvs) }, warnings: [...context.warnings] };
+    return { geometry: {
+        placements: geometry.placements, animations: geometry.animations, billboards: geometry.billboards,
+        preparedLighting: geometry.preparedLighting, terrainBlends: geometry.terrainBlends, ...finishedAttributes(geometry),
+        indices: sequentialIndices(vertices), firstTexel, vertexRgba, uvs: geometry.uvs.finish(),
+    }, warnings: [...context.warnings] };
+}
+
+function finishTerrain(geometry: SceneGeometry): ModelGeometry {
+    const vertices = geometry.opacities.length;
+    return {
+        preparedLighting: geometry.preparedLighting, terrainBlends: geometry.terrainBlends, ...finishedAttributes(geometry),
+        indices: sequentialIndices(vertices), colors: geometry.colors.finish(), opacities: geometry.opacities.finish(), uvs: geometry.uvs.finish(),
+        terrainWeights: geometry.terrainWeights.finish(), waterDepth: geometry.waterDepth?.finish(),
+    };
 }
 
 /** Moves only the objects on changed ground. Null means an object's vertices changed, so a full build is needed. */
@@ -498,7 +559,7 @@ function refitObjects(context: SceneContext, draft: MapSceneDraft | undefined, p
         addVisiblePlacement(context, region, range.placement, prepared, draft);
         const fresh = context.geometry.positions;
         if (fresh.length !== (range.endVertex - range.startVertex) * 3) return null;
-        for (let value = 0; value < fresh.length; value++) positions[range.startVertex * 3 + value] = fresh[value];
+        for (let value = 0; value < fresh.length; value++) positions[range.startVertex * 3 + value] = fresh.at(value);
         ranges.push([range.startVertex, range.endVertex]);
     }
     if (!ranges.length) return previous;
@@ -526,7 +587,7 @@ function atmosphereLightTint(atmosphere: MapAtmosphere | undefined): number[] | 
     });
 }
 
-function finishMapScene(terrain: SceneGeometry, objects: SceneObjects): { geometry: MapSceneGeometry | null; warnings: string[] } {
+function finishMapScene(terrain: ModelGeometry, objects: SceneObjects): { geometry: MapSceneGeometry | null; warnings: string[] } {
     const drawnTerrain = terrain.positions.length ? terrain : null;
     const drawnObjects = objects.geometry?.positions.length ? objects.geometry : null;
     if (!drawnTerrain && !drawnObjects) return { geometry: null, warnings: objects.warnings };
@@ -581,10 +642,9 @@ export function buildMapScene(
         lightTint,
     };
     const terrain = preparation.terrain(regions, textures, visiblePlanes, filter, atmosphere, shadows.signature, () => {
-        context.geometry.waterDepth = [];
+        context.geometry.waterDepth = new GrowableArray(floats);
         if (filter.terrain) addTerrain(context);
-        context.geometry.indices = sequentialIndices(context.geometry.opacities.length);
-        return context.geometry;
+        return finishTerrain(context.geometry);
     });
     const objects = landscape
         ? preparation.landscape(regions, visiblePlanes, appearances, textures, atmosphere, draft, filter, clips, () => buildObjects(context, draft), (previous, changed) => refitObjects(context, draft, previous, changed))
@@ -895,6 +955,7 @@ function placementAnimation(
     return {
         startVertex,
         vertexCount: basePart.indices.length,
+        plane: placement.placement.plane,
         alphaFaces: animation.alphaFaces,
         startBillboard: basePart.billboards?.length ? startBillboard : undefined,
         billboardCount: basePart.billboards?.length,

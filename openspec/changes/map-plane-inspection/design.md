@@ -1,0 +1,28 @@
+# Design
+
+## Context
+
+Terrain and object vertices already carry a `mapPlane` attribute, 0 to 3 for source planes and 4 for underwater terrain. `MapLightMaterial` wraps every map material program to read that attribute for point lights. The Maps detail page owns plane visibility and passes the visible planes to `buildMapScene`. The viewport converts clicks into picks against `ModelScene`.
+
+## Goals / Non-Goals
+
+Keep visibility, see-through planes, the active plane, and the camera as independent states. See-through is a presentation and pick filter only. Persistence, roof automation, and collision overlays are out of scope.
+
+## Decisions
+
+- **State owners.** The page owns visibility (`planes`), `seeThrough`, and `activePlane`, because it already owns visibility and the drop target. Stacked plane slabs float under the orientation gizmo with no container: each click moves a plane from visible to see-through to hidden and back, and the slabs mark the active plane. Hiding a plane clears its see-through flag, so it returns opaque. They show state visually, with a screen-reader summary instead of a text label, so they never cover the gizmo. The active plane and reset live in the Layers menu. The viewport forwards the active plane and the visible see-through planes to the scene and owns the transient pick-overlap note. `ModelScene` stores the current focus for drawing and picking.
+- **Shader uniforms, not geometry.** See-through extends the existing `MapLightMaterial` wrapper with one shared plane-mask uniform and a fragment `discard`. The wrapper already reads `mapPlane` for every map program. Toggling changes only uniform values, so it creates no materials, programs, or buffers. A rebuild would change geometry and would duplicate the visibility path.
+- **Screen-door see-through.** See-through planes keep one pixel in four. Hiding a plane uses the existing visibility path instead of a cutaway mode. The surfaces stay opaque and depth-writing, so transparent sorting and duplicate translucent materials are not needed. Underwater terrain (plane 4) is below every plane, so it is never affected.
+- **Picking.** Pick filtering uses the same rule as the shader. Faces on see-through planes are skipped for object picks, terrain picks, and hover. `pickPlanes` lists the planes under the pointer from nearest to farthest. When a click selects geometry on an opaque plane above the active plane, the viewport explains which plane covered the active plane and how to make it see-through, instead of silently selecting the upper floor.
+- **Scene highlight.** The map grid is drawn only on the active plane's terrain. It is rebuilt only when the active plane or terrain changes, not when see-through planes change. With all planes visible, the grid shows which floor is being inspected.
+- **Camera.** "Focus plane N" centres the orbit target on the active plane's vertex bounds and keeps the camera offset. Changing the active plane does not move the camera.
+- **Overlays.** The walkability overlay leaves out see-through planes so that it does not cover the floors below them.
+- **Load order.** The page passes the active plane to the loader as `focusPlane`. The loader already requests work in insertion order with bounded batches, so sorting floor levels and placements by distance from that plane loads the inspected floor first. It adds no requests or batching, and progress counts are unchanged.
+- **Hiding without rebuilds.** The scene geometry keeps every source plane whose assets have loaded, and hidden planes are a second shader mask that picks also pass. Showing or hiding a loaded plane therefore costs one frame instead of rebuilding millions of vertices; asset loading still follows visibility. Hidden planes skip animation posing, and showing one resumes it. Selecting an object on a hidden plane is cleared.
+- **Performance with all planes.** Measured on Lumbridge (region 12850, about 2.7M object vertices, 131k translucent faces), frames took 84–96 ms. Per-face translucent sorting split the objects into about 18,000 draw calls, and every object-animation tick re-sorted all faces and re-uploaded the whole index buffer. Translucent faces now sort in depth slabs that grow at 2% of camera distance and are grouped by material within a slab (about 1,200 draw calls). Re-sorts happen only after a turn of more than a quarter degree, at most every 120 ms with a final re-sort when the interval ends, and re-upload only the translucent index range. Animation poses are cached in single precision with a 32 MB budget. Frames now take about 39 ms while still and 50 ms while orbiting.
+- **Frustum culling.** Map surfaces are split into 16-tile chunks with bounds. Opaque ranges are laid out by material and then by chunk in row order, so chunks in view merge into few draw calls. Each frame, chunks outside the frustum are left out of the translucent ranges, and out of the opaque ranges only when that adds no draw calls, because frames are bound by draw calls more than triangles. On one region most chunks stay in view, so the gain is small. Larger selections are where it should matter, but a 3×3 selection with all planes currently runs out of memory before it finishes loading.
+- **Reset.** "Show all planes" shows all four planes opaque. It leaves the active plane and camera unchanged.
+
+## Risks / Trade-offs
+
+Loading all four planes requests more appearances and textures initially. Existing bounded, progressive loading keeps the scene usable while they arrive. The screen-door pattern looks dotted rather than smoothly translucent, but it keeps one opaque pass and has no sorting artefacts.
