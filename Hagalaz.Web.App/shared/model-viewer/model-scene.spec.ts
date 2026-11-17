@@ -812,6 +812,19 @@ describe("ModelScene resource ownership", () => {
                 expect(map.pickPlanes(320, 180)).toEqual([2, 0]);
             });
 
+            it("hides attachments on hidden planes and fades them on see-through planes", () => {
+                const billboard = { face: 0, textureId: -1, halfWidth: 4, halfHeight: 4, blendMode: 0, depthOffset: 0, x: 0, y: 0, angle: 0, rgb: 0xffffff, opacity: 1 };
+                map.setSceneGeometry({ terrain: null, objects: { ...wide(0, 2), billboards: [billboard] } }, false);
+                const quad = () => lastScene().children.find(child => child instanceof THREE.Mesh && child.geometry instanceof THREE.PlaneGeometry) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+                expect(quad().visible).toBe(true);
+                map.setPlaneFocus(0, [], [2]);
+                expect(quad().visible).toBe(false);
+                map.setPlaneFocus(0, [2], []);
+                expect([quad().visible, quad().material.opacity]).toEqual([true, 0.25]);
+                map.setPlaneFocus(0, [], []);
+                expect(quad().material.opacity).toBe(1);
+            });
+
             it("does not pose animated objects on hidden planes", () => {
                 const sample = vi.fn(() => ({ delay: 20, pose: { positions: new Float32Array(9), rgba: new Float32Array(12).fill(1) } }));
                 map.setSceneGeometry({ terrain: null, objects: { ...wide(0, 2), sourceId: 3, vertexRgba: new Float32Array(12).fill(1),

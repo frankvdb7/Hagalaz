@@ -1007,7 +1007,19 @@ export class ModelScene {
     }
 
     private updateBillboards(): void {
-        if (this.billboards && this.primary.mesh) this.billboards.update(this.primary.mesh.geometry.getAttribute("position") as THREE.BufferAttribute, this.camera);
+        if (this.billboards && this.primary.mesh) this.billboards.update(this.primary.mesh.geometry.getAttribute("position") as THREE.BufferAttribute, this.camera, this.billboardFade());
+    }
+
+    /** Attachments follow their source face's plane: none on a hidden plane, a quarter opacity on a see-through one, like its surface. */
+    private billboardFade(): (face: number) => number {
+        const planes = this.primary.currentModel?.mapPlanes;
+        const { hidden, ghosted } = this.planeFocus;
+        if (!planes || (!hidden.size && !ghosted.size)) return () => 1;
+        return face => {
+            const plane = planes[face * 3];
+            if (hidden.has(plane)) return 0;
+            return ghosted.has(plane) ? 0.25 : 1;
+        };
     }
 
     private writeBillboards({ startBillboard, billboardCount }: ModelAnimationRange, pose?: readonly RenderBillboard[]): void {
