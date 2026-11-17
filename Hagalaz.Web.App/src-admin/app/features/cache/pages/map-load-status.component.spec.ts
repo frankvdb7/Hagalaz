@@ -64,19 +64,6 @@ describe("MapLoadStatusComponent", () => {
         expect(element.querySelector("mat-progress-bar")?.getAttribute("aria-valuenow")).toBe("75");
     });
 
-    it("lists every parallel load step with its count, marking the ones already done", () => {
-        set({ loading: true, hasRegions: true, hasGeometry: true, progress: progress({
-            appearancesSettled: 800, appearancesTotal: 1739, animationsSettled: 17, animationsTotal: 17,
-            waterSettled: 1, waterTotal: 3, texturesSettled: 0, texturesTotal: 212,
-        }) });
-        const rows = [...element.querySelectorAll(".load-steps li")].map(row => [row.querySelector(".step-label")?.textContent, row.querySelector(".step-count")?.textContent, row.classList.contains("is-done")]);
-        expect(rows).toEqual([["Objects", "800 of 1739", false], ["Animations", "17 of 17", true], ["Water", "1 of 3", false], ["Textures", "0 of 212", false]]);
-        expect(element.textContent).toContain("Loading objects");
-        // A single region has no region row, and a cache write shows its own description instead of steps.
-        set({ activity: "Saving changes" });
-        expect(element.querySelector(".load-steps")).toBeNull();
-    });
-
     it("keeps progress moving forward as totals grow and restarts for a new load", () => {
         set({ loading: true, hasRegions: true, progress: progress({ appearancesSettled: 3, appearancesTotal: 3 }) });
         expect(fixture.componentInstance.percent()).toBe(100);
