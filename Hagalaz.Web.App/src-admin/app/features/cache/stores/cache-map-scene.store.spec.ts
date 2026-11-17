@@ -369,6 +369,28 @@ describe("CacheMapSceneStore", () => {
         http.expectNone(`${base}textures/7/image?sourceAlpha=true`);
     });
 
+    it("backs off progressive publications so rebuilds do not starve loading", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = textured(258);
+        source.floors = [7, 8, 9].map(id => ({ id, overlay: false, rgb: 1, textureId: id, textureScale: 512, secondaryRgb: null }));
+        source.planes[0].underlays = [7, 8, 9];
+        source.objects = [placement()];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        // The landscape batch stays pending, so each texture arrival waits for a progressive publication.
+        http.expectOne(batchUrl);
+        const publishedAfter = async (id: number, wait: number) => {
+            texture(id);
+            await vi.advanceTimersByTimeAsync(wait - 1);
+            const before = store.textures().has(id);
+            await vi.advanceTimersByTimeAsync(1);
+            return [before, store.textures().has(id)];
+        };
+        expect(await publishedAfter(7, 250)).toEqual([false, true]);
+        expect(await publishedAfter(8, 500)).toEqual([false, true]);
+        expect(await publishedAfter(9, 1000)).toEqual([false, true]);
+    });
+
     it("publishes a region and its floor textures while another region and landscape batch remain pending", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.load({ id: 258, width: 2, height: 1, keys: { 258: [1, 2, 3, 4] } });
@@ -490,8 +512,8 @@ describe("CacheMapSceneStore", () => {
         source.planes.push({ ...source.planes[0], underlays: [7] });
         store.load({ id: 258, width: 1, height: 1, keys: {} });
         http.expectOne(`${base}types/maps/258/render`).flush(source);
-        const fourth = http.expectOne(`${base}textures/13/image?sourceAlpha=true`);
-        http.expectNone(`${base}textures/14/image?sourceAlpha=true`);
+        // Six concurrent image reads take every visible floor texture; the hidden plane's texture 16 waits.
+        const sixth = http.expectOne(`${base}textures/15/image?sourceAlpha=true`);
         http.expectNone(`${base}textures/16/image?sourceAlpha=true`);
         const object = success(placement());
         http.expectOne(batchUrl).flush([
@@ -517,14 +539,11 @@ describe("CacheMapSceneStore", () => {
         http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(10);
         await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(11);
-        await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(12);
-        fourth.flush(new Blob(["fixture"]), { headers: { "X-Texture-Material": JSON.stringify({ alphaMode: 0 }) } });
+        texture(13);
         texture(14);
-        texture(15);
+        sixth.flush(new Blob(["fixture"]), { headers: { "X-Texture-Material": JSON.stringify({ alphaMode: 0 }) } });
         await vi.advanceTimersByTimeAsync(0);
         texture(100);
         await vi.advanceTimersByTimeAsync(0);

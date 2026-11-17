@@ -27,8 +27,13 @@ function addModelTextures(part: GetModelDto, textures: Set<number>): void {
     }
 }
 
-/** Milliseconds between progressive publications for each selected region. */
+/** Milliseconds before the first progressive publication for each selected region; later ones wait twice as long each time. */
 const publicationInterval = 250;
+/** The longest wait between progressive publications for each selected region. */
+const maxPublicationInterval = 2000;
+/** Concurrent requests for the many small texture and animation reads. */
+const textureConcurrency = 6;
+const animationConcurrency = 6;
 
 export interface MapSceneState {
     regions: MapRenderRegion[];
@@ -77,6 +82,7 @@ export class MapSceneLoad {
     private pumping = false;
     private pumpAgain = false;
     private publication?: ReturnType<typeof setTimeout>;
+    private publications = 0;
     private appearancesDirty = true;
     private publishedAppearances = new Map<string, ObjectRenderAppearance>();
     private publishedTextures = new Map<number, ModelTexture>();
@@ -252,7 +258,7 @@ export class MapSceneLoad {
 
     private loadPendingTextures(textures: Iterable<number>): void {
         for (const id of textures) {
-            if (this.textureRequests >= 4) break;
+            if (this.textureRequests >= textureConcurrency) break;
             if (!this.attemptedTextures.has(id)) this.loadTexture(id);
         }
     }
@@ -278,7 +284,7 @@ export class MapSceneLoad {
 
     private loadPendingAnimations(keys: Iterable<string>): void {
         for (const key of keys) {
-            if (this.animationRequests >= 2) break;
+            if (this.animationRequests >= animationConcurrency) break;
             const id = this.appearances.get(key)?.parts.find(part => part.objectAnimation)?.animationIds?.[0];
             if (id !== undefined && !this.attemptedAnimations.has(id)) this.loadAnimation(id);
         }
@@ -389,12 +395,15 @@ export class MapSceneLoad {
             this.flush();
             return;
         }
+        // Each publication rebuilds the whole scene, which takes far longer for nine regions than for one. Publishing at a fixed
+        // pace left the main thread rebuilding back to back, starving the requests themselves, so the pace backs off: the
+        // first results show quickly and the rest arrive in a few larger steps. The finished load always publishes at once.
+        const interval = Math.min(publicationInterval * 2 ** this.publications, maxPublicationInterval);
         this.publication ??= setTimeout(() => {
             this.publication = undefined;
+            this.publications++;
             this.flush();
-        // Each publication rebuilds the whole scene, which takes far longer for nine regions than for one; publishing as often
-        // left large selections rebuilding back to back and churning gigabytes of geometry.
-        }, publicationInterval * Math.max(1, this.ids.length));
+        }, interval * Math.max(1, this.ids.length));
     }
 
     private isLoading(): boolean {
