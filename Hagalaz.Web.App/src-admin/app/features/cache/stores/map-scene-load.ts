@@ -54,6 +54,8 @@ export const emptyMapProgress = (): MapLoadProgress => ({
     appearancesTotal: 0,
     texturesSettled: 0,
     texturesTotal: 0,
+    animationsSettled: 0,
+    animationsTotal: 0,
     failures: 0,
 });
 
@@ -65,6 +67,7 @@ export class MapSceneLoad {
     private readonly appearances = new Map<string, ObjectRenderAppearance>();
     private animations = new Map<number, MapObjectClip>();
     private readonly attemptedAnimations = new Set<number>();
+    private readonly settledAnimations = new Set<number>();
     private animationRequests = 0;
     private readonly appearanceTextureIds = new WeakMap<ObjectRenderAppearance, readonly number[]>();
     private readonly textures = new Map<number, ModelTexture>();
@@ -285,13 +288,18 @@ export class MapSceneLoad {
     }
 
     private loadPendingAnimations(keys: Iterable<string>): void {
-        const pending = new Set<number>();
+        const ids = [...this.animationIds(keys)].filter(id => !this.attemptedAnimations.has(id));
+        while (this.animationRequests < animationConcurrency && ids.length) this.loadAnimations(ids.splice(0, animationBatchSize));
+    }
+
+    /** The object animations the loaded appearances of these keys play. */
+    private animationIds(keys: Iterable<string>): Set<number> {
+        const ids = new Set<number>();
         for (const key of keys) {
             const id = this.appearances.get(key)?.parts.find(part => part.objectAnimation)?.animationIds?.[0];
-            if (id !== undefined && !this.attemptedAnimations.has(id)) pending.add(id);
+            if (id !== undefined) ids.add(id);
         }
-        const ids = [...pending];
-        while (this.animationRequests < animationConcurrency && ids.length) this.loadAnimations(ids.splice(0, animationBatchSize));
+        return ids;
     }
 
     private loadAppearances(entries: [string, MapPlacement][]): void {
@@ -351,6 +359,7 @@ export class MapSceneLoad {
                 return EMPTY;
             }),
             finalize(() => {
+                for (const id of ids) this.settledAnimations.add(id);
                 this.animationRequests--;
                 this.pump();
             }),
@@ -416,8 +425,13 @@ export class MapSceneLoad {
         }, interval * Math.max(1, this.ids.length));
     }
 
+    private animationProgress(keys: Iterable<string>): { animationsSettled: number; animationsTotal: number } {
+        const ids = this.animationIds(keys);
+        return { animationsSettled: [...ids].filter(id => this.settledAnimations.has(id)).length, animationsTotal: ids.size };
+    }
+
     private isLoading(): boolean {
-        return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0;
+        return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0 || this.animationRequests > 0;
     }
 
     private publishTextures(surface: ReadonlySet<number>, environment: readonly number[]): void {
@@ -457,6 +471,7 @@ export class MapSceneLoad {
                 appearancesTotal: interest.placements.size,
                 texturesSettled: [...requestedTextures].filter((id) => this.settledTextures.has(id)).length,
                 texturesTotal: requestedTextures.size,
+                ...this.animationProgress(interest.placements.keys()),
                 failures: this.failures,
             },
         });

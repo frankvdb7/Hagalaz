@@ -112,6 +112,7 @@ export interface MapLoadProgress {
     regionsSettled: number; regionsTotal: number;
     appearancesSettled: number; appearancesTotal: number;
     texturesSettled: number; texturesTotal: number;
+    animationsSettled: number; animationsTotal: number;
     failures: number;
 }
 // Revision-742 projection planes for the standard 104-tile scene, in scene units.

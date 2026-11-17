@@ -284,7 +284,7 @@ describe("CacheMapSceneStore", () => {
         expect(store.warnings()).toContain("Texture 7: Texture image or material metadata is missing.");
     });
 
-    it("shares clips and duplicate frames without blocking the base scene", () => {
+    it("shares clips and duplicate frames, reporting animation reads as their own load step", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         const objects = [placement(1), placement(2)];
         store.load({ id: 258, width: 1, height: 1, keys: {} });
@@ -293,9 +293,11 @@ describe("CacheMapSceneStore", () => {
             ...success(object),
             appearance: { ...appearance, ...object, parts: [{ animationIds: [42], objectAnimation: { rotation: 0 } }] },
         })));
-
+        // Objects publish at the next progressive step while their animations load.
+        await vi.advanceTimersByTimeAsync(250);
         expect(store.appearances().size).toBe(2);
-        expect(store.loading()).toBe(false);
+        expect(store.loading()).toBe(true);
+        expect(store.progress()).toMatchObject({ animationsSettled: 0, animationsTotal: 1 });
         expect(store.animations().size).toBe(0);
         // One shared clip, read once with its two distinct frames.
         const clips = http.expectOne(`${base}types/animations/clips`);
@@ -304,6 +306,8 @@ describe("CacheMapSceneStore", () => {
         clips.flush([{ id: 42, status: 200, sequence: { frameIds: [6, 5, 6], frameDurations: [1, 2, 3], loop: 2 }, frames: [{ frameId: 6, frame }, { frameId: 5, frame }], problem: null }]);
         expect(store.animations().get(42)?.sequence.frameIds).toEqual([6, 5, 6]);
         expect(store.animations().get(42)?.frames.size).toBe(2);
+        expect(store.loading()).toBe(false);
+        expect(store.progress()).toMatchObject({ animationsSettled: 1, animationsTotal: 1 });
     });
 
     it("keeps a failed animation in the base pose and cancels old frames on selection change", () => {

@@ -9,17 +9,20 @@ import type { MapLoadProgress } from "../services/map-render.models";
 type MapLoadView = "first-load" | "progress" | "failed" | "empty" | "issues" | "none";
 
 /** What the load is waiting for, earliest stage first. */
-export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled, appearancesTotal, texturesSettled, texturesTotal }: MapLoadProgress): { label: string; detail: string | null } {
+export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled, appearancesTotal, texturesSettled, texturesTotal, animationsSettled, animationsTotal }: MapLoadProgress): { label: string; detail: string | null } {
     if (regionsSettled < regionsTotal) return { label: regionsTotal === 1 ? "Loading region" : "Loading regions", detail: regionsTotal > 1 ? `${regionsSettled} of ${regionsTotal}` : null };
     if (appearancesSettled < appearancesTotal) return { label: "Loading objects", detail: `${appearancesSettled} of ${appearancesTotal}` };
+    // Batched animation reads finish before the many single texture reads, so they are reported first.
+    if (animationsSettled < animationsTotal) return { label: "Loading animations", detail: `${animationsSettled} of ${animationsTotal}` };
     if (texturesSettled < texturesTotal) return { label: "Loading textures", detail: `${texturesSettled} of ${texturesTotal}` };
     return { label: "Finishing scene", detail: null };
 }
 
 /** Settled work over the work known so far. */
 export function mapLoadPercent(progress: MapLoadProgress): number {
-    const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal;
-    return total ? Math.floor(((progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled) / total) * 100) : 0;
+    const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal + progress.animationsTotal;
+    const settled = progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled;
+    return total ? Math.floor((settled / total) * 100) : 0;
 }
 
 /** Presents the map scene's loading, writing and read-failure states over the viewport. */

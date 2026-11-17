@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapLoadProgress } from "../services/map-render.models";
 import { MapLoadStatusComponent, mapLoadPercent, mapLoadStage } from "./map-load-status.component";
 
-const progress = (values: Partial<MapLoadProgress> = {}): MapLoadProgress => ({ regionsSettled: 1, regionsTotal: 1, appearancesSettled: 0, appearancesTotal: 0, texturesSettled: 0, texturesTotal: 0, failures: 0, ...values });
+const progress = (values: Partial<MapLoadProgress> = {}): MapLoadProgress => ({ regionsSettled: 1, regionsTotal: 1, appearancesSettled: 0, appearancesTotal: 0, texturesSettled: 0, texturesTotal: 0, animationsSettled: 0, animationsTotal: 0, failures: 0, ...values });
 
 describe("map load stage", () => {
     it.each([
@@ -11,6 +11,7 @@ describe("map load stage", () => {
         [{ regionsSettled: 2, regionsTotal: 9 }, "Loading regions", "2 of 9"],
         [{ appearancesSettled: 3, appearancesTotal: 8 }, "Loading objects", "3 of 8"],
         [{ appearancesSettled: 8, appearancesTotal: 8, texturesSettled: 1, texturesTotal: 4 }, "Loading textures", "1 of 4"],
+        [{ appearancesSettled: 8, appearancesTotal: 8, texturesSettled: 1, texturesTotal: 4, animationsSettled: 2, animationsTotal: 5 }, "Loading animations", "2 of 5"],
         [{}, "Finishing scene", null],
     ])("describes %j", (values, label, detail) => {
         expect(mapLoadStage(progress(values))).toEqual({ label, detail });
@@ -19,6 +20,7 @@ describe("map load stage", () => {
     it("measures settled work over known work", () => {
         expect(mapLoadPercent(progress({ regionsSettled: 0, regionsTotal: 0 }))).toBe(0);
         expect(mapLoadPercent(progress({ appearancesSettled: 1, appearancesTotal: 3 }))).toBe(50);
+        expect(mapLoadPercent(progress({ animationsSettled: 0, animationsTotal: 1 }))).toBe(50);
     });
 });
 
