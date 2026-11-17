@@ -65,12 +65,40 @@ jobs:
       - name: Build
         run: dotnet build Hagalaz.Benchmarks/Hagalaz.Benchmarks.csproj --configuration Release --no-restore --verbosity minimal
 
+      - name: Detect changed benchmark inputs
+        id: changes
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.sha
+        continue-on-error: true
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        with:
+          token: ''
+          base: ${{ github.event.pull_request.base.sha }}
+          predicate-quantifier: some-with-excludes
+          filters: |
+            snapshot:
+              - 'Hagalaz.Cache/CacheApi.cs'
+              - 'Hagalaz.Cache/ArchiveSnapshotCache.cs'
+              - 'Hagalaz.Cache/ArchiveSnapshotLoader.cs'
+              - 'Hagalaz.Cache/Models/ArchiveSnapshot.cs'
+            relevant:
+              - '**'
+              - '!Hagalaz.Cache.Tests/**/*.cs'
+              - '!openspec/changes/**'
+
       - name: Run Benchmarks
-        run: >-
-          dotnet run --configuration Release --project Hagalaz.Benchmarks
-          --no-build --no-restore --
-          --job short --warmupCount 3 --iterationCount 5 --filter "*"
-          --exporters json --artifacts ./BenchmarkDotNet.Artifacts
+        shell: bash
+        env:
+          CACHE_ONLY: ${{ steps.changes.outcome == 'success' && steps.changes.outputs.snapshot == 'true' && steps.changes.outputs.snapshot_count == steps.changes.outputs.relevant_count }}
+        run: |
+          filters=('*')
+          if [[ "$CACHE_ONLY" == 'true' ]]; then
+            filters=('*Cache*Benchmarks*' '*Map*Benchmarks*' '*HagalazBenchmarks.FileStore_*')
+          fi
+          printf 'Selected BenchmarkDotNet filters: %s\n' "${filters[*]}"
+          dotnet run --configuration Release --project Hagalaz.Benchmarks \
+            --no-build --no-restore -- \
+            --job short --warmupCount 3 --iterationCount 5 --filter "${filters[@]}" \
+            --exporters json --artifacts ./BenchmarkDotNet.Artifacts
 
       - name: Diagnose tracked project changes
         if: always()
