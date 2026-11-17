@@ -20,6 +20,23 @@ export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled,
     return { label: "Finishing scene", detail: null };
 }
 
+export interface MapLoadStep { label: string; settled: number; total: number; done: boolean }
+
+/**
+ * Every step of this load that has work, in the order its requests start. Steps run in parallel, so the headline stage alone
+ * hid the ones that finish early, such as animations and water.
+ */
+export function mapLoadSteps(progress: MapLoadProgress): MapLoadStep[] {
+    const steps: [string, number, number][] = [
+        ["Regions", progress.regionsSettled, progress.regionsTotal > 1 ? progress.regionsTotal : 0],
+        ["Objects", progress.appearancesSettled, progress.appearancesTotal],
+        ["Animations", progress.animationsSettled, progress.animationsTotal],
+        ["Water", progress.waterSettled, progress.waterTotal],
+        ["Textures", progress.texturesSettled, progress.texturesTotal],
+    ];
+    return steps.filter(([, , total]) => total > 0).map(([label, settled, total]) => ({ label, settled, total, done: settled >= total }));
+}
+
 /** Settled work over the work known so far. */
 export function mapLoadPercent(progress: MapLoadProgress): number {
     const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal + progress.animationsTotal + progress.waterTotal;
@@ -48,6 +65,17 @@ export function mapLoadPercent(progress: MapLoadProgress): number {
                         @if (progressStatus().detail; as detail) { <span class="supporting-text">{{ detail }}</span> }
                     </div>
                     <mat-progress-bar [mode]="progressStatus().mode" [value]="percent()" aria-label="Map scene progress" />
+                    @if (!activity() && steps().length) {
+                        <ul class="load-steps" aria-label="Load steps">
+                            @for (step of steps(); track step.label) {
+                                <li [class.is-done]="step.done">
+                                    <mat-icon class="step-icon" aria-hidden="true">{{ step.done ? "check_circle" : "radio_button_unchecked" }}</mat-icon>
+                                    <span class="step-label">{{ step.label }}</span>
+                                    <span class="step-count">{{ step.settled }} of {{ step.total }}</span>
+                                </li>
+                            }
+                        </ul>
+                    }
                 </div>
             }
             @case ("failed") {
@@ -99,6 +127,12 @@ export function mapLoadPercent(progress: MapLoadProgress): number {
         .is-delayed .pill-row { white-space: nowrap; }
         .pill-close { margin-block: -8px; margin-inline-end: -8px; }
         .pill-actions { display: flex; justify-content: flex-end; gap: 4px; }
+        .load-steps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; color: var(--mat-sys-on-surface-variant); }
+        .load-steps li { display: flex; align-items: center; gap: 6px; }
+        .step-icon { width: 14px; height: 14px; font-size: 14px; }
+        .is-done .step-icon { color: var(--mat-sys-primary); }
+        .step-label { flex: 1 1 0; }
+        .step-count { font-variant-numeric: tabular-nums; }
         .issue-list { display: grid; gap: 4px; width: 100%; max-height: 8rem; margin: 0; padding: 0; overflow: auto; list-style: none; overflow-wrap: anywhere; text-align: start; color: var(--mat-sys-on-surface-variant); }
         @keyframes map-load-reveal { from { opacity: 0; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) { .is-delayed { animation-duration: 1ms; } }
@@ -118,6 +152,7 @@ export class MapLoadStatusComponent {
     readonly detailsOpen = signal(false);
     readonly dismissed = linkedSignal(() => { this.progress().failures; return false; });
     readonly stage = computed(() => mapLoadStage(this.progress()));
+    readonly steps = computed(() => mapLoadSteps(this.progress()));
     /** A cache write replaces the load stage with its own description and an indeterminate bar. */
     readonly progressStatus = computed(() => {
         const activity = this.activity();
