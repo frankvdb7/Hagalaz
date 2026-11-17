@@ -710,9 +710,7 @@ export class ModelScene {
         const model = surface.currentModel;
         const mesh = surface.mesh;
         const animations = model?.animations;
-        // Ranges skipped as out of view or too small resume as soon as the camera moves.
-        this.camera.updateMatrixWorld();
-        if (animations && this.waitingForObjectAnimation(time) && !(this.animationViewSkipped && !this.animationCamera.equals(this.camera.matrixWorld))) return;
+        if (animations && this.waitingForObjectAnimation(time)) return;
         clearTimeout(this.animationTimer);
         this.animationTimer = undefined;
         if (!animations || !model.vertexRgba || !mesh) return this.resetObjectAnimationTime();
@@ -737,7 +735,10 @@ export class ModelScene {
     }
 
     private waitingForObjectAnimation(time: number): boolean {
-        return this.objectAnimationsEnabled && this.lastObjectAnimationTime !== undefined && time < this.nextObjectAnimationTime;
+        if (!this.objectAnimationsEnabled || this.lastObjectAnimationTime === undefined || time >= this.nextObjectAnimationTime) return false;
+        // Ranges skipped as out of view or too small resume as soon as the camera moves.
+        this.camera.updateMatrixWorld();
+        return !this.animationViewSkipped || this.animationCamera.equals(this.camera.matrixWorld);
     }
 
     private resetObjectAnimationTime(): void {
@@ -759,49 +760,55 @@ export class ModelScene {
         const positions = geometry.getAttribute("position") as THREE.BufferAttribute;
         const colors = geometry.getAttribute("color") as THREE.BufferAttribute;
         const drawn = this.animated.mesh?.geometry ?? geometry;
-        const offsets = new Map(this.animatedRanges.map(({ range, start }) => [range, start]));
+        const target = this.drawnRangeStart(drawn === geometry);
         const visible = elapsed === null ? undefined : this.animationVisibility(basePositions);
         this.animationViewSkipped = false;
         let next = Infinity;
         let updated = false;
         for (const animation of animations) {
-            const start = animation.startVertex;
-            const end = start + animation.vertexCount;
-            if (elapsed !== null) {
-                // Posing is the costliest part of an animation tick; a hidden plane, or a part off screen or a few pixels
-                // small, has nothing worth posing.
-                if (animation.plane !== undefined && this.planeFocus.hidden.has(animation.plane)) continue;
-                if (visible && !visible(animation)) {
-                    this.animationViewSkipped = true;
-                    continue;
-                }
-                const { delay, pose } = animation.sample(elapsed, this.lastObjectAnimationTime);
-                next = Math.min(next, delay);
-                if (!pose) continue;
-                positions.array.set(pose.positions, start * 3);
-                colors.array.set(pose.rgba, start * 4);
-                this.writeBillboards(animation, pose.billboards);
-            } else {
-                positions.array.set(basePositions.slice(start * 3, end * 3), start * 3);
-                colors.array.set(baseColors.subarray(start * 4, end * 4), start * 4);
-                this.writeBillboards(animation);
-            }
-            const target = drawn === geometry ? start : offsets.get(animation);
-            if (target !== undefined) writeDrawnPose(drawn, positions, colors, start, target, animation.vertexCount);
+            const result = elapsed === null
+                ? this.restoreAnimationRange(animation, positions, colors, basePositions, baseColors)
+                : this.poseAnimationRange(animation, positions, colors, elapsed, visible);
+            next = Math.min(next, result.delay);
+            if (!result.posed) continue;
+            writeDrawnPose(drawn, positions, colors, animation.startVertex, target(animation), animation.vertexCount);
             updated = true;
         }
-        if (updated) {
-            for (const name of ["position", "color", "normal"]) drawn.getAttribute(name).needsUpdate = true;
-            // The renderer recomputes a null bounding sphere every frame to sort objects, which cost large maps most of a frame.
-            // The drawn copy keeps a sphere grown for animation, and the primary geometry no longer draws its animated faces.
-            if (drawn === geometry) {
-                geometry.boundingBox = null;
-                geometry.boundingSphere = null;
-            }
-            // Poses move parts within their depth slab, so the translucent order is left to camera turns. Re-sorting every face
-            // on each tick cost a large map most of its frame.
-        }
+        if (updated) markPoseUploaded(geometry, drawn);
         return next;
+    }
+
+    /** Where a range's vertices sit in the drawn geometry: the same place, or their copy in the animated surface. */
+    private drawnRangeStart(primaryDrawn: boolean): (range: ModelAnimationRange) => number {
+        if (primaryDrawn) return range => range.startVertex;
+        const offsets = new Map(this.animatedRanges.map(({ range, start }) => [range, start]));
+        return range => offsets.get(range) ?? range.startVertex;
+    }
+
+    /** Writes a range's current pose into the primary arrays, unless it is hidden, off screen or too small to be worth posing. */
+    private poseAnimationRange(animation: ModelAnimationRange, positions: THREE.BufferAttribute, colors: THREE.BufferAttribute, elapsed: number,
+        visible: ((range: ModelAnimationRange) => boolean) | undefined): { delay: number; posed: boolean } {
+        // Posing is the costliest part of an animation tick.
+        if (animation.plane !== undefined && this.planeFocus.hidden.has(animation.plane)) return { delay: Infinity, posed: false };
+        if (visible && !visible(animation)) {
+            this.animationViewSkipped = true;
+            return { delay: Infinity, posed: false };
+        }
+        const { delay, pose } = animation.sample(elapsed, this.lastObjectAnimationTime);
+        if (!pose) return { delay, posed: false };
+        positions.array.set(pose.positions, animation.startVertex * 3);
+        colors.array.set(pose.rgba, animation.startVertex * 4);
+        this.writeBillboards(animation, pose.billboards);
+        return { delay, posed: true };
+    }
+
+    private restoreAnimationRange(animation: ModelAnimationRange, positions: THREE.BufferAttribute, colors: THREE.BufferAttribute,
+        basePositions: readonly number[] | Float32Array, baseColors: Float32Array): { delay: number; posed: boolean } {
+        const start = animation.startVertex, end = start + animation.vertexCount;
+        positions.array.set(basePositions.slice(start * 3, end * 3), start * 3);
+        colors.array.set(baseColors.subarray(start * 4, end * 4), start * 4);
+        this.writeBillboards(animation);
+        return { delay: Infinity, posed: true };
     }
 
     /** Whether an animation range is in view and large enough on screen to be worth posing. */
@@ -1461,20 +1468,14 @@ export class ModelScene {
         for (let start = 0; start < model.indices.length; start += 3) {
             const face = start / 3;
             if (skipped?.[face]) continue;
-            const a = sourceIndices[start];
-            const b = sourceIndices[start + 1];
-            const c = sourceIndices[start + 2];
+            const a = sourceIndices[start], b = sourceIndices[start + 1], c = sourceIndices[start + 2];
             const translucent = isTranslucent(face, a, b, c);
             const textureId = model.textureIds?.[face] ?? -1;
             const material = this.faceMaterial(model, textureIndices, textureId, translucent);
             if (modes.animated.has(textureId)) surface.animatedWater = true;
-            const transparent = translucent || modes.transparent.has(textureId);
             const chunk = chunks.add(a, b, c);
-            if (transparent) {
-                surface.blendedSurfaces.push({ sourceStart: start, material, depth: 0, bin: 0, priority: model.facePriorities?.[face] ?? 0, chunk });
-            } else {
-                appendOpaqueFace(opaque, material, chunk, a, b, c);
-            }
+            if (translucent || modes.transparent.has(textureId)) surface.blendedSurfaces.push(blendedFace(model, start, material, chunk));
+            else appendOpaqueFace(opaque, material, chunk, a, b, c);
         }
     }
 
@@ -1664,30 +1665,44 @@ function animatedFaces(model: ModelGeometry): Uint8Array | undefined {
 /** A geometry of the given vertex ranges, with their attributes and face data. Map geometry is unindexed: face `n` is vertices `3n` to `3n + 2`. */
 function copyVertexRanges(model: ModelGeometry, ranges: readonly ModelAnimationRange[]): ModelGeometry {
     const count = ranges.reduce((total, range) => total + range.vertexCount, 0);
-    const positions = new Float32Array(count * 3);
-    const rgba = model.vertexRgba && new Float32Array(count * 4);
-    const uvs = model.uvs && new Float32Array(count * 2);
-    const firstTexel = model.firstTexel && new Uint8Array(count);
-    const mapPlanes = model.mapPlanes && new Uint8Array(count);
-    const textureIds: number[] = [], facePriorities: number[] = [];
-    let cursor = 0;
-    for (const { startVertex, vertexCount } of ranges) {
-        for (let value = 0; value < vertexCount * 3; value++) positions[cursor * 3 + value] = model.positions[startVertex * 3 + value];
-        rgba?.set(model.vertexRgba!.subarray(startVertex * 4, (startVertex + vertexCount) * 4), cursor * 4);
-        for (let value = 0; uvs && value < vertexCount * 2; value++) uvs[cursor * 2 + value] = model.uvs![startVertex * 2 + value];
-        for (let vertex = 0; vertex < vertexCount; vertex++) {
-            if (firstTexel) firstTexel[cursor + vertex] = model.firstTexel![startVertex + vertex];
-            if (mapPlanes) mapPlanes[cursor + vertex] = model.mapPlanes![startVertex + vertex];
-        }
-        for (let face = startVertex / 3; face < (startVertex + vertexCount) / 3; face++) {
-            textureIds.push(model.textureIds?.[face] ?? -1);
-            facePriorities.push(model.facePriorities?.[face] ?? 0);
-        }
-        cursor += vertexCount;
-    }
+    const faces = ranges.map(({ startVertex, vertexCount }) => ({ startVertex: startVertex / 3, vertexCount: vertexCount / 3 }));
     const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
     for (let index = 0; index < count; index++) indices[index] = index;
-    return { preparedLighting: model.preparedLighting, positions, indices, vertexRgba: rgba, uvs, firstTexel, mapPlanes, textureIds, facePriorities };
+    return {
+        preparedLighting: model.preparedLighting, indices,
+        positions: copyRanges(model.positions, ranges, 3, new Float32Array(count * 3)),
+        vertexRgba: model.vertexRgba && copyRanges(model.vertexRgba, ranges, 4, new Float32Array(count * 4)),
+        uvs: model.uvs && copyRanges(model.uvs, ranges, 2, new Float32Array(count * 2)),
+        firstTexel: model.firstTexel && copyRanges(model.firstTexel, ranges, 1, new Uint8Array(count)),
+        mapPlanes: model.mapPlanes && copyRanges(model.mapPlanes, ranges, 1, new Uint8Array(count)),
+        textureIds: copyRanges(model.textureIds ?? new Int32Array(count / 3).fill(-1), faces, 1, new Int32Array(count / 3)),
+        facePriorities: copyRanges(model.facePriorities ?? new Int16Array(count / 3), faces, 1, new Int16Array(count / 3)),
+    };
+}
+
+/** Copies items of `size` values for each range, one range after another, into `target`. */
+function copyRanges<T extends Float32Array | Uint8Array | Int16Array | Int32Array>(source: ArrayLike<number>, ranges: readonly { startVertex: number; vertexCount: number }[], size: number, target: T): T {
+    let cursor = 0;
+    for (const { startVertex, vertexCount } of ranges) {
+        for (let value = 0; value < vertexCount * size; value++) target[cursor + value] = source[startVertex * size + value];
+        cursor += vertexCount * size;
+    }
+    return target;
+}
+
+function blendedFace(model: ModelGeometry, start: number, material: number, chunk: number): MeshSurface["blendedSurfaces"][number] {
+    return { sourceStart: start, material, depth: 0, bin: 0, priority: model.facePriorities?.[start / 3] ?? 0, chunk };
+}
+
+/** Uploads the drawn pose. A primary geometry that draws its own animated faces also needs fresh bounds. */
+function markPoseUploaded(geometry: THREE.BufferGeometry, drawn: THREE.BufferGeometry): void {
+    for (const name of ["position", "color", "normal"]) drawn.getAttribute(name).needsUpdate = true;
+    // The renderer recomputes a null bounding sphere every frame to sort objects, which cost large maps most of a frame.
+    // The drawn copy keeps a sphere grown for animation, and the primary geometry no longer draws its animated faces.
+    // Poses move parts within their depth slab, so the translucent order is left to camera turns.
+    if (drawn !== geometry) return;
+    geometry.boundingBox = null;
+    geometry.boundingSphere = null;
 }
 
 /** The draw calls the opaque ranges of the visible chunks need once adjacent ranges of one material merge. */
