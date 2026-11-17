@@ -5,8 +5,9 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
 import type { MapLoadProgress } from "../services/map-render.models";
+import { MapLoadPanelComponent } from "./map-load-panel.component";
 
-type MapLoadView = "first-load" | "progress" | "failed" | "empty" | "issues" | "none";
+type MapLoadView = "first-load" | "progress" | "activity" | "failed" | "empty" | "issues" | "none";
 
 /** What the load is waiting for, earliest stage first. */
 export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled, appearancesTotal, texturesSettled, texturesTotal, animationsSettled, animationsTotal, waterSettled, waterTotal }: MapLoadProgress): { label: string; detail: string | null } {
@@ -23,14 +24,17 @@ export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled,
 /** Settled work over the work known so far. */
 export function mapLoadPercent(progress: MapLoadProgress): number {
     const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal + progress.animationsTotal + progress.waterTotal;
-    const settled = progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled + progress.waterSettled;
-    return total ? Math.floor((settled / total) * 100) : 0;
+    return total ? Math.floor((settledWork(progress) / total) * 100) : 0;
+}
+
+function settledWork(progress: MapLoadProgress): number {
+    return progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled + progress.waterSettled;
 }
 
 /** Presents the map scene's loading, writing and read-failure states over the viewport. */
 @Component({
     selector: "cache-map-load-status",
-    imports: [NgTemplateOutlet, MatButtonModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule],
+    imports: [NgTemplateOutlet, MatButtonModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule, MapLoadPanelComponent],
     template: `
         <p class="sr-only" role="status">{{ announcement() }}</p>
         @switch (view()) {
@@ -42,12 +46,12 @@ export function mapLoadPercent(progress: MapLoadProgress): number {
                 </div>
             }
             @case ("progress") {
+                <cache-map-load-panel class="load-panel is-delayed studio-surface" [progress]="progress()" [percent]="percent()" />
+            }
+            @case ("activity") {
                 <div class="load-pill is-delayed studio-surface">
-                    <div class="pill-row">
-                        <strong>{{ progressStatus().label }}</strong>
-                        @if (progressStatus().detail; as detail) { <span class="supporting-text">{{ detail }}</span> }
-                    </div>
-                    <mat-progress-bar [mode]="progressStatus().mode" [value]="percent()" aria-label="Map scene progress" />
+                    <div class="pill-row"><strong>{{ activity() }}</strong></div>
+                    <mat-progress-bar mode="indeterminate" aria-label="Map scene progress" />
                 </div>
             }
             @case ("failed") {
@@ -90,6 +94,7 @@ export function mapLoadPercent(progress: MapLoadProgress): number {
     styles: `
         :host { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; pointer-events: none; }
         .load-card { display: grid; justify-items: center; gap: 8px; max-width: min(28rem, 100%); padding: 20px 24px; text-align: center; font: var(--mat-sys-body-medium); }
+        .load-panel { align-self: end; justify-self: end; }
         .load-pill { display: grid; align-self: end; justify-self: end; gap: 6px; width: min(18rem, 100%); padding: 8px 12px; font: var(--mat-sys-body-small); }
         .is-interactive { pointer-events: auto; }
         .is-delayed { animation: map-load-reveal 150ms ease-out 250ms both; }
@@ -118,12 +123,6 @@ export class MapLoadStatusComponent {
     readonly detailsOpen = signal(false);
     readonly dismissed = linkedSignal(() => { this.progress().failures; return false; });
     readonly stage = computed(() => mapLoadStage(this.progress()));
-    /** A cache write replaces the load stage with its own description and an indeterminate bar. */
-    readonly progressStatus = computed(() => {
-        const activity = this.activity();
-        if (activity) return { label: activity, detail: null, mode: "indeterminate" as const };
-        return { ...this.stage(), mode: "determinate" as const };
-    });
     readonly detailsLabel = computed(() => (this.detailsOpen() ? "Hide details" : "Details"));
     readonly failureText = computed(() => {
         const failures = this.progress().failures;
@@ -131,7 +130,9 @@ export class MapLoadStatusComponent {
     });
     readonly view = computed<MapLoadView>(() => {
         if (this.loading() && !this.hasRegions()) return "first-load";
-        if (this.loading() || this.activity()) return "progress";
+        // A cache write replaces the load panel with its own description and an indeterminate bar.
+        if (this.activity()) return "activity";
+        if (this.loading()) return "progress";
         const failed = this.progress().failures > 0;
         if (!this.hasGeometry()) return failed ? "failed" : "empty";
         return failed && !this.dismissed() ? "issues" : "none";
@@ -141,7 +142,8 @@ export class MapLoadStatusComponent {
         source: () => ({ loading: this.loading(), progress: this.progress() }),
         computation: ({ loading, progress }, previous) => {
             if (!loading) return 100;
-            const sameLoad = previous?.source.loading && progress.regionsSettled >= previous.source.progress.regionsSettled;
+            // Settled work only grows within a load; the signal is not read between loads, so a drop marks a new one.
+            const sameLoad = previous?.source.loading && settledWork(progress) >= settledWork(previous.source.progress);
             return Math.max(sameLoad ? previous.value : 0, mapLoadPercent(progress));
         },
     });
@@ -149,7 +151,8 @@ export class MapLoadStatusComponent {
     readonly announcement = computed(() => {
         switch (this.view()) {
             case "first-load": return "Loading map scene.";
-            case "progress": return this.activity() ?? "Loading map scene.";
+            case "progress": return "Loading map scene.";
+            case "activity": return this.activity() ?? "";
             case "failed": return "Region could not be loaded.";
             case "empty": return "No renderable tiles or objects.";
             case "issues": return `${this.failureText()}.`;

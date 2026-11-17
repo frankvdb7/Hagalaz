@@ -1151,8 +1151,8 @@ describe("MapsDetailPageComponent", () => {
         const batch = http.expectOne(`${environment.cacheApiUrl}types/objects/render-appearances`);
         expect(batch.request.body).toEqual([{ id: 8, shape: 10, rotation: 0 }]);
         expect(page.store.progress()).toMatchObject({ appearancesSettled: 0, appearancesTotal: 1 });
-        expect(harness.routeNativeElement?.textContent).toContain("Loading objects");
-        expect(harness.routeNativeElement?.textContent).toContain("0 of 1");
+        expect(harness.routeNativeElement?.textContent).toContain("Objects");
+        expect(harness.routeNativeElement?.textContent).toContain("0 / 1");
         batch.flush([{ id: 8, shape: 10, rotation: 0, status: 404, appearance: null, problem: { title: "No model" } }]);
         harness.detectChanges();
         expect(page.store.loading()).toBe(false);
