@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
-import { ModelScene, type ModelTexture } from "./model-scene";
+import { ModelScene, type ModelGeometry, type ModelTexture } from "./model-scene";
 import { waterVolume } from "./water-noise";
 
 function required<T>(value: T | undefined, what: string): T {
@@ -1008,6 +1008,14 @@ describe("ModelScene resource ownership", () => {
                 map.setPlaneFocus(0, [], []);
                 map.captureImage();
                 expect(sample).toHaveBeenCalledOnce();
+                expect(sample.mock.lastCall![1]).toBeUndefined();
+
+                // A texture refresh rebuilds the surface to its base pose, so the next tick poses again.
+                map.captureImage();
+                expect(sample.mock.lastCall![1]).toBeDefined();
+                map.setTextures(new Map([[5, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
+                map.setSceneGeometry({ terrain: null, objects: required((map as unknown as { primary: { currentModel?: ModelGeometry } }).primary.currentModel, "objects") }, false);
+                map.captureImage();
                 expect(sample.mock.lastCall![1]).toBeUndefined();
             } finally {
                 map.dispose();

@@ -199,7 +199,7 @@ export class ModelScene {
     private readonly animatedParts = new WeakMap<ModelGeometry, ModelGeometry>();
     private readonly animationBounds = new WeakMap<ModelAnimationRange, THREE.Sphere>();
     /** When each range was last posed; a range skipped since then has none, so it poses again when it returns. */
-    private readonly rangeSampleTimes = new WeakMap<ModelAnimationRange, number>();
+    private rangeSampleTimes = new WeakMap<ModelAnimationRange, number>();
     /** Whether the last tick left ranges unposed because they were out of view, and the camera it judged that from. */
     private animationViewSkipped = false;
     private readonly animationCamera = new THREE.Matrix4();
@@ -925,6 +925,8 @@ export class ModelScene {
             this.lastTime = undefined;
             this.particleTickRemainder = 0;
             this.lastObjectAnimationTime = undefined;
+            // A rebuild restores base positions and attachments, so every range must pose again.
+            this.rangeSampleTimes = new WeakMap();
         }
         const geometry = retainedGeometry ?? new THREE.BufferGeometry();
         if (!retainedGeometry) fillGeometry(geometry, model, firstTexel);
