@@ -10,6 +10,8 @@ The fixture now uses a modern-layout triangle already exercised by `ModelTypeCod
 
 The [PR #595 hosted run](https://github.com/frankvdb7/Hagalaz/actions/runs/43936587868) produced and uploaded all 86 results with statistics, including both repaired appearance cases. The benchmark job took 13m41s and BenchmarkDotNet reported 12m51s. Its post-benchmark status was clean; the isolated test below reproduced the underlying line-ending issue. The separate comparison job failed explicitly because the current main baseline lacks the additional cases; successful full-baseline comparison and main publication remain unverified. CI and all CodeQL language jobs passed for the same commit.
 
+The baseline guard now permits a partial comparison only when at least one case matches, and explicitly lists every case lacking a baseline. The existing pinned benchmark action can read the JSON copy without switching branches or saving it. A local test with the real 86-case PR artifact and real 58-case main baseline generated 86 summary rows, including 58 comparisons, and left the baseline file unchanged. The guard also passed complete-baseline coverage and rejected zero-overlap and missing baselines. Hosted verification remains pending.
+
 Main publish jobs use GitHub's `queue: max` concurrency setting to avoid concurrent writes while retaining pending runs. GitHub documents this setting, but actionlint 1.7.12 does not recognize it; linting with that specific unsupported-key diagnostic suppressed found no other workflow errors. GitHub queues jobs by arrival, not commit order, so the resulting history order needs hosted verification.
 
 ### Hosted timing samples

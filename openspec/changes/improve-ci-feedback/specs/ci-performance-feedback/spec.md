@@ -17,6 +17,10 @@ The CI system SHALL compare PR benchmark results against a valid main baseline a
 - **WHEN** the report, baseline, or comparison is unavailable or fails
 - **THEN** the check reports failure or explicitly unavailable feedback rather than a successful comparison.
 
+#### Scenario: Baseline covers only some cases
+- **WHEN** the main baseline matches some but not all PR benchmark cases
+- **THEN** the comparison reports matching cases and explicitly identifies every case without a baseline.
+
 #### Scenario: Untrusted PR
 - **WHEN** a fork PR runs benchmarks
 - **THEN** it cannot publish or modify the baseline.

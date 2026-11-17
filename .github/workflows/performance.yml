@@ -158,12 +158,35 @@ jobs:
           jq -e --slurpfile baseline "$RUNNER_TEMP/benchmark-baseline.json" '
             .Benchmarks as $current |
             ($baseline[0].entries["Hagalaz Performance Benchmarks"] | last | .benches) as $previous |
-            ($current | length > 0) and ($previous | length > 0) and
-            ([$current[].FullName] - [$previous[].name] | length == 0)
-          ' BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks-report-full.json > /dev/null || {
-            echo '::error::Benchmark comparison unavailable: the main baseline is missing or lacks current benchmark cases.'
+            if ($current | type == "array" and length > 0) and ($previous | type == "array" and length > 0) then
+              [$current[].FullName] as $names |
+              [$previous[].name] as $baseline_names |
+              {total: ($names | length), missing: ($names - $baseline_names)} |
+              . + {matched: (.total - (.missing | length))}
+            else error("Missing benchmark results or baseline") end
+          ' BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks-report-full.json > "$RUNNER_TEMP/baseline-coverage.json" || {
+            echo '::error::Benchmark comparison unavailable: the results or main baseline are missing or invalid.'
             exit 1
           }
+          matched=$(jq -r '.matched' "$RUNNER_TEMP/baseline-coverage.json")
+          total=$(jq -r '.total' "$RUNNER_TEMP/baseline-coverage.json")
+          if (( matched == 0 )); then
+            echo '::error::Benchmark comparison unavailable: no current cases match the main baseline.'
+            exit 1
+          fi
+          {
+            echo '## Benchmark baseline coverage'
+            echo
+            echo "Comparable cases: $matched of $total."
+            if (( matched < total )); then
+              echo
+              echo 'The following cases have no main baseline; their comparisons are unavailable:'
+              jq -r '.missing[] | "- `\(.)`"' "$RUNNER_TEMP/baseline-coverage.json"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if (( matched < total )); then
+            echo "::warning::Benchmark comparison is partial: $((total - matched)) of $total cases have no main baseline. See the job summary."
+          fi
 
       - name: Compare Benchmark Results (advisory regressions)
         uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
@@ -173,6 +196,7 @@ jobs:
           output-file-path: BenchmarkDotNet.Artifacts/results/Hagalaz.Benchmarks-report-full.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
+          external-data-json-path: ${{ runner.temp }}/benchmark-baseline.json
           alert-threshold: "200%"
           comment-on-alert: false
           summary-always: true
