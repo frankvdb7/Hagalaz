@@ -35,6 +35,7 @@ public static class TextureEndpoints
         group.MapGet("/textures/{id:int}/image", GetTextureImage).WithSummary("Render a texture as PNG with its material in headers").Produces<System.IO.Stream>(StatusCodes.Status200OK, "image/png").Produces(StatusCodes.Status304NotModified)
             .CacheOutput(new TextureOutputCachePolicy());
         group.MapGet("/textures/{id:int}/material", GetMaterial).WithSummary("Get a texture's material definition").Produces<GetTextureMaterialDto>();
+        group.MapPost("/textures/materials", GetMaterials).WithSummary("Get up to 256 texture material definitions, each with its own status").Produces<TextureMaterialResultDto[]>();
         group.MapGet("/textures/{id:int}/hdr", GetHdr).WithSummary("Decode a texture's HDR companion image").Produces<GetTextureHdrDto>();
         return group;
     }
@@ -83,11 +84,34 @@ public static class TextureEndpoints
     private static IResult GetMaterial(int id, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, ISpriteTypeCodec spriteCodec)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Texture ID must be nonnegative."));
-        var material = new TextureSource(cache, materialCodec, spriteCodec).Material(id);
-        return TypedResults.Ok(new GetTextureMaterialDto(material.AlphaMode, material.ColorBlend, material.Brightness,
-            material.EffectId, material.EffectParameter, material.ScrollU, material.ScrollV, material.RepeatU,
-            material.RepeatV, material.HasHdr, material.EffectParameter2));
+        return TypedResults.Ok(ToDto(new TextureSource(cache, materialCodec, spriteCodec).Material(id)));
     }
+
+    /// <summary>Lets a map scene learn which textures are water, by their effects, before it fetches any image.</summary>
+    private static IResult GetMaterials(int[]? request, ICacheAPI cache, ITypeCodec<IMaterialTableType> materialCodec, ISpriteTypeCodec spriteCodec, CancellationToken cancellationToken)
+    {
+        if (request is null || request.Length is < 1 or > 256 || request.Any(id => id < 0))
+            return TypedResults.BadRequest(EndpointErrors.Validation("Enter 1..256 nonnegative texture IDs."));
+        var source = new TextureSource(cache, materialCodec, spriteCodec);
+        var rows = new System.Collections.Generic.List<TextureMaterialResultDto>();
+        foreach (var id in request.Distinct())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try { rows.Add(new TextureMaterialResultDto(id, StatusCodes.Status200OK, ToDto(source.Material(id)), null)); }
+            catch (System.Exception error) when (error is not System.OperationCanceledException)
+            {
+                var failure = EndpointErrors.MapException(error);
+                var status = (failure as IStatusCodeHttpResult)?.StatusCode ?? StatusCodes.Status500InternalServerError;
+                rows.Add(new TextureMaterialResultDto(id, status, null, (failure as IValueHttpResult)?.Value as Microsoft.AspNetCore.Mvc.ProblemDetails
+                    ?? new Microsoft.AspNetCore.Mvc.ProblemDetails { Status = status, Title = "Texture material unavailable." }));
+            }
+        }
+        return TypedResults.Ok(rows.ToArray());
+    }
+
+    private static GetTextureMaterialDto ToDto(MaterialEntry material) =>
+        new(material.AlphaMode, material.ColorBlend, material.Brightness, material.EffectId, material.EffectParameter, material.ScrollU,
+            material.ScrollV, material.RepeatU, material.RepeatV, material.HasHdr, material.EffectParameter2);
 
     // The client keeps the alpha of effect 1 and 7 textures (Class73) and uses it to mask their highlight or reflection, so an opaque material's alpha is still data.
     private static int RenderAlphaMode(MaterialEntry material, bool sourceAlpha) =>
@@ -100,10 +124,7 @@ public static class TextureEndpoints
         var material = new TextureSource(cache, materialCodec, spriteCodec).Material(id);
         var alphaMode = material.AlphaMode;
         var source = container.Data.ToArray();
-        var metadata = JsonSerializer.Serialize(
-            new GetTextureMaterialDto(material.AlphaMode, material.ColorBlend, material.Brightness,
-                material.EffectId, material.EffectParameter, material.ScrollU, material.ScrollV, material.RepeatU,
-                material.RepeatV, material.HasHdr, material.EffectParameter2), JsonSerializerOptions.Web);
+        var metadata = JsonSerializer.Serialize(ToDto(material), JsonSerializerOptions.Web);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(source);
         hash.AppendData(Encoding.UTF8.GetBytes(metadata));

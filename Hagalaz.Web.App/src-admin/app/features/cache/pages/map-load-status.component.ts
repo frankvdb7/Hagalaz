@@ -9,19 +9,21 @@ import type { MapLoadProgress } from "../services/map-render.models";
 type MapLoadView = "first-load" | "progress" | "failed" | "empty" | "issues" | "none";
 
 /** What the load is waiting for, earliest stage first. */
-export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled, appearancesTotal, texturesSettled, texturesTotal, animationsSettled, animationsTotal }: MapLoadProgress): { label: string; detail: string | null } {
+export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled, appearancesTotal, texturesSettled, texturesTotal, animationsSettled, animationsTotal, waterSettled, waterTotal }: MapLoadProgress): { label: string; detail: string | null } {
     if (regionsSettled < regionsTotal) return { label: regionsTotal === 1 ? "Loading region" : "Loading regions", detail: regionsTotal > 1 ? `${regionsSettled} of ${regionsTotal}` : null };
     if (appearancesSettled < appearancesTotal) return { label: "Loading objects", detail: `${appearancesSettled} of ${appearancesTotal}` };
     // Batched animation reads finish before the many single texture reads, so they are reported first.
     if (animationsSettled < animationsTotal) return { label: "Loading animations", detail: `${animationsSettled} of ${animationsTotal}` };
+    // Water textures load ahead of the others, and its noise volumes generate alongside.
+    if (waterSettled < waterTotal) return { label: "Loading water", detail: `${waterSettled} of ${waterTotal}` };
     if (texturesSettled < texturesTotal) return { label: "Loading textures", detail: `${texturesSettled} of ${texturesTotal}` };
     return { label: "Finishing scene", detail: null };
 }
 
 /** Settled work over the work known so far. */
 export function mapLoadPercent(progress: MapLoadProgress): number {
-    const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal + progress.animationsTotal;
-    const settled = progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled;
+    const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal + progress.animationsTotal + progress.waterTotal;
+    const settled = progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled + progress.waterSettled;
     return total ? Math.floor((settled / total) * 100) : 0;
 }
 

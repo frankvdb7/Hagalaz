@@ -1,10 +1,17 @@
-import type { GetModelDto } from "./dtos";
+import type { GetModelDto, GetTextureMaterialDto } from "./dtos";
 import type { GetAnimationFrameDto } from "./dtos/get-animation-frame-dto";
 import type { GetAnimationSequenceDto } from "./dtos/get-animation-sequence-dto";
 
 export interface MapObjectClip {
     sequence: GetAnimationSequenceDto;
     frames: ReadonlyMap<number, GetAnimationFrameDto>;
+}
+
+/** One row of the batched texture material endpoint. */
+export interface TextureMaterialResult {
+    id: number;
+    status: number;
+    material: GetTextureMaterialDto | null;
 }
 
 /** One row of the batched clip endpoint: a sequence with its decoded frames, or the problem that prevented it. */
@@ -113,6 +120,8 @@ export interface MapLoadProgress {
     appearancesSettled: number; appearancesTotal: number;
     texturesSettled: number; texturesTotal: number;
     animationsSettled: number; animationsTotal: number;
+    /** Water textures and the generated water noise volumes. */
+    waterSettled: number; waterTotal: number;
     failures: number;
 }
 // Revision-742 projection planes for the standard 104-tile scene, in scene units.

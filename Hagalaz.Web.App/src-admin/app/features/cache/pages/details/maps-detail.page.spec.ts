@@ -39,7 +39,7 @@ describe("MapsDetailPageComponent", () => {
         expect(batch.request.body).toEqual([{ id: 99, shape: 10, rotation: 0 }]);
         expect(page.edits()?.additions).toEqual([{ regionId: 258, placement: { id: 99, shape: 10, rotation: 0, x: 3, y: 6, plane: 0 } }]);
         batch.flush([{ id: 99, shape: 10, rotation: 0, status: 404, appearance: null }]);
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
     it("applies a gizmo drag as one edit and shows the plane it lands on", async () => {
         const harness = await RouterTestingHarness.create();
@@ -1101,7 +1101,7 @@ describe("MapsDetailPageComponent", () => {
         page.edits.set({ transforms: new Map([[placement, { x: 5, y: 0, plane: 0, rotation: 1, scale: 2 }]]), additions: [] });
         harness.detectChanges();
         expect(setVisibility).not.toHaveBeenCalled();
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
     it("switches lighting from the viewport without reloading the region or changing its camera key", async () => {
         const harness = await RouterTestingHarness.create();
@@ -1120,7 +1120,7 @@ describe("MapsDetailPageComponent", () => {
         harness.detectChanges();
         expect(page.useRegionAtmosphere()).toBe(false);
         expect(viewport.selectionKey()).toBe(key);
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
     it("explains a failed region and reloads it on retry", async () => {
         const harness = await RouterTestingHarness.create();
@@ -1170,7 +1170,11 @@ describe("MapsDetailPageComponent", () => {
         // The viewport reports WebGL as unavailable; jsdom would also log that it has no canvas.
         vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     });
-    afterEach(() => http.verify());
+    afterEach(() => {
+        // Tests that do not exercise water leave the texture material batch unanswered.
+        http.match(request => request.url.endsWith("textures/materials"));
+        http.verify();
+    });
 
     it("loads a direct region link without the removed controls", async () => {
         const harness = await RouterTestingHarness.create();
@@ -1180,7 +1184,7 @@ describe("MapsDetailPageComponent", () => {
         expect(harness.routeNativeElement?.textContent).not.toContain("Back to Maps");
         expect(harness.routeNativeElement?.textContent).not.toContain("Region keys");
         expect(harness.routeNativeElement?.textContent).not.toContain("Scene warnings");
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
 
     it("loads adjacent regions without requiring keys", async () => {
@@ -1192,7 +1196,7 @@ describe("MapsDetailPageComponent", () => {
         http.expectOne(`${base}514/render`).flush(region(514));
         page.togglePlane(1, true);
         page.landscape.set(false);
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
 
     it("rejects wrapping detail links before requesting render data", async () => {
@@ -1200,6 +1204,6 @@ describe("MapsDetailPageComponent", () => {
         const page = await harness.navigateByUrl("/cache/types/maps/65535?height=2", MapsDetailPageComponent);
         expect(page.selectedIds()).toEqual([]);
         expect(page.store.warnings()[0]).toContain("valid region rectangle");
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
 });

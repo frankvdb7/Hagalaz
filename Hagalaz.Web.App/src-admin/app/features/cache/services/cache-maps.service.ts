@@ -5,7 +5,7 @@ import { environment } from "../../../../environments/environment";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
 import type { GetMapDefinitionDto, GetMapRegionsDto, GetTextureMaterialDto } from "./dtos";
 import type { GetAnimationFrameDto } from "./dtos/get-animation-frame-dto";
-import type { AnimationClipResult, MapFloor, MapObjectClip, MapPlacement, MapRenderRegion, MapTerrainTileChange, MapWorldMapRefreshResult, ObjectAppearanceResult, ObjectCollision, ObjectCollisionResult, UpdateMapLandscapeResultDto, UpdateMapTerrainResultDto } from "./map-render.models";
+import type { AnimationClipResult, MapFloor, MapObjectClip, TextureMaterialResult, MapPlacement, MapRenderRegion, MapTerrainTileChange, MapWorldMapRefreshResult, ObjectAppearanceResult, ObjectCollision, ObjectCollisionResult, UpdateMapLandscapeResultDto, UpdateMapTerrainResultDto } from "./map-render.models";
 
 @Service()
 export class CacheMapsService {
@@ -62,6 +62,13 @@ export class CacheMapsService {
                 map(collision => [id, collision] as const),
             ))).pipe(map(entries => new Map(entries)));
         });
+    }
+
+    /** Reads up to 256 texture materials, so water can be recognised before any image is fetched. Failed rows map to null. */
+    textureMaterials(ids: readonly number[]): Observable<ReadonlyMap<number, GetTextureMaterialDto | null>> {
+        return this.http.post<TextureMaterialResult[]>(`${environment.cacheApiUrl}textures/materials`, ids).pipe(
+            map(rows => new Map(rows.map(row => [row.id, row.status === 200 ? row.material : null]))),
+        );
     }
 
     /**

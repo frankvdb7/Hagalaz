@@ -1,5 +1,6 @@
 import { catchError, EMPTY, finalize, from, map, mergeMap, Subscription, switchMap, tap } from "rxjs";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
+import { waterVolume, type WaterVolume } from "../../../../../shared/model-viewer/water-noise";
 import type { CacheMapsService } from "../services/cache-maps.service";
 import {
     mapAppearanceKey,
@@ -17,7 +18,7 @@ import {
     type ObjectRenderAppearance,
 } from "../services/map-render.models";
 import { getCacheErrorMessage } from "./cache-error";
-import type { GetModelDto } from "../services/dtos";
+import type { GetModelDto, GetTextureMaterialDto } from "../services/dtos";
 
 function addModelTextures(part: GetModelDto, textures: Set<number>): void {
     for (const id of part.faceTextureIds ?? []) if (id >= 0) textures.add(id);
@@ -33,6 +34,10 @@ const publicationInterval = 250;
 const maxPublicationInterval = 2000;
 /** Concurrent requests for the many small texture reads. */
 const textureConcurrency = 6;
+/** Texture materials are read 256 at a time, so water can load as its own phase. */
+const materialBatchSize = 256;
+/** The client's water material effects and the noise volume each one samples. */
+const waterVolumes: Readonly<Record<number, WaterVolume>> = { 2: "ridged", 4: "ridged", 5: "lake", 8: "normal", 9: "normal" };
 /** Animation clips are read 32 at a time, two requests in flight. */
 const animationBatchSize = 32;
 const animationConcurrency = 2;
@@ -56,6 +61,8 @@ export const emptyMapProgress = (): MapLoadProgress => ({
     texturesTotal: 0,
     animationsSettled: 0,
     animationsTotal: 0,
+    waterSettled: 0,
+    waterTotal: 0,
     failures: 0,
 });
 
@@ -68,6 +75,10 @@ export class MapSceneLoad {
     private animations = new Map<number, MapObjectClip>();
     private readonly attemptedAnimations = new Set<number>();
     private readonly settledAnimations = new Set<number>();
+    private readonly materials = new Map<number, GetTextureMaterialDto | null>();
+    private readonly requestedMaterials = new Set<number>();
+    /** Water noise volumes this scene needs, and whether each is ready. */
+    private readonly volumes = new Map<WaterVolume, boolean>();
     private animationRequests = 0;
     private readonly appearanceTextureIds = new WeakMap<ObjectRenderAppearance, readonly number[]>();
     private readonly textures = new Map<number, ModelTexture>();
@@ -262,7 +273,9 @@ export class MapSceneLoad {
     }
 
     private loadPendingTextures(textures: Iterable<number>): void {
-        for (const id of textures) {
+        // Water is its own phase: once materials name it, its images load ahead of the others.
+        const ordered = [...textures].sort((left, right) => Number(this.isWater(right)) - Number(this.isWater(left)));
+        for (const id of ordered) {
             if (this.textureRequests >= textureConcurrency) break;
             if (!this.attemptedTextures.has(id)) this.loadTexture(id);
         }
@@ -278,13 +291,56 @@ export class MapSceneLoad {
         do {
             this.pumpAgain = false;
             const { placements, textures, environment } = this.interest();
-            this.loadPendingTextures(new Set([...textures, ...environment]));
+            const wanted = new Set([...textures, ...environment]);
+            this.loadPendingMaterials(wanted);
+            this.prepareWaterVolumes(wanted);
+            this.loadPendingTextures(wanted);
             const pending = [...placements].filter(([key]) => !this.attemptedAppearances.has(key));
             while (this.appearanceRequests < 2 && pending.length) this.loadAppearances(pending.splice(0, 32));
             this.loadPendingAnimations(placements.keys());
         } while (this.pumpAgain && !this.cancelled);
         this.pumping = false;
         this.schedule();
+    }
+
+    private loadPendingMaterials(textures: Iterable<number>): void {
+        const ids = [...textures].filter(id => !this.requestedMaterials.has(id));
+        for (let start = 0; start < ids.length; start += materialBatchSize) this.loadMaterials(ids.slice(start, start + materialBatchSize));
+    }
+
+    private loadMaterials(ids: readonly number[]): void {
+        for (const id of ids) this.requestedMaterials.add(id);
+        this.requests.add(this.service.textureMaterials(ids).pipe(
+            tap(materials => {
+                for (const id of ids) this.materials.set(id, materials.get(id) ?? null);
+            }),
+            // Without materials the textures still load, in their usual order.
+            catchError(() => EMPTY),
+            finalize(() => this.pump()),
+        ).subscribe());
+    }
+
+    /** The effect of a texture, from its batched material or, once loaded, its image. */
+    private textureEffect(id: number): number | undefined {
+        return this.materials.get(id)?.effectId ?? this.textures.get(id)?.effectId;
+    }
+
+    private isWater(id: number): boolean {
+        return waterVolumes[this.textureEffect(id) ?? 0] !== undefined;
+    }
+
+    /** Starts generating each water noise volume the scene's water needs, alongside the rest of the load. */
+    private prepareWaterVolumes(textures: Iterable<number>): void {
+        for (const id of textures) {
+            const kind = waterVolumes[this.textureEffect(id) ?? 0];
+            if (!kind || this.volumes.has(kind)) continue;
+            this.volumes.set(kind, false);
+            void waterVolume(kind).then(() => {
+                if (this.cancelled) return;
+                this.volumes.set(kind, true);
+                this.pump();
+            });
+        }
     }
 
     private loadPendingAnimations(keys: Iterable<string>): void {
@@ -425,13 +481,27 @@ export class MapSceneLoad {
         }, interval * Math.max(1, this.ids.length));
     }
 
+    /** Water textures count with the water noise volumes; other textures count on their own. */
+    private textureProgress(requested: ReadonlySet<number>) {
+        const water = [...requested].filter(id => this.isWater(id));
+        const other = [...requested].filter(id => !this.isWater(id));
+        const settled = (ids: number[]) => ids.filter(id => this.settledTextures.has(id)).length;
+        const volumes = [...this.volumes.values()];
+        return {
+            texturesSettled: settled(other), texturesTotal: other.length,
+            waterSettled: settled(water) + volumes.filter(Boolean).length, waterTotal: water.length + volumes.length,
+        };
+    }
+
     private animationProgress(keys: Iterable<string>): { animationsSettled: number; animationsTotal: number } {
         const ids = this.animationIds(keys);
         return { animationsSettled: [...ids].filter(id => this.settledAnimations.has(id)).length, animationsTotal: ids.size };
     }
 
     private isLoading(): boolean {
-        return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0 || this.animationRequests > 0;
+        return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0 || this.animationRequests > 0
+            // Materials only order the texture work, so they do not hold the scene in its loading state.
+            || [...this.volumes.values()].some(ready => !ready);
     }
 
     private publishTextures(surface: ReadonlySet<number>, environment: readonly number[]): void {
@@ -469,8 +539,7 @@ export class MapSceneLoad {
                 regionsTotal: this.ids.length,
                 appearancesSettled: [...interest.placements.keys()].filter((key) => this.settledAppearances.has(key)).length,
                 appearancesTotal: interest.placements.size,
-                texturesSettled: [...requestedTextures].filter((id) => this.settledTextures.has(id)).length,
-                texturesTotal: requestedTextures.size,
+                ...this.textureProgress(requestedTextures),
                 ...this.animationProgress(interest.placements.keys()),
                 failures: this.failures,
             },
