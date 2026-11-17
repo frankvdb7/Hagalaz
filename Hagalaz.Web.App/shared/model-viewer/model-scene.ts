@@ -97,6 +97,8 @@ interface MeshSurface {
     materials: Map<string, { material: SurfaceMaterial; texture?: THREE.Texture; asset?: ModelTexture }>;
     texturesDirty: boolean;
     animatedWater: boolean;
+    /** The chunks holding faces with animated water. */
+    waterChunks: number[];
     /** The draw index needs a whole upload at the next render, so a re-sort must not narrow it to a range. */
     wholeIndexPending?: boolean;
 }
@@ -125,9 +127,15 @@ const cullChunkSize = 16 * 512;
 const cullChunkMargin = 512;
 /** Animated map objects smaller than this many pixels on screen, or outside the view, keep their last pose. */
 const minAnimatedPixels = 4;
+/**
+ * Animated water redraws the whole map. Water at least this many pixels across on screen redraws every display frame,
+ * smaller visible water at `smallWaterInterval`, and water under `minAnimatedPixels` or out of view not at all.
+ */
+const fullRateWaterPixels = 96;
+const smallWaterInterval = 100;
 
 function createMeshSurface(): MeshSurface {
-    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], chunks: [], materials: new Map(), texturesDirty: false, animatedWater: false };
+    return { orderingDirty: true, sourceIndices: [], opaqueGroups: [], blendedSurfaces: [], chunks: [], waterChunks: [], materials: new Map(), texturesDirty: false, animatedWater: false };
 }
 
 export interface ModelTexture extends MaterialEffect {
@@ -217,6 +225,7 @@ export class ModelScene {
     private readonly frustum = new THREE.Frustum();
     private readonly viewProjection = new THREE.Matrix4();
     private reorderTimer?: ReturnType<typeof setTimeout>;
+    private waterTimer?: ReturnType<typeof setTimeout>;
     private showMapGrid = false;
     private orientationGizmo?: OrientationGizmo;
     private selectionBounds?: THREE.Box3Helper;
@@ -241,9 +250,39 @@ export class ModelScene {
         this.pendingFrame = requestAnimationFrame(time => {
             try { this.renderFrame(time); }
             finally { this.pendingFrame = undefined; }
-            if (this.surfaces.some(surface => surface.mesh?.visible && surface.animatedWater)) this.requestRender();
+            this.scheduleWaterFrame();
         });
     };
+
+    /** Redraws animated water at a rate that follows how large it is on screen. Camera changes redraw on their own. */
+    private scheduleWaterFrame(): void {
+        const delay = this.waterFrameDelay();
+        if (delay === 0) this.requestRender();
+        else if (delay < Infinity) this.waterTimer ??= setTimeout(() => {
+            this.waterTimer = undefined;
+            this.requestRender();
+        }, delay);
+    }
+
+    private waterFrameDelay(): number {
+        const pixels = Math.max(0, ...this.surfaces.filter(surface => surface.mesh?.visible && surface.animatedWater).map(surface => this.visibleWaterPixels(surface)));
+        if (pixels >= fullRateWaterPixels) return 0;
+        return pixels >= minAnimatedPixels ? smallWaterInterval : Infinity;
+    }
+
+    /** The on-screen size of the largest water chunk of a surface in view, in pixels. */
+    private visibleWaterPixels(surface: MeshSurface): number {
+        const pixelsPerUnit = this.host.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)));
+        const sphere = new THREE.Sphere();
+        let pixels = 0;
+        for (const box of surface.waterChunks.map(chunk => surface.chunks[chunk])) {
+            // The frame's culling pass has just set the frustum.
+            if (!box || !this.frustum.intersectsBox(box)) continue;
+            box.getBoundingSphere(sphere);
+            pixels = Math.max(pixels, sphere.radius * 2 * pixelsPerUnit / Math.max(sphere.center.distanceTo(this.camera.position), 1));
+        }
+        return pixels;
+    }
 
     showOrientationGizmo(): void {
         if (this.disposed || this.orientationGizmo) return;
@@ -1194,6 +1233,7 @@ export class ModelScene {
         if (this.pendingFrame !== undefined) cancelAnimationFrame(this.pendingFrame);
         clearTimeout(this.animationTimer);
         clearTimeout(this.reorderTimer);
+        clearTimeout(this.waterTimer);
         this.resizeObserver.disconnect();
         this.mapNavigation?.dispose();
         this.controls.dispose();
@@ -1448,6 +1488,7 @@ export class ModelScene {
         surface.blendedSurfaces = [];
         surface.visibleChunks = undefined;
         surface.animatedWater = false;
+        const water = new Set<number>();
         const textureIds = [...this.textures.keys()];
         const textureIndices = new Map(textureIds.map((id, index) => [id, index]));
         const modes = this.textureDrawModes(textureIds);
@@ -1455,14 +1496,15 @@ export class ModelScene {
         const chunks = new SurfaceChunks(model.positions);
         // The animated surface draws a map's animated faces.
         const skipped = surface === this.primary && this.framing === "map" ? animatedFaces(model) : undefined;
-        this.collectSurfaceFaces(model, surface, textureIndices, modes, opaque, chunks, skipped);
+        this.collectSurfaceFaces(model, surface, textureIndices, modes, opaque, chunks, skipped, water);
         const order = chunks.finish(surface);
+        surface.waterChunks = [...water].map(key => order.get(key) ?? 0);
         for (const face of surface.blendedSurfaces) face.chunk = order.get(face.chunk) ?? 0;
         this.writeOpaqueGroups(geometry, surface, opaque, order);
     }
 
     private collectSurfaceFaces(model: ModelGeometry, surface: MeshSurface, textureIndices: ReadonlyMap<number, number>,
-        modes: ReturnType<ModelScene["textureDrawModes"]>, opaque: Map<number, Map<number, number[]>>, chunks: SurfaceChunks, skipped?: Uint8Array): void {
+        modes: ReturnType<ModelScene["textureDrawModes"]>, opaque: Map<number, Map<number, number[]>>, chunks: SurfaceChunks, skipped?: Uint8Array, water = new Set<number>()): void {
         const sourceIndices = surface.sourceIndices;
         const isTranslucent = faceTranslucency(model);
         for (let start = 0; start < model.indices.length; start += 3) {
@@ -1472,8 +1514,11 @@ export class ModelScene {
             const translucent = isTranslucent(face, a, b, c);
             const textureId = model.textureIds?.[face] ?? -1;
             const material = this.faceMaterial(model, textureIndices, textureId, translucent);
-            if (modes.animated.has(textureId)) surface.animatedWater = true;
             const chunk = chunks.add(a, b, c);
+            if (modes.animated.has(textureId)) {
+                surface.animatedWater = true;
+                water.add(chunk);
+            }
             if (translucent || modes.transparent.has(textureId)) surface.blendedSurfaces.push(blendedFace(model, start, material, chunk));
             else appendOpaqueFace(opaque, material, chunk, a, b, c);
         }

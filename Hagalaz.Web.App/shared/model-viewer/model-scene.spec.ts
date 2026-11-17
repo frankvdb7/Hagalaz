@@ -332,6 +332,47 @@ describe("ModelScene resource ownership", () => {
         expect(gpu.controlsUnlisten).toHaveBeenCalledWith("change", gpu.controlsListen.mock.lastCall![1]);
     });
 
+    it("redraws animated water every frame when large on screen, slower when small and not at all when out of view", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const frames = vi.mocked(requestAnimationFrame);
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            map.setTextures(new Map([[2, { image: { width: 16, height: 16 } as ImageBitmap, alphaMode: 0, effectId: 2, effectParameter: 1 }]]));
+            const water = { positions: [0, 0, 0, 0, 0, 512, 512, 0, 0], indices: [0, 1, 2], textureIds: [2], mapPlanes: [0, 0, 0], preparedLighting: true };
+            map.setSceneGeometry({ terrain: water, objects: null }, false);
+            const internals = map as unknown as { camera: THREE.PerspectiveCamera; pendingFrame?: number; waterTimer?: ReturnType<typeof setTimeout> };
+            const camera = internals.camera;
+            camera.far = 1e9;
+            camera.updateProjectionMatrix();
+            const frameFrom = (y: number, look = 0) => {
+                camera.position.set(256, y, 256.1);
+                camera.lookAt(256, look, 256);
+                frames.mockClear();
+                clearTimeout(internals.waterTimer);
+                internals.waterTimer = internals.pendingFrame = undefined;
+                map.zoom(1);
+                frames.mock.lastCall![0](0);
+            };
+
+            frameFrom(1000);
+            expect(frames).toHaveBeenCalledTimes(2);
+            expect(internals.waterTimer).toBeUndefined();
+
+            frameFrom(60000);
+            expect(frames).toHaveBeenCalledTimes(1);
+            expect(internals.waterTimer).toBeDefined();
+            vi.advanceTimersByTime(100);
+            expect(frames).toHaveBeenCalledTimes(2);
+
+            frameFrom(1000, 2000);
+            expect(frames).toHaveBeenCalledTimes(1);
+            expect(internals.waterTimer).toBeUndefined();
+        } finally {
+            map.dispose();
+            vi.useRealTimers();
+        }
+    });
+
     it("clears a map to the sky colour, fogs towards it and restores the transparent canvas", () => {
         const frames = vi.mocked(requestAnimationFrame);
         const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
