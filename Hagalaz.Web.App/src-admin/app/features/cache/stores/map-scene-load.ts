@@ -31,9 +31,11 @@ function addModelTextures(part: GetModelDto, textures: Set<number>): void {
 const publicationInterval = 250;
 /** The longest wait between progressive publications for each selected region. */
 const maxPublicationInterval = 2000;
-/** Concurrent requests for the many small texture and animation reads. */
+/** Concurrent requests for the many small texture reads. */
 const textureConcurrency = 6;
-const animationConcurrency = 6;
+/** Animation clips are read 32 at a time, two requests in flight. */
+const animationBatchSize = 32;
+const animationConcurrency = 2;
 
 export interface MapSceneState {
     regions: MapRenderRegion[];
@@ -283,11 +285,13 @@ export class MapSceneLoad {
     }
 
     private loadPendingAnimations(keys: Iterable<string>): void {
+        const pending = new Set<number>();
         for (const key of keys) {
-            if (this.animationRequests >= animationConcurrency) break;
             const id = this.appearances.get(key)?.parts.find(part => part.objectAnimation)?.animationIds?.[0];
-            if (id !== undefined && !this.attemptedAnimations.has(id)) this.loadAnimation(id);
+            if (id !== undefined && !this.attemptedAnimations.has(id)) pending.add(id);
         }
+        const ids = [...pending];
+        while (this.animationRequests < animationConcurrency && ids.length) this.loadAnimations(ids.splice(0, animationBatchSize));
     }
 
     private loadAppearances(entries: [string, MapPlacement][]): void {
@@ -329,15 +333,21 @@ export class MapSceneLoad {
         for (const warning of row.appearance.warnings) this.warnings.add(`Object ${placement.id}: ${warning}`);
     }
 
-    private loadAnimation(id: number): void {
-        this.attemptedAnimations.add(id);
+    private loadAnimations(ids: readonly number[]): void {
+        for (const id of ids) this.attemptedAnimations.add(id);
         this.animationRequests++;
-        this.requests.add(this.service.objectAnimation(id).pipe(
-            tap(clip => {
-                this.animations = new Map(this.animations).set(id, clip);
+        this.requests.add(this.service.objectClips(ids).pipe(
+            tap(clips => {
+                const animations = new Map(this.animations);
+                for (const id of ids) {
+                    const clip = clips.get(id) ?? new Error("Animation unavailable.");
+                    if (clip instanceof Error) this.warnings.add(`Animation ${id}: ${clip.message}`);
+                    else animations.set(id, clip);
+                }
+                this.animations = animations;
             }),
             catchError(error => {
-                this.warnings.add(`Animation ${id}: ${getCacheErrorMessage(error)}`);
+                for (const id of ids) this.warnings.add(`Animation ${id}: ${getCacheErrorMessage(error)}`);
                 return EMPTY;
             }),
             finalize(() => {

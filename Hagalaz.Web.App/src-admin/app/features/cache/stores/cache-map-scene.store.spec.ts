@@ -297,11 +297,11 @@ describe("CacheMapSceneStore", () => {
         expect(store.appearances().size).toBe(2);
         expect(store.loading()).toBe(false);
         expect(store.animations().size).toBe(0);
-        http.expectOne(`${base}types/animations/42/sequence`).flush({ frameIds: [6, 5, 6], frameDurations: [1, 2, 3], loop: 2 });
-        const first = http.expectOne(`${base}animation-frames/6`);
-        http.expectOne(`${base}animation-frames/5`).flush({ frame: { transforms: [] }, skeleton: { types: [], groups: [] } });
-        expect(store.animations().size).toBe(0);
-        first.flush({ frame: { transforms: [] }, skeleton: { types: [], groups: [] } });
+        // One shared clip, read once with its two distinct frames.
+        const clips = http.expectOne(`${base}types/animations/clips`);
+        expect(clips.request.body).toEqual([42]);
+        const frame = { frame: { transforms: [] }, skeleton: { types: [], groups: [] } };
+        clips.flush([{ id: 42, status: 200, sequence: { frameIds: [6, 5, 6], frameDurations: [1, 2, 3], loop: 2 }, frames: [{ frameId: 6, frame }, { frameId: 5, frame }], problem: null }]);
         expect(store.animations().get(42)?.sequence.frameIds).toEqual([6, 5, 6]);
         expect(store.animations().get(42)?.frames.size).toBe(2);
     });
@@ -315,17 +315,33 @@ describe("CacheMapSceneStore", () => {
             ...success(object),
             appearance: { ...appearance, ...object, parts: [{ animationIds: [object.id], objectAnimation: { rotation: 0 } }] },
         })));
-        http.expectOne(`${base}types/animations/1/sequence`).flush({ frameIds: [] });
-        http.expectOne(`${base}types/animations/2/sequence`).flush({ frameIds: [55] });
-        const pending = http.expectOne(`${base}animation-frames/55`);
-        expect(store.warnings()).toContain("Animation 1: Sequence has no frames.");
-        expect(store.appearances().size).toBe(2);
-        expect(store.animations().size).toBe(0);
+        const pending = http.expectOne(`${base}types/animations/clips`);
+        expect(pending.request.body).toEqual([1, 2]);
         store.load({ id: 259, width: 1, height: 1, keys: {} });
         expect(pending.cancelled).toBe(true);
         http.expectOne(`${base}types/maps/259/render`).flush(region(259));
         expect(store.animations().size).toBe(0);
         expect(store.warnings()).toEqual([]);
+    });
+
+    it("keeps animations that fail on their own row, or with no frames, in the base pose", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const objects = [placement(1), placement(2), placement(3)];
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush({ ...region(258), objects });
+        http.expectOne(batchUrl).flush(objects.map(object => ({
+            ...success(object),
+            appearance: { ...appearance, ...object, parts: [{ animationIds: [object.id], objectAnimation: { rotation: 0 } }] },
+        })));
+        const frame = { frame: { transforms: [] }, skeleton: { types: [], groups: [] } };
+        http.expectOne(`${base}types/animations/clips`).flush([
+            { id: 1, status: 200, sequence: { frameIds: [] }, frames: [], problem: null },
+            { id: 2, status: 404, sequence: null, frames: null, problem: { title: "Not found", detail: "Frame 55 is absent." } },
+            { id: 3, status: 200, sequence: { frameIds: [9] }, frames: [{ frameId: 9, frame }], problem: null },
+        ]);
+        expect(store.warnings()).toEqual(expect.arrayContaining(["Animation 1: Sequence has no frames.", "Animation 2: Frame 55 is absent."]));
+        expect([...store.animations().keys()]).toEqual([3]);
+        expect(store.appearances().size).toBe(3);
     });
 
     it("loads the anchor region's environment-map faces but not a neighbour's", async () => {

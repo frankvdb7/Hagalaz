@@ -42,6 +42,7 @@ public static class ModelEndpoints
         group.MapPost("/types/objects/render-appearances", GetObjectRenderAppearances).WithSummary("Assemble up to 32 object placements, each with its own status").Produces<ObjectRenderAppearanceResultDto[]>();
         group.MapGet("/animation-frames/{id:int}", GetAnimationFrame).WithSummary("Decode an animation frame and its skeleton").Produces<GetAnimationFrameDto>();
         group.MapGet("/types/animations/{id:int}/sequence", GetAnimationSequence).WithSummary("Get an animation's frame sequence").Produces<GetAnimationSequenceDto>();
+        group.MapPost("/types/animations/clips", GetAnimationClips).WithSummary("Get up to 32 animations with their sequences and decoded frames, each with its own status").Produces<AnimationClipResultDto[]>();
         return group;
     }
 
@@ -86,24 +87,67 @@ public static class ModelEndpoints
     private static IResult GetAnimationSequence(int id, ITypeProvider<IAnimationType> animations)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Animation ID must be nonnegative."));
-        var sequence = (AnimationType)animations.Get(id);
-        return TypedResults.Ok(new GetAnimationSequenceDto(sequence.Id, sequence.Frames ?? [], sequence.Delays ?? [], sequence.Loop, sequence.IsTweened));
+        return TypedResults.Ok(Sequence(animations, id));
     }
 
     private static IResult GetAnimationFrame(int id, ICacheAPI cache, [AsParameters] ModelCodecs codecs)
     {
         if (id < 0) return TypedResults.BadRequest(EndpointErrors.Validation("Frame ID must be nonnegative."));
+        return TypedResults.Ok(DecodeFrame(id, cache, codecs, []));
+    }
+
+    /// <summary>
+    /// Map scenes animate hundreds of objects, and reading each sequence and frame separately took about one request per frame.
+    /// One call returns whole clips; frames that share a skeleton decode it once.
+    /// </summary>
+    private static IResult GetAnimationClips(int[]? request, ITypeProvider<IAnimationType> animations, ICacheAPI cache, [AsParameters] ModelCodecs codecs, CancellationToken cancellationToken)
+    {
+        if (request is null || request.Length is < 1 or > 32 || request.Any(id => id < 0))
+            return TypedResults.BadRequest(EndpointErrors.Validation("Enter 1..32 nonnegative animation IDs."));
+        var skeletons = new Dictionary<int, AnimationSkeleton>();
+        var rows = new List<AnimationClipResultDto>();
+        foreach (var id in request.Distinct())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var sequence = Sequence(animations, id);
+                var frames = sequence.FrameIds.Distinct().Select(frameId => new AnimationClipFrameDto(frameId, DecodeFrame(frameId, cache, codecs, skeletons))).ToArray();
+                rows.Add(new AnimationClipResultDto(id, StatusCodes.Status200OK, sequence, frames, null));
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                var failure = EndpointErrors.MapException(error);
+                rows.Add(new AnimationClipResultDto(id, StatusOf(failure), null, null, ProblemOf(failure, "Animation unavailable.")));
+            }
+        }
+        return TypedResults.Ok(rows.ToArray());
+    }
+
+    private static GetAnimationSequenceDto Sequence(ITypeProvider<IAnimationType> animations, int id)
+    {
+        var sequence = (AnimationType)animations.Get(id);
+        return new GetAnimationSequenceDto(sequence.Id, sequence.Frames ?? [], sequence.Delays ?? [], sequence.Loop, sequence.IsTweened);
+    }
+
+    /// <summary>Decodes a frame with its skeleton, reusing skeletons already decoded into <paramref name="skeletons"/>.</summary>
+    private static GetAnimationFrameDto DecodeFrame(int id, ICacheAPI cache, ModelCodecs codecs, Dictionary<int, AnimationSkeleton> skeletons)
+    {
         var member = cache.ReadReferenceTable(AnimationFrameIndex).GetEntry(id >> 16, id & 65535)
             ?? throw new System.IO.FileNotFoundException($"Archive member {AnimationFrameIndex}/{id >> 16}/{id & 65535} is absent from the cache reference table.");
         using var stream = cache.Read(AnimationFrameIndex, id >> 16, member.Index);
         var stored = codecs.AnimationFrames.Decode(id, stream);
-        using var skeletonContainer = cache.ReadContainer(AnimationSkeletonIndex, stored.SkeletonId);
-        var skeleton = AnimationFrameBuilder.ResolveSkeleton(codecs.AnimationSkeletons.Decode(stored.SkeletonId, skeletonContainer.Data));
+        if (!skeletons.TryGetValue(stored.SkeletonId, out var skeleton))
+        {
+            using var skeletonContainer = cache.ReadContainer(AnimationSkeletonIndex, stored.SkeletonId);
+            skeleton = AnimationFrameBuilder.ResolveSkeleton(codecs.AnimationSkeletons.Decode(stored.SkeletonId, skeletonContainer.Data));
+            skeletons[stored.SkeletonId] = skeleton;
+        }
         var frame = AnimationFrameBuilder.Resolve(stored, skeleton);
-        return TypedResults.Ok(new GetAnimationFrameDto(
+        return new GetAnimationFrameDto(
             new AnimationFrameDto(frame.SkeletonId, frame.Transforms.Select(transform =>
                 new AnimationTransformDto(transform.Slot, transform.X, transform.Y, transform.Z, transform.PivotSlot, transform.TweenFlags)).ToArray()),
-            new AnimationSkeletonDto(skeleton.Types, skeleton.Enabled, skeleton.Masks, skeleton.Groups)));
+            new AnimationSkeletonDto(skeleton.Types, skeleton.Enabled, skeleton.Masks, skeleton.Groups));
     }
 
     private static IResult GetItemAppearances(int id, ITypeProvider<IItemType> items, ModelAssembler assembler)
@@ -174,13 +218,15 @@ public static class ModelEndpoints
         return TypedResults.Ok(rows.ToArray());
     }
 
-    private static ObjectRenderAppearanceResultDto FailedRow(ObjectRenderAppearanceKeyDto key, IResult failure)
-    {
-        var status = (failure as IStatusCodeHttpResult)?.StatusCode ?? 500;
-        var problem = (failure as ProblemHttpResult)?.ProblemDetails ?? (failure as IValueHttpResult)?.Value as ProblemDetails
-            ?? new ProblemDetails { Status = status, Title = "Object appearance unavailable." };
-        return new ObjectRenderAppearanceResultDto(key.Id, key.Shape, key.Rotation, status, null, problem);
-    }
+    private static ObjectRenderAppearanceResultDto FailedRow(ObjectRenderAppearanceKeyDto key, IResult failure) =>
+        new(key.Id, key.Shape, key.Rotation, StatusOf(failure), null, ProblemOf(failure, "Object appearance unavailable."));
+
+    private static int StatusOf(IResult failure) => (failure as IStatusCodeHttpResult)?.StatusCode ?? 500;
+
+    /// <summary>The problem details a failure result carries, so a batch row reports what the single-item endpoint would.</summary>
+    private static ProblemDetails ProblemOf(IResult failure, string title) =>
+        (failure as ProblemHttpResult)?.ProblemDetails ?? (failure as IValueHttpResult)?.Value as ProblemDetails
+        ?? new ProblemDetails { Status = StatusOf(failure), Title = title };
 
     private static IResult GetObjectRenderAppearance(int id, int shape, int rotation, ModelAssembler assembler)
     {

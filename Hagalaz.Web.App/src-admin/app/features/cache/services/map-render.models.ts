@@ -7,6 +7,15 @@ export interface MapObjectClip {
     frames: ReadonlyMap<number, GetAnimationFrameDto>;
 }
 
+/** One row of the batched clip endpoint: a sequence with its decoded frames, or the problem that prevented it. */
+export interface AnimationClipResult {
+    id: number;
+    status: number;
+    sequence: GetAnimationSequenceDto | null;
+    frames: { frameId: number; frame: GetAnimationFrameDto }[] | null;
+    problem: { title?: string; detail?: string } | null;
+}
+
 export interface MapRenderPlane {
     cornerHeights: (number | null)[];
     flags: number[];

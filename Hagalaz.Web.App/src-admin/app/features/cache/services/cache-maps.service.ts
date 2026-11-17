@@ -1,12 +1,11 @@
 import { HttpClient } from "@angular/common/http";
 import { inject, Service, type Signal } from "@angular/core";
-import { catchError, defer, forkJoin, from, map, mergeMap, type Observable, of, shareReplay, switchMap, toArray } from "rxjs";
+import { catchError, defer, forkJoin, map, type Observable, of, shareReplay } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import { cacheDefinitionResource, cacheQueryResource } from "./cache-resource";
 import type { GetMapDefinitionDto, GetMapRegionsDto, GetTextureMaterialDto } from "./dtos";
 import type { GetAnimationFrameDto } from "./dtos/get-animation-frame-dto";
-import type { GetAnimationSequenceDto } from "./dtos/get-animation-sequence-dto";
-import type { MapFloor, MapPlacement, MapRenderRegion, MapTerrainTileChange, MapWorldMapRefreshResult, ObjectAppearanceResult, ObjectCollision, ObjectCollisionResult, UpdateMapLandscapeResultDto, UpdateMapTerrainResultDto } from "./map-render.models";
+import type { AnimationClipResult, MapFloor, MapObjectClip, MapPlacement, MapRenderRegion, MapTerrainTileChange, MapWorldMapRefreshResult, ObjectAppearanceResult, ObjectCollision, ObjectCollisionResult, UpdateMapLandscapeResultDto, UpdateMapTerrainResultDto } from "./map-render.models";
 
 @Service()
 export class CacheMapsService {
@@ -65,22 +64,13 @@ export class CacheMapsService {
         });
     }
 
-    objectAnimation(id: number) {
-        return this.http.get<GetAnimationSequenceDto>(`${environment.cacheApiUrl}types/animations/${id}/sequence`).pipe(
-            switchMap(sequence => {
-                if (!sequence.frameIds.length) throw new Error("Sequence has no frames.");
-                return from(new Set(sequence.frameIds)).pipe(
-                    mergeMap(frameId => this.http.get<GetAnimationFrameDto>(`${environment.cacheApiUrl}animation-frames/${frameId}`).pipe(
-                        map(frame => {
-                            if (frame.frame.transforms.some(transform => ![0, 1, 2, 3, 5].includes(frame.skeleton.types[transform.slot])))
-                                throw new Error("Sequence uses unsupported transforms.");
-                            return [frameId, frame] as const;
-                        }),
-                    ), 4),
-                    toArray(),
-                    map(entries => ({ sequence, frames: new Map(entries) })),
-                );
-            }),
+    /**
+     * Reads up to 32 object animations, each with its sequence and every frame, in one request. Each ID maps to its clip or
+     * to the error that keeps it in its base pose.
+     */
+    objectClips(ids: readonly number[]): Observable<ReadonlyMap<number, MapObjectClip | Error>> {
+        return this.http.post<AnimationClipResult[]>(`${environment.cacheApiUrl}types/animations/clips`, ids).pipe(
+            map(rows => new Map(rows.map(row => [row.id, objectClip(row)]))),
         );
     }
 
@@ -102,4 +92,21 @@ export class CacheMapsService {
     definitionResource(id: Signal<number | null>) {
         return cacheDefinitionResource<GetMapDefinitionDto>(this.baseUrl, id);
     }
+}
+
+function objectClip(row: AnimationClipResult): MapObjectClip | Error {
+    const { sequence, frames } = row;
+    if (row.status !== 200 || !sequence || !frames) return new Error(problemMessage(row.problem));
+    if (!sequence.frameIds.length) return new Error("Sequence has no frames.");
+    if (!frames.every(({ frame }) => supportedFrame(frame))) return new Error("Sequence uses unsupported transforms.");
+    return { sequence, frames: new Map(frames.map(({ frameId, frame }) => [frameId, frame])) };
+}
+
+function problemMessage(problem: AnimationClipResult["problem"]): string {
+    return problem?.detail ?? problem?.title ?? "Animation unavailable.";
+}
+
+/** The map renderer poses translation, rotation, scale and alpha transforms (types 0-3 and 5). */
+function supportedFrame({ frame, skeleton }: GetAnimationFrameDto): boolean {
+    return frame.transforms.every(transform => [0, 1, 2, 3, 5].includes(skeleton.types[transform.slot]));
 }
