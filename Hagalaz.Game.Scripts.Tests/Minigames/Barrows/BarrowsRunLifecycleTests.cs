@@ -1,5 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Npc;
+using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -54,6 +55,57 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    public void Construction_PacksHudConfigurationWithoutChestAndKillCountOverlap()
+    {
+        var character = Substitute.For<ICharacter>();
+        character.HasState<BarrowsOpenedChestState>().Returns(true);
+
+        Create(new BarrowsDto { AhrimKilled = true, KarilKilled = true, KillCount = 3 }, character: character);
+
+        character.Configurations.Received().SendStandardConfiguration(453, (1 << 0) | (1 << 3) | (1 << 16) | (3 << 17));
+    }
+
+    [TestMethod]
+    public void SpawnBarrowBrother_AkrisaeStaysLockedWithoutQuestSource()
+    {
+        var npcBuilder = Substitute.For<INpcBuilder>();
+        var (_, script) = Create(new BarrowsDto { TunnelIndex = 3 }, npcBuilder);
+
+        script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AkrisaeIndex]);
+
+        npcBuilder.DidNotReceive().Create();
+    }
+
+    [TestMethod]
+    public void OnDeath_DespawnsActiveBrotherButKeepsProgress()
+    {
+        var npcBuilder = Substitute.For<INpcBuilder>();
+        var npc = Substitute.For<INpc>();
+        var handle = Substitute.For<INpcHandle>();
+        handle.Npc.Returns(npc);
+        var npcId = Substitute.For<INpcId>();
+        var npcLocation = Substitute.For<INpcLocation>();
+        var npcOptional = Substitute.For<INpcOptional>();
+        npcBuilder.Create().Returns(npcId);
+        npcId.WithId(Arg.Any<int>()).Returns(npcLocation);
+        npcLocation.WithLocation(Arg.Any<ILocation>()).Returns(npcOptional);
+        npcOptional.Spawn().Returns(handle);
+        var hintIconBuilder = Substitute.For<IHintIconBuilder>();
+        var hintType = Substitute.For<IHintIconType>();
+        hintIconBuilder.Create().Returns(hintType);
+        hintType.AtEntity(npc).Returns(Substitute.For<IHintIconEntityOptional>());
+        var (profile, script) = Create(new BarrowsDto { TunnelIndex = 3, VeracKilled = true }, npcBuilder, hintIconBuilder);
+        script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
+        profile.ClearReceivedCalls();
+
+        script.OnDeath();
+
+        handle.Received(1).Unregister();
+        Assert.IsTrue(script.IsKilled(BarrowsConstants.VeracIndex));
+        profile.DidNotReceive().SetObject(BarrowsConstants.MinigamesBarrows, Arg.Any<BarrowsDto>());
+    }
+
+    [TestMethod]
     public void Construction_WithoutProfileRandomizesTunnelAmongSixMoundsAndPersistsIt()
     {
         for (var i = 0; i < 50; i++)
@@ -89,12 +141,13 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     private static (IProfile Profile, BarrowsScript Script) Create(
-        BarrowsDto? stored, INpcBuilder? npcBuilder = null, IHintIconBuilder? hintIconBuilder = null)
+        BarrowsDto? stored, INpcBuilder? npcBuilder = null, IHintIconBuilder? hintIconBuilder = null,
+        ICharacter? character = null)
     {
         var profile = Substitute.For<IProfile>();
         profile.GetObject(BarrowsConstants.MinigamesBarrows, Arg.Any<BarrowsDto?>())
             .Returns(call => stored ?? call.ArgAt<BarrowsDto?>(1));
-        var character = Substitute.For<ICharacter>();
+        character ??= Substitute.For<ICharacter>();
         character.Profile.Returns(profile);
         var context = Substitute.For<ICharacterContext>();
         context.Character.Returns(character);

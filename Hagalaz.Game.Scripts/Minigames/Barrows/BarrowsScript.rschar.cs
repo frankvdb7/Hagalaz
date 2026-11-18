@@ -367,6 +367,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         public void SpawnBarrowBrother(int npcID, bool chanceOnTunnel = true)
         {
             var index = npcID >= 2025 && npcID <= 2030 ? npcID - 2025 : 6;
+            if (index == BarrowsConstants.AkrisaeIndex)
+            {
+                // Akrisae requires Ritual of the Mahjarrat; no authoritative quest-completion source is exposed to
+                // scripts yet, so his encounter stays locked for everyone rather than being granted globally.
+                Character.SendChatMessage("You found nothing.");
+                return;
+            }
+
             if (chanceOnTunnel && _tunnelIndex == index)
             {
                 Character.Widgets.OpenDialogue(new TunnelDialogue(Character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
@@ -504,8 +512,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 config |= 1 << i;
             }
 
-            config = (_killCount << 1 << 16) | config;
-            config = ((Character.HasState<BarrowsOpenedChestState>() ? 1 : 0) << 1 << 16) | config;
+            // Candidate layout (cross-revision evidence, not yet verified against the 742 cache):
+            // bits 0-6 brother flags, bit 16 chest open, bits 17-31 kill count.
+            if (Character.HasState<BarrowsOpenedChestState>())
+            {
+                config |= 1 << 16;
+            }
+
+            config |= _killCount << 17;
             Character.Configurations.SendStandardConfiguration(453, config);
         }
 
@@ -626,6 +640,17 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 
             Character.QueueGraphic(Graphic.Create(405));
             Character.QueueAnimation(Animation.Create(424));
+        }
+
+        /// <summary>
+        ///     Death preserves the unclaimed run; only the active encounters are despawned.
+        /// </summary>
+        public override void OnDeath()
+        {
+            foreach (var entry in _spawnEntries)
+            {
+                entry.Despawn();
+            }
         }
 
         /// <summary>
