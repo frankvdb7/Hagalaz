@@ -13,7 +13,7 @@
 
 ## 3. Rewards
 
-- [x] 3.1 Move armour out of chest table 8 into per-brother tables 36-41 (`docs/revision-742/tools/barrows-chest-loot.sql`, no migration); roll them for slain brothers in `BarrowsRewards`.
+- [x] 3.1 Move armour out of chest table 8 into per-brother tables 36-41 (manual database edit, no migration, no SQL in the repo); roll them for slain brothers in `BarrowsRewards`.
 
 ## 4. Verification
 

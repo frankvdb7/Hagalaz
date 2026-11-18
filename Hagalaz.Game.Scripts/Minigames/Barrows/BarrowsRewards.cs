@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
     {
         /// <summary>
         ///     Game-object loot table ids (one armour piece each) for Ahrim, Dharok, Guthan, Karil, Torag and Verac.
-        ///     Created by docs/revision-742/tools/barrows-chest-loot.sql.
+        ///     Created by hand in the database (see docs/revision-742/reference/minigames.md).
         /// </summary>
         public static readonly int[] BrotherSetLootTableIds = [36, 37, 38, 39, 40, 41];
 
