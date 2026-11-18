@@ -201,6 +201,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                 return;
             }
 
+            // Watering protects only the growth interval that just completed, so the disease roll
+            // below must see the state captured before the flag is consumed.
+            var growthConditions = _conditionFlag;
             RemoveCondition(PatchCondition.Watered);
             IncrementCycle();
             if (CurrentCycle >= Seed.MaxCycles)
@@ -221,19 +224,28 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             }
             else
             {
-                // TODO - Include a farming - required level formula
-                var diseaseBaseValue = 25;
-                if (HasCondition(PatchCondition.Watered))
-                    diseaseBaseValue += 10;
-                if (HasCondition(PatchCondition.Fertilized))
-                    diseaseBaseValue += 10;
-                if (HasCondition(PatchCondition.SuperFertilized))
-                    diseaseBaseValue += 20;
+                var diseaseBaseValue = GetDiseaseChanceDenominator(growthConditions);
                 if (RandomStatic.Generator.Next(diseaseBaseValue) == 0)
                     AddCondition(PatchCondition.Diseased);
                 if (refresh)
                     Refresh();
             }
+        }
+
+        /// <summary>
+        /// Gets the denominator of the one-in-N disease chance for a completed growth interval.
+        /// </summary>
+        internal static int GetDiseaseChanceDenominator(PatchCondition conditions)
+        {
+            // TODO - Include a farming - required level formula
+            var denominator = 25;
+            if (conditions.HasFlag(PatchCondition.Watered))
+                denominator += 10;
+            if (conditions.HasFlag(PatchCondition.Fertilized))
+                denominator += 10;
+            if (conditions.HasFlag(PatchCondition.SuperFertilized))
+                denominator += 20;
+            return denominator;
         }
 
         /// <summary>
