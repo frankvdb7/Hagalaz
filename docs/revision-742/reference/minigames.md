@@ -73,3 +73,20 @@ Shape models and the answer/reroll protocol for the four puzzles; HUD CS2 semant
 - Positive, negative, interruption, concurrency and persistence tests for each interaction.
 
 [Implementation guide](../minigames.md) · [Research policy](../research-evidence.md)
+
+### Barrows chest 10284: live loot rows (confirmed from the local Aspire MySQL database, 2026-11-19)
+
+`gameobject_definitions`: object 10284 "Barrows Chest" uses `gameobject_loot_id = 8`.
+
+- **Table 8 `barrows_chest`:** `maximum_loot_count = 2`, `randomize_loot_count = 1`; child table 9 via `gameobject_lootrecursion`. 37 item rows, total weight 539.
+  - Two "nothing" rows (item 0) at weights 250 and 25.
+  - Coins 995 (1-3931, w 50), mind runes 558 (250-4900, w 45), chaos 562 (115-1890, w 40), death 560 (70-1190, w 30), blood 565 (35-630, w 25), bolt racks 4740 (35-280, w 15).
+  - Item 7462 at weight 10.
+  - 28 armour pieces at weight 1.75 each: the six original sets (4708-4759 range) **and the four Akrisae pieces 21736, 21744, 21752, 21760**.
+- **Child table 9 `barrows_chest_rare`:** `maximum_loot_count = 1`; runes 558 x60 (w 100), 560 x15 (w 90), items 165/141/129 (w 50), 385 x4 (w 50), 4740 (w 50), key halves 985 and 987 (w 2 each), dragon medium helm 1149 (w 2).
+
+Consequences (confirmed from the rows, not from play-testing):
+
+- The chest roll takes **no input** from slain brothers or crypt creatures, so every player gets the same odds.
+- **Akrisae's set can drop for players who have not completed the quest.**
+- Item 7462 is not a period Barrows chest reward in any source reviewed; its origin here is unresolved.
