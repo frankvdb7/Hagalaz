@@ -1,3 +1,4 @@
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
@@ -167,6 +168,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _lootService = lootService;
             _npcBuilder = npcBuilder;
             _hintIconBuilder = hintIconBuilder;
+            LoadRun();
         }
 
         /// <summary>
@@ -187,9 +189,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         private int _killCount;
 
         /// <summary>
-        ///     The barrow brother kill count.
+        ///     Gets the number of defeated brothers, derived from the authoritative killed flags.
         /// </summary>
-        private int _barrowBrotherKillCount;
+        private int BrothersKilled => _spawnEntries.Count(e => e.Killed);
 
         /// <summary>
         ///     The barrows kill handler.
@@ -235,20 +237,25 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         private readonly IHintIconBuilder _hintIconBuilder;
 
         /// <summary>
-        ///     Initializes this instance.
+        ///     Intentionally empty: the base constructor invokes this before the injected dependencies are assigned,
+        ///     so the run is loaded from the constructor body instead (see <see cref="LoadRun" />).
         /// </summary>
-        protected override void Initialize()
+        protected override void Initialize() { }
+
+        private static BarrowsDto NewRun() =>
+            new() { TunnelIndex = RandomStatic.Generator.Next(0, BarrowsConstants.MoundCount) };
+
+        /// <summary>
+        ///     Restores the run from the character profile and registers the kill handler.
+        /// </summary>
+        private void LoadRun()
         {
             for (var i = 0; i < _spawnEntries.Length; i++)
             {
                 _spawnEntries[i] = new SpawnEntry(BarrowsConstants.BarrowBrotherIDs[i], _npcBuilder, _hintIconBuilder);
             }
 
-            var barrowsDto = Character.Profile.GetObject(BarrowsConstants.MinigamesBarrows,
-                new BarrowsDto
-                {
-                    TunnelIndex = RandomStatic.Generator.Next(0, _spawnEntries.Length)
-                });
+            var barrowsDto = Character.Profile.GetObject(BarrowsConstants.MinigamesBarrows, NewRun())!;
 
             if (barrowsDto.AhrimKilled)
             {
@@ -289,6 +296,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _lootedChest = barrowsDto.LootedChest;
             _cryptStartIndex = barrowsDto.CryptStartIndex;
             _tunnelIndex = barrowsDto.TunnelIndex;
+            UpdateBarrowsProfile(); // persist a freshly randomized tunnel so it stays stable across exits
 
             if (_lootedChest)
             {
@@ -307,7 +315,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                         if (entry.NpcID == compositeID && !entry.Killed)
                         {
                             entry.SetKilled();
-                            _barrowBrotherKillCount++;
                             _killCount++;
                             UpdateBarrowsProfile();
                             DrawAllKills();
@@ -526,8 +533,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         private void ResetKills()
         {
             _killCount = 0;
-            _barrowBrotherKillCount = 0;
-            foreach (var entry in _spawnEntries)
+                foreach (var entry in _spawnEntries)
             {
                 entry.Reset();
             }
@@ -549,7 +555,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _cryptTick++;
             if (_cryptTick % 30 == 0) // every 18 seconds
             {
-                var drainedPrayerPoints = 80 + 10 * _barrowBrotherKillCount;
+                var drainedPrayerPoints = 80 + 10 * BrothersKilled;
                 Character.Statistics.DrainPrayerPoints(drainedPrayerPoints);
 
                 var inter = Character.Widgets.GetOpenWidget(24);
@@ -635,13 +641,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         {
             Unload();
 
-            Character.Profile.SetObject(BarrowsConstants.MinigamesBarrows, new BarrowsDto());
-
             Character.Configurations.SendResetCameraShake();
 
-            if (!_lootedChest)
+            if (_lootedChest)
             {
-                Character.SendChatMessage("The power of all those you slew in the barrows drains from your body.");
+                // The chest was claimed: the next visit starts a fresh randomized run.
+                Character.Profile.SetObject(BarrowsConstants.MinigamesBarrows, NewRun());
             }
         }
     }

@@ -9,6 +9,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         public const string MinigamesBarrows = "minigames.barrows";
 
         /// <summary>
+        ///     The number of surface mounds. Akrisae shares Verac's mound, so he is not a seventh mound.
+        /// </summary>
+        public const int MoundCount = 6;
+
+        /// <summary>
         ///     The probability barrow brother killed modifier.
         /// </summary>
         public static readonly double ProbabilityBarrowBrotherKilledModifier = 1.10;
