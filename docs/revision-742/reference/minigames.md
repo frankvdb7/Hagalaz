@@ -87,7 +87,7 @@ Shape models and the answer/reroll protocol for the four puzzles; HUD CS2 semant
 
 Consequences (confirmed from the rows, not from play-testing):
 
-- The chest roll takes **no input** from slain brothers or crypt creatures, so every player gets the same odds.
+- The chest roll takes **no input** from slain brothers or crypt creatures, so kills never change the odds. The one per-player difference is the ring of wealth: `LootStore` adds `RingOfWealthModifier` to tables whose name contains "rare" (here `barrows_chest_rare`, table 9), which can raise individual weights for players wearing the ring.
 - **Akrisae's set can drop for players who have not completed the quest.**
 - Item 7462 is not a period Barrows chest reward in any source reviewed; its origin here is unresolved.
 
