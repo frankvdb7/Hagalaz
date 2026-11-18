@@ -6,6 +6,7 @@ using AutoMapper;
 using Hagalaz.Contacts.Messages;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using Raido.Common.Protocol;
 using Raido.Server;
 using Hagalaz.Exceptions;
@@ -25,15 +26,17 @@ namespace Hagalaz.Services.GameWorld.Hubs
         private readonly IRequestClient<RemoveContactRequest> _removeContactRequestClient;
         private readonly IRequestClient<AddContactMessageRequest> _addContactMessageRequestClient;
         private readonly IMapper _mapper;
+        private readonly ILogger<ContactHub> _logger;
 
         public ContactHub(
             IRequestClient<AddContactRequest> addContactRequestClient, IRequestClient<RemoveContactRequest> removeContactRequestClient,
-            IRequestClient<AddContactMessageRequest> addContactMessageRequestClient, IMapper mapper)
+            IRequestClient<AddContactMessageRequest> addContactMessageRequestClient, IMapper mapper, ILogger<ContactHub> logger)
         {
             _addContactRequestClient = addContactRequestClient;
             _removeContactRequestClient = removeContactRequestClient;
             _addContactMessageRequestClient = addContactMessageRequestClient;
             _mapper = mapper;
+            _logger = logger;
         }
 
         [RaidoMessageHandler(typeof(AddContactMessage))]
@@ -60,8 +63,14 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 character.SendChatMessage(string.Format(GameStrings.PlayerXDoesNotExist, addContactMessage.ContactDisplayName));
             }
-            catch (Exception)
+            catch (RequestTimeoutException ex)
             {
+                _logger.LogWarning(ex, "ContactHub {Operation} request timed out.", "AddContactMessage");
+                character.SendChatMessage(GameStrings.SomethingWentWrong);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ContactHub {Operation} request failed.", "AddContactMessage");
                 character.SendChatMessage(GameStrings.SomethingWentWrong);
             }
         }
@@ -119,8 +128,14 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 await Clients.Caller.SendAsync(new ChatMessage { Text = string.Format(GameStrings.PlayerXDoesNotExist, request.DisplayName), Type = ChatMessageType.ChatboxText });
             }
-            catch (Exception)
+            catch (RequestTimeoutException ex)
             {
+                _logger.LogWarning(ex, "ContactHub {Operation} request timed out.", "AddFriend");
+                await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ContactHub {Operation} request failed.", "AddFriend");
                 await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
             }
             finally
@@ -173,8 +188,14 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 await Clients.Caller.SendAsync(new ChatMessage { Text = string.Format(GameStrings.PlayerXDoesNotExist, request.DisplayName), Type = ChatMessageType.ChatboxText });
             }
-            catch (Exception)
+            catch (RequestTimeoutException ex)
             {
+                _logger.LogWarning(ex, "ContactHub {Operation} request timed out.", "AddIgnore");
+                await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ContactHub {Operation} request failed.", "AddIgnore");
                 await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
             }
         }
@@ -210,8 +231,14 @@ namespace Hagalaz.Services.GameWorld.Hubs
             {
                 await Clients.Caller.SendAsync(new ChatMessage { Text = string.Format(GameStrings.PlayerXDoesNotExist, displayName), Type = ChatMessageType.ChatboxText });
             }
-            catch (Exception)
+            catch (RequestTimeoutException ex)
             {
+                _logger.LogWarning(ex, "ContactHub {Operation} request timed out.", ignore ? "RemoveIgnore" : "RemoveFriend");
+                await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ContactHub {Operation} request failed.", ignore ? "RemoveIgnore" : "RemoveFriend");
                 await Clients.Caller.SendAsync(new ChatMessage { Text = GameStrings.SomethingWentWrong, Type = ChatMessageType.ChatboxText });
             }
         }
