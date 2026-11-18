@@ -154,7 +154,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 }
                 else
                 {
-                    Character.Configurations.SendStandardConfiguration(452, (1 + _cryptStartIndex) << 6); // randomize dungeon (with rope)
+                    Character.Configurations.SendStandardConfiguration(452, 1 << (6 + _cryptStartIndex)); // one bit per entry rope (varbits 465-468), 742 cache confirmed
                 }
             }
         }
@@ -502,7 +502,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         private void DrawAllKills()
         {
             var config = 0;
-            for (var i = 0; i < _spawnEntries.Length; i++)
+            // Config 453 bits 0-5 hold the six brother flags (varbits 457-462); bit 6 belongs to varbit 463, so Akrisae
+            // has no flag here.
+            for (var i = 0; i < BarrowsConstants.MoundCount; i++)
             {
                 if (!_spawnEntries[i].Killed)
                 {
@@ -512,8 +514,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 config |= 1 << i;
             }
 
-            // Candidate layout (cross-revision evidence, not yet verified against the 742 cache):
-            // bits 0-6 brother flags, bit 16 chest open, bits 17-31 kill count.
+            // 742 cache layout: bits 0-5 brother flags, bit 16 chest open (varbit 1394), bits 17-31 kill count (varbit 464).
             if (Character.HasState<BarrowsOpenedChestState>())
             {
                 config |= 1 << 16;

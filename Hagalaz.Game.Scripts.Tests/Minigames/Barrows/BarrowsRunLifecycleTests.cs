@@ -51,6 +51,31 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    [DataRow(0, 64)]
+    [DataRow(1, 128)]
+    [DataRow(2, 256)]
+    [DataRow(3, 512)]
+    public void InCrypts_SetsOneRopeBitPerEntryQuadrant(int entryIndex, int expectedConfig)
+    {
+        var character = Substitute.For<ICharacter>();
+        var (_, script) = Create(new BarrowsDto { CryptStartIndex = entryIndex }, character: character);
+
+        script.InCrypts = true;
+
+        character.Configurations.Received().SendStandardConfiguration(452, expectedConfig);
+    }
+
+    [TestMethod]
+    public void Construction_DoesNotWriteAkrisaeAsHudBrotherFlag()
+    {
+        var character = Substitute.For<ICharacter>();
+
+        Create(new BarrowsDto { AkriseaKilled = true }, character: character);
+
+        character.Configurations.Received().SendStandardConfiguration(453, 0);
+    }
+
+    [TestMethod]
     public void SpawnBarrowBrother_AkrisaeStaysLockedWithoutQuestSource()
     {
         var npcBuilder = Substitute.For<INpcBuilder>();
