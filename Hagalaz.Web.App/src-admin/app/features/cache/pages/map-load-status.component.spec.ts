@@ -97,13 +97,15 @@ describe("MapLoadStatusComponent", () => {
         expect(fixture.componentInstance.percent()).toBe(0);
     });
 
-    it("restarts progress for a new load even when the finished load was never observed", () => {
-        set({ loading: true, hasRegions: true, progress: progress({ appearancesSettled: 9, appearancesTotal: 10 }) });
+    it("restarts progress after a finished load whose panel was hidden, but not when visibility lowers the counts", () => {
+        set({ loading: true, hasRegions: true, hasGeometry: true, progress: progress({ appearancesSettled: 9, appearancesTotal: 10 }) });
+        // Hiding a plane drops the settled counts within the same load.
+        set({ progress: progress({ appearancesSettled: 2, appearancesTotal: 4 }) });
         expect(fixture.componentInstance.percent()).toBe(90);
-        // The finished state is never read; the next load arrives with less settled work.
-        fixture.componentRef.setInput("loading", false);
+        set({ loading: false });
+        expect(element.querySelector("cache-map-load-panel")).toBeNull();
         set({ loading: true, progress: progress({ appearancesSettled: 1, appearancesTotal: 10 }) });
-        expect(fixture.componentInstance.percent()).toBe(18);
+        expect(element.querySelector("mat-progress-bar")?.getAttribute("aria-valuenow")).toBe("18");
     });
 
     it("describes a cache write with an indeterminate bar", () => {

@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from "@angular/common";
-import { Component, computed, input, linkedSignal, output, signal } from "@angular/core";
+import { Component, computed, effect, input, linkedSignal, output, signal } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
@@ -24,11 +24,8 @@ export function mapLoadStage({ regionsSettled, regionsTotal, appearancesSettled,
 /** Settled work over the work known so far. */
 export function mapLoadPercent(progress: MapLoadProgress): number {
     const total = progress.regionsTotal + progress.appearancesTotal + progress.texturesTotal + progress.animationsTotal + progress.waterTotal;
-    return total ? Math.floor((settledWork(progress) / total) * 100) : 0;
-}
-
-function settledWork(progress: MapLoadProgress): number {
-    return progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled + progress.waterSettled;
+    const settled = progress.regionsSettled + progress.appearancesSettled + progress.texturesSettled + progress.animationsSettled + progress.waterSettled;
+    return total ? Math.floor((settled / total) * 100) : 0;
 }
 
 /** Presents the map scene's loading, writing and read-failure states over the viewport. */
@@ -107,7 +104,7 @@ function settledWork(progress: MapLoadProgress): number {
         .issue-list { display: grid; gap: 4px; width: 100%; max-height: 8rem; margin: 0; padding: 0; overflow: auto; list-style: none; overflow-wrap: anywhere; text-align: start; color: var(--mat-sys-on-surface-variant); }
         @keyframes map-load-reveal { from { opacity: 0; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) { .is-delayed { animation-duration: 1ms; } }
-        @media (width <= 600px) { .load-pill { margin-block-end: 52px; } }
+        @media (width <= 600px) { .load-pill, .load-panel { margin-block-end: 52px; } }
     `,
 })
 export class MapLoadStatusComponent {
@@ -142,11 +139,16 @@ export class MapLoadStatusComponent {
         source: () => ({ loading: this.loading(), progress: this.progress() }),
         computation: ({ loading, progress }, previous) => {
             if (!loading) return 100;
-            // Settled work only grows within a load; the signal is not read between loads, so a drop marks a new one.
-            const sameLoad = previous?.source.loading && settledWork(progress) >= settledWork(previous.source.progress);
+            // Visibility changes can lower asset counts within one load; only fewer settled regions mark a new one.
+            const sameLoad = previous?.source.loading && progress.regionsSettled >= previous.source.progress.regionsSettled;
             return Math.max(sameLoad ? previous.value : 0, mapLoadPercent(progress));
         },
     });
+    constructor() {
+        // The panel is not rendered between loads; keep observing progress so the end of each load is seen.
+        effect(() => this.percent());
+    }
+
     /** Only changes of state, so screen readers do not hear each counter update. */
     readonly announcement = computed(() => {
         switch (this.view()) {
