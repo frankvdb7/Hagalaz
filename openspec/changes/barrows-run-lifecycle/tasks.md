@@ -11,7 +11,11 @@
 - [x] 2.1 Config 453 packing, config 452 rope bits, rope 6712.
 - [x] 2.2 Record confirmed 742 values in `docs/revision-742/reference/minigames.md`.
 
-## 3. Verification
+## 3. Rewards
 
-- [x] 3.1 Run `Hagalaz.Game.Scripts.Tests` (509): all pass.
-- [ ] 3.2 Remaining #315 work is tracked outside this change (puzzle, chest rows, NPC specials, quest persistence).
+- [x] 3.1 Move armour out of chest table 8 into per-brother tables 36-41 (`docs/revision-742/tools/barrows-chest-loot.sql`, no migration); roll them for slain brothers in `BarrowsRewards`.
+
+## 4. Verification
+
+- [x] 4.1 Run `Hagalaz.Game.Scripts.Tests` (517): all pass.
+- [ ] 4.2 Remaining #315 work is tracked outside this change (puzzle, chest rows, NPC specials, quest persistence).

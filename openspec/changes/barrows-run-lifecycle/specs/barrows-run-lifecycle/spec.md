@@ -58,3 +58,12 @@ Config 453 SHALL carry brother flags in bits 0-5, chest open in bit 16 and kill 
 
 - **WHEN** the character enters the crypts through entry 0, 1, 2 or 3
 - **THEN** config 452 is 64, 128, 256 or 512
+
+### Requirement: Armour rewards come only from slain brothers
+
+A chest claim SHALL roll armour only from the per-brother tables of brothers slain in the run, with `min(N+1, 7)` rolls each hitting at 1 in `max(450 - 58N, 73)`, and SHALL NOT roll armour when no brother was slain. The ordinary chest table SHALL contain no armour.
+
+#### Scenario: One brother slain
+
+- **WHEN** only Karil was slain
+- **THEN** only Karil's armour table can be rolled

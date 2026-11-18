@@ -90,3 +90,7 @@ Consequences (confirmed from the rows, not from play-testing):
 - The chest roll takes **no input** from slain brothers or crypt creatures, so every player gets the same odds.
 - **Akrisae's set can drop for players who have not completed the quest.**
 - Item 7462 is not a period Barrows chest reward in any source reviewed; its origin here is unresolved.
+
+#### Chest armour change (applied with `docs/revision-742/tools/barrows-chest-loot.sql`, no EF migration)
+
+Armour and item 7462 are removed from table 8. Tables 36-41 (`barrows_set_*`, one piece per roll, equal weight) hold each standard brother's four pieces, and `BarrowsScript` rolls them only for brothers slain in the run: `min(N+1, 7)` rolls, each a hit at 1 in `max(450 - 58N, 73)` (`BarrowsRewards`). These rates come from the later published model and are **not verified for 742**; they are the single place to tune. Akrisae's pieces are no longer in any table while his encounter is locked. The SQL must be applied to every deployed database; the repository carries no seed for game content. Ordinary rewards (table 8 and child 9) still ignore crypt-creature kills; that scaling is not implemented.

@@ -11,12 +11,13 @@ The Barrows run lifecycle in `BarrowsScript` had blockers listed in issue #315: 
 - Derive the brother count (prayer drain) from killed flags; credit a kill only to the brother spawned for that player.
 - Death keeps the run and despawns living brothers, leaving a brother that is already dead so its delayed kill credit still fires.
 - Keep Akrisae locked until a persisted quest-completion source exists.
+- Roll chest armour only from slain brothers' tables (armour moved out of loot table 8 by a manual SQL script, no migration).
 - Pack config 453 as brother flags (bits 0-5), chest open (bit 16), kill count (bits 17-31); send config 452 as `1 << (6 + entry)`; register rope 6712.
 
 ### Non-goals
 
 - Centre-door puzzle, locked-door selection and interface 25 handling (shape models and the answer protocol are unresolved in the 742 cache).
-- Chest reward rolls, rates and loot table rows (database contents not verified).
+- Ordinary reward scaling from crypt-creature kills and verified 742 rates (armour rolls use later-era defaults).
 - Brother specials (Akrisae protection switching, Ahrim Strength drain) and the 10s-versus-18s prayer-drain interval.
 - Quest completion persistence and the separate Akrisae crypt.
 - Barrows equipment (`barrows-equipment`).

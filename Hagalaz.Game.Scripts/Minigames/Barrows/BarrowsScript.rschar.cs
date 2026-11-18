@@ -443,6 +443,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             }
 
             Character.Inventory.TryAddLoot(Character, table, out _);
+            AddSetRewards();
 
             Character.SendChatMessage("You loot the chest and the tomb begins to shake!");
 
@@ -455,6 +456,22 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 
             ResetKills();
             UpdateBarrowsProfile();
+        }
+
+        /// <summary>
+        ///     Rolls armour only from the tables of brothers slain in this run.
+        /// </summary>
+        private void AddSetRewards()
+        {
+            var slain = Enumerable.Range(0, BarrowsConstants.MoundCount).Where(i => _spawnEntries[i].Killed).ToArray();
+            foreach (var brother in BarrowsRewards.RollSetBrothers(slain, RandomStatic.Generator.Next))
+            {
+                var setTable = _lootService.FindGameObjectLootTable(BarrowsRewards.BrotherSetLootTableIds[brother]).Result;
+                if (setTable != null)
+                {
+                    Character.Inventory.TryAddLoot(Character, setTable, out _);
+                }
+            }
         }
 
         /// <summary>

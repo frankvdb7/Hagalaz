@@ -237,6 +237,60 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    [DataRow(0, 1, 450)]
+    [DataRow(1, 2, 392)]
+    [DataRow(6, 7, 102)]
+    [DataRow(7, 7, 73)]
+    public void Rewards_RollCountAndDenominatorFollowSlainBrothers(int slain, int rolls, int denominator)
+    {
+        Assert.AreEqual(rolls, BarrowsRewards.RollCount(slain));
+        Assert.AreEqual(denominator, BarrowsRewards.Denominator(slain));
+    }
+
+    [TestMethod]
+    public void Rewards_NoSlainBrothersNeverRollsArmour()
+    {
+        Assert.AreEqual(0, BarrowsRewards.RollSetBrothers([], _ => 0).Count);
+    }
+
+    [TestMethod]
+    public void Rewards_OnlySlainBrothersCanBeHit()
+    {
+        var hits = BarrowsRewards.RollSetBrothers([1, 4], _ => 0);
+
+        Assert.AreEqual(BarrowsRewards.RollCount(2), hits.Count);
+        Assert.IsTrue(hits.All(h => h == 1));
+    }
+
+    [TestMethod]
+    public void Rewards_MissesAddNothing()
+    {
+        Assert.AreEqual(0, BarrowsRewards.RollSetBrothers([0, 1, 2], _ => 1).Count);
+    }
+
+    [TestMethod]
+    public void LootChest_RollsArmourTablesOnlyForSlainBrothers()
+    {
+        var generator = Substitute.For<ILootGenerator>();
+        generator.GenerateLoot<ILootItem>(Arg.Any<LootParams>()).Returns(new List<LootResult<ILootItem>>());
+        var services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(ILootGenerator)).Returns(generator);
+        services.GetService(typeof(IItemBuilder)).Returns(Substitute.For<IItemBuilder>());
+        services.GetService(typeof(IGroundItemBuilder)).Returns(Substitute.For<IGroundItemBuilder>());
+        var character = Substitute.For<ICharacter>();
+        character.ServiceProvider.Returns(services);
+        character.HasState<BarrowsOpenedChestState>().Returns(true);
+        var lootService = Substitute.For<ILootService>();
+        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Substitute.For<ILootTable>());
+        var (_, script) = Create(new BarrowsDto { KarilKilled = true }, character: character, lootService: lootService);
+
+        script.LootChest(Substitute.For<IGameObject>());
+
+        lootService.DidNotReceive().FindGameObjectLootTable(BarrowsRewards.BrotherSetLootTableIds[BarrowsConstants.AhrimIndex]);
+        lootService.DidNotReceive().FindGameObjectLootTable(BarrowsRewards.BrotherSetLootTableIds[BarrowsConstants.VeracIndex]);
+    }
+
+    [TestMethod]
     public void Construction_WithoutProfileRandomizesTunnelAmongSixMoundsAndPersistsIt()
     {
         for (var i = 0; i < 50; i++)
