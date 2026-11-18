@@ -8,7 +8,7 @@ Barrows tunnels have a 3×3 room arrangement with a central chest, puzzle-gated 
 
 ## Barrows — pinned 742 cache evidence (issue #315)
 
-**Source:** `Hagalaz.GameClient/tests/fixtures/cache742/cache.zip`, SHA-256 `2674f30b06bb7831fd51711b769e62208ae8236bde399f3fee1346ef03c891b1`, read through the existing `Hagalaz.Cache` codecs. Reproduce with `Hagalaz.Cache.Tests/Barrows742EvidenceTests.cs`: extract the zip, set `HAGALAZ_CACHE742_PATH` to that directory (optionally `BARROWS_EVIDENCE_REPORT` for the raw report) and run `dotnet test Hagalaz.Cache.Tests --filter Barrows742`. Without the variable the tests pass trivially. Terms: **confirmed** = decoded from this cache; **interpretation** = inferred from confirmed data, not observed on a client; **unresolved** = not established.
+**Source:** `Hagalaz.GameClient/tests/fixtures/cache742/cache.zip`, SHA-256 `2674f30b06bb7831fd51711b769e62208ae8236bde399f3fee1346ef03c891b1`, read through the existing `Hagalaz.Cache` codecs. Terms: **confirmed** = decoded from this cache; **interpretation** = inferred from confirmed data, not observed on a client; **unresolved** = not established.
 
 ### Varbits and configs (confirmed)
 
