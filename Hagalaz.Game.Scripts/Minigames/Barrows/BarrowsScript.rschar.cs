@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
@@ -312,7 +312,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                     var compositeID = npc.Appearance.CompositeID;
                     foreach (var entry in _spawnEntries)
                     {
-                        if (entry.NpcID == compositeID && !entry.Killed)
+                        if (entry.NpcID == compositeID && !entry.Killed && ReferenceEquals(entry.Spawn?.Npc, npc)) // only this player's own brother
                         {
                             entry.SetKilled();
                             _killCount++;
@@ -431,6 +431,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             var table = _lootService.FindGameObjectLootTable(obj.Definition.LootTableId).Result;
             if (table == null)
             {
+                Character.SendChatMessage("The chest is empty.");
                 return;
             }
 
