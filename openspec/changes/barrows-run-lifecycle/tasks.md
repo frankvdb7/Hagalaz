@@ -13,5 +13,5 @@
 
 ## 3. Verification
 
-- [x] 3.1 Run `Hagalaz.Game.Scripts.Tests` (502): all pass.
+- [x] 3.1 Run `Hagalaz.Game.Scripts.Tests` (509): all pass.
 - [ ] 3.2 Remaining #315 work is tracked outside this change (puzzle, chest rows, NPC specials, quest persistence).

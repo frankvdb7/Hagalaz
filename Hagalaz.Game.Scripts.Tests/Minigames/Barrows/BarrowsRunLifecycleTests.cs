@@ -1,4 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
+﻿using System.Linq;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -8,6 +9,9 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Minigames.Barrows;
@@ -143,6 +147,93 @@ public sealed class BarrowsRunLifecycleTests
         profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
             Arg.Is<BarrowsDto>(d => d.LootedChest && !d.AhrimKilled && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
         generator.Received(1).GenerateLoot<ILootItem>(Arg.Any<LootParams>());
+    }
+
+    [TestMethod]
+    public void LootChest_WithMissingTableDoesNotClaim()
+    {
+        var lootService = Substitute.For<ILootService>();
+        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns((ILootTable?)null);
+        var character = Substitute.For<ICharacter>();
+        character.HasState<BarrowsOpenedChestState>().Returns(true);
+        var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, TunnelIndex = 2 }, character: character, lootService: lootService);
+        profile.ClearReceivedCalls();
+
+        script.LootChest(Substitute.For<IGameObject>());
+
+        Assert.IsTrue(script.IsKilled(BarrowsConstants.AhrimIndex));
+        profile.DidNotReceive().SetObject(BarrowsConstants.MinigamesBarrows, Arg.Any<BarrowsDto>());
+    }
+
+    [TestMethod]
+    public void OpenChest_AfterClaimDoesNotSpawnTunnelBrother()
+    {
+        var npcBuilder = Substitute.For<INpcBuilder>();
+        var (_, script) = Create(new BarrowsDto { LootedChest = true, TunnelIndex = 2 }, npcBuilder);
+
+        var opened = script.OpenChest();
+
+        Assert.IsTrue(opened);
+        npcBuilder.DidNotReceive().Create();
+    }
+
+    [TestMethod]
+    public void OpenChest_BeforeClaimSpawnsUndefeatedTunnelBrother()
+    {
+        var (npcBuilder, hintIconBuilder, npcId, _, _) = CreateSpawnableBuilders();
+        var (_, script) = Create(new BarrowsDto { TunnelIndex = 2 }, npcBuilder, hintIconBuilder);
+
+        var opened = script.OpenChest();
+
+        Assert.IsFalse(opened);
+        npcId.Received(1).WithId(BarrowsConstants.BarrowBrotherIDs[2]);
+    }
+
+    [TestMethod]
+    public void KillCredit_GoesOnlyToTheBrotherSpawnedForThisPlayer()
+    {
+        var (npcBuilder, hintIconBuilder, _, _, handle) = CreateSpawnableBuilders();
+        EventHappened<CreatureKillEvent>? handler = null;
+        var character = Substitute.For<ICharacter>();
+        character.RegisterEventHandler(Arg.Do<EventHappened<CreatureKillEvent>>(h => handler = h));
+        var (_, script) = Create(new BarrowsDto { TunnelIndex = 3 }, npcBuilder, hintIconBuilder, character);
+        script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
+        var otherPlayersAhrim = Substitute.For<INpc>();
+        otherPlayersAhrim.Appearance.CompositeID.Returns(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
+        handle.Npc.Appearance.CompositeID.Returns(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
+
+        handler!(new CreatureKillEvent(character, otherPlayersAhrim));
+        var creditedForOther = script.IsKilled(BarrowsConstants.AhrimIndex);
+        handler(new CreatureKillEvent(character, handle.Npc));
+
+        Assert.IsFalse(creditedForOther);
+        Assert.IsTrue(script.IsKilled(BarrowsConstants.AhrimIndex));
+    }
+
+    [TestMethod]
+    [DataRow(0, 80)]
+    [DataRow(2, 100)]
+    public void Tick_DrainsPrayerFromRestoredKilledFlags(int killedBrothers, int expectedDrain)
+    {
+        var character = Substitute.For<ICharacter>();
+        var (_, script) = Create(new BarrowsDto { AhrimKilled = killedBrothers > 0, KarilKilled = killedBrothers > 1 }, character: character);
+        script.InCrypts = true;
+
+        for (var i = 0; i < 30; i++)
+        {
+            script.Tick();
+        }
+
+        character.Statistics.Received(1).DrainPrayerPoints(expectedDrain);
+    }
+
+    [TestMethod]
+    public void CryptRope_HandlesAllFourEntryRopes()
+    {
+        var ids = typeof(CryptRope).GetCustomAttributes(typeof(GameObjectScriptMetaDataAttribute), false)
+            .Cast<GameObjectScriptMetaDataAttribute>().SelectMany(a => a.ObjectIds).Order().ToArray();
+
+        CollectionAssert.AreEqual(new[] { 6709, 6710, 6711, 6712 }, ids);
     }
 
     [TestMethod]
