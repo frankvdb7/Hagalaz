@@ -169,6 +169,19 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void OnRemove_AlwaysSendsPowerDrainsMessage(bool claimed)
+    {
+        var character = Substitute.For<ICharacter>();
+        var (_, script) = Create(new BarrowsDto { LootedChest = claimed }, character: character);
+
+        script.OnRemove();
+
+        character.Received(1).SendChatMessage("The power of all those you slew in the barrows drains from your body.");
+    }
+
+    [TestMethod]
     public void OnRemove_AfterClaimStartsFreshRun()
     {
         var (profile, script) = Create(new BarrowsDto { VeracKilled = true, LootedChest = true, KillCount = 1, TunnelIndex = 2 });

@@ -683,11 +683,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 // The chest was claimed: the next visit starts a fresh randomized run.
                 Character.Profile.SetObject(BarrowsConstants.MinigamesBarrows, NewRun());
             }
-            else
-            {
-                // Original server message, kept until period evidence says otherwise (none found either way).
-                Character.SendChatMessage("The power of all those you slew in the barrows drains from your body.");
-            }
+
+            Character.SendChatMessage("The power of all those you slew in the barrows drains from your body.");
         }
     }
 }
