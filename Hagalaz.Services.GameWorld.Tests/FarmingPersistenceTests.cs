@@ -295,6 +295,29 @@ public sealed class FarmingPersistenceTests
     }
 
     [TestMethod]
+    public void Hydrate_WateredCycleCompletes_DiseaseRollUsesWateredDenominatorOnce()
+    {
+        var seed = CreateSeed(5374, maxCycles: 10);
+        var now = DateTimeOffset.Now;
+        var random = new RecordingRandom();
+        var task = CreatePatchTask(8389, seed, now.AddMilliseconds(-(200 * 600 + 300)), random);
+
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 8389,
+            SeedId = 5374,
+            Condition = PatchCondition.Planted | PatchCondition.Watered,
+            CurrentCycle = 1,
+            CurrentCycleTicks = 0,
+            ProductCount = 0
+        }, now);
+
+        // First cycle was watered (35); the second interval is dry (25).
+        CollectionAssert.AreEqual(new[] { 35, 25 }, random.Bounds);
+        Assert.IsFalse(task.HasCondition(PatchCondition.Watered));
+    }
+
+    [TestMethod]
     public void Hydrate_LargeLegacyProgressBelowIntMax_NormalizesWithinActiveCycle()
     {
         const int savedProgress = int.MaxValue - 1;
@@ -402,7 +425,7 @@ public sealed class FarmingPersistenceTests
         return farming;
     }
 
-    private static FarmingPatchTickTask CreatePatchTask(int patchId, SeedDto seed, DateTimeOffset lastLogin)
+    private static FarmingPatchTickTask CreatePatchTask(int patchId, SeedDto seed, DateTimeOffset lastLogin, Random? random = null)
     {
         var patchDefinition = CreatePatchDefinition(patchId, seed.Type);
         var farmingService = Substitute.For<IFarmingService>();
@@ -410,7 +433,18 @@ public sealed class FarmingPersistenceTests
         farmingService.FindSeedById(seed.ItemID).Returns(Task.FromResult<SeedDto?>(seed));
         var owner = Substitute.For<ICharacter>();
         owner.LastLogin.Returns(lastLogin);
-        return new FarmingPatchTickTask(owner, patchId, farmingService, Substitute.For<IGameObjectService>());
+        return new FarmingPatchTickTask(owner, patchId, farmingService, Substitute.For<IGameObjectService>(), random);
+    }
+
+    private sealed class RecordingRandom : Random
+    {
+        public List<int> Bounds { get; } = [];
+
+        public override int Next(int maxValue)
+        {
+            Bounds.Add(maxValue);
+            return maxValue - 1; // never rolls disease
+        }
     }
 
     private static PatchDto CreatePatchDefinition(int objectId, PatchType type = PatchType.Allotment) => new()

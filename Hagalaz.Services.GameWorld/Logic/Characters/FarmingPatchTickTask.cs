@@ -33,6 +33,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         private readonly ICharacter _owner;
         private readonly IFarmingService _farmingService;
         private readonly IGameObjectService _gameObjectService;
+        private readonly System.Random _random;
 
         /// <summary>
         /// The flags
@@ -70,12 +71,14 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             ICharacter owner,
             int patchObjectID,
             IFarmingService farmingService,
-            IGameObjectService gameObjectService)
+            IGameObjectService gameObjectService,
+            System.Random? random = null)
             : base()
         {
             _owner = owner;
             _farmingService = farmingService;
             _gameObjectService = gameObjectService;
+            _random = random ?? RandomStatic.Generator;
             PatchDefinition = _farmingService.FindPatchById(patchObjectID).Result!;
             CurrentCycle = 0;
             TickActionMethod = Tick;
@@ -220,12 +223,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                     minimumCount = (int)(minimumCount * 1.66); // 66% more
                 if (minimumCount > maximumCount)
                     maximumCount = minimumCount + 1;
-                _productCount = RandomStatic.Generator.Next(minimumCount, maximumCount);
+                _productCount = _random.Next(minimumCount, maximumCount);
             }
             else
             {
                 var diseaseBaseValue = GetDiseaseChanceDenominator(growthConditions);
-                if (RandomStatic.Generator.Next(diseaseBaseValue) == 0)
+                if (_random.Next(diseaseBaseValue) == 0)
                     AddCondition(PatchCondition.Diseased);
                 if (refresh)
                     Refresh();
