@@ -295,26 +295,33 @@ public sealed class FarmingPersistenceTests
     }
 
     [TestMethod]
-    public void Hydrate_WateredCycleCompletes_DiseaseRollUsesWateredDenominatorOnce()
+    public void Hydrate_WateredCycleCompletes_DiseaseRollUsesWateredChance()
     {
-        var seed = CreateSeed(5374, maxCycles: 10);
+        // RandomStatic is not seedable, so compare disease frequency over many rolls:
+        // watered 1/35 (~1143 of 40000) versus 1/25 (~1600) if the flag were cleared first.
+        const int trials = 40_000;
         var now = DateTimeOffset.Now;
-        var random = new RecordingRandom();
-        var task = CreatePatchTask(8389, seed, now.AddMilliseconds(-(200 * 600 + 300)), random);
+        var task = CreatePatchTask(8389, CreateSeed(5374, maxCycles: 10), now.AddMilliseconds(-(100 * 600 + 300)));
+        var diseased = 0;
 
-        task.Hydrate(new HydratedFarmingDto.PatchDto
+        for (var i = 0; i < trials; i++)
         {
-            Id = 8389,
-            SeedId = 5374,
-            Condition = PatchCondition.Planted | PatchCondition.Watered,
-            CurrentCycle = 1,
-            CurrentCycleTicks = 0,
-            ProductCount = 0
-        }, now);
+            task.Hydrate(new HydratedFarmingDto.PatchDto
+            {
+                Id = 8389,
+                SeedId = 5374,
+                Condition = PatchCondition.Planted | PatchCondition.Watered,
+                CurrentCycle = 1,
+                CurrentCycleTicks = 0,
+                ProductCount = 0
+            }, now);
 
-        // First cycle was watered (35); the second interval is dry (25).
-        CollectionAssert.AreEqual(new[] { 35, 25 }, random.Bounds);
-        Assert.IsFalse(task.HasCondition(PatchCondition.Watered));
+            Assert.IsFalse(task.HasCondition(PatchCondition.Watered));
+            if (task.HasCondition(PatchCondition.Diseased))
+                diseased++;
+        }
+
+        Assert.IsLessThan(1370, diseased);
     }
 
     [TestMethod]
@@ -425,7 +432,7 @@ public sealed class FarmingPersistenceTests
         return farming;
     }
 
-    private static FarmingPatchTickTask CreatePatchTask(int patchId, SeedDto seed, DateTimeOffset lastLogin, Random? random = null)
+    private static FarmingPatchTickTask CreatePatchTask(int patchId, SeedDto seed, DateTimeOffset lastLogin)
     {
         var patchDefinition = CreatePatchDefinition(patchId, seed.Type);
         var farmingService = Substitute.For<IFarmingService>();
@@ -433,18 +440,7 @@ public sealed class FarmingPersistenceTests
         farmingService.FindSeedById(seed.ItemID).Returns(Task.FromResult<SeedDto?>(seed));
         var owner = Substitute.For<ICharacter>();
         owner.LastLogin.Returns(lastLogin);
-        return new FarmingPatchTickTask(owner, patchId, farmingService, Substitute.For<IGameObjectService>(), random);
-    }
-
-    private sealed class RecordingRandom : Random
-    {
-        public List<int> Bounds { get; } = [];
-
-        public override int Next(int maxValue)
-        {
-            Bounds.Add(maxValue);
-            return maxValue - 1; // never rolls disease
-        }
+        return new FarmingPatchTickTask(owner, patchId, farmingService, Substitute.For<IGameObjectService>());
     }
 
     private static PatchDto CreatePatchDefinition(int objectId, PatchType type = PatchType.Allotment) => new()
