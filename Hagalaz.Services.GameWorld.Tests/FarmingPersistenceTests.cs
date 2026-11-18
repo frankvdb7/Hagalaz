@@ -1,4 +1,4 @@
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Services.GameWorld.Logic.Characters;
@@ -256,6 +256,42 @@ public sealed class FarmingPersistenceTests
             Assert.IsTrue(dehydrated.CurrentCycle is 2 or 3);
             Assert.AreEqual(0, dehydrated.ProductCount);
         }
+    }
+
+    [TestMethod]
+    public void GetDiseaseChanceDenominator_WateredInterval_UsesProtectedDenominator()
+    {
+        Assert.AreEqual(25, FarmingPatchTickTask.GetDiseaseChanceDenominator(PatchCondition.Planted));
+        Assert.AreEqual(35, FarmingPatchTickTask.GetDiseaseChanceDenominator(PatchCondition.Planted | PatchCondition.Watered));
+        Assert.AreEqual(45, FarmingPatchTickTask.GetDiseaseChanceDenominator(PatchCondition.Planted | PatchCondition.Watered | PatchCondition.Fertilized));
+        Assert.AreEqual(55, FarmingPatchTickTask.GetDiseaseChanceDenominator(PatchCondition.Planted | PatchCondition.Watered | PatchCondition.SuperFertilized));
+    }
+
+    [TestMethod]
+    public void Hydrate_OfflineCycleCompletesWhileWatered_ConsumesWateredForNextCycle()
+    {
+        var farming = CreateFarming([CreatePatchDefinition(8389)], [CreateSeed(5374, maxCycles: 10)], offlineTicks: 100);
+
+        farming.Hydrate(new HydratedFarmingDto
+        {
+            Patches =
+            [
+                new HydratedFarmingDto.PatchDto
+                {
+                    Id = 8389,
+                    SeedId = 5374,
+                    Condition = PatchCondition.Planted | PatchCondition.Watered,
+                    CurrentCycle = 1,
+                    CurrentCycleTicks = 0,
+                    ProductCount = 0
+                }
+            ]
+        });
+
+        var dehydrated = farming.Dehydrate().Patches.Single();
+
+        Assert.AreEqual(2, dehydrated.CurrentCycle);
+        Assert.IsFalse(dehydrated.Condition.HasFlag(PatchCondition.Watered));
     }
 
     [TestMethod]
