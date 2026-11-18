@@ -1,4 +1,8 @@
-﻿using Hagalaz.Game.Abstractions.Builders.HintIcon;
+﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
+using Hagalaz.Game.Abstractions.Builders.HintIcon;
+using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
@@ -115,6 +119,33 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    public void LootChest_ResetsRunAtSearchAndRejectsSecondClaim()
+    {
+        var generator = Substitute.For<ILootGenerator>();
+        generator.GenerateLoot<ILootItem>(Arg.Any<LootParams>()).Returns(new List<LootResult<ILootItem>>());
+        var services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(ILootGenerator)).Returns(generator);
+        services.GetService(typeof(IItemBuilder)).Returns(Substitute.For<IItemBuilder>());
+        services.GetService(typeof(IGroundItemBuilder)).Returns(Substitute.For<IGroundItemBuilder>());
+        var character = Substitute.For<ICharacter>();
+        character.ServiceProvider.Returns(services);
+        character.HasState<BarrowsOpenedChestState>().Returns(true);
+        var lootService = Substitute.For<ILootService>();
+        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Substitute.For<ILootTable>());
+        var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, KillCount = 4, TunnelIndex = 2 }, character: character, lootService: lootService);
+        var chest = Substitute.For<IGameObject>();
+        profile.ClearReceivedCalls();
+
+        script.LootChest(chest);
+        script.LootChest(chest);
+
+        Assert.IsFalse(script.IsKilled(BarrowsConstants.AhrimIndex));
+        profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
+            Arg.Is<BarrowsDto>(d => d.LootedChest && !d.AhrimKilled && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
+        generator.Received(1).GenerateLoot<ILootItem>(Arg.Any<LootParams>());
+    }
+
+    [TestMethod]
     public void Construction_WithoutProfileRandomizesTunnelAmongSixMoundsAndPersistsIt()
     {
         for (var i = 0; i < 50; i++)
@@ -172,7 +203,7 @@ public sealed class BarrowsRunLifecycleTests
 
     private static (IProfile Profile, BarrowsScript Script) Create(
         BarrowsDto? stored, INpcBuilder? npcBuilder = null, IHintIconBuilder? hintIconBuilder = null,
-        ICharacter? character = null)
+        ICharacter? character = null, ILootService? lootService = null)
     {
         var profile = Substitute.For<IProfile>();
         profile.GetObject(BarrowsConstants.MinigamesBarrows, Arg.Any<BarrowsDto?>())
@@ -184,7 +215,7 @@ public sealed class BarrowsRunLifecycleTests
         var accessor = Substitute.For<ICharacterContextAccessor>();
         accessor.Context.Returns(context);
 
-        var script = new BarrowsScript(accessor, Substitute.For<IItemService>(), Substitute.For<ILootService>(),
+        var script = new BarrowsScript(accessor, Substitute.For<IItemService>(), lootService ?? Substitute.For<ILootService>(),
             npcBuilder ?? Substitute.For<INpcBuilder>(), hintIconBuilder ?? Substitute.For<IHintIconBuilder>());
         return (profile, script);
     }

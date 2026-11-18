@@ -407,7 +407,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             }
 
             var entry = _spawnEntries[_tunnelIndex];
-            if (!entry.Killed)
+            if (!_lootedChest && !entry.Killed)
             {
                 entry.SpawnNpc(Character);
                 return false;
@@ -448,7 +448,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 
             Character.Configurations.SendSetCameraShake(12, 25, 12, 25, 4);
 
+            // Searching the chest is the reset trigger: kills clear and a new tunnel is chosen now. The claimed flag
+            // stays until the player leaves, so the same run cannot be claimed twice.
             _lootedChest = true;
+            _tunnelIndex = NewRun().TunnelIndex;
 
             ResetKills();
             UpdateBarrowsProfile();
