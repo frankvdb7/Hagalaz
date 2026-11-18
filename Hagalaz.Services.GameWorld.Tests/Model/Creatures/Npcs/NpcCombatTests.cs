@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
+using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Logic.Loot;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -128,6 +131,45 @@ public sealed class NpcCombatTests
         Assert.IsTrue(entityStore.Remove(target));
 
         Assert.IsFalse(combat.CanSetTarget(target.Handle));
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    public void Attack_RecordsNpcDeathOnlyWhenDamageIsLethal()
+    {
+        using var listener = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+        var npc = Substitute.For<INpc>();
+        npc.Definition.MaxLifePoints.Returns(10);
+        npc.Script.OnAttack(Arg.Any<ICreature>(), DamageType.StandardMelee, Arg.Any<int>())
+            .Returns(call => call.Arg<int>());
+        var statistics = new NpcStatistics(npc, Substitute.For<IEventManager>(), Substitute.For<IHitSplatBuilder>());
+        npc.Statistics.Returns(statistics);
+        using var provider = new ServiceCollection()
+            .AddSingleton(Substitute.For<IEntityService>())
+            .BuildServiceProvider();
+        npc.ServiceProvider.Returns(provider);
+        var combat = new TestableNpcCombat(npc);
+        npc.When(owner => owner.OnDeath()).Do(_ => combat.OnDeath());
+        var attacker = Substitute.For<ICreature>();
+        var soaked = 0;
+
+        combat.Attack(attacker, DamageType.StandardMelee, -1, ref soaked);
+        combat.Attack(attacker, DamageType.StandardMelee, 4, ref soaked);
+
+        Assert.AreEqual(6, statistics.LifePoints);
+        Assert.IsFalse(combat.IsDead);
+        Assert.IsEmpty(listener.Measurements.Where(sample => sample.InstrumentName == "hagalaz.gameworld.combat.death"));
+
+        combat.Attack(attacker, DamageType.StandardMelee, 6, ref soaked);
+        combat.Attack(attacker, DamageType.StandardMelee, 6, ref soaked);
+        combat.OnDeath();
+
+        Assert.IsTrue(combat.IsDead);
+        Assert.AreEqual(0, statistics.LifePoints);
+        var death = listener.Measurements.Single(sample => sample.InstrumentName == "hagalaz.gameworld.combat.death");
+        Assert.AreEqual(1, death.Value);
+        Assert.HasCount(1, death.Tags);
+        Assert.AreEqual("npc", death.Tags["actor.kind"]);
     }
 
     private sealed class TestableNpcCombat : NpcCombat

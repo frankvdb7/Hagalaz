@@ -86,18 +86,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         public override void OnDeath()
         {
-            IsDead = true;
+            var isNewDeath = MarkDead();
             var delay = RenderDeath();
             Owner.QueueTask(new RsTask(() =>
                 {
-                    var killer = GetKiller();
-                    if (killer != null)
-                    {
-                        Owner.OnKilledBy(killer);
-                        killer.OnTargetKilled(Owner);
-                    }
-
-                    ResetAttackers();
+                    CompleteCombatDeath(isNewDeath);
                     Owner.Respawn();
                 },
                 delay));

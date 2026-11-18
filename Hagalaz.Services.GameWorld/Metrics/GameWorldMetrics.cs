@@ -2,6 +2,9 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Threading;
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Services.GameWorld.Metrics;
 
@@ -10,6 +13,12 @@ internal static class GameWorldMetrics
     public const string MeterName = "Hagalaz.Services.GameWorld";
 
     private static readonly Meter Meter = new(MeterName);
+    private static readonly Counter<long> CombatDeaths = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.combat.death",
+        "{death}");
+    private static readonly Counter<long> CreditedKills = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.combat.kill.credited",
+        "{kill}");
     private static readonly Counter<long> RegionLoads = Meter.CreateCounter<long>(
         "hagalaz.gameworld.map.region.load",
         "{load}");
@@ -86,6 +95,29 @@ internal static class GameWorldMetrics
     public static void RegionSuspended() => Interlocked.Increment(ref _idleRegions);
 
     public static void IdleRegionLeft() => Interlocked.Decrement(ref _idleRegions);
+
+    public static void RecordCombatDeath(ICreature actor)
+    {
+        if (GetActorKind(actor) is { } actorKind)
+        {
+            CombatDeaths.Add(1, new TagList { { "actor.kind", actorKind } });
+        }
+    }
+
+    public static void RecordCreditedKill(ICreature killer, ICreature victim)
+    {
+        if (GetActorKind(killer) is { } killerKind && GetActorKind(victim) is { } victimKind)
+        {
+            CreditedKills.Add(1, new TagList { { "killer.kind", killerKind }, { "victim.kind", victimKind } });
+        }
+    }
+
+    private static string? GetActorKind(ICreature actor) => actor switch
+    {
+        ICharacter => "player",
+        INpc => "npc",
+        _ => null
+    };
 
     public static void RecordTickRegions(int readyRegions)
     {

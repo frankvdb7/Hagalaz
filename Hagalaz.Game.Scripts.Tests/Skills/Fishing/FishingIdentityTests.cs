@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -207,10 +208,63 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             fixture.OriginalAppearance.DidNotReceive().Visible = true;
         }
 
-        private static FishingFixture CreateFishingFixture()
+        [TestMethod]
+        [DoNotParallelize]
+        [DataRow(2, false, 1, DisplayName = "Two catches from one attempt count once")]
+        [DataRow(0, false, 0, DisplayName = "Fishing roll without loot counts zero")]
+        [DataRow(2, true, 0, DisplayName = "Fishing with no accepted catches counts zero")]
+        public void Fishing_CountsOnlyAttemptsWithAcceptedCatches(int catchCount, bool fillInventory, int expectedCompletions)
+        {
+            var measurements = new List<(long Value, KeyValuePair<string, object?>[] Tags)>();
+            using var listener = SkillCompletionListener.Start((_, value, tags, _) => measurements.Add((value, tags.ToArray())));
+            var fixture = CreateFishingFixture(catchCount);
+            Assert.IsTrue(fixture.FishingSkillService.TryFish(fixture.Character, fixture.FishingSpotHandle, fixture.Table, 0));
+            Assert.IsNotNull(fixture.FishingTask);
+            if (fillInventory)
+            {
+                Assert.IsTrue(fixture.Character.Inventory.AddItem(ComposedTestContainer.CreateTestItem(10)));
+                Assert.IsTrue(fixture.Character.Inventory.AddItem(ComposedTestContainer.CreateTestItem(11)));
+            }
+
+            Assert.IsEmpty(measurements);
+            fixture.FishingTask.Tick();
+            fixture.FishingTask.Tick();
+
+            Assert.HasCount(expectedCompletions, measurements);
+            if (expectedCompletions == 1)
+            {
+                Assert.IsTrue(fixture.Character.Inventory.Items.Contains(2));
+                Assert.IsTrue(fixture.Character.Inventory.Items.Contains(3));
+                Assert.AreEqual(1L, measurements[0].Value);
+                Assert.AreEqual(new KeyValuePair<string, object?>("skill", "fishing"), measurements[0].Tags.Single());
+            }
+        }
+
+        [TestMethod]
+        [DoNotParallelize]
+        public void Fishing_WhenLaterRewardThrows_PreservesTheFirstCatchCount()
+        {
+            var measurements = new List<long>();
+            using var listener = SkillCompletionListener.Start((_, value, _, _) => measurements.Add(value));
+            var fixture = CreateFishingFixture(catchCount: 2);
+            var rewardError = new InvalidOperationException("Second catch reward failed.");
+            fixture.Character.Statistics.AddExperience(StatisticsConstants.Fishing, Arg.Any<double>())
+                .Returns(_ => false, _ => throw rewardError);
+
+            Assert.IsTrue(fixture.FishingSkillService.TryFish(fixture.Character, fixture.FishingSpotHandle, fixture.Table, 0));
+            Assert.IsNotNull(fixture.FishingTask);
+            Assert.IsEmpty(measurements);
+
+            var error = Assert.ThrowsExactly<InvalidOperationException>(fixture.FishingTask.Tick);
+            Assert.AreSame(rewardError, error);
+            Assert.IsTrue(fixture.Character.Inventory.Items.Contains(2));
+            Assert.AreEqual(1L, measurements.Single());
+        }
+
+        private static FishingFixture CreateFishingFixture(int catchCount = 0)
         {
             var character = Substitute.For<ICharacter>();
-            var inventory = new ComposedTestContainer(2);
+            var inventory = new ComposedTestContainer(3);
             var statistics = Substitute.For<ICharacterStatistics>();
             var characterProvider = Substitute.For<IServiceProvider>();
             var scopedProvider = Substitute.For<IServiceProvider>();
@@ -265,8 +319,19 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             scopeFactory.CreateScope().Returns(scope);
             scopedProvider.GetService(typeof(IItemService)).Returns(itemService);
             scopedProvider.GetService(typeof(ILootGenerator)).Returns(lootGenerator);
-            lootGenerator.GenerateLoot<IFishingLoot>(Arg.Any<CharacterLootParams>())
-                .Returns(Array.Empty<LootResult<IFishingLoot>>());
+            var catches = new List<LootResult<IFishingLoot>>();
+            for (var index = 0; index < catchCount; index++)
+            {
+                var itemId = index + 2;
+                var loot = Substitute.For<IFishingLoot>();
+                loot.Id.Returns(itemId);
+                var fish = ComposedTestContainer.CreateTestItem(itemId);
+                fish.ItemDefinition.Name.Returns("raw fish");
+                itemBuilder.Create().WithId(itemId).Build().Returns(fish);
+                catches.Add(new LootResult<IFishingLoot>(loot, 1));
+            }
+
+            lootGenerator.GenerateLoot<IFishingLoot>(Arg.Any<CharacterLootParams>()).Returns(catches);
 
             fixture.IsLive = true;
             fixture.CurrentCreature = originalSpot;

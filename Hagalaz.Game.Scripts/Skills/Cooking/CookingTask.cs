@@ -138,6 +138,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
                 Performer.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(burned ? RawDto.BurntItemId : RawDto.CookedItemId).Build());
                 if (!burned)
                 {
+                    SkillActivityMetrics.RecordCookingCompletion();
                     Performer.Statistics.AddExperience(StatisticsConstants.Cooking, RawDto.Experience); // Stop cooking if leveled up.
                 }
             }

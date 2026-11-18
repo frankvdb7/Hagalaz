@@ -13,6 +13,7 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
@@ -154,6 +155,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Render's death of this creature.
         /// </summary>
         public abstract void OnDeath();
+
+        protected bool MarkDead()
+        {
+            if (IsDead)
+            {
+                return false;
+            }
+
+            IsDead = true;
+            GameWorldMetrics.RecordCombatDeath(Owner);
+            return true;
+        }
+
+        protected void CompleteCombatDeath(bool isNewDeath)
+        {
+            var killer = GetKiller();
+            if (killer is not null)
+            {
+                if (isNewDeath)
+                {
+                    GameWorldMetrics.RecordCreditedKill(killer, Owner);
+                }
+
+                Owner.OnKilledBy(killer);
+                killer.OnTargetKilled(Owner);
+            }
+
+            ResetAttackers();
+        }
 
         /// <summary>
         ///     This method gets executed when creature kills the target.

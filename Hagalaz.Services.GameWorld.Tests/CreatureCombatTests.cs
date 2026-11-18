@@ -714,6 +714,68 @@ namespace Hagalaz.Services.GameWorld.Tests
             replacementCombat.DidNotReceiveWithAnyArgs().Attack(default!, default, default, ref soak);
         }
 
+        [TestMethod]
+        [DoNotParallelize]
+        [DataRow(false, "player")]
+        [DataRow(true, "npc")]
+        public void OnDeath_RecordsPlayerDeathAndResolvedKillCredit(bool npcKiller, string killerKind)
+        {
+            const string killMetric = "hagalaz.gameworld.combat.kill.credited";
+            using var listener = new MeterListenerSpy("Hagalaz.Services.GameWorld");
+            var delayedTasks = new List<ITaskItem>();
+            _mockOwner.QueueTask(Arg.Do<ITaskItem>(delayedTasks.Add));
+            ICreature killer = npcKiller ? EntityTestFactory.Create<INpc>() : EntityTestFactory.Create<ICharacter>();
+            _characterCombat.AddAttackerPublic(killer);
+            _characterCombat.AddDamageToAttackerPublic(killer, 10);
+
+            _characterCombat.OnDeath();
+            _characterCombat.OnDeath();
+
+            Assert.IsTrue(_characterCombat.IsDead);
+            var first = listener.Measurements.Single(sample => sample.InstrumentName == "hagalaz.gameworld.combat.death");
+            Assert.AreEqual(1, first.Value);
+            Assert.AreEqual("{death}", first.Unit);
+            Assert.HasCount(1, first.Tags);
+            Assert.AreEqual("player", first.Tags["actor.kind"]);
+            Assert.IsEmpty(listener.Measurements.Where(sample => sample.InstrumentName == killMetric));
+
+            for (var tick = 0; tick < 7; tick++)
+            {
+                delayedTasks[0].Tick();
+            }
+
+            _mockOwner.Received(1).OnKilledBy(killer);
+            killer.Received(1).OnTargetKilled(_mockOwner);
+            _mockOwner.Received(1).Respawn();
+            Assert.HasCount(1, listener.Measurements.Where(sample => sample.InstrumentName == first.InstrumentName));
+            var kill = listener.Measurements.Single(sample => sample.InstrumentName == killMetric);
+            Assert.AreEqual(1, kill.Value);
+            Assert.AreEqual("{kill}", kill.Unit);
+            Assert.HasCount(2, kill.Tags);
+            Assert.AreEqual(killerKind, kill.Tags["killer.kind"]);
+            Assert.AreEqual("player", kill.Tags["victim.kind"]);
+
+            for (var tick = 0; tick < 7; tick++)
+            {
+                delayedTasks[0].Tick();
+                delayedTasks[1].Tick();
+            }
+
+            _characterCombat.OnSpawn();
+            _characterCombat.OnDeath();
+            for (var tick = 0; tick < 7; tick++)
+            {
+                delayedTasks[2].Tick();
+            }
+
+            var deaths = listener.Measurements.Where(sample => sample.InstrumentName == first.InstrumentName).ToArray();
+            Assert.HasCount(2, deaths);
+            Assert.AreEqual(1, deaths[1].Value);
+            Assert.HasCount(1, deaths[1].Tags);
+            Assert.AreEqual("player", deaths[1].Tags["actor.kind"]);
+            Assert.HasCount(1, listener.Measurements.Where(sample => sample.InstrumentName == killMetric));
+        }
+
         private static CharacterStore CreateCharacterStore() => new(Options.Create(new GameServerOptions
         {
             ClientRevision = 1,

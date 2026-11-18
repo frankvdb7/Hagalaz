@@ -92,6 +92,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
 
             bool Callback(INpc resolvedSpot)
             {
+                var completionRecorded = false;
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
                     var fish = _itemBuilder.Create().WithId(result.Item.Id).Build();
@@ -100,6 +101,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                         continue;
                     }
 
+                    RecordFirstAcceptedCatch();
                     character.Statistics.AddExperience(StatisticsConstants.Fishing, result.Item.FishingExperience);
                     var itemName = fish.ItemDefinition.Name.ToLower().Replace("raw ", "");
                     if (toolName.Contains("small fishing net"))
@@ -155,6 +157,17 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                 character.SendChatMessage(string.Format(You_need_X_in_order_to_fish_at_this_spot,
                     itemService.FindItemDefinitionById(table.BaitId).Name.ToLower()));
                 return true; // stop fishing
+
+                void RecordFirstAcceptedCatch()
+                {
+                    if (completionRecorded)
+                    {
+                        return;
+                    }
+
+                    completionRecorded = true;
+                    SkillActivityMetrics.RecordFishingCompletion();
+                }
             }
 
             // queue the fishing task.
