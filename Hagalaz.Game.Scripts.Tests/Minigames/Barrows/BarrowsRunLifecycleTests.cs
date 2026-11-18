@@ -77,6 +77,19 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    public void OnDeath_KeepsAlreadyDeadBrotherSoKillCreditIsStillAwarded()
+    {
+        var (npcBuilder, hintIconBuilder, _, _, handle) = CreateSpawnableBuilders();
+        handle.Npc.Combat.IsDead.Returns(true);
+        var (_, script) = Create(new BarrowsDto { TunnelIndex = 3 }, npcBuilder, hintIconBuilder);
+        script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
+
+        script.OnDeath();
+
+        handle.DidNotReceive().Unregister();
+    }
+
+    [TestMethod]
     public void Construction_WithoutProfileRandomizesTunnelAmongSixMoundsAndPersistsIt()
     {
         for (var i = 0; i < 50; i++)

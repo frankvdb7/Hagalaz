@@ -643,12 +643,18 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         }
 
         /// <summary>
-        ///     Death preserves the unclaimed run; only the active encounters are despawned.
+        ///     Death preserves the unclaimed run; living encounters are despawned. A brother that is already dead is left
+        ///     alone so its delayed kill credit is still awarded.
         /// </summary>
         public override void OnDeath()
         {
             foreach (var entry in _spawnEntries)
             {
+                if (entry.Spawn?.Npc.Combat.IsDead == true)
+                {
+                    continue;
+                }
+
                 entry.Despawn();
             }
         }
