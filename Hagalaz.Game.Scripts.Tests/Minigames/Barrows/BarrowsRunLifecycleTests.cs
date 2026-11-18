@@ -29,22 +29,7 @@ public sealed class BarrowsRunLifecycleTests
     [TestMethod]
     public void SpawnBarrowBrother_UsesInjectedBuilders()
     {
-        var npcBuilder = Substitute.For<INpcBuilder>();
-        var hintIconBuilder = Substitute.For<IHintIconBuilder>();
-        var npc = Substitute.For<INpc>();
-        var handle = Substitute.For<INpcHandle>();
-        handle.Npc.Returns(npc);
-        var npcId = Substitute.For<INpcId>();
-        var npcLocation = Substitute.For<INpcLocation>();
-        var npcOptional = Substitute.For<INpcOptional>();
-        npcBuilder.Create().Returns(npcId);
-        npcId.WithId(Arg.Any<int>()).Returns(npcLocation);
-        npcLocation.WithLocation(Arg.Any<ILocation>()).Returns(npcOptional);
-        npcOptional.Spawn().Returns(handle);
-        var hintType = Substitute.For<IHintIconType>();
-        var hintOptional = Substitute.For<IHintIconEntityOptional>();
-        hintIconBuilder.Create().Returns(hintType);
-        hintType.AtEntity(npc).Returns(hintOptional);
+        var (npcBuilder, hintIconBuilder, npcId, npcOptional, handle) = CreateSpawnableBuilders();
         var (_, script) = Create(new BarrowsDto { TunnelIndex = 3 }, npcBuilder, hintIconBuilder);
 
         script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
@@ -79,21 +64,7 @@ public sealed class BarrowsRunLifecycleTests
     [TestMethod]
     public void OnDeath_DespawnsActiveBrotherButKeepsProgress()
     {
-        var npcBuilder = Substitute.For<INpcBuilder>();
-        var npc = Substitute.For<INpc>();
-        var handle = Substitute.For<INpcHandle>();
-        handle.Npc.Returns(npc);
-        var npcId = Substitute.For<INpcId>();
-        var npcLocation = Substitute.For<INpcLocation>();
-        var npcOptional = Substitute.For<INpcOptional>();
-        npcBuilder.Create().Returns(npcId);
-        npcId.WithId(Arg.Any<int>()).Returns(npcLocation);
-        npcLocation.WithLocation(Arg.Any<ILocation>()).Returns(npcOptional);
-        npcOptional.Spawn().Returns(handle);
-        var hintIconBuilder = Substitute.For<IHintIconBuilder>();
-        var hintType = Substitute.For<IHintIconType>();
-        hintIconBuilder.Create().Returns(hintType);
-        hintType.AtEntity(npc).Returns(Substitute.For<IHintIconEntityOptional>());
+        var (npcBuilder, hintIconBuilder, _, _, handle) = CreateSpawnableBuilders();
         var (profile, script) = Create(new BarrowsDto { TunnelIndex = 3, VeracKilled = true }, npcBuilder, hintIconBuilder);
         script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
         profile.ClearReceivedCalls();
@@ -138,6 +109,27 @@ public sealed class BarrowsRunLifecycleTests
 
         profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
             Arg.Is<BarrowsDto>(d => !d.VeracKilled && !d.LootedChest && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
+    }
+
+    private static (INpcBuilder NpcBuilder, IHintIconBuilder HintIconBuilder, INpcId NpcId, INpcOptional NpcOptional, INpcHandle Handle)
+        CreateSpawnableBuilders()
+    {
+        var npcBuilder = Substitute.For<INpcBuilder>();
+        var hintIconBuilder = Substitute.For<IHintIconBuilder>();
+        var npc = Substitute.For<INpc>();
+        var handle = Substitute.For<INpcHandle>();
+        handle.Npc.Returns(npc);
+        var npcId = Substitute.For<INpcId>();
+        var npcLocation = Substitute.For<INpcLocation>();
+        var npcOptional = Substitute.For<INpcOptional>();
+        npcBuilder.Create().Returns(npcId);
+        npcId.WithId(Arg.Any<int>()).Returns(npcLocation);
+        npcLocation.WithLocation(Arg.Any<ILocation>()).Returns(npcOptional);
+        npcOptional.Spawn().Returns(handle);
+        var hintType = Substitute.For<IHintIconType>();
+                hintIconBuilder.Create().Returns(hintType);
+        hintType.AtEntity(npc).Returns(Substitute.For<IHintIconEntityOptional>());
+        return (npcBuilder, hintIconBuilder, npcId, npcOptional, handle);
     }
 
     private static (IProfile Profile, BarrowsScript Script) Create(
