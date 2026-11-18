@@ -141,6 +141,22 @@ public sealed class ContactHubTests
     }
 
     [TestMethod]
+    public async Task RemoveIgnore_WhenRequestTimesOut_KeepsIgnoreAndSendsOneRequest()
+    {
+        var fixture = new Fixture();
+        fixture.Contacts.Ignores.Add(new Ignore { MasterId = 7 });
+        fixture.FailRemoveContact(new RequestTimeoutException("req"));
+
+        await fixture.Hub.RemoveIgnore(new RemoveIgnoreMessage { DisplayName = "Friend" });
+
+        Assert.IsTrue(fixture.Contacts.Ignores.Contains(7));
+        await fixture.RemoveContactClient.Received(1).GetResponse<RemoveContactResponse, ContactMutationFailedResponse>(
+            Arg.Any<RemoveContactRequest>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>());
+        fixture.AssertGenericError();
+        fixture.AssertSingleLog("RemoveIgnore", LogLevel.Warning);
+    }
+
+    [TestMethod]
     public async Task RemoveIgnore_WhenUnexpectedFailure_KeepsIgnoreAndLogsError()
     {
         var fixture = new Fixture();
