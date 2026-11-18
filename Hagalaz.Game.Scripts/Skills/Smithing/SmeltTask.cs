@@ -147,11 +147,21 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             // iron ore
             if (Definition.BarID == 2351)
             {
-                return RandomStatic.Generator.Next(0, 100) <= (Performer.Statistics.GetSkillLevel(StatisticsConstants.Smithing) >= 45 ? 80 : 50);
+                return IsIronSmeltSuccessful(Performer.Statistics.GetSkillLevel(StatisticsConstants.Smithing), RandomStatic.Generator.Next(100));
             }
 
             return true;
         }
+
+        /// <summary>
+        ///     Iron smelting success percentage: 50% at level 15, +1% per level, capped at 80% from level 45.
+        /// </summary>
+        internal static int GetIronSmeltChancePercent(int smithingLevel) => System.Math.Clamp(smithingLevel + 35, 50, 80);
+
+        /// <summary>
+        ///     Succeeds when <paramref name="roll" /> (uniform in 0-99) is strictly below the chance percentage.
+        /// </summary>
+        internal static bool IsIronSmeltSuccessful(int smithingLevel, int roll) => roll < GetIronSmeltChancePercent(smithingLevel);
 
         /// <summary>
         /// 

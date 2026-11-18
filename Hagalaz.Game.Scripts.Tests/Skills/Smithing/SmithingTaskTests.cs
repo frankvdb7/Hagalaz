@@ -117,6 +117,30 @@ public sealed class SmithingTaskTests
         performer.Statistics.Received(1).AddExperience(Arg.Any<int>(), 37.5);
     }
 
+    [TestMethod]
+    [DataRow(1, 50)]
+    [DataRow(15, 50)]
+    [DataRow(16, 51)]
+    [DataRow(30, 65)]
+    [DataRow(44, 79)]
+    [DataRow(45, 80)]
+    [DataRow(99, 80)]
+    public void IronSmeltChance_FollowsPerLevelProgressionCappedAtEighty(int level, int expectedPercent)
+    {
+        Assert.AreEqual(expectedPercent, SmeltTask.GetIronSmeltChancePercent(level));
+    }
+
+    [TestMethod]
+    [DataRow(15, 49, true)]
+    [DataRow(15, 50, false)]
+    [DataRow(45, 79, true)]
+    [DataRow(45, 80, false)]
+    [DataRow(99, 80, false)]
+    public void IronSmelt_RollBelowChanceSucceedsAndRollAtChanceFails(int level, int roll, bool expected)
+    {
+        Assert.AreEqual(expected, SmeltTask.IsIronSmeltSuccessful(level, roll));
+    }
+
     private static SmeltTask CreateSmeltTask(ICharacterContextAccessor contextAccessor, TestItemBuilder itemBuilder,
         int barId, params ItemDto[] ores)
     {
