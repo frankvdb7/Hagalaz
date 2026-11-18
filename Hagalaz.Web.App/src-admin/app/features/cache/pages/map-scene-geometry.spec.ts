@@ -45,12 +45,12 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     expect(animated.warnings).toContain("Animation 42: unsupported transform types 11.");
     const objects = required(animated.geometry?.objects, "map objects");
     expect(objects.placements[0].placement).toBe(placement);
-    expect(objects.mapPlanes).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(Array.from(objects.mapPlanes ?? [])).toEqual([0, 0, 0, 0, 0, 0]);
     const animations = required(objects.animations, "animated ranges");
     expect(animations.map(range => range.startVertex)).toEqual([0, 3]);
     const first = animations[0];
     const initial = required(first.sample(0).pose, "first frame");
-    expect(Array.from(initial.positions)).toEqual(objects.positions.slice(0, 9));
+    expect(Array.from(initial.positions)).toEqual(Array.from(objects.positions.slice(0, 9)));
     const initialRgb = Array.from(initial.rgba.slice(0, 3));
     expect(first.sample(39, 0)).toEqual({ delay: 1 });
     const moved = required(first.sample(40, 39).pose, "second frame");
@@ -63,7 +63,7 @@ it("poses a rotated placement with cache timing while preserving its base vertic
     expect(first.alphaFaces).toEqual([true]);
     expect(animations[1].sample(40).pose?.billboards?.[0]).toMatchObject({ face: 1, angle: 4096 });
     const nextLoop = required(first.sample(100, 99).pose, "first frame of the next loop");
-    expect(Array.from(nextLoop.positions)).toEqual(objects.positions.slice(0, 9));
+    expect(Array.from(nextLoop.positions)).toEqual(Array.from(objects.positions.slice(0, 9)));
     for (let elapsed = 100; elapsed < 2000; elapsed += 100) {
         const other = required(animations[1].sample(elapsed).pose, "second placement");
         expect(other.positions[0]).toBe(objects.positions[9]);
@@ -216,7 +216,7 @@ const noLayer = { positions: [], indices: [], colors: [], opacities: [], uvs: []
 
 function terrainRgba(terrain: ModelGeometry): number[] {
     const colors = terrain.colors ?? [], opacities = terrain.opacities ?? [];
-    return opacities.flatMap((opacity, vertex) => [colors[vertex * 3], colors[vertex * 3 + 1], colors[vertex * 3 + 2], opacity]);
+    return Array.from(opacities).flatMap((opacity, vertex) => [colors[vertex * 3], colors[vertex * 3 + 1], colors[vertex * 3 + 2], opacity]);
 }
 
 function sequence(count: number): Uint16Array | Uint32Array {
@@ -438,7 +438,7 @@ describe("map scene geometry", () => {
         const partialColors = required(partial.colors, "partial terrain colours");
         expect(partialColors[1]).toBeGreaterThan(0);
         const lit = draw(regions, anchor.id);
-        expect(required(lit.colors, "lit terrain colours").slice(0, 3)).toEqual([partialColors[0], 0, 0]);
+        expect(Array.from(required(lit.colors, "lit terrain colours").slice(0, 3))).toEqual([partialColors[0], 0, 0]);
         expect(draw(regions, anchor.id)).toBe(lit);
         expect(required(draw(regions, null).colors, "terrain colours").slice(0, 3)).toEqual(partialColors.slice(0, 3));
         expect(required(draw(regions, neighbor.id).colors, "neighbour terrain colours").every(channel => channel === 0)).toBe(true);
@@ -519,7 +519,7 @@ describe("map scene geometry", () => {
         expect(packed.positionIndices).toEqual(Uint16Array.of(0, 1, 2, 0, 1, 2));
         expect(packed.indices).toEqual(Uint16Array.of(0, 1, 2, 3, 4, 5));
         expect(packed.colors?.slice(0, 9)).not.toEqual(packed.colors?.slice(9));
-        expect(packed.uvs?.slice(6)).toEqual(Float64Array.of(0.25, 0.5, 0, 1, 1, 0));
+        expect(packed.uvs?.slice(6)).toEqual(Float32Array.of(0.25, 0.5, 0, 1, 1, 0));
     });
 
     it("retains combined landscape geometry across ordinary image arrivals and replacements", () => {
@@ -639,7 +639,7 @@ describe("map scene geometry", () => {
             if (id >= -1) return;
             for (let corner = 0; corner < 3; corner++) {
                 const vertex = geometry.indices[face * 3 + corner] * 8;
-                expect(weights.slice(vertex, vertex + 8).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1);
+                expect(Array.from(weights.slice(vertex, vertex + 8)).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1);
             }
         });
         const colors = geometry.colors ?? [];
@@ -668,7 +668,8 @@ describe("map scene geometry", () => {
         expect(loaded.textureIds).toEqual(Array(4).fill(textureId));
         expect(loaded.colors).toEqual(unloaded.colors);
         const colors = loaded.colors;
-        tint.forEach((value, channel) => { expect(colors[channel]).toBeCloseTo(value, 10); });
+        // Single-precision colours.
+        tint.forEach((value, channel) => { expect(colors[channel]).toBeCloseTo(value, 7); });
         expect(loaded.positions).toEqual(unloaded.positions);
         expect(loaded.uvs).toEqual(unloaded.uvs);
     });
@@ -679,8 +680,8 @@ describe("map scene geometry", () => {
         const scene = buildMapScene([source], new Map(), new Map(), [true, true, true, true], false);
         expect(scene.geometry?.indices).toHaveLength(48);
         expect(scene.geometry?.positions.slice(0, 9)).toEqual([0, 0, 0, 256, 48, 256, 512, 32, 0]);
-        expect(Math.max(...(scene.geometry?.positions.filter((_, i) => i % 3 === 1) ?? []))).toBe(2976);
-        expect(scene.geometry?.colors?.slice(0, 3)).toEqual([0.8796223968878317, 0.03189603307301153, 0.01599629336550963]);
+        expect(Math.max(...Array.from(scene.geometry?.positions ?? []).filter((_, i) => i % 3 === 1))).toBe(2976);
+        expect(Array.from(scene.geometry?.colors?.slice(0, 3) ?? [])).toEqual([0.8796223968878317, 0.03189603307301153, 0.01599629336550963].map(value => expect.closeTo(value, 7)));
     });
     it("positions adjacent regions together and rotates actual overlay shapes", () => {
         const first = region(),
@@ -690,8 +691,8 @@ describe("map scene geometry", () => {
         first.planes[0].overlayShapes[0] = 2;
         first.planes[0].overlayRotations[0] = 1;
         const scene = buildMapScene([first, second], new Map(), new Map(), [true], false);
-        expect(scene.geometry?.positions.slice(0, 9)).toEqual([512, 96, 512, 512, 64, 256, 0, 64, 512]);
-        expect(scene.geometry?.colors?.slice(0, 3)).toEqual([0.01599629336550963, 0.021219010376003555, 0.8796223968878317]);
+        expect(Array.from(scene.geometry?.positions.slice(0, 9) ?? [])).toEqual([512, 96, 512, 512, 64, 256, 0, 64, 512]);
+        expect(Array.from(scene.geometry?.colors?.slice(0, 3) ?? [])).toEqual([0.01599629336550963, 0.021219010376003555, 0.8796223968878317].map(value => expect.closeTo(value, 7)));
         expect(Math.max(...(scene.geometry?.positions.filter((_, i) => i % 3 === 0) ?? []))).toBe(64 * 512 + 512);
     });
     it("blends a spreading overlay into a neighbouring underlay's shared corners only", () => {
@@ -703,7 +704,8 @@ describe("map scene geometry", () => {
             return required(buildMapScene([source], new Map(), new Map(), [true], false).geometry, "the terrain");
         };
         const blue = [0.01599629336550963, 0.021219010376003555, 0.8796223968878317];
-        const hasBlue = (colors: readonly number[], count: number) => colors.slice(0, count * 3).some((value, index) => index % 3 === 2 && Math.abs(value - blue[2]) < 1e-9);
+        // Colours are single precision.
+        const hasBlue = (colors: ArrayLike<number>, count: number) => Array.from(colors).slice(0, count * 3).some((value, index) => index % 3 === 2 && Math.abs(value - blue[2]) < 1e-6);
         // Tile 0 is drawn first: its four underlay triangles precede tile 64's.
         expect(hasBlue(required(build(false).colors, "colours"), 12)).toBe(false);
         const spread = build(true);
@@ -724,13 +726,13 @@ describe("map scene geometry", () => {
         const seabedY = (geometry: ReturnType<typeof build>) => geometry.positions[surfaceVertices * 3 + 1];
         const partial = build(0), opaque = build(255);
         expect(partial.positions.length / 3).toBe(surfaceVertices + 12);
-        expect(partial.waterDepth).toEqual([...Array(surfaceVertices).fill(199), ...Array(12).fill(0)]);
+        expect(Array.from(partial.waterDepth ?? [])).toEqual([...Array(surfaceVertices).fill(199), ...Array(12).fill(0)]);
         expect(seabedY(partial)).toBe(partial.positions[1] - 200);
         expect(partial.textureIds?.[4]).toBe(7);
         expect(partial.colors?.[surfaceVertices * 3 + 1]).toBeGreaterThan(0);
         expect(partial.colors?.[surfaceVertices * 3 + 1]).toBeLessThan(1);
         expect(opaque.textureIds?.[4]).toBe(-1);
-        expect(opaque.colors?.slice(surfaceVertices * 3, surfaceVertices * 3 + 3)).toEqual([0, 1, 0]);
+        expect(Array.from(opaque.colors?.slice(surfaceVertices * 3, surfaceVertices * 3 + 3) ?? [])).toEqual([0, 1, 0]);
         expect(build(255, false).positions.length / 3).toBe(surfaceVertices);
     });
     it("uses the client zero-array fallback and masks nonqualifying shoreline vertices", () => {
@@ -741,7 +743,7 @@ describe("map scene geometry", () => {
         const build = (regions: MapRenderRegion[], preparation = new MapScenePreparation()) =>
             required(buildMapScene(regions, new Map(), new Map(), [true], false, preparation).geometry, "terrain");
         const dry = build([source]);
-        expect(dry.waterDepth).toEqual(Array(dry.positions.length / 3).fill(0));
+        expect(Array.from(dry.waterDepth ?? [])).toEqual(Array(dry.positions.length / 3).fill(0));
 
         const planes = source.planes;
         planes.push({ ...planes[0], cornerHeights: planes[0].cornerHeights.map(height => height === null ? null : height + 200) });

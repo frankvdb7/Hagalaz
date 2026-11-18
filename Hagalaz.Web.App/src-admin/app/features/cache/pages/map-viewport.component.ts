@@ -63,6 +63,7 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             <button mat-menu-item type="button" [matMenuTriggerFor]="panMenu">Pan</button>
             <button mat-menu-item type="button" [matMenuTriggerFor]="zoomMenu">Zoom</button>
             <button mat-menu-item type="button" (click)="reset()">Focus map</button>
+            <button mat-menu-item type="button" [disabled]="!geometry()" (click)="focusActivePlane()">Focus plane {{ activePlane() }}</button>
         </mat-menu>
         <mat-menu #orbitMenu="matMenu">
             <button mat-menu-item type="button" (click)="orbit(-0.2, 0)">Orbit left</button>
@@ -99,7 +100,12 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
                 (keydown)="key($event)" (pointerdown)="startPick($event)" (pointermove)="movePick($event)"
                 (pointerup)="finishPick($event)" (pointercancel)="cancelPick()" (pointerleave)="leaveBrush()"
                 (dragover)="allowObjectDrop($event)" (dragleave)="leaveObjectDrop($event)" (drop)="dropObject($event)"></div>
-            <div class="map-legend-slot"><ng-content select="[mapOverlayLegend]" /></div>
+            <div class="map-overlay-stack">
+                <p class="map-pick-note studio-surface" role="status" [hidden]="!pickNote()">{{ pickNote() }}</p>
+                <ng-content select="[mapOverlayLegend]" />
+            </div>
+            <!-- Under the orientation gizmo, which draws in the top right 110px square. -->
+            <div class="map-plane-slot"><ng-content select="[mapPlaneStatus]" /></div>
             @if (objectTransform() || hoveredTile()) {
                 <div class="map-selection-status studio-surface" cacheMapSelectionStatus [transform]="objectTransform()" [tile]="hoveredTile()"></div>
             }
@@ -119,7 +125,16 @@ export const mapObjectDragType = "application/x-hagalaz-map-object";
             font: var(--mat-sys-body-small); overflow-wrap: anywhere;
         }
         .toolbar-gap { flex: 1 1 0; }
-        .map-legend-slot { position: absolute; inset: 8px auto auto 8px; max-inline-size: calc(100% - 16px); pointer-events: none; }
+        .map-overlay-stack {
+            position: absolute; inset: 8px auto auto 8px; max-inline-size: calc(100% - 136px);
+            display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none;
+        }
+        .map-plane-slot { position: absolute; inset: 104px 27px auto auto; }
+        .map-pick-note {
+            box-sizing: border-box; margin: 0; padding: 7px 12px; border-radius: 8px;
+            background: var(--mat-sys-surface-container); color: var(--mat-sys-on-surface); font: var(--mat-sys-body-small);
+        }
+        .map-pick-note[hidden] { display: none; }
         .map-canvas.is-brush { cursor: crosshair; touch-action: none; }
         .map-stage { position: relative; height: clamp(340px, 58dvh, 720px); }
         .map-canvas { position: absolute; inset: 0; outline-offset: -2px; }
@@ -156,6 +171,16 @@ export class MapViewportComponent implements OnDestroy {
     /** Per-tile markers drawn over the ground, such as walkability. */
     readonly tileOverlay = input<StrokePreviewGeometry | null>(null);
     readonly hoveredTile = input<HoveredTileReadout | null>(null);
+    /** The plane being inspected. It is independent of plane visibility and of the camera. */
+    readonly activePlane = input(0);
+    /** Planes drawn see-through, which picks pass through. */
+    readonly ghostedPlanes = input<readonly number[]>([]);
+    /** Planes in the geometry that draw nothing, which picks pass through. Hiding them this way needs no rebuild. */
+    readonly hiddenPlanes = input<readonly number[]>([]);
+    /** Where the camera looks in scene units, reported after moves of about eight tiles. */
+    readonly viewTarget = output<BrushPoint>();
+    /** Why the last click selected something in front of the active plane, if it did. */
+    readonly pickNote = signal<string | null>(null);
     readonly canRebuildWorldMap = input(false);
     readonly rebuildWorldMap = output<void>();
     readonly canSave = input(false);
@@ -219,6 +244,7 @@ export class MapViewportComponent implements OnDestroy {
                 const { ModelScene } = await import("../../../../../shared/model-viewer/model-scene");
                 if (!this.destroyed) {
                     const scene = new ModelScene(this.viewport().nativeElement, "Interactive 3D map regions", "map");
+                    scene.onViewTarget(target => this.viewTarget.emit({ x: target.x, z: target.z }));
                     this.scene.set(scene);
                     scene.showOrientationGizmo();
                 }
@@ -231,6 +257,7 @@ export class MapViewportComponent implements OnDestroy {
         effect(() => this.scene()?.setBrushOutline(this.dropOutline() ?? (this.brushActive() ? this.brushOutline() : null) ?? this.selectedTileOutline()));
         effect(() => this.scene()?.setStrokePreview(this.brushActive() ? this.strokePreview() : null));
         effect(() => this.scene()?.setTileOverlay(this.tileOverlay()));
+        effect(() => this.scene()?.setPlaneFocus(this.activePlane(), this.ghostedPlanes(), this.hiddenPlanes()));
         effect(() => {
             const { skyRgb, fog, environmentFaces, sun } = this.environment();
             this.scene()?.setEnvironment(skyRgb, fog, environmentFaces, sun);
@@ -279,10 +306,18 @@ export class MapViewportComponent implements OnDestroy {
         if (click) this.pickAt(event.clientX, event.clientY);
     }
     private pickAt(clientX: number, clientY: number): void {
+        this.pickNote.set(this.overlapNote(clientX, clientY));
         const vertex = this.scene()?.pickVertex(clientX, clientY);
         const range = vertex == null ? null : this.geometry()?.placements.find(candidate => vertex >= candidate.startVertex && vertex < candidate.endVertex);
         this.selectedObject.set(range ?? null);
         if (!range && this.selectTerrainTiles()) this.tilePick.emit(this.pickGround(clientX, clientY));
+    }
+    /** Opaque upper floors block picks, so say when one covered the active plane. */
+    private overlapNote(clientX: number, clientY: number): string | null {
+        const planes = this.scene()?.pickPlanes(clientX, clientY) ?? [];
+        const active = this.activePlane(), front = planes[0];
+        if (front === undefined || front >= 4 || front <= active || !planes.includes(active)) return null;
+        return `Picked plane ${front}, which covers plane ${active} here. Click plane ${front}'s layer to make it see-through, then select again.`;
     }
     private startStroke(event: PointerEvent): void {
         if (!event.isPrimary || event.button !== 0) return;
@@ -392,6 +427,7 @@ export class MapViewportComponent implements OnDestroy {
     pan(x: number, y: number): void { this.scene()?.pan(x, y); }
     zoom(factor: number): void { this.scene()?.zoom(factor); }
     reset(): void { this.scene()?.resetCamera(); }
+    focusActivePlane(): void { this.scene()?.focusMapPlane(this.activePlane()); }
     saveImage(): void {
         const image = this.scene()?.captureImage();
         if (!image) return;
@@ -413,6 +449,7 @@ export class MapViewportComponent implements OnDestroy {
         else if (event.key === "-") { event.preventDefault(); this.zoom(1.25); }
         else if (event.key === "Home") { event.preventDefault(); this.reset(); }
         else if (event.key === "Escape") {
+            this.pickNote.set(null);
             this.selectedObject.set(null);
             this.tilePick.emit(null);
         }

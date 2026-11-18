@@ -35,3 +35,23 @@ it("replaces the source face with a posed quad and releases the quad on removal"
     expect(release).toHaveBeenCalledOnce();
     texture.dispose();
 });
+
+it("fades or hides attachments by their source face, blending faded opaque ones", () => {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.z = 100;
+    const renderer = new ModelBillboards(scene, new Map());
+    const state = { textureId: -1, halfWidth: 1, halfHeight: 1, blendMode: 0, depthOffset: 0, x: 0, y: 0, angle: 0, rgb: 0xffffff, opacity: 1 };
+    renderer.reset([{ ...state, face: 0 }, { ...state, face: 1 }]);
+    const positions = new THREE.Float32BufferAttribute(Array(18).fill(0), 3);
+    const [hidden, faded] = scene.children as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
+    renderer.update(positions, camera, face => face === 0 ? 0 : 0.25);
+    expect(hidden.visible).toBe(false);
+    expect(faded.visible).toBe(true);
+    expect(faded.material.opacity).toBe(0.25);
+    expect([faded.material.transparent, faded.material.blending]).toEqual([true, THREE.NormalBlending]);
+    renderer.update(positions, camera);
+    expect(hidden.visible).toBe(true);
+    expect([faded.material.opacity, faded.material.transparent, faded.material.blending]).toEqual([1, false, THREE.NoBlending]);
+    renderer.dispose();
+});

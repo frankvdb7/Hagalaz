@@ -1,10 +1,26 @@
-import type { GetModelDto } from "./dtos";
+import type { GetModelDto, GetTextureMaterialDto } from "./dtos";
 import type { GetAnimationFrameDto } from "./dtos/get-animation-frame-dto";
 import type { GetAnimationSequenceDto } from "./dtos/get-animation-sequence-dto";
 
 export interface MapObjectClip {
     sequence: GetAnimationSequenceDto;
     frames: ReadonlyMap<number, GetAnimationFrameDto>;
+}
+
+/** One row of the batched texture material endpoint. */
+export interface TextureMaterialResult {
+    id: number;
+    status: number;
+    material: GetTextureMaterialDto | null;
+}
+
+/** One row of the batched clip endpoint: a sequence with its decoded frames, or the problem that prevented it. */
+export interface AnimationClipResult {
+    id: number;
+    status: number;
+    sequence: GetAnimationSequenceDto | null;
+    frames: { frameId: number; frame: GetAnimationFrameDto }[] | null;
+    problem: { title?: string; detail?: string } | null;
 }
 
 export interface MapRenderPlane {
@@ -79,7 +95,8 @@ export interface ObjectRenderAppearance {
 }
 export interface MapSelection { id: number; width: number; height: number; }
 export interface MapLoadRequest extends MapSelection { keys: Record<string, number[]>; }
-export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
+/** `focusPlane` is loaded first, then the planes nearest to it; within a plane, assets nearest the world tile `focusTile` load first. */
+export interface MapVisibility { planes: readonly boolean[]; landscape: boolean; focusPlane?: number; focusTile?: { x: number; y: number }; previewPlacements?: readonly MapPlacement[]; previewTextures?: readonly number[]; }
 export interface ObjectCollision {
     sizeX: number;
     sizeY: number;
@@ -102,6 +119,9 @@ export interface MapLoadProgress {
     regionsSettled: number; regionsTotal: number;
     appearancesSettled: number; appearancesTotal: number;
     texturesSettled: number; texturesTotal: number;
+    animationsSettled: number; animationsTotal: number;
+    /** Water textures and the generated water noise volumes. */
+    waterSettled: number; waterTotal: number;
     failures: number;
 }
 // Revision-742 projection planes for the standard 104-tile scene, in scene units.

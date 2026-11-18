@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { terrainMaterial, TerrainMaterial, terrainSurfaceMaterial, applyTerrainMaterials, type TerrainBlend, type TerrainEnvironment } from "./terrain-material";
+import { terrainMaterial, TerrainMaterial, terrainSurfaceMaterial, applyTerrainMaterials, textureAverage, type TerrainBlend, type TerrainEnvironment } from "./terrain-material";
 
 const blend: TerrainBlend = { id: -2, layers: [
     { textureId: 10, textureScale: 512, color: [0, 1, 0] },
@@ -34,8 +34,8 @@ describe("opaque terrain texture blending", () => {
         const shader = { uniforms: {} as Record<string, {value: unknown}>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
         material.onBeforeCompile(shader as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
         expect(shader.vertexShader).toContain("floorWeightsA = terrainWeightsA");
-        expect(shader.fragmentShader).toContain("(floorMapEnabled0 ? texture2D(floorMap0, floorUv / floorScale0).rgb : vec3(1.0)) * floorWeightsA[0]");
-        expect(shader.fragmentShader).toContain("(floorMapEnabled1 ? texture2D(floorMap1, floorUv / floorScale1).rgb : vec3(1.0)) * floorWeightsA[1]");
+        expect(shader.fragmentShader).toContain("floorSample(floorMapEnabled0, floorMap0, floorScale0, floorAverage0, floorDx, floorDy) * floorWeightsA[0]");
+        expect(shader.fragmentShader).toContain("floorSample(floorMapEnabled1, floorMap1, floorScale1, floorAverage1, floorDx, floorDy) * floorWeightsA[1]");
         expect(material.vertexColors).toBe(true);
         expect(shader.fragmentShader).toContain("#include <color_fragment>");
         expect(shader.fragmentShader).not.toContain("floorColor");
@@ -48,10 +48,29 @@ describe("opaque terrain texture blending", () => {
         const eight = terrainMaterial({ id: -3, layers: Array(8).fill(blend.layers[0]) }, new Map());
         const fullShader = { uniforms: {}, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
         eight.onBeforeCompile(fullShader as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
-        expect(fullShader.fragmentShader).toContain("vec3(1.0)) * floorWeightsB[3]");
+        expect(fullShader.fragmentShader).toContain("floorAverage7, floorDx, floorDy) * floorWeightsB[3]");
         expect(eight.customProgramCacheKey()).not.toBe(material.customProgramCacheKey());
         eight.dispose();
         differentImages.dispose(); material.dispose(); texture.dispose();
+    });
+    it("uses each layer's average colour instead of a fetch once a pixel spans a whole texture repeat", () => {
+        // Two sRGB pixels, white and black: their linear mean is 0.5, not the 0.5 encoded value.
+        const bytes = new THREE.Texture({ data: Uint8ClampedArray.of(255, 255, 255, 255, 0, 0, 0, 255), width: 2, height: 1 });
+        bytes.colorSpace = THREE.SRGBColorSpace;
+        expect(textureAverage(bytes).toArray()).toEqual([0.5, 0.5, 0.5]);
+        const floats = new THREE.Texture({ data: Float32Array.of(0.2, 0.4, 0.6, 1), width: 1, height: 1 });
+        expect(textureAverage(floats).toArray().map(value => Math.round(value * 100) / 100)).toEqual([0.2, 0.4, 0.6]);
+        expect(textureAverage(new THREE.Texture()).toArray()).toEqual([1, 1, 1]);
+
+        const material = terrainMaterial(blend, new Map([[10, bytes]]));
+        const shader = { uniforms: {} as Record<string, { value: unknown }>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+        material.onBeforeCompile(shader as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+        expect((shader.uniforms["floorAverage0"].value as THREE.Vector3).toArray()).toEqual([0.5, 0.5, 0.5]);
+        expect(shader.fragmentShader).toContain("float lod = smoothstep(0.5, 1.0, max(length(dx), length(dy)) / scale);");
+        expect(shader.fragmentShader).toContain("if (lod >= 1.0) return average;");
+        expect(shader.fragmentShader).toContain("textureGrad(map, floorUv / scale, dx / scale, dy / scale)");
+        expect(shader.fragmentShader).toContain("vec2 floorDx = dFdx(floorUv), floorDy = dFdy(floorUv);");
+        material.dispose();
     });
     it("updates compiled sampler uniforms without changing terrain shader identity", () => {
         const material = new TerrainMaterial(blend, new Map());

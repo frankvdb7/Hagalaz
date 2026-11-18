@@ -289,6 +289,60 @@ describe("MapViewportComponent keyboard controls", () => {
         fixture.destroy();
     });
 
+    it("hands the active plane and see-through planes to the scene and focuses the camera on the active plane", () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const setPlaneFocus = vi.fn(), focusMapPlane = vi.fn();
+        const scene = new Proxy({ setPlaneFocus, focusMapPlane } as Record<string | symbol, unknown>, { get: (target, name) => target[name] ?? vi.fn() });
+        (fixture.componentInstance as unknown as { scene: { set(value: unknown): void } }).scene.set(scene);
+        fixture.detectChanges();
+        expect(setPlaneFocus).toHaveBeenLastCalledWith(0, [], []);
+        fixture.componentRef.setInput("activePlane", 2);
+        fixture.componentRef.setInput("ghostedPlanes", [3]);
+        fixture.componentRef.setInput("hiddenPlanes", [1]);
+        fixture.detectChanges();
+        expect(setPlaneFocus).toHaveBeenLastCalledWith(2, [3], [1]);
+        fixture.componentInstance.focusActivePlane();
+        expect(focusMapPlane).toHaveBeenCalledExactlyOnceWith(2);
+        fixture.destroy();
+    });
+
+    it("explains when an opaque upper floor covers the active plane under a click", () => {
+        const fixture = TestBed.createComponent(MapViewportComponent);
+        const viewport = fixture.componentInstance;
+        const pickPlanes = vi.fn(() => [2, 1, 0]);
+        const scene = new Proxy({ pickPlanes, pickVertex: () => null, pickSurface: () => null, placementGizmoDragging: false } as Record<string | symbol, unknown>, { get: (target, name) => target[name] ?? vi.fn() });
+        (viewport as unknown as { scene: { set(value: unknown): void } }).scene.set(scene);
+        const click = () => {
+            const pointer = { isPrimary: true, button: 0, buttons: 0, pointerId: 1, clientX: 10, clientY: 10, stopPropagation: vi.fn() } as unknown as PointerEvent;
+            viewport.startPick(pointer);
+            viewport.finishPick(pointer);
+        };
+        const note = () => (fixture.nativeElement as HTMLElement).querySelector(".map-pick-note") as HTMLElement;
+        click();
+        fixture.detectChanges();
+        expect(viewport.pickNote()).toBe("Picked plane 2, which covers plane 0 here. Click plane 2's layer to make it see-through, then select again.");
+        expect(note().hidden).toBe(false);
+        expect(note().getAttribute("role")).toBe("status");
+        fixture.componentRef.setInput("activePlane", 2);
+        click();
+        expect(viewport.pickNote()).toBeNull();
+        fixture.componentRef.setInput("activePlane", 1);
+        click();
+        expect(viewport.pickNote()).toContain("plane 1");
+        viewport.key(new KeyboardEvent("keydown", { key: "Escape" }));
+        expect(viewport.pickNote()).toBeNull();
+        pickPlanes.mockReturnValue([2, 0]);
+        click();
+        expect(viewport.pickNote()).toBeNull();
+        // A see-through plane 2 is not under the pointer for picking.
+        pickPlanes.mockReturnValue([1]);
+        click();
+        expect(viewport.pickNote()).toBeNull();
+        fixture.detectChanges();
+        expect(note().hidden).toBe(true);
+        fixture.destroy();
+    });
+
     it("does not create a canvas after destruction before asynchronous initialization", async () => {
         const fixture = TestBed.createComponent(MapViewportComponent);
         const element = fixture.nativeElement as HTMLElement;

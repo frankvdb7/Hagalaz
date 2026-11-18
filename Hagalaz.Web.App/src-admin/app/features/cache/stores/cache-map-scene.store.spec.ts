@@ -201,6 +201,8 @@ describe("CacheMapSceneStore", () => {
         );
     });
     afterEach(() => {
+        // Tests that do not exercise water leave the texture material batch unanswered.
+        http.match(request => request.url.endsWith("textures/materials"));
         http.verify();
         TestBed.resetTestingModule();
         vi.useRealTimers();
@@ -231,11 +233,14 @@ describe("CacheMapSceneStore", () => {
             hasHdr: true,
         };
         texture(7, material);
-        await vi.advanceTimersByTimeAsync(0);
+        // Effect 2 is water: the texture and its ridged noise volume make up the water step.
+        await vi.waitFor(async () => {
+            await vi.advanceTimersByTimeAsync(250);
+            expect(store.loading()).toBe(false);
+        });
         expect(store.textures().get(7)).toMatchObject(material);
         expect(store.textures().get(7)?.image).toBeDefined();
-        expect(store.loading()).toBe(false);
-        expect(store.progress()).toMatchObject({ texturesSettled: 1, texturesTotal: 1, failures: 0 });
+        expect(store.progress()).toMatchObject({ texturesSettled: 0, texturesTotal: 0, waterSettled: 2, waterTotal: 2, failures: 0 });
     });
 
     it("scans shared appearance texture faces once per selection across arrivals and visibility changes", async () => {
@@ -266,7 +271,7 @@ describe("CacheMapSceneStore", () => {
             expect(store.progress()).toMatchObject({ appearancesSettled: 1, appearancesTotal: 1, texturesSettled: 2, texturesTotal: 2, failures: 0 });
             store.setVisibility({ planes: [true], landscape: false });
             store.setVisibility({ planes: [true], landscape: true });
-            http.expectNone(() => true);
+            http.expectNone(request => !request.url.endsWith("textures/materials"));
             expect(store.textures().size).toBe(2);
             expect(scans).toHaveBeenCalledTimes(id === 258 ? 1 : 2);
         }
@@ -284,7 +289,7 @@ describe("CacheMapSceneStore", () => {
         expect(store.warnings()).toContain("Texture 7: Texture image or material metadata is missing.");
     });
 
-    it("shares clips and duplicate frames without blocking the base scene", () => {
+    it("shares clips and duplicate frames, reporting animation reads as their own load step", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         const objects = [placement(1), placement(2)];
         store.load({ id: 258, width: 1, height: 1, keys: {} });
@@ -293,17 +298,21 @@ describe("CacheMapSceneStore", () => {
             ...success(object),
             appearance: { ...appearance, ...object, parts: [{ animationIds: [42], objectAnimation: { rotation: 0 } }] },
         })));
-
+        // Objects publish at the next progressive step while their animations load.
+        await vi.advanceTimersByTimeAsync(250);
         expect(store.appearances().size).toBe(2);
-        expect(store.loading()).toBe(false);
+        expect(store.loading()).toBe(true);
+        expect(store.progress()).toMatchObject({ animationsSettled: 0, animationsTotal: 1 });
         expect(store.animations().size).toBe(0);
-        http.expectOne(`${base}types/animations/42/sequence`).flush({ frameIds: [6, 5, 6], frameDurations: [1, 2, 3], loop: 2 });
-        const first = http.expectOne(`${base}animation-frames/6`);
-        http.expectOne(`${base}animation-frames/5`).flush({ frame: { transforms: [] }, skeleton: { types: [], groups: [] } });
-        expect(store.animations().size).toBe(0);
-        first.flush({ frame: { transforms: [] }, skeleton: { types: [], groups: [] } });
+        // One shared clip, read once with its two distinct frames.
+        const clips = http.expectOne(`${base}types/animations/clips`);
+        expect(clips.request.body).toEqual([42]);
+        const frame = { frame: { transforms: [] }, skeleton: { types: [], groups: [] } };
+        clips.flush([{ id: 42, status: 200, sequence: { frameIds: [6, 5, 6], frameDurations: [1, 2, 3], loop: 2 }, frames: [{ frameId: 6, frame }, { frameId: 5, frame }], problem: null }]);
         expect(store.animations().get(42)?.sequence.frameIds).toEqual([6, 5, 6]);
         expect(store.animations().get(42)?.frames.size).toBe(2);
+        expect(store.loading()).toBe(false);
+        expect(store.progress()).toMatchObject({ animationsSettled: 1, animationsTotal: 1 });
     });
 
     it("keeps a failed animation in the base pose and cancels old frames on selection change", () => {
@@ -315,17 +324,33 @@ describe("CacheMapSceneStore", () => {
             ...success(object),
             appearance: { ...appearance, ...object, parts: [{ animationIds: [object.id], objectAnimation: { rotation: 0 } }] },
         })));
-        http.expectOne(`${base}types/animations/1/sequence`).flush({ frameIds: [] });
-        http.expectOne(`${base}types/animations/2/sequence`).flush({ frameIds: [55] });
-        const pending = http.expectOne(`${base}animation-frames/55`);
-        expect(store.warnings()).toContain("Animation 1: Sequence has no frames.");
-        expect(store.appearances().size).toBe(2);
-        expect(store.animations().size).toBe(0);
+        const pending = http.expectOne(`${base}types/animations/clips`);
+        expect(pending.request.body).toEqual([1, 2]);
         store.load({ id: 259, width: 1, height: 1, keys: {} });
         expect(pending.cancelled).toBe(true);
         http.expectOne(`${base}types/maps/259/render`).flush(region(259));
         expect(store.animations().size).toBe(0);
         expect(store.warnings()).toEqual([]);
+    });
+
+    it("keeps animations that fail on their own row, or with no frames, in the base pose", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        const objects = [placement(1), placement(2), placement(3)];
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        http.expectOne(`${base}types/maps/258/render`).flush({ ...region(258), objects });
+        http.expectOne(batchUrl).flush(objects.map(object => ({
+            ...success(object),
+            appearance: { ...appearance, ...object, parts: [{ animationIds: [object.id], objectAnimation: { rotation: 0 } }] },
+        })));
+        const frame = { frame: { transforms: [] }, skeleton: { types: [], groups: [] } };
+        http.expectOne(`${base}types/animations/clips`).flush([
+            { id: 1, status: 200, sequence: { frameIds: [] }, frames: [], problem: null },
+            { id: 2, status: 404, sequence: null, frames: null, problem: { title: "Not found", detail: "Frame 55 is absent." } },
+            { id: 3, status: 200, sequence: { frameIds: [9] }, frames: [{ frameId: 9, frame }], problem: null },
+        ]);
+        expect(store.warnings()).toEqual(expect.arrayContaining(["Animation 1: Sequence has no frames.", "Animation 2: Frame 55 is absent."]));
+        expect([...store.animations().keys()]).toEqual([3]);
+        expect(store.appearances().size).toBe(3);
     });
 
     it("loads the anchor region's environment-map faces but not a neighbour's", async () => {
@@ -369,6 +394,50 @@ describe("CacheMapSceneStore", () => {
         http.expectNone(`${base}textures/7/image?sourceAlpha=true`);
     });
 
+    it("loads water textures as their own phase once materials name them, counting their noise volume", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = textured(258);
+        // Eight floor textures: six fill the image slots, then 16 (ordinary) and 17 (water) wait in that order.
+        source.floors = [10, 11, 12, 13, 14, 15, 16, 17].map(id => ({ id, overlay: false, rgb: 1, textureId: id, textureScale: 512, secondaryRgb: null }));
+        source.planes[0].underlays = [10, 11, 12, 13, 14, 15, 16, 17];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        const materials = http.expectOne(`${base}textures/materials`);
+        expect(materials.request.body).toEqual([10, 11, 12, 13, 14, 15, 16, 17]);
+        const material = (effectId: number) => ({ alphaMode: 0, colorBlend: 0, brightness: 0, effectId, effectParameter: 0, scrollU: 0, scrollV: 0, repeatU: true, repeatV: true, hasHdr: false, effectParameter2: 0 });
+        materials.flush([10, 11, 12, 13, 14, 15, 16, 17].map(id => ({ id, status: 200, material: material(id === 17 ? 2 : 0) })));
+        await vi.advanceTimersByTimeAsync(250);
+        // Texture 17 and the ridged noise volume it needs.
+        expect(store.progress()).toMatchObject({ waterTotal: 2, texturesTotal: 7 });
+        texture(10);
+        await vi.advanceTimersByTimeAsync(0);
+        http.expectOne(`${base}textures/17/image?sourceAlpha=true`);
+        http.expectNone(`${base}textures/16/image?sourceAlpha=true`);
+        http.match(request => /textures\/\d+\/image/.test(request.url));
+    });
+
+    it("backs off progressive publications so rebuilds do not starve loading", async () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = textured(258);
+        source.floors = [7, 8, 9].map(id => ({ id, overlay: false, rgb: 1, textureId: id, textureScale: 512, secondaryRgb: null }));
+        source.planes[0].underlays = [7, 8, 9];
+        source.objects = [placement()];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        // The landscape batch stays pending, so each texture arrival waits for a progressive publication.
+        http.expectOne(batchUrl);
+        const publishedAfter = async (id: number, wait: number) => {
+            texture(id);
+            await vi.advanceTimersByTimeAsync(wait - 1);
+            const before = store.textures().has(id);
+            await vi.advanceTimersByTimeAsync(1);
+            return [before, store.textures().has(id)];
+        };
+        expect(await publishedAfter(7, 250)).toEqual([false, true]);
+        expect(await publishedAfter(8, 500)).toEqual([false, true]);
+        expect(await publishedAfter(9, 1000)).toEqual([false, true]);
+    });
+
     it("publishes a region and its floor textures while another region and landscape batch remain pending", async () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.load({ id: 258, width: 2, height: 1, keys: { 258: [1, 2, 3, 4] } });
@@ -383,7 +452,10 @@ describe("CacheMapSceneStore", () => {
         const batch = http.expectOne(batchUrl);
         expect(batch.request.body).toEqual([{ id: 1, shape: 10, rotation: 0 }]);
         texture(7);
-        await vi.advanceTimersByTimeAsync(250);
+        // Publications wait 250 ms for each selected region, so two regions publish after 500 ms.
+        await vi.advanceTimersByTimeAsync(499);
+        expect(store.textures().size).toBe(0);
+        await vi.advanceTimersByTimeAsync(1);
         expect(store.textures().size).toBe(1);
         expect(store.appearances().size).toBe(0);
         expect(store.loading()).toBe(true);
@@ -417,9 +489,38 @@ describe("CacheMapSceneStore", () => {
         upper.flush([success(placement(2, 1))]);
         store.setVisibility({ planes: [true, false], landscape: false });
         store.setVisibility({ planes: [true, true], landscape: true });
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
         expect(store.appearances().size).toBe(2);
         expect(store.loading()).toBe(false);
+    });
+
+    it("requests the focused plane's floors and objects first, then the planes nearest to it", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        store.setVisibility({ planes: [true, true, true, true], landscape: true, focusPlane: 2 });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        const level = (underlay: number) => ({ cornerHeights: [], flags: [], underlays: [underlay], overlays: [], overlayShapes: [], overlayRotations: [] });
+        source.planes = [level(1), level(2), level(3), level(4)];
+        source.floors = [1, 2, 3, 4].map(id => ({ id, overlay: false, rgb: 1, textureId: 10 + id, textureScale: 512, secondaryRgb: null }));
+        source.objects = [1, 2, 3, 4, 5, 6, 7, 8].map(id => placement(id, (id - 1) % 4));
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+
+        const textures = http.match(request => /textures\/\d+\/image/.test(request.url)).map(request => Number(request.request.url.match(/textures\/(\d+)/)?.[1]));
+        expect(textures).toEqual([13, 12, 14, 11]);
+        const batch = http.expectOne(batchUrl);
+        expect(batch.request.body.map((key: MapPlacement) => key.id)).toEqual([3, 7, 2, 4, 6, 8, 1, 5]);
+    });
+
+    it("requests objects nearest the camera's focus tile first within each plane", () => {
+        const store = TestBed.inject(CacheMapSceneStore);
+        // Region 258 spans world tiles 64-127 by 128-191; focus near its north-east corner.
+        store.setVisibility({ planes: [true, true], landscape: true, focusPlane: 0, focusTile: { x: 126, y: 190 } });
+        store.load({ id: 258, width: 1, height: 1, keys: {} });
+        const source = region(258);
+        const at = (id: number, plane: number, x: number, y: number): MapPlacement => ({ ...placement(id, plane), x, y });
+        source.objects = [at(1, 0, 0, 0), at(2, 1, 63, 63), at(3, 0, 60, 60), at(4, 0, 30, 30)];
+        http.expectOne(`${base}types/maps/258/render`).flush(source);
+        expect(http.expectOne(batchUrl).request.body.map((key: MapPlacement) => key.id)).toEqual([3, 4, 1, 2]);
     });
 
     it("bounds batches and concurrency and drops unstarted hidden work during loading", () => {
@@ -458,8 +559,8 @@ describe("CacheMapSceneStore", () => {
         source.planes.push({ ...source.planes[0], underlays: [7] });
         store.load({ id: 258, width: 1, height: 1, keys: {} });
         http.expectOne(`${base}types/maps/258/render`).flush(source);
-        const fourth = http.expectOne(`${base}textures/13/image?sourceAlpha=true`);
-        http.expectNone(`${base}textures/14/image?sourceAlpha=true`);
+        // Six concurrent image reads take every visible floor texture; the hidden plane's texture 16 waits.
+        const sixth = http.expectOne(`${base}textures/15/image?sourceAlpha=true`);
         http.expectNone(`${base}textures/16/image?sourceAlpha=true`);
         const object = success(placement());
         http.expectOne(batchUrl).flush([
@@ -485,14 +586,11 @@ describe("CacheMapSceneStore", () => {
         http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(10);
         await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(11);
-        await vi.advanceTimersByTimeAsync(0);
-        http.expectNone(`${base}textures/100/image?sourceAlpha=true`);
         texture(12);
-        fourth.flush(new Blob(["fixture"]), { headers: { "X-Texture-Material": JSON.stringify({ alphaMode: 0 }) } });
+        texture(13);
         texture(14);
-        texture(15);
+        sixth.flush(new Blob(["fixture"]), { headers: { "X-Texture-Material": JSON.stringify({ alphaMode: 0 }) } });
         await vi.advanceTimersByTimeAsync(0);
         texture(100);
         await vi.advanceTimersByTimeAsync(0);
@@ -503,7 +601,7 @@ describe("CacheMapSceneStore", () => {
         expect(store.textures().size).toBe(8);
         store.setVisibility({ planes: [true, false], landscape: true });
         store.setVisibility({ planes: [true, true], landscape: true });
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
     });
 
     it("coalesces partial publications and flushes the last batch immediately", async () => {
@@ -556,7 +654,7 @@ describe("CacheMapSceneStore", () => {
         const store = TestBed.inject(CacheMapSceneStore);
         store.load({ id: 65535, width: 2, height: 1, keys: {} });
         expect(store.warnings()[0]).toContain("valid region rectangle");
-        http.expectNone(() => true);
+        http.expectNone(request => !request.url.endsWith("textures/materials"));
         store.load({ id: 258, width: 1, height: 2, keys: {} });
         const oldRegion = http.expectOne(`${base}types/maps/259/render`);
         const source = region(258);

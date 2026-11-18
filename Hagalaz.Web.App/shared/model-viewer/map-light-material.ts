@@ -8,11 +8,21 @@ export interface MapLightField {
 }
 
 const lightDeclarations = /* glsl */ `
+    uniform int mapGhostMask;
+    uniform int mapHiddenMask;
     uniform highp sampler2D mapLightTiles;
     uniform highp sampler2D mapLightRecords;
     uniform int mapLightHeight;
     varying vec3 mapLightPosition;
     flat varying int mapLightPlane;
+
+    // Hidden planes draw nothing. A see-through plane keeps one pixel in four, so it stays opaque and needs no sorting.
+    bool mapPlaneDiscarded() {
+        if (mapLightPlane >= 4) return false;
+        if (((mapHiddenMask >> mapLightPlane) & 1) != 0) return true;
+        if (((mapGhostMask >> mapLightPlane) & 1) == 0) return false;
+        return (int(gl_FragCoord.x) & 1) != 0 || (int(gl_FragCoord.y) & 1) != 0;
+    }
 
     vec3 mapLocalLight() {
         if (mapLightHeight == 0 || mapLightPlane >= 4) return vec3(0.0);
@@ -43,10 +53,12 @@ const lightDeclarations = /* glsl */ `
     }
 `;
 
-/** Shared uniforms keep light updates independent of geometry and material changes. */
+/** Shared per-plane uniforms keep light and plane focus updates independent of geometry and material changes. */
 export class MapLightMaterial {
     private field: MapLightField | null = null;
     private readonly height = { value: 0 };
+    private readonly ghostMask = { value: 0 };
+    private readonly hiddenMask = { value: 0 };
     private readonly tiles = { value: null as THREE.DataTexture | null };
     private readonly records = { value: null as THREE.DataTexture | null };
 
@@ -67,6 +79,12 @@ export class MapLightMaterial {
         this.height.value = enabled ? field?.height ?? 0 : 0;
     }
 
+    /** Draws source planes 0 to 3 see-through or not at all; presentation only, so programs and geometry stay as they are. */
+    setPlaneMasks(ghosted: Iterable<number>, hidden: Iterable<number>): void {
+        this.ghostMask.value = planeMask(ghosted);
+        this.hiddenMask.value = planeMask(hidden);
+    }
+
     apply(material: THREE.Material): void {
         const compile = material.onBeforeCompile;
         const programKey = material.customProgramCacheKey();
@@ -75,9 +93,12 @@ export class MapLightMaterial {
             shader.uniforms["mapLightHeight"] = this.height;
             shader.uniforms["mapLightTiles"] = this.tiles;
             shader.uniforms["mapLightRecords"] = this.records;
+            shader.uniforms["mapGhostMask"] = this.ghostMask;
+            shader.uniforms["mapHiddenMask"] = this.hiddenMask;
             shader.vertexShader = `attribute float mapPlane;\nvarying vec3 mapLightPosition;\nflat varying int mapLightPlane;\n${shader.vertexShader}`
                 .replace("#include <begin_vertex>", "#include <begin_vertex>\nmapLightPosition = transformed; mapLightPlane = int(mapPlane);");
             shader.fragmentShader = `${lightDeclarations}\n${shader.fragmentShader}`
+                .replace("#include <clipping_planes_fragment>", "if (mapPlaneDiscarded()) discard;\n#include <clipping_planes_fragment>")
                 // The hardware terrain pass adds light multiplied by the existing framebuffer color.
                 .replace("#include <colorspace_fragment>", "#include <colorspace_fragment>\ngl_FragColor.rgb *= 1.0 + mapLocalLight();");
             // Water programs replace the colorspace chunk, so the light term must already follow it.
@@ -92,6 +113,12 @@ export class MapLightMaterial {
         this.height.value = 0;
         this.field = null;
     }
+}
+
+function planeMask(planes: Iterable<number>): number {
+    let mask = 0;
+    for (const plane of planes) if (plane >= 0 && plane < 4) mask |= 1 << plane;
+    return mask;
 }
 
 function lightTexture(data: Float32Array, width: number, height: number): THREE.DataTexture {

@@ -1,5 +1,6 @@
 import { catchError, EMPTY, finalize, from, map, mergeMap, Subscription, switchMap, tap } from "rxjs";
 import type { ModelTexture } from "../../../../../shared/model-viewer/model-scene";
+import { waterVolume, type WaterVolume } from "../../../../../shared/model-viewer/water-noise";
 import type { CacheMapsService } from "../services/cache-maps.service";
 import {
     mapAppearanceKey,
@@ -17,7 +18,7 @@ import {
     type ObjectRenderAppearance,
 } from "../services/map-render.models";
 import { getCacheErrorMessage } from "./cache-error";
-import type { GetModelDto } from "../services/dtos";
+import type { GetModelDto, GetTextureMaterialDto } from "../services/dtos";
 
 function addModelTextures(part: GetModelDto, textures: Set<number>): void {
     for (const id of part.faceTextureIds ?? []) if (id >= 0) textures.add(id);
@@ -26,6 +27,20 @@ function addModelTextures(part: GetModelDto, textures: Set<number>): void {
         if (id >= 0) textures.add(id);
     }
 }
+
+/** Milliseconds before the first progressive publication for each selected region; later ones wait twice as long each time. */
+const publicationInterval = 250;
+/** The longest wait between progressive publications for each selected region. */
+const maxPublicationInterval = 2000;
+/** Concurrent requests for the many small texture reads. */
+const textureConcurrency = 6;
+/** Texture materials are read 256 at a time, so water can load as its own phase. */
+const materialBatchSize = 256;
+/** The client's water material effects and the noise volume each one samples. */
+const waterVolumes: Readonly<Record<number, WaterVolume>> = { 2: "ridged", 4: "ridged", 5: "lake", 8: "normal", 9: "normal" };
+/** Animation clips are read 32 at a time, two requests in flight. */
+const animationBatchSize = 32;
+const animationConcurrency = 2;
 
 export interface MapSceneState {
     regions: MapRenderRegion[];
@@ -44,6 +59,10 @@ export const emptyMapProgress = (): MapLoadProgress => ({
     appearancesTotal: 0,
     texturesSettled: 0,
     texturesTotal: 0,
+    animationsSettled: 0,
+    animationsTotal: 0,
+    waterSettled: 0,
+    waterTotal: 0,
     failures: 0,
 });
 
@@ -55,6 +74,11 @@ export class MapSceneLoad {
     private readonly appearances = new Map<string, ObjectRenderAppearance>();
     private animations = new Map<number, MapObjectClip>();
     private readonly attemptedAnimations = new Set<number>();
+    private readonly settledAnimations = new Set<number>();
+    private readonly materials = new Map<number, GetTextureMaterialDto | null>();
+    private readonly requestedMaterials = new Set<number>();
+    /** Water noise volumes this scene needs, and whether each is ready. */
+    private readonly volumes = new Map<WaterVolume, boolean>();
     private animationRequests = 0;
     private readonly appearanceTextureIds = new WeakMap<ObjectRenderAppearance, readonly number[]>();
     private readonly textures = new Map<number, ModelTexture>();
@@ -74,6 +98,7 @@ export class MapSceneLoad {
     private pumping = false;
     private pumpAgain = false;
     private publication?: ReturnType<typeof setTimeout>;
+    private publications = 0;
     private appearancesDirty = true;
     private publishedAppearances = new Map<string, ObjectRenderAppearance>();
     private publishedTextures = new Map<number, ModelTexture>();
@@ -183,12 +208,33 @@ export class MapSceneLoad {
     private interest(): { placements: Map<string, MapPlacement>; textures: Set<number>; environment: number[] } {
         const placements = new Map<string, MapPlacement>();
         const textures = new Set<number>(this.visibility.previewTextures);
-        for (const region of this.regionList) this.floorTextures(region, textures);
+        // Requests follow insertion order: the focused plane first, and within a plane what lies nearest the camera's focus.
+        const rank = this.planeRank();
+        const distance = this.focusDistance();
+        const levels = [...this.visibility.planes.keys()].filter(level => this.visibility.planes[level]).sort((left, right) => rank(left) - rank(right));
+        const regions = [...this.regionList].sort((left, right) => distance(left.regionX * 64 + 32, left.regionY * 64 + 32) - distance(right.regionX * 64 + 32, right.regionY * 64 + 32));
+        for (const level of levels) for (const region of regions) this.floorTextures(region, level, textures);
         const environment = this.anchorEnvironmentFaces();
         if (!this.visibility.landscape) return { placements, textures, environment };
-        const visible = this.regionList.flatMap(region => region.objects.filter(placement => this.visibility.planes[placement.plane]));
+        const visible = this.regionList.flatMap(region => region.objects
+            .filter(placement => this.visibility.planes[placement.plane])
+            .map(placement => ({ placement, rank: rank(placement.plane), distance: distance(region.regionX * 64 + placement.x, region.regionY * 64 + placement.y) })))
+            .sort((left, right) => left.rank - right.rank || left.distance - right.distance)
+            .map(({ placement }) => placement);
         for (const placement of [...visible, ...(this.visibility.previewPlacements ?? [])]) this.addInterest(placement, placements, textures);
         return { placements, textures, environment };
+    }
+
+    /** Tiles from the camera's focus, or zero for everything before the viewer reports one. */
+    private focusDistance(): (x: number, y: number) => number {
+        const focus = this.visibility.focusTile;
+        return focus ? (x, y) => Math.max(Math.abs(x - focus.x), Math.abs(y - focus.y)) : () => 0;
+    }
+
+    /** Distance from the focused plane; underwater terrain sits just below plane 0. */
+    private planeRank(): (plane: number) => number {
+        const focus = this.visibility.focusPlane ?? 0;
+        return plane => Math.abs((plane === underwaterPlaneIndex ? -1 : plane) - focus);
     }
 
     /** Records the first placement of each appearance together with the textures that appearance needs. */
@@ -204,13 +250,12 @@ export class MapSceneLoad {
         return this.regions.get(this.request.id)?.atmosphere?.environmentFaces ?? [];
     }
 
-    private floorTextures(region: MapRenderRegion, textures: Set<number>): void {
+    private floorTextures(region: MapRenderRegion, level: number, textures: Set<number>): void {
+        const plane = region.planes[level];
+        if (!plane) return;
         const floors = new Set<string>();
-        region.planes.forEach((plane, level) => {
-            if (!this.visibility.planes[level]) return;
-            for (const id of plane.underlays) floors.add(`false:${id}`);
-            for (const id of plane.overlays) floors.add(`true:${id}`);
-        });
+        for (const id of plane.underlays) floors.add(`false:${id}`);
+        for (const id of plane.overlays) floors.add(`true:${id}`);
         for (const floor of region.floors) if (floors.has(`${floor.overlay}:${floor.id}`) && floor.textureId >= 0) textures.add(floor.textureId);
     }
 
@@ -228,8 +273,10 @@ export class MapSceneLoad {
     }
 
     private loadPendingTextures(textures: Iterable<number>): void {
-        for (const id of textures) {
-            if (this.textureRequests >= 4) break;
+        // Water is its own phase: once materials name it, its images load ahead of the others.
+        const ordered = [...textures].sort((left, right) => Number(this.isWater(right)) - Number(this.isWater(left)));
+        for (const id of ordered) {
+            if (this.textureRequests >= textureConcurrency) break;
             if (!this.attemptedTextures.has(id)) this.loadTexture(id);
         }
     }
@@ -244,7 +291,10 @@ export class MapSceneLoad {
         do {
             this.pumpAgain = false;
             const { placements, textures, environment } = this.interest();
-            this.loadPendingTextures(new Set([...textures, ...environment]));
+            const wanted = new Set([...textures, ...environment]);
+            this.loadPendingMaterials(wanted);
+            this.prepareWaterVolumes(wanted);
+            this.loadPendingTextures(wanted);
             const pending = [...placements].filter(([key]) => !this.attemptedAppearances.has(key));
             while (this.appearanceRequests < 2 && pending.length) this.loadAppearances(pending.splice(0, 32));
             this.loadPendingAnimations(placements.keys());
@@ -253,12 +303,59 @@ export class MapSceneLoad {
         this.schedule();
     }
 
-    private loadPendingAnimations(keys: Iterable<string>): void {
-        for (const key of keys) {
-            if (this.animationRequests >= 2) break;
-            const id = this.appearances.get(key)?.parts.find(part => part.objectAnimation)?.animationIds?.[0];
-            if (id !== undefined && !this.attemptedAnimations.has(id)) this.loadAnimation(id);
+    private loadPendingMaterials(textures: Iterable<number>): void {
+        const ids = [...textures].filter(id => !this.requestedMaterials.has(id));
+        for (let start = 0; start < ids.length; start += materialBatchSize) this.loadMaterials(ids.slice(start, start + materialBatchSize));
+    }
+
+    private loadMaterials(ids: readonly number[]): void {
+        for (const id of ids) this.requestedMaterials.add(id);
+        this.requests.add(this.service.textureMaterials(ids).pipe(
+            tap(materials => {
+                for (const id of ids) this.materials.set(id, materials.get(id) ?? null);
+            }),
+            // Without materials the textures still load, in their usual order.
+            catchError(() => EMPTY),
+            finalize(() => this.pump()),
+        ).subscribe());
+    }
+
+    /** The effect of a texture, from its batched material or, once loaded, its image. */
+    private textureEffect(id: number): number | undefined {
+        return this.materials.get(id)?.effectId ?? this.textures.get(id)?.effectId;
+    }
+
+    private isWater(id: number): boolean {
+        return waterVolumes[this.textureEffect(id) ?? 0] !== undefined;
+    }
+
+    /** Starts generating each water noise volume the scene's water needs, alongside the rest of the load. */
+    private prepareWaterVolumes(textures: Iterable<number>): void {
+        for (const id of textures) {
+            const kind = waterVolumes[this.textureEffect(id) ?? 0];
+            if (!kind || this.volumes.has(kind)) continue;
+            this.volumes.set(kind, false);
+            void waterVolume(kind).then(() => {
+                if (this.cancelled) return;
+                this.volumes.set(kind, true);
+                this.pump();
+            });
         }
+    }
+
+    private loadPendingAnimations(keys: Iterable<string>): void {
+        const ids = [...this.animationIds(keys)].filter(id => !this.attemptedAnimations.has(id));
+        while (this.animationRequests < animationConcurrency && ids.length) this.loadAnimations(ids.splice(0, animationBatchSize));
+    }
+
+    /** The object animations the loaded appearances of these keys play. */
+    private animationIds(keys: Iterable<string>): Set<number> {
+        const ids = new Set<number>();
+        for (const key of keys) {
+            const id = this.appearances.get(key)?.parts.find(part => part.objectAnimation)?.animationIds?.[0];
+            if (id !== undefined) ids.add(id);
+        }
+        return ids;
     }
 
     private loadAppearances(entries: [string, MapPlacement][]): void {
@@ -300,18 +397,25 @@ export class MapSceneLoad {
         for (const warning of row.appearance.warnings) this.warnings.add(`Object ${placement.id}: ${warning}`);
     }
 
-    private loadAnimation(id: number): void {
-        this.attemptedAnimations.add(id);
+    private loadAnimations(ids: readonly number[]): void {
+        for (const id of ids) this.attemptedAnimations.add(id);
         this.animationRequests++;
-        this.requests.add(this.service.objectAnimation(id).pipe(
-            tap(clip => {
-                this.animations = new Map(this.animations).set(id, clip);
+        this.requests.add(this.service.objectClips(ids).pipe(
+            tap(clips => {
+                const animations = new Map(this.animations);
+                for (const id of ids) {
+                    const clip = clips.get(id) ?? new Error("Animation unavailable.");
+                    if (clip instanceof Error) this.warnings.add(`Animation ${id}: ${clip.message}`);
+                    else animations.set(id, clip);
+                }
+                this.animations = animations;
             }),
             catchError(error => {
-                this.warnings.add(`Animation ${id}: ${getCacheErrorMessage(error)}`);
+                for (const id of ids) this.warnings.add(`Animation ${id}: ${getCacheErrorMessage(error)}`);
                 return EMPTY;
             }),
             finalize(() => {
+                for (const id of ids) this.settledAnimations.add(id);
                 this.animationRequests--;
                 this.pump();
             }),
@@ -366,14 +470,38 @@ export class MapSceneLoad {
             this.flush();
             return;
         }
+        // Each publication rebuilds the whole scene, which takes far longer for nine regions than for one. Publishing at a fixed
+        // pace left the main thread rebuilding back to back, starving the requests themselves, so the pace backs off: the
+        // first results show quickly and the rest arrive in a few larger steps. The finished load always publishes at once.
+        const interval = Math.min(publicationInterval * 2 ** this.publications, maxPublicationInterval);
         this.publication ??= setTimeout(() => {
             this.publication = undefined;
+            this.publications++;
             this.flush();
-        }, 250);
+        }, interval * Math.max(1, this.ids.length));
+    }
+
+    /** Water textures count with the water noise volumes; other textures count on their own. */
+    private textureProgress(requested: ReadonlySet<number>) {
+        const water = [...requested].filter(id => this.isWater(id));
+        const other = [...requested].filter(id => !this.isWater(id));
+        const settled = (ids: number[]) => ids.filter(id => this.settledTextures.has(id)).length;
+        const volumes = [...this.volumes.values()];
+        return {
+            texturesSettled: settled(other), texturesTotal: other.length,
+            waterSettled: settled(water) + volumes.filter(Boolean).length, waterTotal: water.length + volumes.length,
+        };
+    }
+
+    private animationProgress(keys: Iterable<string>): { animationsSettled: number; animationsTotal: number } {
+        const ids = this.animationIds(keys);
+        return { animationsSettled: [...ids].filter(id => this.settledAnimations.has(id)).length, animationsTotal: ids.size };
     }
 
     private isLoading(): boolean {
-        return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0;
+        return this.remainingRegions > 0 || this.appearanceRequests > 0 || this.textureRequests > 0 || this.animationRequests > 0
+            // Materials only order the texture work, so they do not hold the scene in its loading state.
+            || [...this.volumes.values()].some(ready => !ready);
     }
 
     private publishTextures(surface: ReadonlySet<number>, environment: readonly number[]): void {
@@ -411,8 +539,8 @@ export class MapSceneLoad {
                 regionsTotal: this.ids.length,
                 appearancesSettled: [...interest.placements.keys()].filter((key) => this.settledAppearances.has(key)).length,
                 appearancesTotal: interest.placements.size,
-                texturesSettled: [...requestedTextures].filter((id) => this.settledTextures.has(id)).length,
-                texturesTotal: requestedTextures.size,
+                ...this.textureProgress(requestedTextures),
+                ...this.animationProgress(interest.placements.keys()),
                 failures: this.failures,
             },
         });

@@ -64,10 +64,12 @@ export class ModelBillboards {
         for (const [index, state] of states.entries()) this.states[start + index] = state;
     }
 
-    update(positions: THREE.BufferAttribute, camera: THREE.PerspectiveCamera): void {
+    /** `fade` scales an attachment's opacity by its source face, for example to follow hidden or see-through map planes. */
+    update(positions: THREE.BufferAttribute, camera: THREE.PerspectiveCamera, fade: (face: number) => number = () => 1): void {
         for (const [index, state] of this.states.entries()) {
             const quad = this.quads[index];
-            quad.visible = this.updateMaterial(quad.material, state);
+            const opacity = fade(state.face);
+            quad.visible = opacity > 0 && this.updateMaterial(quad.material, state, opacity);
             if (!quad.visible) continue;
             const vertex = state.face * 3;
             quad.position.set(
@@ -85,10 +87,12 @@ export class ModelBillboards {
         }
     }
 
-    private updateMaterial(material: THREE.MeshBasicMaterial, state: RenderBillboard): boolean {
+    private updateMaterial(material: THREE.MeshBasicMaterial, state: RenderBillboard, fade: number): boolean {
         const map = this.textures.get(state.textureId) ?? null;
         if (state.textureId >= 0 && !map) return false;
-        const { alphaTest, transparent, blending, blendSrc } = billboardBlendModes.get(state.blendMode) ?? opaqueBlend;
+        const mode = billboardBlendModes.get(state.blendMode) ?? opaqueBlend;
+        // A faded opaque attachment blends normally, so its reduced opacity shows.
+        const { alphaTest, transparent, blending, blendSrc } = fade < 1 && !mode.transparent ? { ...mode, transparent: true, blending: THREE.NormalBlending } : mode;
         if (material.map !== map || material.transparent !== transparent) {
             material.map = map;
             material.transparent = transparent;
@@ -96,7 +100,7 @@ export class ModelBillboards {
         }
         material.alphaTest = alphaTest;
         material.color.setHex(state.rgb);
-        material.opacity = state.opacity;
+        material.opacity = state.opacity * fade;
         material.blending = blending;
         material.blendSrc = blendSrc;
         material.blendDst = THREE.OneFactor;

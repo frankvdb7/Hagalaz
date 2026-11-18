@@ -37,6 +37,38 @@ public sealed class TextureMaterialEndpointsTests
     }
 
     [TestMethod]
+    public async Task MaterialBatch_ReturnsEachDistinctMaterialAsTheSingleEndpointDoes()
+    {
+        var store = CreateStore();
+        await using var app = await CacheServiceTestHost.StartAsync(store, group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+
+        using var response = await client.PostAsJsonAsync("/api/v1/cache/textures/materials", new[] { 0, 0 });
+        response.EnsureSuccessStatusCode();
+        var rows = await response.Content.ReadFromJsonAsync<TextureMaterialResultDto[]>();
+        var single = await client.GetFromJsonAsync<GetTextureMaterialDto>("/api/v1/cache/textures/0/material");
+
+        Assert.IsNotNull(rows);
+        Assert.HasCount(1, rows);
+        Assert.AreEqual(200, rows[0].Status);
+        Assert.AreEqual(single, rows[0].Material);
+        Assert.IsNull(rows[0].Problem);
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(257)]
+    public async Task MaterialBatch_RejectsEmptyOversizedOrNegativeRequests(int count)
+    {
+        await using var app = await CacheServiceTestHost.StartAsync(CreateStore(), group => group.MapTextureEndpoints());
+        using var client = CacheServiceTestHost.CreateClient(app);
+        using var sized = await client.PostAsJsonAsync("/api/v1/cache/textures/materials", Enumerable.Range(0, count).ToArray());
+        Assert.AreEqual(HttpStatusCode.BadRequest, sized.StatusCode);
+        using var negative = await client.PostAsJsonAsync("/api/v1/cache/textures/materials", new[] { -1 });
+        Assert.AreEqual(HttpStatusCode.BadRequest, negative.StatusCode);
+    }
+
+    [TestMethod]
     [DataRow((byte)1, (byte)40)]
     [DataRow((byte)2, (byte)255)]
     [DataRow((byte)7, (byte)40)]

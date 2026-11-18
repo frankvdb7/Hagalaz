@@ -20,7 +20,7 @@
         <mat-card appearance="outlined" class="region-view">
             <cache-map-viewport [geometry]="scene().geometry" [textures]="store.textures()" [selectionKey]="selectionKey()"
                 [brushActive]="editTool() === 'terrain' && editable()" [brushOutline]="brushOutline()" (brushHover)="brushPoint.set($event)" (brushStroke)="applyStroke($event)" (brushPreview)="strokePoints.set($event)" [strokePreview]="strokePreview()" [tileOverlay]="walkabilityOverlay()" [hoveredTile]="hoveredTile()" [canRebuildWorldMap]="canRebuildWorldMap()" (rebuildWorldMap)="rebuildWorldMap()" [canSave]="canSave()" (save)="saveChanges()" [canUndo]="canUndo()" (undo)="undo()" (discardEdits)="resetEdits()" [regionAtmosphere]="regionAtmosphere()" [pointLights]="pointLights()" [environmentFaces]="store.environmentFaces()" [(useRegionAtmosphere)]="useRegionAtmosphere" [(snap)]="snap" [layersMenu]="layersMenu" [selectedObject]="selectedObject()" (selectedObjectChange)="selectObject($event)"
-                [objectTransform]="objectTransform()" [selectTerrainTiles]="editTool() === 'select'" (tilePick)="selectTile($event)" [selectedTileOutline]="selectedTileOutline()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)">
+                [objectTransform]="objectTransform()" [selectTerrainTiles]="editTool() === 'select'" (tilePick)="selectTile($event)" [selectedTileOutline]="selectedTileOutline()" [gizmoMode]="gizmoMode()" (objectGizmo)="applyObjectGizmo($event)" (objectDrop)="placeDroppedObject($event)" [dropOutline]="dropOutline()" (objectDragHover)="dropPoint.set($event)" [activePlane]="activePlane()" [ghostedPlanes]="ghostedPlanes()" [hiddenPlanes]="hiddenPlanes()" (viewTarget)="viewTarget.set($event)">
                 <div mapEditTools class="edit-toolbar map-edit-toolbar">
                     @for (tool of editTools; track tool.id) {
                         <button mat-icon-button type="button" [class.is-active]="editTool() === tool.id" [attr.aria-label]="tool.label" [matTooltip]="tool.label" [attr.aria-pressed]="editTool() === tool.id" (click)="chooseTool(tool.id)">
@@ -33,9 +33,13 @@
                         <cache-map-overlay-legend title="Clipping" [entries]="walkabilityLegend" />
                     }
                 </ng-container>
+                <cache-map-plane-stack mapPlaneStatus [planes]="planes()" [activePlane]="activePlane()" [ghostedPlanes]="ghostedPlanes()" (cycle)="cyclePlane($event)" />
                 <cache-map-load-status mapLoadStatus [loading]="store.loading()" [hasRegions]="store.regions().length > 0" [hasGeometry]="scene().geometry !== null" [progress]="store.progress()" [issues]="store.warnings()" [activity]="writeActivity()" (retry)="retryLoad()" />
             </cache-map-viewport>
             <mat-menu #layersMenu="matMenu">
+                <button mat-menu-item type="button" [matMenuTriggerFor]="planeMenus.activePlaneMenu()"><mat-icon>my_location</mat-icon>Active plane: {{ activePlane() }}</button>
+                <button mat-menu-item type="button" [disabled]="combinedView()" (click)="showAllPlanes()"><mat-icon>layers</mat-icon>Show all planes</button>
+                <mat-divider />
                 @for (visible of planes(); track $index) {
                     <button mat-menu-item type="button" [role]="'menuitemcheckbox'" [attr.aria-checked]="visible" (click)="$event.stopPropagation(); togglePlane($index, !visible)">
                         <mat-icon>{{ layerIcon(visible) }}</mat-icon>Plane {{ $index }}
@@ -51,6 +55,7 @@
                     <mat-icon>{{ layerIcon(walkability()) }}</mat-icon>{{ walkabilityLabel() }}
                 </button>
             </mat-menu>
+            <cache-map-plane-menus #planeMenus [(activePlane)]="activePlane" />
         </mat-card>
         <mat-card appearance="outlined" class="region-inspector map-scroll-area"><aside class="contents" aria-label="Region inspector">
             <cache-map-landscape-keys [regions]="landscapeKeyRegions()" [disabled]="!canLoadKeys()" (keysEntered)="loadLandscapeKeys($event.region, $event.value)" />

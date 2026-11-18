@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
-import { ModelScene, type ModelTexture } from "./model-scene";
+import { ModelScene, type ModelGeometry, type ModelTexture } from "./model-scene";
 import { waterVolume } from "./water-noise";
 
 function required<T>(value: T | undefined, what: string): T {
@@ -330,6 +330,64 @@ describe("ModelScene resource ownership", () => {
         }
         expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
         expect(gpu.controlsUnlisten).toHaveBeenCalledWith("change", gpu.controlsListen.mock.lastCall![1]);
+    });
+
+    it("redraws animated water every frame when large on screen, slower when small and not at all when out of view", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const frames = vi.mocked(requestAnimationFrame);
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            map.setTextures(new Map([[2, { image: { width: 16, height: 16 } as ImageBitmap, alphaMode: 0, effectId: 2, effectParameter: 1 }]]));
+            const water = { positions: [0, 0, 0, 0, 0, 512, 512, 0, 0], indices: [0, 1, 2], textureIds: [2], mapPlanes: [0, 0, 0], preparedLighting: true };
+            map.setSceneGeometry({ terrain: water, objects: null }, false);
+            const internals = map as unknown as { camera: THREE.PerspectiveCamera; pendingFrame?: number; waterTimer?: ReturnType<typeof setTimeout> };
+            const camera = internals.camera;
+            camera.far = 1e9;
+            camera.updateProjectionMatrix();
+            const frameFrom = (y: number, look = 0) => {
+                camera.position.set(256, y, 256.1);
+                camera.lookAt(256, look, 256);
+                frames.mockClear();
+                clearTimeout(internals.waterTimer);
+                internals.waterTimer = internals.pendingFrame = undefined;
+                map.zoom(1);
+                frames.mock.lastCall![0](0);
+            };
+
+            frameFrom(1000);
+            expect(frames).toHaveBeenCalledTimes(2);
+            expect(internals.waterTimer).toBeUndefined();
+
+            frameFrom(60000);
+            expect(frames).toHaveBeenCalledTimes(1);
+            expect(internals.waterTimer).toBeDefined();
+            vi.advanceTimersByTime(100);
+            expect(frames).toHaveBeenCalledTimes(2);
+
+            frameFrom(1000, 2000);
+            expect(frames).toHaveBeenCalledTimes(1);
+            expect(internals.waterTimer).toBeUndefined();
+        } finally {
+            map.dispose();
+            vi.useRealTimers();
+        }
+    });
+
+    it("reports a map camera's focus after it moves about eight tiles", () => {
+        const map = new ModelScene(host as unknown as HTMLElement, "Map", "map");
+        try {
+            const targets: { x: number; z: number }[] = [];
+            map.onViewTarget(target => targets.push(target));
+            const controls = gpu.controlsCreated.mock.lastCall![0] as { target: THREE.Vector3 };
+            map.captureImage();
+            controls.target.set(4000, 0, 0);
+            map.captureImage();
+            controls.target.set(4200, 0, 0);
+            map.captureImage();
+            expect(targets).toEqual([{ x: 0, z: 0 }, { x: 4200, z: 0 }]);
+        } finally {
+            map.dispose();
+        }
     });
 
     it("clears a map to the sky colour, fogs towards it and restores the transparent canvas", () => {
@@ -663,6 +721,362 @@ describe("ModelScene resource ownership", () => {
             map.setSceneGeometry({ terrain: wide(40), objects: wide(0) }, true);
             lookDown();
             expect(map.pickVertex(320, 180)).toBeNull();
+        });
+
+        describe("plane focus", () => {
+            const wide = (y: number, plane: number) => ({ positions: [-500, y, -500, 500, y, -500, 0, y, 500], indices: [0, 2, 1], mapPlanes: [plane, plane, plane], preparedLighting: true });
+            const lookDown = () => {
+                const camera = lastScene() && gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                camera.position.set(0, 2000, 1);
+                camera.lookAt(0, 0, 0);
+            };
+            const compile = (material: THREE.Material) => {
+                const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+                material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, {} as THREE.WebGLRenderer);
+                return shader;
+            };
+
+            it("draws chosen planes see-through through a shared uniform without replacing geometry, materials or programs", () => {
+                map.setSceneGeometry({ terrain: wide(0, 0), objects: wide(-400, 2) }, true);
+                const before = meshes(lastScene()) as THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>[];
+                const materials = before.flatMap(mesh => mesh.material);
+                const keys = materials.map(material => material.customProgramCacheKey());
+                const releases = [...before.map(mesh => vi.spyOn(mesh.geometry, "dispose")), ...materials.map(material => vi.spyOn(material, "dispose"))];
+                const shader = compile(before[0].material[0]);
+                expect(shader.fragmentShader).toContain("if (mapPlaneDiscarded()) discard;\n#include <clipping_planes_fragment>");
+                expect(shader.fragmentShader).toContain("mapLightPlane >= 4");
+                for (let toggle = 0; toggle < 20; toggle++) map.setPlaneFocus(toggle % 4, toggle % 3 ? [toggle % 4] : []);
+                map.setPlaneFocus(0, [1, 3, 4]);
+                expect(shader.uniforms.mapGhostMask.value).toBe(0b1010);
+                map.setPlaneFocus(0, []);
+                expect(shader.uniforms.mapGhostMask.value).toBe(0);
+                const after = meshes(lastScene()) as THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>[];
+                expect(after).toEqual(before);
+                expect(after.flatMap(mesh => mesh.material)).toEqual(materials);
+                expect(materials.map(material => material.customProgramCacheKey())).toEqual(keys);
+                for (const release of releases) expect(release).not.toHaveBeenCalled();
+            });
+
+            it("picks through see-through planes, whichever plane is active, but never through underwater terrain", () => {
+                map.setSceneGeometry({ terrain: wide(0, 0), objects: wide(400, 2) }, true);
+                lookDown();
+                expect(map.pickVertex(320, 180)).not.toBeNull();
+                expect(map.pickPlanes(320, 180)).toEqual([2, 0]);
+                map.setPlaneFocus(0, [2]);
+                expect(map.pickVertex(320, 180)).toBeNull();
+                expect(map.pickPlanes(320, 180)).toEqual([0]);
+                expect(map.pickSurface(320, 180)).not.toBeNull();
+                map.setPlaneFocus(3, [2]);
+                expect(map.pickPlanes(320, 180)).toEqual([0]);
+                map.setPlaneFocus(0, [1]);
+                expect(map.pickVertex(320, 180)).not.toBeNull();
+                map.setPlaneFocus(0, []);
+                expect(map.pickVertex(320, 180)).not.toBeNull();
+
+                map.setSceneGeometry({ terrain: wide(400, 4), objects: null }, false);
+                map.setPlaneFocus(0, [0, 1, 2, 3, 4]);
+                expect(map.pickPlanes(320, 180)).toEqual([4]);
+            });
+
+            it("draws the grid on the active plane only and rebuilds it only when that plane changes", () => {
+                const tile = (x: number, plane: number) => [x, 0, 0, x + 512, 0, 0, x + 512, 0, 512, x, 0, 512].map((value, index) => index % 3 === 1 ? plane * 100 : value);
+                const terrain = { positions: [...tile(0, 0), ...tile(512, 1)], indices: [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7], mapPlanes: [0, 0, 0, 0, 1, 1, 1, 1] };
+                map.setDisplay(true, false);
+                map.setSceneGeometry({ terrain, objects: null }, true);
+                const grid = () => required(lastScene().children.find(child => child instanceof THREE.LineSegments), "map grid") as THREE.LineSegments;
+                const heights = (lines: THREE.LineSegments) => new Set(Array.from({ length: lines.geometry.getAttribute("position").count }, (_, vertex) => lines.geometry.getAttribute("position").getY(vertex)));
+                const ground = grid();
+                expect(heights(ground)).toEqual(new Set([2]));
+                map.setPlaneFocus(0, [1]);
+                expect(grid()).toBe(ground);
+                const release = vi.spyOn(ground.geometry, "dispose");
+                map.setPlaneFocus(1, [1]);
+                expect(release).toHaveBeenCalledOnce();
+                expect(heights(grid())).toEqual(new Set([102]));
+            });
+
+            it("hides planes with a shader mask that picks pass through, without rebuilding the scene", () => {
+                map.setSceneGeometry({ terrain: wide(0, 0), objects: wide(400, 2) }, true);
+                lookDown();
+                const [mesh] = meshes(lastScene()) as THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>[];
+                const release = vi.spyOn(mesh.geometry, "dispose");
+                const shader = compile(mesh.material[0]);
+                map.setPlaneFocus(0, [1], [2]);
+                expect([shader.uniforms.mapGhostMask.value, shader.uniforms.mapHiddenMask.value]).toEqual([0b10, 0b100]);
+                expect(shader.fragmentShader).toContain("((mapHiddenMask >> mapLightPlane) & 1) != 0) return true");
+                expect(map.pickVertex(320, 180)).toBeNull();
+                expect(map.pickPlanes(320, 180)).toEqual([0]);
+                expect(meshes(lastScene())[0]).toBe(mesh);
+                expect(release).not.toHaveBeenCalled();
+                map.setPlaneFocus(0, [], []);
+                expect(map.pickPlanes(320, 180)).toEqual([2, 0]);
+            });
+
+            it("hides attachments on hidden planes and fades them on see-through planes", () => {
+                const billboard = { face: 0, textureId: -1, halfWidth: 4, halfHeight: 4, blendMode: 0, depthOffset: 0, x: 0, y: 0, angle: 0, rgb: 0xffffff, opacity: 1 };
+                map.setSceneGeometry({ terrain: null, objects: { ...wide(0, 2), billboards: [billboard] } }, false);
+                const quad = () => lastScene().children.find(child => child instanceof THREE.Mesh && child.geometry instanceof THREE.PlaneGeometry) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+                expect(quad().visible).toBe(true);
+                map.setPlaneFocus(0, [], [2]);
+                expect(quad().visible).toBe(false);
+                map.setPlaneFocus(0, [2], []);
+                expect([quad().visible, quad().material.opacity]).toEqual([true, 0.25]);
+                map.setPlaneFocus(0, [], []);
+                expect(quad().material.opacity).toBe(1);
+            });
+
+            it("does not pose animated objects on hidden planes", () => {
+                const sample = vi.fn(() => ({ delay: 20, pose: { positions: new Float32Array(9), rgba: new Float32Array(12).fill(1) } }));
+                map.setSceneGeometry({ terrain: null, objects: { ...wide(0, 2), sourceId: 3, vertexRgba: new Float32Array(12).fill(1),
+                    animations: [{ startVertex: 0, vertexCount: 3, plane: 2, alphaFaces: [false], sample }] } }, false);
+                map.setPlaneFocus(0, [], [2]);
+                map.captureImage();
+                expect(sample).not.toHaveBeenCalled();
+                map.setPlaneFocus(0, [], []);
+                map.captureImage();
+                expect(sample).toHaveBeenCalled();
+            });
+
+            it("centres the camera on one plane without changing its distance or direction", () => {
+                map.setSceneGeometry({ terrain: wide(0, 0), objects: wide(-1000, 1) }, true);
+                const camera = lastScene() && gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                const controls = gpu.controlsCreated.mock.lastCall![0] as { target: THREE.Vector3 };
+                const offset = camera.position.clone().sub(controls.target);
+                expect(map.focusMapPlane(1)).toBe(true);
+                expect(controls.target.y).toBeCloseTo(-1000);
+                expect(camera.position.clone().sub(controls.target).distanceTo(offset)).toBeCloseTo(0);
+                const target = controls.target.clone();
+                expect(map.focusMapPlane(3)).toBe(false);
+                expect(controls.target).toEqual(target);
+            });
+        });
+
+        describe("translucent ordering on large maps", () => {
+            // Four translucent faces close together, alternating two textures, and one far behind them.
+            const faces = (zs: readonly number[]) => ({
+                sourceId: 9, preparedLighting: true,
+                positions: zs.flatMap(z => [-50, 0, z, 50, 0, z, 0, 50, z]),
+                indices: zs.flatMap((_, face) => [face * 3, face * 3 + 1, face * 3 + 2]),
+                textureIds: zs.map((_, face) => face % 2 ? 9 : 8),
+            });
+            const textures = new Map([[8, { image: {} as ImageBitmap, alphaMode: 2 as const }], [9, { image: {} as ImageBitmap, alphaMode: 2 as const }]]);
+            const lookFrom = (z: number) => {
+                map.captureImage();
+                const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                camera.position.set(0, 0, z);
+                camera.lookAt(0, 0, 0);
+                map.captureImage();
+            };
+            let now = 0;
+            beforeEach(() => { now = 1000; vi.spyOn(performance, "now").mockImplementation(() => now); });
+
+            it("draws far slabs first and groups materials within a slab instead of one draw call per face", () => {
+                map.setTextures(textures);
+                map.setSceneGeometry({ terrain: null, objects: faces([0, -1, -2, -3, -6000]) }, false);
+                lookFrom(10000);
+                const mesh = meshes(lastScene())[0];
+                // Exact depth order would alternate materials into five draw calls; the far face shares the first one.
+                expect(faceOrder(mesh)).toEqual([4, 2, 0, 3, 1]);
+                expect(mesh.geometry.groups.map(group => group.count)).toEqual([9, 6]);
+            });
+
+            it("re-uploads only the translucent index range after a turn and re-sorts at most once per interval", () => {
+                vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+                try {
+                    map.setTextures(textures);
+                    map.setSceneGeometry({ terrain: square(-100), objects: { ...faces([0, -1, -2, -3]), indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], textureIds: [-1, 9, 8, 9], opacities: [1, 1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] } }, false);
+                    lookFrom(10000);
+                    const mesh = meshes(lastScene()).find(candidate => candidate.renderOrder === 0)!;
+                    const index = mesh.geometry.index!;
+                    index.clearUpdateRanges();
+                    const sorted = faceOrder(mesh);
+                    now += 200;
+                    lookFrom(-10000);
+                    expect(index.updateRanges).toEqual([{ start: 3, count: 9 }]);
+                    // One slab: materials stay grouped and only the order within a material follows the camera.
+                    const turned = faceOrder(mesh);
+                    expect(sorted).toEqual([0, 2, 3, 1]);
+                    expect(turned).toEqual([0, 2, 1, 3]);
+
+                    const redraw = vi.spyOn(map as unknown as { requestRender(): void }, "requestRender");
+                    now += 10;
+                    lookFrom(10000);
+                    expect(faceOrder(mesh)).toEqual(turned);
+                    expect(vi.getTimerCount()).toBe(1);
+                    now += 120;
+                    vi.advanceTimersByTime(120);
+                    expect(redraw).toHaveBeenCalled();
+                    map.captureImage();
+                    expect(faceOrder(mesh)).toEqual(sorted);
+                } finally {
+                    map.dispose();
+                    vi.useRealTimers();
+                }
+            });
+        });
+
+        it("draws animated map objects from their own small mesh and uploads only it on a tick", () => {
+            vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+            try {
+                // Face 0 is static, face 1 animates; both lie flat under a camera looking down.
+                const posed = Float32Array.of(-500, 10, -500, 0, 10, 500, 500, 10, -500);
+                const sample = vi.fn(() => ({ delay: 20, pose: { positions: posed, rgba: new Float32Array(12).fill(1) } }));
+                const objects = {
+                    preparedLighting: true, mapPlanes: [0, 0, 0, 0, 0, 0], vertexRgba: new Float32Array(24).fill(1),
+                    positions: [2000, 0, 2000, 2000, 0, 2100, 2100, 0, 2000, -500, 0, -500, 0, 0, 500, 500, 0, -500], indices: [0, 1, 2, 3, 4, 5],
+                    animations: [{ startVertex: 3, vertexCount: 3, alphaFaces: [false], sample }],
+                };
+                map.setSceneGeometry({ terrain: null, objects }, false);
+                const [primary, animated] = meshes(lastScene());
+                const primaryPositions = primary.geometry.getAttribute("position") as THREE.BufferAttribute;
+                const drawnPositions = animated.geometry.getAttribute("position") as THREE.BufferAttribute;
+                expect(faceOrder(primary)).toEqual([0]);
+                expect(drawnPositions.count).toBe(3);
+                expect(drawnPositions.getY(0)).toBe(10);
+                expect(primaryPositions.getY(3)).toBe(10);
+
+                const primaryVersion = primaryPositions.version;
+                map.captureImage();
+                expect(primaryPositions.version).toBe(primaryVersion);
+                expect(drawnPositions.updateRanges).toEqual([{ start: 0, count: 9 }]);
+
+                const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                camera.position.set(0, 3000, 1);
+                camera.lookAt(0, 0, 0);
+                expect(map.pickVertex(320, 180)).toBe(3);
+            } finally {
+                map.dispose();
+                vi.useRealTimers();
+            }
+        });
+
+        it("leaves animated objects that are off screen or a few pixels small unposed until the camera brings them close", () => {
+            vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+            // Each frame is due: the clock moves past the animation's 20 ms delay between captures.
+            let now = 0;
+            vi.spyOn(performance, "now").mockImplementation(() => now += 100);
+            try {
+                const sample = vi.fn(() => ({ delay: 20, pose: { positions: new Float32Array(9), rgba: new Float32Array(12).fill(1) } }));
+                map.setSceneGeometry({ terrain: null, objects: {
+                    preparedLighting: true, mapPlanes: [0, 0, 0], vertexRgba: new Float32Array(12).fill(1),
+                    positions: [0, 0, 0, 0, 0, 10, 10, 0, 0], indices: [0, 1, 2],
+                    animations: [{ startVertex: 0, vertexCount: 3, alphaFaces: [false], sample }],
+                } }, false);
+                map.captureImage();
+                const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                camera.far = 1e9;
+                camera.updateProjectionMatrix();
+                camera.position.set(0, 5e6, 1);
+                camera.lookAt(0, 0, 0);
+                sample.mockClear();
+                map.captureImage();
+                expect(sample).not.toHaveBeenCalled();
+                camera.position.set(0, 2000, 1);
+                camera.lookAt(0, 0, 0);
+                map.captureImage();
+                expect(sample).toHaveBeenCalled();
+                sample.mockClear();
+                camera.lookAt(0, 2000, 0);
+                map.captureImage();
+                expect(sample).not.toHaveBeenCalled();
+            } finally {
+                map.dispose();
+                vi.useRealTimers();
+            }
+        });
+
+        it("poses a range afresh when it returns from being skipped, and keeps alpha-animated faces translucent in the drawn copy", () => {
+            vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+            let now = 0;
+            vi.spyOn(performance, "now").mockImplementation(() => now += 100);
+            try {
+                const sample = vi.fn((_elapsed: number, _previous?: number) => ({ delay: 20, pose: { positions: new Float32Array(9), rgba: new Float32Array(12).fill(1) } }));
+                map.setSceneGeometry({ terrain: null, objects: {
+                    preparedLighting: true, mapPlanes: [2, 2, 2], vertexRgba: new Float32Array(12).fill(1),
+                    positions: [0, 0, 0, 0, 0, 10, 10, 0, 0], indices: [0, 1, 2],
+                    animations: [{ startVertex: 0, vertexCount: 3, plane: 2, alphaFaces: [true], sample }],
+                } }, false);
+                const animated = meshes(lastScene())[1];
+                // Opaque at rest, but its animation fades it: the plain translucent material.
+                expect(animated.geometry.groups.map(group => group.materialIndex)).toEqual([1]);
+
+                map.captureImage();
+                expect(sample.mock.lastCall![1]).toBeDefined();
+                map.setPlaneFocus(0, [], [2]);
+                map.captureImage();
+                sample.mockClear();
+                map.setPlaneFocus(0, [], []);
+                map.captureImage();
+                expect(sample).toHaveBeenCalledOnce();
+                expect(sample.mock.lastCall![1]).toBeUndefined();
+
+                // A texture refresh rebuilds the surface to its base pose, so the next tick poses again.
+                map.captureImage();
+                expect(sample.mock.lastCall![1]).toBeDefined();
+                map.setTextures(new Map([[5, { image: {} as ImageBitmap, alphaMode: 0 as const }]]));
+                map.setSceneGeometry({ terrain: null, objects: required((map as unknown as { primary: { currentModel?: ModelGeometry } }).primary.currentModel, "objects") }, false);
+                map.captureImage();
+                expect(sample.mock.lastCall![1]).toBeUndefined();
+            } finally {
+                map.dispose();
+                vi.useRealTimers();
+            }
+        });
+
+        describe("frustum culling", () => {
+            // One opaque and one translucent face in each of two chunks 40 tiles apart.
+            const chunked = () => {
+                const quad = (x: number, z: number) => [x, 0, z, x + 100, 0, z, x, 100, z];
+                return {
+                    sourceId: 11, preparedLighting: true,
+                    positions: [...quad(0, 0), ...quad(20480, 0), ...quad(0, 10), ...quad(20480, 10)],
+                    indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+                    opacities: [1, 1, 1, 1, 1, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                };
+            };
+            const look = (from: readonly [number, number, number], at: readonly [number, number, number]) => {
+                map.captureImage();
+                const camera = gpu.render.mock.lastCall![1] as THREE.PerspectiveCamera;
+                camera.position.set(...from);
+                camera.lookAt(...at);
+                camera.near = 1;
+                camera.far = 100000;
+                camera.updateProjectionMatrix();
+                map.captureImage();
+            };
+
+            it("leaves chunks outside the frustum out of the draw ranges and merges them back for a full view", () => {
+                map.setSceneGeometry({ terrain: null, objects: chunked() }, false);
+                const mesh = meshes(lastScene())[0];
+                look([50, 50, 400], [50, 50, 0]);
+                expect(faceOrder(mesh)).toEqual([0, 2]);
+                expect(mesh.geometry.groups).toEqual([{ start: 0, count: 3, materialIndex: 0 }, { start: 6, count: 3, materialIndex: 1 }]);
+
+                look([10240, 30000, 1], [10240, 0, 0]);
+                expect(faceOrder(mesh).sort()).toEqual([0, 1, 2, 3]);
+                // Both chunks' opaque ranges of one material are adjacent, so a full view keeps one draw call for them.
+                expect(mesh.geometry.groups[0]).toEqual({ start: 0, count: 6, materialIndex: 0 });
+
+                look([20530, 50, 400], [20530, 50, 0]);
+                expect(faceOrder(mesh)).toEqual([1, 3]);
+            });
+
+            it("keeps culled opaque chunks drawn when skipping them would split a material into more draw calls", () => {
+                const quad = (x: number, z: number) => [x, 0, z, x + 100, 0, z, x, 100, z];
+                // Row order is (0, 0), (1, 0), (0, 1); a view down +z sees the first and last but not the middle chunk.
+                map.setSceneGeometry({ terrain: null, objects: { sourceId: 12, preparedLighting: true,
+                    positions: [...quad(0, 0), ...quad(10240, 0), ...quad(0, 10240)], indices: [0, 1, 2, 3, 4, 5, 6, 7, 8] } }, false);
+                const mesh = meshes(lastScene())[0];
+                look([50, 50, -400], [50, 50, 20000]);
+                expect(Array.from((map as unknown as { primary: { visibleChunks?: Uint8Array } }).primary.visibleChunks ?? [])).toEqual([1, 0, 1]);
+                expect(mesh.geometry.groups).toEqual([{ start: 0, count: 9, materialIndex: 0 }]);
+            });
+
+            it("never culls a single-chunk surface", () => {
+                map.setSceneGeometry({ terrain: null, objects: square(0, 4) }, false);
+                look([0, 0, -400], [0, 0, -800]);
+                expect(meshes(lastScene())[0].geometry.groups).toHaveLength(1);
+            });
         });
 
         it("fits the camera to both surfaces", () => {
