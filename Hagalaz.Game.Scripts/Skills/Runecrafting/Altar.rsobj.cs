@@ -12,6 +12,8 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
     /// </summary>
     public class Altar : GameObjectScript
     {
+        private const int PureEssenceRequiredLevel = 27;
+
         private readonly IRunecraftingService _runecraftingService;
         private readonly IItemBuilder _itemBuilder;
 
@@ -54,16 +56,9 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
                 return;
             }
 
-            bool usingPureEssence;
-            if (character.Inventory.Items.Contains(RunecraftingConstants.RuneEssence))
-            {
-                usingPureEssence = false;
-            }
-            else if (character.Inventory.Items.Contains(RunecraftingConstants.PureEssence))
-            {
-                usingPureEssence = true;
-            }
-            else
+            var hasRuneEssence = character.Inventory.Items.Contains(RunecraftingConstants.RuneEssence);
+            var hasPureEssence = character.Inventory.Items.Contains(RunecraftingConstants.PureEssence);
+            if (!hasRuneEssence && !hasPureEssence)
             {
                 character.SendChatMessage("You do not have any essence to craft runes!");
                 return;
@@ -75,14 +70,15 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
                 return;
             }
 
-            if (!usingPureEssence)
+            // Altars at level 27+ accept only pure essence; basic altars prefer ordinary essence so pure essence is kept.
+            var requiresPureEssence = definition.RequiredLevel >= PureEssenceRequiredLevel;
+            if (requiresPureEssence && !hasPureEssence)
             {
-                if (definition.RequiredLevel >= 27)
-                {
-                    character.SendChatMessage("You need to use pure essence in order to craft these runes.");
-                    return;
-                }
+                character.SendChatMessage("You need to use pure essence in order to craft these runes.");
+                return;
             }
+
+            var usingPureEssence = requiresPureEssence || !hasRuneEssence;
 
             var removed = character.Inventory.RemoveItem(_itemBuilder.Create()
                 .WithId(usingPureEssence ? RunecraftingConstants.PureEssence : RunecraftingConstants.RuneEssence)
