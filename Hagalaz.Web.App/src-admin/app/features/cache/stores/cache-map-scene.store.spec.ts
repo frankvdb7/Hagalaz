@@ -233,11 +233,9 @@ describe("CacheMapSceneStore", () => {
             hasHdr: true,
         };
         texture(7, material);
-        // Effect 2 is water: the texture and its ridged noise volume make up the water step.
-        await vi.waitFor(async () => {
-            await vi.advanceTimersByTimeAsync(250);
-            expect(store.loading()).toBe(false);
-        });
+        // Effect 2 generates its ridged noise volume in slices scheduled by timers.
+        await vi.runAllTimersAsync();
+        expect(store.loading()).toBe(false);
         expect(store.textures().get(7)).toMatchObject(material);
         expect(store.textures().get(7)?.image).toBeDefined();
         expect(store.progress()).toMatchObject({ texturesSettled: 0, texturesTotal: 0, waterSettled: 2, waterTotal: 2, failures: 0 });
