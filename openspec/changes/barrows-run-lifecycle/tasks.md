@@ -33,5 +33,5 @@
 
 ## 8. Verification
 
-- [x] 8.1 Run `Hagalaz.Game.Scripts.Tests` (569): all pass.
+- [x] 8.1 Run `Hagalaz.Game.Scripts.Tests` (572): all pass.
 - [ ] 8.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).

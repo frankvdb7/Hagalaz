@@ -467,6 +467,44 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    public void OnRemove_ClearsTheChestOpenStateSoTheNextRunMeetsTheTunnelBrother()
+    {
+        var character = Substitute.For<ICharacter>();
+        var (_, script) = Create(new BarrowsDto { LootedChest = true }, character: character);
+
+        script.OnRemove();
+
+        character.Received().RemoveState<BarrowsOpenedChestState>();
+        character.Configurations.Received().SendStandardConfiguration(453, 0);
+    }
+
+    [TestMethod]
+    public void OnRemove_AfterClaimKeepsTheTunnelRolledAtTheSearch()
+    {
+        var (profile, script) = Create(new BarrowsDto { LootedChest = true, TunnelIndex = 3 });
+        profile.ClearReceivedCalls();
+
+        script.OnRemove();
+
+        profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows, Arg.Is<BarrowsDto>(d => d.TunnelIndex == 3 && !d.LootedChest));
+    }
+
+    [TestMethod]
+    public void Construction_NormalizesLegacyTunnelIndexSixAndKeepsOtherProgress()
+    {
+        var (npcBuilder, hintIconBuilder, npcId, _, _) = CreateSpawnableBuilders();
+        var (profile, script) = Create(new BarrowsDto { TunnelIndex = 6, AhrimKilled = true, KillCount = 3 }, npcBuilder, hintIconBuilder);
+
+        script.OpenChest();
+        script.CryptGameObjectClickPerformed();
+
+        Assert.IsTrue(script.IsKilled(BarrowsConstants.AhrimIndex));
+        profile.Received().SetObject(BarrowsConstants.MinigamesBarrows,
+            Arg.Is<BarrowsDto>(d => d.TunnelIndex >= 0 && d.TunnelIndex < BarrowsConstants.MoundCount && d.AhrimKilled && d.KillCount == 3));
+        npcId.DidNotReceive().WithId(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AkrisaeIndex]);
+    }
+
+    [TestMethod]
     public void OnRemove_AfterClaimStartsAFreshPuzzle()
     {
         var (profile, script) = Create(new BarrowsDto { LootedChest = true, PuzzleSolved = true });

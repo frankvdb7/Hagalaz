@@ -320,7 +320,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _creatureLevels = barrowsDto.CreatureLevels;
             _lootedChest = barrowsDto.LootedChest;
             _cryptStartIndex = barrowsDto.CryptStartIndex;
-            _tunnelIndex = barrowsDto.TunnelIndex;
+            // Profiles written before the six-mound fix can hold index 6 (Akrisae); pick a valid mound and keep the rest.
+            _tunnelIndex = barrowsDto.TunnelIndex is >= 0 and < BarrowsConstants.MoundCount ? barrowsDto.TunnelIndex : NewRun().TunnelIndex;
             _puzzleDoorIndex = barrowsDto.PuzzleDoorIndex;
             _puzzleIndex = barrowsDto.PuzzleIndex;
             _puzzleSolved = barrowsDto.PuzzleSolved;
@@ -638,6 +639,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 
             Character.Configurations.SendStandardConfiguration(453, 0); // reset the interface
             Character.RemoveState<BarrowsBetweenDoorsState>();
+            Character.RemoveState<BarrowsOpenedChestState>();
         }
 
         /// <summary>
@@ -776,8 +778,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 
             if (_lootedChest)
             {
-                // The chest was claimed: the next visit starts a fresh randomized run.
-                Character.Profile.SetObject(BarrowsConstants.MinigamesBarrows, NewRun());
+                // The chest was claimed: the next visit starts a fresh run. The tunnel was already rolled at the search.
+                Character.Profile.SetObject(BarrowsConstants.MinigamesBarrows, NewRun() with { TunnelIndex = _tunnelIndex });
             }
 
             Character.SendChatMessage("The power of all those you slew in the barrows drains from your body.");
