@@ -38,4 +38,4 @@
 ## 9. Verification
 
 - [x] 9.1 Run `Hagalaz.Game.Scripts.Tests` (572): all pass.
-- [ ] 9.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).
+- [ ] 9.2 TODO (another time): the Akrisae quest gate. It needs a persisted Ritual of the Mahjarrat completion source readable from scripts (cache quest 194, progress varbit 9829), then Akrisae's sarcophagus and his separate quest-only crypt can be unlocked for eligible players.

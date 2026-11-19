@@ -403,7 +403,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             var index = npcID >= 2025 && npcID <= 2030 ? npcID - 2025 : 6;
             if (index == BarrowsConstants.AkrisaeIndex)
             {
-                // Akrisae requires Ritual of the Mahjarrat; no authoritative quest-completion source is exposed to
+                // TODO(quest gate, later): unlock Akrisae once a persisted Ritual of the Mahjarrat completion source
+                // (cache quest 194, progress varbit 9829) is readable from scripts. Until then, no authoritative
+                // quest-completion source is exposed to
                 // scripts yet, so his encounter stays locked for everyone rather than being granted globally.
                 Character.SendChatMessage("You found nothing.");
                 return;
