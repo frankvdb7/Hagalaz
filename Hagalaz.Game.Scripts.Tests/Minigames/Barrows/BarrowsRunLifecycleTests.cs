@@ -125,17 +125,7 @@ public sealed class BarrowsRunLifecycleTests
     [TestMethod]
     public void LootChest_ResetsRunAtSearchAndRejectsSecondClaim()
     {
-        var generator = Substitute.For<ILootGenerator>();
-        generator.GenerateLoot<ILootItem>(Arg.Any<LootParams>()).Returns(new List<LootResult<ILootItem>>());
-        var services = Substitute.For<IServiceProvider>();
-        services.GetService(typeof(ILootGenerator)).Returns(generator);
-        services.GetService(typeof(IItemBuilder)).Returns(Substitute.For<IItemBuilder>());
-        services.GetService(typeof(IGroundItemBuilder)).Returns(Substitute.For<IGroundItemBuilder>());
-        var character = Substitute.For<ICharacter>();
-        character.ServiceProvider.Returns(services);
-        character.HasState<BarrowsOpenedChestState>().Returns(true);
-        var lootService = Substitute.For<ILootService>();
-        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Substitute.For<ILootTable>());
+        var (character, lootService, generator) = CreateClaimableChestCharacter();
         var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, KillCount = 4, TunnelIndex = 2 }, character: character, lootService: lootService);
         var chest = Substitute.For<IGameObject>();
         profile.ClearReceivedCalls();
@@ -271,17 +261,7 @@ public sealed class BarrowsRunLifecycleTests
     [TestMethod]
     public void LootChest_RollsArmourTablesOnlyForSlainBrothers()
     {
-        var generator = Substitute.For<ILootGenerator>();
-        generator.GenerateLoot<ILootItem>(Arg.Any<LootParams>()).Returns(new List<LootResult<ILootItem>>());
-        var services = Substitute.For<IServiceProvider>();
-        services.GetService(typeof(ILootGenerator)).Returns(generator);
-        services.GetService(typeof(IItemBuilder)).Returns(Substitute.For<IItemBuilder>());
-        services.GetService(typeof(IGroundItemBuilder)).Returns(Substitute.For<IGroundItemBuilder>());
-        var character = Substitute.For<ICharacter>();
-        character.ServiceProvider.Returns(services);
-        character.HasState<BarrowsOpenedChestState>().Returns(true);
-        var lootService = Substitute.For<ILootService>();
-        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Substitute.For<ILootTable>());
+        var (character, lootService, _) = CreateClaimableChestCharacter();
         var (_, script) = Create(new BarrowsDto { KarilKilled = true }, character: character, lootService: lootService);
 
         script.LootChest(Substitute.For<IGameObject>());
@@ -336,6 +316,22 @@ public sealed class BarrowsRunLifecycleTests
 
         profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
             Arg.Is<BarrowsDto>(d => !d.VeracKilled && !d.LootedChest && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
+    }
+
+    private static (ICharacter Character, ILootService LootService, ILootGenerator Generator) CreateClaimableChestCharacter()
+    {
+        var generator = Substitute.For<ILootGenerator>();
+        generator.GenerateLoot<ILootItem>(Arg.Any<LootParams>()).Returns(new List<LootResult<ILootItem>>());
+        var services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(ILootGenerator)).Returns(generator);
+        services.GetService(typeof(IItemBuilder)).Returns(Substitute.For<IItemBuilder>());
+        services.GetService(typeof(IGroundItemBuilder)).Returns(Substitute.For<IGroundItemBuilder>());
+        var character = Substitute.For<ICharacter>();
+        character.ServiceProvider.Returns(services);
+        character.HasState<BarrowsOpenedChestState>().Returns(true);
+        var lootService = Substitute.For<ILootService>();
+        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Substitute.For<ILootTable>());
+        return (character, lootService, generator);
     }
 
     private static (INpcBuilder NpcBuilder, IHintIconBuilder HintIconBuilder, INpcId NpcId, INpcOptional NpcOptional, INpcHandle Handle)
