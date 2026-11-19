@@ -1,5 +1,7 @@
 using Hagalaz.Data;
 using Hagalaz.Data.Entities;
+using Hagalaz.Database.Migrations.Seeding;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using MySql.EntityFrameworkCore.Extensions;
@@ -9,7 +11,7 @@ namespace Hagalaz.Database.Migrations.Tests;
 
 [TestClass]
 [DoNotParallelize]
-public sealed class BarrowsLootSeederTests
+public sealed class GameObjectLootSeederTests
 {
     private static MySqlContainer? _database;
 
@@ -51,8 +53,8 @@ public sealed class BarrowsLootSeederTests
 
         await using var context = CreateContext();
         var tables = await context.GameobjectLoots.Include(loot => loot.GameobjectLootItems).Where(loot => loot.Id >= 36).ToListAsync();
-        Assert.AreEqual(BarrowsLootSeeder.Tables.Count, tables.Count);
-        foreach (var expected in BarrowsLootSeeder.Tables)
+        Assert.AreEqual(BarrowsTables.Count, tables.Count);
+        foreach (var expected in BarrowsTables)
         {
             var actual = tables.Single(table => table.Id == expected.Id);
             Assert.AreEqual(expected.Name, actual.Name);
@@ -72,8 +74,8 @@ public sealed class BarrowsLootSeederTests
         await SeedAsync();
 
         await using var context = CreateContext();
-        Assert.AreEqual(BarrowsLootSeeder.Tables.Count, await context.GameobjectLoots.CountAsync(loot => loot.Id >= 36));
-        Assert.AreEqual(BarrowsLootSeeder.Tables.Sum(table => table.Items.Count), await context.GameobjectLootItems.CountAsync(item => item.GameobjectLootId >= 36));
+        Assert.AreEqual(BarrowsTables.Count, await context.GameobjectLoots.CountAsync(loot => loot.Id >= 36));
+        Assert.AreEqual(BarrowsTables.Sum(table => table.Items.Count), await context.GameobjectLootItems.CountAsync(item => item.GameobjectLootId >= 36));
     }
 
     [TestMethod]
@@ -100,7 +102,7 @@ public sealed class BarrowsLootSeederTests
         Assert.AreEqual(3u, edited.MaximumLootCount);
         Assert.AreEqual(1, edited.GameobjectLootItems.Count);
         Assert.AreEqual(5u, edited.GameobjectLootItems.Single().MinimumCount);
-        Assert.AreEqual(BarrowsLootSeeder.Tables.Count, await verify.GameobjectLoots.CountAsync(loot => loot.Id >= 36));
+        Assert.AreEqual(BarrowsTables.Count, await verify.GameobjectLoots.CountAsync(loot => loot.Id >= 36));
     }
 
     [TestMethod]
@@ -138,11 +140,56 @@ public sealed class BarrowsLootSeederTests
         await verify.GameobjectLoots.Where(loot => loot.Id == 35).ExecuteDeleteAsync();
     }
 
+    [TestMethod]
+    [Timeout(180000)]
+    public async Task Seed_AnyRegisteredSourceIsSeededWithoutChangingTheSeeder()
+    {
+        var custom = new FixedSource(new GameObjectLootSeedTable(900, "custom_table", [new GameObjectLootSeedItem(995, 2, 4, 10m)]));
+        await using (var context = CreateContext())
+        {
+            await CreateSeeder(context, new BarrowsLootSeedSource(), custom).SeedAsync();
+        }
+
+        await using var verify = CreateContext();
+        var seeded = await verify.GameobjectLoots.Include(loot => loot.GameobjectLootItems).SingleAsync(loot => loot.Id == 900);
+        Assert.AreEqual("custom_table", seeded.Name);
+        Assert.AreEqual(4u, seeded.GameobjectLootItems.Single().MaximumCount);
+        Assert.AreEqual(BarrowsTables.Count, await verify.GameobjectLoots.CountAsync(loot => loot.Id >= 36 && loot.Id < 900));
+        await verify.GameobjectLootItems.Where(item => item.GameobjectLootId == 900).ExecuteDeleteAsync();
+        await verify.GameobjectLoots.Where(loot => loot.Id == 900).ExecuteDeleteAsync();
+    }
+
+    [TestMethod]
+    [Timeout(180000)]
+    public async Task SeedGameWorldAsync_RunsEveryRegisteredSeeder()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped(_ => CreateContext());
+        services.AddGameWorldSeeding();
+        await using var provider = services.BuildServiceProvider();
+
+        await provider.SeedGameWorldAsync();
+
+        await using var verify = CreateContext();
+        Assert.AreEqual(BarrowsTables.Count, await verify.GameobjectLoots.CountAsync(loot => loot.Id >= 36));
+    }
+
+    private sealed class FixedSource(params GameObjectLootSeedTable[] tables) : IGameObjectLootSeedSource
+    {
+        public IReadOnlyList<GameObjectLootSeedTable> Tables { get; } = tables;
+    }
+
     private static async Task SeedAsync()
     {
         await using var context = CreateContext();
-        await new BarrowsLootSeeder(context, NullLogger<BarrowsLootSeeder>.Instance).SeedAsync();
+        await CreateSeeder(context, new BarrowsLootSeedSource()).SeedAsync();
     }
+
+    private static GameObjectLootSeeder CreateSeeder(HagalazDbContext context, params IGameObjectLootSeedSource[] sources) =>
+        new(context, sources, NullLogger<GameObjectLootSeeder>.Instance);
+
+    private static IReadOnlyList<GameObjectLootSeedTable> BarrowsTables { get; } = new BarrowsLootSeedSource().Tables;
 
     private static HagalazDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<HagalazDbContext>().UseMySQL(_database!.GetConnectionString()).Options);

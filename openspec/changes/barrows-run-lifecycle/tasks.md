@@ -33,7 +33,7 @@
 
 ## 8. Seeding
 
-- [x] 8.1 `BarrowsLootSeeder` in `Hagalaz.Database.Migrations`, run through `MigrateDatabase`'s initialization hook; creates tables 36-50 only when their ids are absent; integration tests against a MySQL container.
+- [x] 8.1 `IGameWorldSeeder` with `GameObjectLootSeeder` (policy), `IGameObjectLootSeedSource` and `BarrowsLootSeedSource` (data) in `Hagalaz.Database.Migrations/Seeding`, run through `MigrateDatabase`'s initialization hook; creates tables 36-50 only when their ids are absent; integration tests against a MySQL container.
 
 ## 9. Verification
 
