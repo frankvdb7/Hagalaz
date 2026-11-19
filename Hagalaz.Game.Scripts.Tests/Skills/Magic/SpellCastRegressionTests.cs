@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Skills.Magic.MiscSpells;
+using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -106,7 +107,7 @@ public sealed class SpellCastRegressionTests
 
         Assert.IsTrue(high ? ((HighLevelAlchemy)spell).Cast(source) : ((LowLevelAlchemy)spell).Cast(source));
 
-        Assert.AreEqual(0, inventory.Items.GetCountById(100)); Assert.AreEqual(value, inventory.Items.GetCountById(995));
+        Assert.AreEqual(0, inventory.Items.GetCountById(100)); Assert.AreEqual(value, character.MoneyPouch.Count);
         character.Received(1).QueueAnimation(Arg.Is<IAnimation>(x => x.Id == animation));
         character.Received(1).QueueGraphic(Arg.Is<IGraphic>(x => x.Id == graphic));
         character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, xp);
@@ -117,7 +118,7 @@ public sealed class SpellCastRegressionTests
     [TestMethod]
     public void Alchemy_RejectsExistingStateMissingItemAndNoDestinationCapacity()
     {
-        var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(100);
+        var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(1963, 2);
         source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source);
         var character = CreateAlchemyCharacter(inventory, out var states); var accessor = CreateAccessor(character);
         var spell = new HighLevelAlchemy(CreateItemBuilder(), accessor);
@@ -131,12 +132,58 @@ public sealed class SpellCastRegressionTests
         Assert.IsFalse(spell.Cast(source));
 
         inventory.SetItem(0, source); inventory.SetItem(1, CreateMagicItem(200));
-        character.MoneyPouch.HasSpaceForCoins(500).Returns(false);
+        Assert.IsTrue(character.MoneyPouch.Add(int.MaxValue));
         Assert.IsFalse(spell.Cast(source)); Assert.AreSame(source, inventory.Items[0]);
         character.Received(1).SendChatMessage("Not enough space in your inventory.");
-        Assert.AreEqual(0, inventory.Items.GetCountById(995));
+        Assert.AreEqual(int.MaxValue, character.MoneyPouch.Count);
         character.Statistics.DidNotReceive().AddExperience(StatisticsConstants.Magic, Arg.Any<double>());
         Assert.AreEqual(0, states.Count);
+    }
+
+    [TestMethod]
+    public void Alchemy_FullInventoryWithStackedTargetPaysExactCoinsToPouch()
+    {
+        var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(1963, 3);
+        source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source); inventory.SetItem(1, CreateMagicItem(200));
+        var character = CreateAlchemyCharacter(inventory, out var states);
+        character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true); character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
+
+        Assert.IsTrue(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
+
+        Assert.AreEqual(2, inventory.Items.GetCountById(1963)); Assert.AreEqual(500, character.MoneyPouch.Count);
+        Assert.AreEqual(0, inventory.Items.GetCountById(995)); Assert.AreEqual(1, states.Count);
+        character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, 65);
+    }
+
+    [TestMethod]
+    public void Alchemy_FailedCoinCreditRollsBackRunesAndItem()
+    {
+        var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(1963, 3); var runes = CreateMagicItem(554, 5);
+        source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source); inventory.SetItem(1, runes);
+        var character = CreateAlchemyCharacter(inventory, out var states);
+        Assert.IsTrue(character.MoneyPouch.Add(int.MaxValue));
+        character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true); character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
+        character.Magic.When(x => x.RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>())).Do(_ => inventory.SetItem(1, CreateMagicItem(554, 4)));
+
+        Assert.IsFalse(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
+
+        Assert.AreEqual(3, inventory.Items.GetCountById(1963)); Assert.AreEqual(5, inventory.Items.GetCountById(554));
+        Assert.AreEqual(int.MaxValue, character.MoneyPouch.Count); Assert.AreEqual(0, states.Count);
+        character.Statistics.DidNotReceive().AddExperience(StatisticsConstants.Magic, Arg.Any<double>());
+    }
+
+    [TestMethod]
+    public void Alchemy_WhenRuneRemovalConsumesTheTargetItemNothingIsCommitted()
+    {
+        var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(554, 5);
+        source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source);
+        var character = CreateAlchemyCharacter(inventory, out var states);
+        character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true); character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
+        character.Magic.When(x => x.RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>())).Do(_ => inventory.Items.Remove(source, 0));
+
+        Assert.IsFalse(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
+
+        Assert.AreSame(source, inventory.Items[0]); Assert.AreEqual(0, character.MoneyPouch.Count); Assert.AreEqual(0, states.Count);
     }
 
     private static ICharacter CreateAlchemyCharacter(ComposedTestContainer inventory, out List<IState> states)
@@ -144,7 +191,7 @@ public sealed class SpellCastRegressionTests
         states = [];
         var character = Substitute.For<ICharacter>(); character.Inventory.Returns(inventory);
         character.Statistics.Returns(Substitute.For<ICharacterStatistics>()); character.Magic.Returns(Substitute.For<IMagic>());
-        character.Configurations.Returns(Substitute.For<IConfigurations>()); character.MoneyPouch.Returns(Substitute.For<IMoneyPouchContainer>());
+        character.Configurations.Returns(Substitute.For<IConfigurations>()); var pouch = new MoneyPouchContainer(character, CreateItemBuilder()); character.MoneyPouch.Returns(pouch);
         character.HasState<AlchingState>().Returns(false); character.AddState(Arg.Do<IState>(states.Add));
         return character;
     }

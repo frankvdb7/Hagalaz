@@ -1,5 +1,6 @@
 using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -27,17 +28,20 @@ internal static class AlchemyOperations
         var slot = caster.Inventory.Items.GetInstanceSlot(item);
         if (slot == -1) return false;
 
-        var coins = itemBuilder.Create().WithId(995).WithCount(coinAmount).Build();
-        if (!caster.Inventory.Items.HasSpaceFor(coins) && !caster.MoneyPouch.HasSpaceForCoins(coins.Count))
+        // Runes, the source item and the coin payout commit together or not at all.
+        using (var transaction = ItemContainerTransaction.Begin(caster.MoneyPouch))
         {
-            caster.SendChatMessage(GameStrings.InventoryFull);
-            return false;
-        }
+            removeRunes();
+            if (!ReferenceEquals(caster.Inventory.Items[slot], item) ||
+                !caster.Inventory.TryRemoveItemExact(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot) ||
+                !caster.MoneyPouch.Add(coinAmount))
+            {
+                caster.SendChatMessage(GameStrings.InventoryFull);
+                return false;
+            }
 
-        removeRunes();
-        var removed = caster.Inventory.RemoveItem(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
-        if (removed <= 0) return true;
-        if (!caster.Inventory.AddItem(coins)) return true;
+            transaction.Commit();
+        }
 
         caster.QueueAnimation(Animation.Create(animationId));
         caster.QueueGraphic(Graphic.Create(graphicId));
