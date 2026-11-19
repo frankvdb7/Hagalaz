@@ -62,9 +62,51 @@ Sarcophagi 61189, 63177, 66016–66020 are all "Sarcophagus" with a "Search" opt
 | `DrawAllKills` sets bit `i` for all seven brothers | Bit 6 (Akrisae) is the low bit of the 10-bit varbit 463, so it should not be written as a brother flag; where the client shows Akrisae is unresolved. |
 | `SendBitConfiguration(464, kills)` | Consistent with varbit 464 (bits 17–31 of config 453). |
 
+### Barrows centre-door puzzle (issue #315)
+
+Sources: the pinned 742 cache (renders of models 6713-6736 viewed locally, geometry decoded with the existing `ModelAssembler`), the interface and object definitions above, the [Luna Barrows issue](https://github.com/luna-rs/luna/issues/688) (a 377-cache implementation), the [RuneLite puzzle highlighter](https://github.com/runelite/runelite/pull/8552) (OSRS client), the [Darkan archive](https://wiki.darkan.org/Barrow) and the [barrows.fandom tunnels page](https://barrows.fandom.com/wiki/Tunnels). Terms as above; **cross-checked** = the table agrees across independent sources and at least partly with decoded 742 geometry.
+
+#### Puzzle models (confirmed to exist and to be the puzzle shapes)
+
+Models 6713-6736 all exist in the 742 cache and render as four families of six flat shapes: a triangle and a circle in rotating positions (6713-6718), a 2x2 grid with dark and light quadrants (6719-6724), a two-tone split with a moving boundary (6725-6730) and nested polygons (6731-6736). The same ids appear as the puzzle table in the 377 implementation and the same rule appears in RuneLite: the correct answer is the first sequence model minus 3.
+
+| Puzzle | Sequence models (shown on components 6, 7, 8) | Choice models | Correct choice |
+| --- | --- | --- | --- |
+| Arrows (triangle and circle rotating) | 6716, 6717, 6718 | 6713, 6714, 6715 | 6713 |
+| Squares (quadrants darkening) | 6722, 6723, 6724 | 6719, 6720, 6721 | 6719 |
+| Bars (moving split) | 6728, 6729, 6730 | 6725, 6726, 6727 | 6725 |
+| Polygons (shrinking sides) | 6734, 6735, 6736 | 6731, 6732, 6733 | 6731 |
+
+How much of that is verified against the 742 geometry:
+
+- **Squares: fully.** The sequence has no, one (+x+z), then two (+x) dark quadrants; the next quadrant added is -x-z, which leaves only -x+z light. That is 6719. The look-alike 6720 leaves -x-z light instead, and 6721 is all dark.
+- **Arrows: partly.** The pair axis steps by -90 degrees through the sequence (6716 at 90, 6717 at 0, 6718 at -90), so the next is the 180 degree pose, which both 6713 and 6714 have; 6715 (0 degrees) is wrong. Telling 6713 from 6714 rests on the cited sources only.
+- **Bars and polygons: not independently verified.** The renders are consistent with the cited table (bars: the light half flips to the -z side in 6725; polygons: sequence of shrinking polygons, choice 6731 is a four-sided shape), but the side counts of the polygon models could not be counted reliably because each is a ring with an inner polygon.
+
+The correct choice is therefore the first model of the choice set; the answer position must be shuffled across the three buttons.
+
+#### Interface 25 layout (confirmed from the cache)
+
+Choice buttons are model components 2, 3 and 5 at x = -149, -6 and 137 (left to right, y 101), each with the single option "Choose". Sequence models are components 6, 7, 8 at x = -131, -38 and 55 inside container 4; fixed model 4623 (component 9, x 139) sits in the fourth slot, with labels "1." to "4." above them. Components 2, 3, 5, 6, 7, 8 start with model -1, so the server must set the models. Server scripts already do this with `IWidget.DrawModel(childId, modelId)` and register clicks with `IWidget.AttachClickHandler(childId, handler)`; centred interfaces are opened with `Widgets.OpenWidget(id, 0, script, interrupt)`. The click carries the component id and `Option1Click`. The components' camera fields (zoom and rotation) were not decoded here, and nothing was rendered on a live 742 client.
+
+#### Doors (confirmed definitions, interpretation of locking)
+
+- Every door slot is a varbit-driven transform. Slot `n` of config 452 bit `10 + n` belongs to the right-leaf object `6716 + n` (varbit `469 + n`) and to the left-leaf object `6735 + n`. The four chest-room doors are slots 4, 8, 9 and 11 (objects 6720, 6724, 6725, 6727 and variants 6739, 6743, 6744, 6746).
+- Bit clear: object 6714 / 6733, name "Door", actions `Open` and `Examine`. Bit set: object 6715 / 6734, actions `Examine` only.
+- **Interpretation:** a set bit hides the `Open` option, so locked doors show only `Examine`. This matches the period description that only the operational door has `Open Door` and the other three only `Examine`, but it was not observed on a live client. The door models are the same either way.
+- Period behaviour (Darkan archive, barrows.fandom): one of the four chest-room doors is operable and carries the puzzle; the other three are locked; a wrong answer moves the catacombs around so that the rope and the chest-room door are in different rooms; the chest-room door is the only door that shows the puzzle. Monsters or a remaining brother can appear when a door is opened.
+
+#### Still guesswork for the puzzle
+
+- The success and failure chat messages, if any: none found in any source.
+- What a wrong answer rerolls on the 742 server: the sources agree on entry room and chest-room door; Luna says only the chamber and door fields, Darkan says the catacombs move. The entry quadrant (config 452 bits 6-9) is the one client-visible part.
+- Whether the perimeter doors (slots 0, 1, 7 and 15) are permanently locked: they sit on the outer boundary of the tunnel, so a set bit is the likely state, but no source states it.
+- The exact number of ticks or sound used when a door opens (Luna: sound 1277 and 1278 from the 377 client; not a 742 fact).
+- The 742 client behaviour when the interface is closed without an answer.
+
 ### Still unresolved
 
-Shape models and the answer/reroll protocol for the four puzzles; HUD CS2 semantics; which door bit value locks a door; entry-spawn tile walkability; NPC combat stats, specials and proc rates; prayer-drain interval (10s vs 18s); chest loot rows (database, not cache); quest-completion persistence.
+HUD CS2 semantics; whether the 742 server rerolls the whole tunnel or only the doors on a wrong answer (see the puzzle section below); success/failure chat messages; entry-spawn tile walkability; NPC combat stats, specials and proc rates; prayer-drain interval (10s vs 18s); chest loot rows (database, not cache); quest-completion persistence.
 
 ## Acceptance evidence still missing
 
