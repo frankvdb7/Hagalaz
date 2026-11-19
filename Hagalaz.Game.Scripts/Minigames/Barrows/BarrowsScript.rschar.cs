@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
@@ -154,7 +155,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 }
                 else
                 {
-                    Character.Configurations.SendStandardConfiguration(452, 1 << (6 + _cryptStartIndex)); // one bit per entry rope (varbits 465-468), 742 cache confirmed
+                    SendCryptConfiguration();
                 }
             }
         }
@@ -203,6 +204,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         /// </summary>
         private int _tunnelIndex;
 
+        private int _puzzleDoorIndex;
+
+        private int _puzzleIndex;
+
+        private bool _puzzleSolved;
+
+        private Action? _onPuzzleSolved;
+
         /// <summary>
         ///     The crypt tick.
         /// </summary>
@@ -242,8 +251,21 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         /// </summary>
         protected override void Initialize() { }
 
-        private static BarrowsDto NewRun() =>
-            new() { TunnelIndex = RandomStatic.Generator.Next(0, BarrowsConstants.MoundCount) };
+        private static BarrowsDto NewRun()
+        {
+            var (door, puzzle) = BarrowsPuzzle.Reroll(0, RandomStatic.Generator.Next);
+            return new BarrowsDto
+            {
+                TunnelIndex = RandomStatic.Generator.Next(0, BarrowsConstants.MoundCount), PuzzleDoorIndex = door, PuzzleIndex = puzzle
+            };
+        }
+
+        /// <summary>
+        ///     Config 452: one rope bit per entry (bits 6-9) plus a lock bit for each non-operable chest-room door (bits 10-25).
+        /// </summary>
+        private void SendCryptConfiguration() =>
+            Character.Configurations.SendStandardConfiguration(452,
+                (1 << (6 + _cryptStartIndex)) | (_puzzleSolved ? 0 : BarrowsPuzzle.LockedDoorMask(_puzzleDoorIndex)));
 
         /// <summary>
         ///     Restores the run from the character profile and registers the kill handler.
@@ -296,6 +318,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _lootedChest = barrowsDto.LootedChest;
             _cryptStartIndex = barrowsDto.CryptStartIndex;
             _tunnelIndex = barrowsDto.TunnelIndex;
+            _puzzleDoorIndex = barrowsDto.PuzzleDoorIndex;
+            _puzzleIndex = barrowsDto.PuzzleIndex;
+            _puzzleSolved = barrowsDto.PuzzleSolved;
             UpdateBarrowsProfile(); // persist a freshly randomized tunnel so it stays stable across exits
 
             if (_lootedChest)
@@ -349,7 +374,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                     CryptStartIndex = _cryptStartIndex,
                     KillCount = _killCount,
                     LootedChest = _lootedChest,
-                    TunnelIndex = _tunnelIndex
+                    TunnelIndex = _tunnelIndex,
+                    PuzzleDoorIndex = _puzzleDoorIndex,
+                    PuzzleIndex = _puzzleIndex,
+                    PuzzleSolved = _puzzleSolved
                 });
 
         /// <summary>
@@ -455,6 +483,59 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _tunnelIndex = NewRun().TunnelIndex;
 
             ResetKills();
+            UpdateBarrowsProfile();
+        }
+
+        /// <summary>
+        ///     Whether the door object is one of the four doors around the chest.
+        /// </summary>
+        public bool IsChestDoor(int objectId) => BarrowsPuzzle.ChestDoorIndex(objectId) >= 0;
+
+        /// <summary>
+        ///     Handles a click on a chest-room door. Returns true when the door may be passed now; otherwise the puzzle opens
+        ///     (and <paramref name="onSolved" /> runs after a correct answer) or the door stays locked.
+        /// </summary>
+        public bool TryPassChestDoor(int objectId, Action onSolved)
+        {
+            if (_puzzleSolved)
+            {
+                return true;
+            }
+
+            if (BarrowsPuzzle.ChestDoorIndex(objectId) != _puzzleDoorIndex)
+            {
+                return false; // locked door
+            }
+
+            var (choices, correctIndex) = BarrowsPuzzle.Choices(_puzzleIndex, RandomStatic.Generator.Next);
+            var widget = Character.ServiceProvider.GetRequiredService<BarrowsPuzzleWidget>();
+            widget.Barrows = this;
+            widget.PuzzleIndex = _puzzleIndex;
+            widget.Choices = choices;
+            widget.CorrectIndex = correctIndex;
+            _onPuzzleSolved = onSolved;
+            Character.Widgets.OpenWidget(BarrowsPuzzle.InterfaceId, 0, widget, false);
+            return false;
+        }
+
+        /// <summary>
+        ///     Applies the answer: a correct one opens the way, a wrong one moves the operable door and picks a new puzzle.
+        /// </summary>
+        public void AnswerPuzzle(bool correct)
+        {
+            var onSolved = _onPuzzleSolved;
+            _onPuzzleSolved = null;
+            if (correct)
+            {
+                _puzzleSolved = true;
+                SendCryptConfiguration();
+                UpdateBarrowsProfile();
+                onSolved?.Invoke();
+                return;
+            }
+
+            (_puzzleDoorIndex, _puzzleIndex) = BarrowsPuzzle.Reroll(_puzzleDoorIndex, RandomStatic.Generator.Next);
+            SendCryptConfiguration();
             UpdateBarrowsProfile();
         }
 

@@ -7,6 +7,13 @@
         public int TunnelIndex { get; init; }
         public bool LootedChest { get; init; }
 
+        /// <summary>Index into the four chest-room doors of the operable (puzzle) door.</summary>
+        public int PuzzleDoorIndex { get; init; }
+
+        public int PuzzleIndex { get; init; }
+
+        public bool PuzzleSolved { get; init; }
+
         public bool AhrimKilled { get; init; }
         public bool DharokKilled { get; init; }
         public bool GuthanKilled { get; init; }

@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -12,6 +14,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects;
+using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Minigames.Barrows;
@@ -66,7 +69,7 @@ public sealed class BarrowsRunLifecycleTests
     public void InCrypts_SetsOneRopeBitPerEntryQuadrant(int entryIndex, int expectedConfig)
     {
         var character = Substitute.For<ICharacter>();
-        var (_, script) = Create(new BarrowsDto { CryptStartIndex = entryIndex }, character: character);
+        var (_, script) = Create(new BarrowsDto { CryptStartIndex = entryIndex, PuzzleSolved = true }, character: character);
 
         script.InCrypts = true;
 
@@ -271,6 +274,132 @@ public sealed class BarrowsRunLifecycleTests
 
         lootService.DidNotReceive().FindGameObjectLootTable(BarrowsRewards.BrotherSetLootTableIds[BarrowsConstants.AhrimIndex]);
         lootService.DidNotReceive().FindGameObjectLootTable(BarrowsRewards.BrotherSetLootTableIds[BarrowsConstants.VeracIndex]);
+    }
+
+    [TestMethod]
+    public void Puzzle_LocksEveryChestDoorExceptTheOperableOne()
+    {
+        var character = Substitute.For<ICharacter>();
+        var (_, script) = Create(new BarrowsDto { CryptStartIndex = 0, PuzzleDoorIndex = 1 }, character: character);
+
+        script.InCrypts = true;
+
+        var expected = 64 | (1 << 14) | (1 << 19) | (1 << 21); // slots 4, 9, 11 locked; slot 8 operable
+        character.Configurations.Received().SendStandardConfiguration(452, expected);
+    }
+
+    [TestMethod]
+    [DataRow(6720, 0)]
+    [DataRow(6739, 0)]
+    [DataRow(6724, 1)]
+    [DataRow(6743, 1)]
+    [DataRow(6725, 2)]
+    [DataRow(6744, 2)]
+    [DataRow(6727, 3)]
+    [DataRow(6746, 3)]
+    [DataRow(6718, -1)]
+    [DataRow(6749, -1)]
+    public void Puzzle_ChestDoorIndexMatchesBothDoorLeaves(int objectId, int expected)
+    {
+        Assert.AreEqual(expected, BarrowsPuzzle.ChestDoorIndex(objectId));
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public void Puzzle_ChoicesAlwaysContainTheCorrectModelAtTheReportedPosition(int puzzle)
+    {
+        var correct = new[] { 6713, 6719, 6725, 6731 }[puzzle];
+
+        for (var seed = 0; seed < 20; seed++)
+        {
+            var random = new Random(seed);
+            var (choices, correctIndex) = BarrowsPuzzle.Choices(puzzle, max => random.Next(max));
+
+            Assert.AreEqual(correct, choices[correctIndex]);
+            Assert.AreEqual(3, choices.Distinct().Count());
+        }
+    }
+
+    [TestMethod]
+    public void Puzzle_RerollAlwaysMovesToADifferentDoor()
+    {
+        for (var door = 0; door < 4; door++)
+        {
+            for (var pick = 0; pick < 3; pick++)
+            {
+                var values = new Queue<int>([pick, 2]);
+                var (newDoor, puzzle) = BarrowsPuzzle.Reroll(door, _ => values.Dequeue());
+
+                Assert.AreNotEqual(door, newDoor);
+                Assert.AreEqual(2, puzzle);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void TryPassChestDoor_LockedDoorStaysClosedWithoutOpeningThePuzzle()
+    {
+        var character = Substitute.For<ICharacter>();
+        var (_, script) = Create(new BarrowsDto { PuzzleDoorIndex = 0 }, character: character);
+
+        var passed = script.TryPassChestDoor(6724, () => Assert.Fail("must not run"));
+
+        Assert.IsFalse(passed);
+        character.Widgets.DidNotReceive().OpenWidget(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<IWidgetScript>(), Arg.Any<bool>());
+    }
+
+    [TestMethod]
+    public void TryPassChestDoor_OperableDoorOpensThePuzzleAndOnlyACorrectAnswerPasses()
+    {
+        var character = Substitute.For<ICharacter>();
+        var services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(BarrowsPuzzleWidget)).Returns(new BarrowsPuzzleWidget(Substitute.For<ICharacterContextAccessor>()));
+        character.ServiceProvider.Returns(services);
+        var (profile, script) = Create(new BarrowsDto { PuzzleDoorIndex = 2, PuzzleIndex = 1 }, character: character);
+        var passed = 0;
+
+        Assert.IsFalse(script.TryPassChestDoor(6725, () => passed++));
+        character.Widgets.Received(1).OpenWidget(BarrowsPuzzle.InterfaceId, 0, Arg.Any<IWidgetScript>(), false);
+        script.AnswerPuzzle(false);
+
+        Assert.AreEqual(0, passed);
+        profile.Received().SetObject(BarrowsConstants.MinigamesBarrows, Arg.Is<BarrowsDto>(d => !d.PuzzleSolved && d.PuzzleDoorIndex != 2));
+
+        Assert.IsFalse(script.TryPassChestDoor(6725, () => passed++));
+    }
+
+    [TestMethod]
+    public void AnswerPuzzle_CorrectAnswerUnlocksTheDoorsAndPasses()
+    {
+        var character = Substitute.For<ICharacter>();
+        var services = Substitute.For<IServiceProvider>();
+        services.GetService(typeof(BarrowsPuzzleWidget)).Returns(new BarrowsPuzzleWidget(Substitute.For<ICharacterContextAccessor>()));
+        character.ServiceProvider.Returns(services);
+        var (profile, script) = Create(new BarrowsDto { CryptStartIndex = 0, PuzzleDoorIndex = 0 }, character: character);
+        var passed = 0;
+        script.TryPassChestDoor(6720, () => passed++);
+
+        script.AnswerPuzzle(true);
+
+        Assert.AreEqual(1, passed);
+        profile.Received().SetObject(BarrowsConstants.MinigamesBarrows, Arg.Is<BarrowsDto>(d => d.PuzzleSolved));
+        character.Configurations.Received().SendStandardConfiguration(452, 64);
+        Assert.IsTrue(script.TryPassChestDoor(6724, () => Assert.Fail("solved doors pass directly")));
+    }
+
+    [TestMethod]
+    public void OnRemove_AfterClaimStartsAFreshPuzzle()
+    {
+        var (profile, script) = Create(new BarrowsDto { LootedChest = true, PuzzleSolved = true });
+        profile.ClearReceivedCalls();
+
+        script.OnRemove();
+
+        profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
+            Arg.Is<BarrowsDto>(d => !d.PuzzleSolved && d.PuzzleDoorIndex >= 0 && d.PuzzleDoorIndex < 4 && d.PuzzleIndex >= 0 && d.PuzzleIndex < 4));
     }
 
     [TestMethod]

@@ -28,6 +28,22 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
+                var barrows = clicker.GetOrAddScript<BarrowsScript>();
+                if (barrows.IsChestDoor(Owner.Id) && !barrows.TryPassChestDoor(Owner.Id, () => PassThrough(clicker)))
+                {
+                    return;
+                }
+
+                PassThrough(clicker);
+                return;
+            }
+
+            base.OnCharacterClickPerform(clicker, clickType);
+        }
+
+        private void PassThrough(ICharacter clicker)
+        {
+            {
                 var direction = clicker.Location.GetDirection(Owner.Location);
                 ILocation? destination = null;
                 switch (Owner.Rotation)
@@ -128,10 +144,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
                         clicker.GetOrAddScript<BarrowsScript>().CryptGameObjectClickPerformed(); // spawn barrow brother if available
                     },
                     1));
-                return;
             }
-
-            base.OnCharacterClickPerform(clicker, clickType);
         }
     }
 }

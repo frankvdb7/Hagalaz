@@ -15,7 +15,11 @@
 
 - [x] 3.1 Move armour out of chest table 8 into per-brother tables 36-41 (manual database edit, no migration, no SQL in the repo); roll them for slain brothers in `BarrowsRewards`.
 
-## 4. Verification
+## 4. Centre-door puzzle
 
-- [x] 4.1 Run `Hagalaz.Game.Scripts.Tests` (517): all pass.
-- [ ] 4.2 Remaining #315 work is tracked outside this change (puzzle, chest rows, NPC specials, quest persistence).
+- [x] 4.1 `BarrowsPuzzle` (models, doors, reroll), `BarrowsPuzzleWidget` (interface 25), door handling in `BarrowCryptDoor`, run state in `BarrowsDto`.
+
+## 5. Verification
+
+- [x] 5.1 Run `Hagalaz.Game.Scripts.Tests` (537): all pass.
+- [ ] 5.2 Remaining #315 work is tracked outside this change (NPC specials, quest persistence, ordinary reward scaling, live-client checks of the puzzle).
