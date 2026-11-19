@@ -1,5 +1,8 @@
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
@@ -16,6 +19,22 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
         ///     The character target.
         /// </summary>
         protected ICharacter? CharacterTarget;
+
+        /// <summary>
+        ///     Renders and performs a standard melee attack with the NPC's own damage rolls.
+        /// </summary>
+        protected IRsTaskHandle<AttackResult> PerformMeleeAttack(ICreature target, DamageType damageType = DamageType.StandardMelee)
+        {
+            RenderAttack();
+            var combat = (INpcCombat)Owner.Combat;
+            return Owner.Combat.PerformAttack(new AttackParams
+            {
+                Target = target.Handle,
+                DamageType = damageType,
+                Damage = combat.GetMeleeDamage(target),
+                MaxDamage = combat.GetMeleeMaxHit(target)
+            });
+        }
 
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.

@@ -21,16 +21,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 
         public override void PerformAttack(ICreature target)
         {
-            RenderAttack();
-            var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
-            var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
-            var handle = Owner.Combat.PerformAttack(new AttackParams
-            {
-                Target = target.Handle,
-                DamageType = DamageType.StandardMelee,
-                Damage = damage,
-                MaxDamage = maxDamage
-            });
+            var handle = PerformMeleeAttack(target);
 
             if (target is ICharacter character)
             {

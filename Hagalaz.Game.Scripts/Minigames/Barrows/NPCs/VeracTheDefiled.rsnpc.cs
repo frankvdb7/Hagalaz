@@ -18,14 +18,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
         /// <param name="target">The target.</param>
         public override void PerformAttack(ICreature target)
         {
-            RenderAttack();
             var hitTruPrayer = RandomStatic.Generator.NextDouble() >= 0.85;
-            var damage = ((INpcCombat)Owner.Combat).GetMeleeDamage(target);
-            var maxDamage = ((INpcCombat)Owner.Combat).GetMeleeMaxHit(target);
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Target = target.Handle, DamageType = hitTruPrayer ? DamageType.FullMelee : DamageType.StandardMelee, Damage = damage, MaxDamage = maxDamage,
-            });
+            PerformMeleeAttack(target, hitTruPrayer ? DamageType.FullMelee : DamageType.StandardMelee);
         }
 
         /// <summary>
