@@ -99,6 +99,7 @@ Choice buttons are model components 2, 3 and 5 at x = -149, -6 and 137 (left to 
 #### Still guesswork for the puzzle
 
 - The success and failure chat messages, if any: none found in any source.
+- Wrong answers (online search, later guides and wikis, not 742-specific): the OSRS Wiki and RuneHQ guides say the doors and rooms shift, the exit ladder can end up in a different room and the puzzle door becomes a different door; some RuneHQ pages say all doors re-randomize. The server therefore moves the operable door and the entry rope on a wrong answer and leaves other doors alone. No source mentions teleporting the player.
 - What a wrong answer rerolls on the 742 server: the sources agree on entry room and chest-room door; Luna says only the chamber and door fields, Darkan says the catacombs move. The entry quadrant (config 452 bits 6-9) is the one client-visible part.
 - Whether the perimeter doors (slots 0, 1, 7 and 15) are permanently locked: they sit on the outer boundary of the tunnel, so a set bit is the likely state, but no source states it.
 - The exact number of ticks or sound used when a door opens (Luna: sound 1277 and 1278 from the 377 client; not a 742 fact).

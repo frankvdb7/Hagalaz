@@ -70,12 +70,21 @@ A chest claim SHALL roll armour only from the per-brother tables of brothers sla
 
 ### Requirement: One chest-room door is operable and carries the puzzle
 
-Each run SHALL have exactly one operable door among the four doors around the chest; config 452 SHALL lock the other three until the puzzle is solved. The operable door SHALL open interface 25 with one of four shape puzzles, three sequence models and three shuffled choices, one correct. A correct answer SHALL let the player through and unlock the doors for the rest of the run; a wrong answer SHALL move the operable door to a different door and pick a puzzle.
+Each run SHALL have exactly one operable door among the four doors around the chest, and config 452 SHALL lock the other three until the puzzle is solved.
+
+#### Scenario: Locked doors
+
+- **WHEN** the character is in the crypts and the puzzle is unsolved
+- **THEN** config 452 locks the three non-operable chest-room doors
+
+### Requirement: The puzzle door asks which shape comes next
+
+The operable door SHALL open interface 25 with one of four shape puzzles: three sequence models and three shuffled choices, one correct. A correct answer SHALL let the player through and unlock the doors for the rest of the run; a wrong answer SHALL move the operable door, move the exit rope to a different entry, and pick a new puzzle.
 
 #### Scenario: Wrong answer
 
 - **WHEN** the player picks a wrong shape
-- **THEN** a different chest-room door becomes operable, the locked-door bits are resent, and the player does not pass
+- **THEN** a different chest-room door becomes operable, the rope moves to a different entry, the configuration is resent, and the player does not pass
 
 #### Scenario: Correct answer
 

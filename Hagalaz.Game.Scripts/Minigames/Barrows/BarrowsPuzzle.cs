@@ -70,6 +70,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             ChestDoorSlots.Where((_, index) => index != operableDoorIndex).Aggregate(0, (mask, slot) => mask | 1 << (10 + slot));
 
         /// <summary>
+        ///     Picks a different entry room (and so a different rope) among <paramref name="entryCount" /> entries.
+        /// </summary>
+        public static int RerollEntry(int currentEntry, int entryCount, Func<int, int> next) => (currentEntry + 1 + next(entryCount - 1)) % entryCount;
+
+        /// <summary>
         ///     Picks a different operable door and a puzzle.
         /// </summary>
         public static (int DoorIndex, int PuzzleIndex) Reroll(int currentDoorIndex, Func<int, int> next)

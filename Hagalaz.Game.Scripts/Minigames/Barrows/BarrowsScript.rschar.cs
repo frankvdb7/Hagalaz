@@ -534,7 +534,9 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 return;
             }
 
+            // A wrong answer reshuffles the tunnels: the operable door moves and the exit rope ends up in another room.
             (_puzzleDoorIndex, _puzzleIndex) = BarrowsPuzzle.Reroll(_puzzleDoorIndex, RandomStatic.Generator.Next);
+            _cryptStartIndex = BarrowsPuzzle.RerollEntry(_cryptStartIndex, BarrowsConstants.CryptCharacterSpawns.Length, RandomStatic.Generator.Next);
             SendCryptConfiguration();
             UpdateBarrowsProfile();
         }

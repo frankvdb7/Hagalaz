@@ -367,7 +367,8 @@ public sealed class BarrowsRunLifecycleTests
         script.AnswerPuzzle(false);
 
         Assert.AreEqual(0, passed);
-        profile.Received().SetObject(BarrowsConstants.MinigamesBarrows, Arg.Is<BarrowsDto>(d => !d.PuzzleSolved && d.PuzzleDoorIndex != 2));
+        profile.Received().SetObject(BarrowsConstants.MinigamesBarrows,
+            Arg.Is<BarrowsDto>(d => !d.PuzzleSolved && d.PuzzleDoorIndex != 2 && d.CryptStartIndex != 0));
 
         Assert.IsFalse(script.TryPassChestDoor(6725, () => passed++));
     }

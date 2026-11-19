@@ -12,12 +12,12 @@ The Barrows run lifecycle in `BarrowsScript` had blockers listed in issue #315: 
 - Death keeps the run and despawns living brothers, leaving a brother that is already dead so its delayed kill credit still fires.
 - Keep Akrisae locked until a persisted quest-completion source exists.
 - Roll chest armour only from slain brothers' tables (armour moved out of loot table 8 by a manual SQL script, no migration).
-- Add the centre-door puzzle: one operable chest-room door per run, interface 25 with the four shape puzzles, locked doors via config 452 bits 10-25, a wrong answer moves the operable door.
+- Add the centre-door puzzle: one operable chest-room door per run, interface 25 with the four shape puzzles, locked doors via config 452 bits 10-25, a wrong answer moves the operable door and the exit rope.
 - Pack config 453 as brother flags (bits 0-5), chest open (bit 16), kill count (bits 17-31); send config 452 as `1 << (6 + entry)`; register rope 6712.
 
 ### Non-goals
 
-- Success and failure chat messages for the puzzle, entry-room rerolls on a wrong answer, and perimeter door locking (no source states them).
+- Success and failure chat messages for the puzzle, re-randomizing every door on a wrong answer, and perimeter door locking (no source states them).
 - Ordinary reward scaling from crypt-creature kills and verified 742 rates (armour rolls use later-era defaults).
 - Brother specials (Akrisae protection switching, Ahrim Strength drain) and the 10s-versus-18s prayer-drain interval.
 - Quest completion persistence and the separate Akrisae crypt.
