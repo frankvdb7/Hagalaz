@@ -173,6 +173,20 @@ public sealed class SpellCastRegressionTests
     }
 
     [TestMethod]
+    public void Alchemy_WhenRuneCostLeavesTargetRuneStackSurvivingTheCastCompletes()
+    {
+        var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(561, 2);
+        source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source);
+        var character = CreateAlchemyCharacter(inventory, out var states);
+        character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true); character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
+        character.Magic.When(x => x.RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>())).Do(_ => inventory.SetItem(0, CreateMagicItem(561, 1)));
+
+        Assert.IsTrue(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
+
+        Assert.AreEqual(0, inventory.Items.GetCountById(561)); Assert.AreEqual(500, character.MoneyPouch.Count); Assert.AreEqual(1, states.Count);
+    }
+
+    [TestMethod]
     public void Alchemy_WhenRuneRemovalConsumesTheTargetItemNothingIsCommitted()
     {
         var inventory = new ComposedTestContainer(2); var source = CreateMagicItem(554, 5);

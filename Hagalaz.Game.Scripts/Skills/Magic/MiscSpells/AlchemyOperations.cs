@@ -32,7 +32,7 @@ internal static class AlchemyOperations
         using (var transaction = ItemContainerTransaction.Begin(caster.MoneyPouch))
         {
             removeRunes();
-            if (!ReferenceEquals(caster.Inventory.Items[slot], item) ||
+            if (caster.Inventory.Items[slot] is not { } remaining || remaining.Id != item.Id ||
                 !caster.Inventory.TryRemoveItemExact(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot) ||
                 !caster.MoneyPouch.Add(coinAmount))
             {
