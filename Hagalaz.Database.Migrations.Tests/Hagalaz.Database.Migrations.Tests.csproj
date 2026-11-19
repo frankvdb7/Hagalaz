@@ -13,5 +13,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Include="MSTest" Version="4.3.3" />
+    <PackageReference Include="Testcontainers.MySql" Version="4.13.0" />
   </ItemGroup>
 </Project>

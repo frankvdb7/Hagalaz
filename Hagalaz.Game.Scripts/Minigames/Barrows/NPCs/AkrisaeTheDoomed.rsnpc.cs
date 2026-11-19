@@ -6,37 +6,28 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 {
     /// <summary>
-    ///     TODO: Make him use protection prayers like tormented demons.
+    ///     Akrisae the Doomed: melee attacker whose protection prayer follows the style that hurts him most. After
+    ///     <see cref="AkrisaeProtection.SwitchDamage" /> from one style he protects against it and skips his next attack.
     /// </summary>
     [NpcScriptMetaData([14297])]
     public class AkrisaeTheDoomed : BarrowBrother
     {
+        private readonly AkrisaeProtection _protection = new();
+
         public AkrisaeTheDoomed(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
         }
-        /// <summary>
-        ///     Perform's attack on specific target.
-        /// </summary>
-        /// <param name="target">The target.</param>
+
         public override void PerformAttack(ICreature target)
         {
-            RenderAttack();
-            var damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 170);
-            var maxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 170);
-            var handle = Owner.Combat.PerformAttack(new AttackParams
-            {
-                Target = target.Handle,
-                DamageType = DamageType.StandardMagic,
-                Damage = damage,
-                MaxDamage = maxDamage
-            });
+            var handle = PerformMeleeAttack(target);
 
             if (target is ICharacter character)
             {
                 handle.RegisterResultHandler(result =>
                 {
-                    if (!character.Prayers.IsPraying(NormalPrayer.ProtectFromMagic))
+                    if (!character.Prayers.IsPraying(NormalPrayer.ProtectFromMelee))
                     {
                         Owner.Speak("Ahh, more prayers.");
                         character.Statistics.DrainPrayerPoints(result.DamageLifePoints.Count);
@@ -45,22 +36,29 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
             }
         }
 
-        /// <summary>
-        ///     Get's attack bonus type of this npc.
-        ///     By default , this method does return AttackBonus.Crush
-        /// </summary>
-        /// <returns>
-        ///     AttackBonus.
-        /// </returns>
-        public override AttackBonus GetAttackBonusType() => AttackBonus.Magic;
+        public override int OnIncomingAttack(ICreature attacker, DamageType damageType, int damage, int delay) =>
+            base.OnIncomingAttack(attacker, damageType, _protection.Reduce(damageType, damage), delay);
 
-        /// <summary>
-        ///     Get's attack style of this npc.
-        ///     By default , this method does return AttackStyle.Accurate.
-        /// </summary>
-        /// <returns>
-        ///     AttackStyle.
-        /// </returns>
-        public override AttackStyle GetAttackStyle() => AttackStyle.MagicNormal;
+        public override int OnAttack(ICreature attacker, DamageType damageType, int damage)
+        {
+            if (_protection.Record(damageType, damage))
+            {
+                Owner.Combat.ResetCombatDelay(); // changing prayer costs him his next attack
+            }
+
+            return damage;
+        }
+
+        public override void OnCancelTarget()
+        {
+            _protection.Reset();
+            base.OnCancelTarget();
+        }
+
+        public override void OnDeath() => _protection.Reset();
+
+        public override AttackBonus GetAttackBonusType() => AttackBonus.Crush;
+
+        public override AttackStyle GetAttackStyle() => AttackStyle.MeleeAccurate;
     }
 }

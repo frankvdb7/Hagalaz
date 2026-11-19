@@ -7,7 +7,7 @@ using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.GameObjects
 {
-    [GameObjectScriptMetaData([6709, 6710, 6711])]
+    [GameObjectScriptMetaData([6709, 6710, 6711, 6712])]
     public class CryptRope : GameObjectScript
     {
         /// <summary>
