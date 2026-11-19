@@ -126,8 +126,10 @@ public sealed class BarrowsRunLifecycleTests
     public void LootChest_ResetsRunAtSearchAndRejectsSecondClaim()
     {
         var (character, lootService, generator) = CreateClaimableChestCharacter();
-        var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, KillCount = 4, TunnelIndex = 2 }, character: character, lootService: lootService);
         var chest = Substitute.For<IGameObject>();
+        var ordinaryTable = Substitute.For<ILootTable>();
+        lootService.FindGameObjectLootTable(chest.Definition.LootTableId).Returns(ordinaryTable);
+        var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, KillCount = 4, TunnelIndex = 2 }, character: character, lootService: lootService);
         profile.ClearReceivedCalls();
 
         script.LootChest(chest);
@@ -136,7 +138,8 @@ public sealed class BarrowsRunLifecycleTests
         Assert.IsFalse(script.IsKilled(BarrowsConstants.AhrimIndex));
         profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
             Arg.Is<BarrowsDto>(d => d.LootedChest && !d.AhrimKilled && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
-        generator.Received(1).GenerateLoot<ILootItem>(Arg.Any<LootParams>());
+        // Optional armour rolls may add generator calls; the ordinary chest table must be rolled exactly once.
+        generator.Received(1).GenerateLoot<ILootItem>(Arg.Is<LootParams>(p => p.Table == ordinaryTable));
     }
 
     [TestMethod]
