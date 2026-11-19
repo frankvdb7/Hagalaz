@@ -188,8 +188,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         }
 
         /// <summary>
-        /// Cancels the current task for a point cost. The task is cleared synchronously before the
-        /// asynchronous debit is published, so a repeated call finds no task and cannot charge twice.
+        /// Cancels the current task for a point cost. The profile debit and task clearing are one synchronous
+        /// transition, so a repeated call finds no task and cannot charge twice.
         /// </summary>
         public bool TrySkipAssignment(int pointCost)
         {
@@ -210,9 +210,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 _creatureKilledHandler = null;
             }
 
+            // Debit and task clearing happen in one synchronous step on the owning thread, so the new
+            // balance is visible to the next action and persisted with the profile snapshot.
+            _owner.Profile.SetValue(ProfileConstants.SlayerRewardPoints, points - pointCost);
             CurrentTaskId = -1;
             CurrentKillCount = 0;
-            _mediator.Publish(new ProfileDecrementIntAction(ProfileConstants.SlayerRewardPoints, pointCost));
             return true;
         }
 

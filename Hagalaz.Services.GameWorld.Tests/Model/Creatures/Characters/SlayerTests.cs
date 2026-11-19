@@ -51,34 +51,34 @@ public sealed class SlayerTests
     [DataRow(31, true)]
     public void TrySkipAssignment_RequiresThirtyPoints(int balance, bool expected)
     {
-        var (slayer, mediator, _) = CreateSlayer(balance, withTask: true);
+        var (slayer, _, character) = CreateSlayer(balance, withTask: true);
 
         Assert.AreEqual(expected, slayer.TrySkipAssignment(30));
         Assert.AreEqual(expected ? -1 : 1, slayer.CurrentTaskId);
-        mediator.Received(expected ? 1 : 0).Publish(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions.ProfileDecrementIntAction>());
+        character.Profile.Received(expected ? 1 : 0).SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, balance - 30);
     }
 
     [TestMethod]
     public void TrySkipAssignment_WithoutTaskOrBalance_DoesNotDebit()
     {
-        var (noTask, noTaskMediator, _) = CreateSlayer(100, withTask: false);
-        var (noBalance, noBalanceMediator, _) = CreateSlayer(null, withTask: true);
+        var (noTask, _, noTaskCharacter) = CreateSlayer(100, withTask: false);
+        var (noBalance, _, noBalanceCharacter) = CreateSlayer(null, withTask: true);
 
         Assert.IsFalse(noTask.TrySkipAssignment(30));
         Assert.IsFalse(noBalance.TrySkipAssignment(30));
-        noTaskMediator.DidNotReceive().Publish(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions.ProfileDecrementIntAction>());
-        noBalanceMediator.DidNotReceive().Publish(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions.ProfileDecrementIntAction>());
+        noTaskCharacter.Profile.DidNotReceiveWithAnyArgs().SetValue<int>(default!, default);
+        noBalanceCharacter.Profile.DidNotReceiveWithAnyArgs().SetValue<int>(default!, default);
     }
 
     [TestMethod]
     public void TrySkipAssignment_RepeatedCall_ChargesOnceAndUnregistersKillHandler()
     {
-        var (slayer, mediator, character) = CreateSlayer(100, withTask: true);
+        var (slayer, _, character) = CreateSlayer(100, withTask: true);
 
         Assert.IsTrue(slayer.TrySkipAssignment(30));
         Assert.IsFalse(slayer.TrySkipAssignment(30));
 
-        mediator.Received(1).Publish(Arg.Any<Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions.ProfileDecrementIntAction>());
+        character.Profile.Received(1).SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 70);
         character.Received(1).UnregisterEventHandler<CreatureKillEvent>(Arg.Any<EventHappened>());
     }
 
