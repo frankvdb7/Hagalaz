@@ -41,7 +41,8 @@ public sealed class SummoningSkillServiceTests
 
         var service = new SummoningSkillService(
             Substitute.For<INpcBuilder>(),
-            Substitute.For<IFamiliarScriptProvider>());
+            Substitute.For<IFamiliarScriptProvider>(),
+            Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
 
         using var cancellation = new CancellationTokenSource();
         var summonTask = service.SummonFamiliar(character, item, cancellation.Token);

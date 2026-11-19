@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Cache.Logic;
@@ -14,12 +13,11 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     {
         public PouchScreen(
             ICharacterContextAccessor characterContextAccessor, IItemService itemService, ISummoningService summoningService,
-            ISummoningSkillService summoningSkillService, IItemBuilder itemBuilder) : base(characterContextAccessor)
+            ISummoningSkillService summoningSkillService) : base(characterContextAccessor)
         {
             _itemService = itemService;
             _summoningService = summoningService;
             _summoningSkillService = summoningSkillService;
-            _itemBuilder = itemBuilder;
         }
 
         /// <summary>
@@ -31,7 +29,6 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         private readonly IItemService _itemService;
         private readonly ISummoningService _summoningService;
         private readonly ISummoningSkillService _summoningSkillService;
-        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -92,22 +89,10 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                             if (value <= 0)
                             {
                                 Owner.SendChatMessage("Value can't be negative.");
-                            }
-
-                            if (!_summoningSkillService.CanCreatePouch(Owner, definition, itemID, value))
-                            {
                                 return;
                             }
 
-                            var itemDef = _itemService.FindItemDefinitionById(itemID);
-                            var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
-                            foreach (var (key, iAmount) in requirements)
-                            {
-                                Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(key).WithCount(iAmount * value).Build());
-                            }
-
-                            Owner.Inventory.AddItem(_itemBuilder.Create().WithId(itemID).WithCount(value).Build());
-                            Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.CreatePouchExperience * value);
+                            _summoningSkillService.TryCreatePouches(Owner, definition, itemID, value);
                         };
                         Owner.Configurations.SendIntegerInput("Please enter the amount to infuse:");
                         return true;
@@ -122,23 +107,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return true;
                     }
 
-                    if (!_summoningSkillService.CanCreatePouch(Owner, definition, itemID, amount))
-                    {
-                        return true;
-                    }
-
-                    var itemDef = _itemService.FindItemDefinitionById(itemID);
-                    var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
-                    if (requirements != null)
-                    {
-                        foreach (var (key, iAmount) in requirements)
-                        {
-                            Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(key).WithCount(iAmount * amount).Build());
-                        }
-                    }
-
-                    Owner.Inventory.AddItem(_itemBuilder.Create().WithId(itemID).WithCount(amount).Build());
-                    Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.CreatePouchExperience * amount);
+                    _summoningSkillService.TryCreatePouches(Owner, definition, itemID, amount);
 
                     return true;
                 });
@@ -154,6 +123,12 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         /// <summary>
         ///     Happens when interface is closed for character.
         /// </summary>
-        public override void OnClose() { }
+        public override void OnClose()
+        {
+            if (_pouchXHandler != null && Owner.Widgets.IntInputHandler == _pouchXHandler)
+            {
+                Owner.Widgets.IntInputHandler = null;
+            }
+        }
     }
 }
