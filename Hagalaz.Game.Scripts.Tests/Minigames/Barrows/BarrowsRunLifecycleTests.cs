@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -40,7 +41,7 @@ public sealed class BarrowsRunLifecycleTests
     [TestMethod]
     public void SpawnBarrowBrother_UsesInjectedBuilders()
     {
-        var (npcBuilder, hintIconBuilder, npcId, npcOptional, handle) = CreateSpawnableBuilders();
+        var (npcBuilder, hintIconBuilder, npcId, npcOptional, _) = CreateSpawnableBuilders();
         var (_, script) = Create(new BarrowsDto { TunnelIndex = 3 }, npcBuilder, hintIconBuilder);
 
         script.SpawnBarrowBrother(BarrowsConstants.BarrowBrotherIDs[BarrowsConstants.AhrimIndex]);
@@ -142,14 +143,14 @@ public sealed class BarrowsRunLifecycleTests
         profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
             Arg.Is<BarrowsDto>(d => d.LootedChest && !d.AhrimKilled && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
         // Optional armour rolls may add generator calls; the ordinary chest table must be rolled exactly once.
-        generator.Received(1).GenerateLoot<ILootItem>(Arg.Is<LootParams>(p => p.Table == ordinaryTable));
+        generator.Received(1).GenerateLoot<ILootItem>(Arg.Is<LootParams>(p => p.Table.Equals(ordinaryTable)));
     }
 
     [TestMethod]
     public void LootChest_WithMissingTableDoesNotClaim()
     {
         var lootService = Substitute.For<ILootService>();
-        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns((ILootTable?)null);
+        lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Task.FromResult<ILootTable?>(null));
         var character = Substitute.For<ICharacter>();
         character.HasState<BarrowsOpenedChestState>().Returns(true);
         var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, TunnelIndex = 2 }, character: character, lootService: lootService);
