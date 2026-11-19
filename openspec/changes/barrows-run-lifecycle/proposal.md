@@ -13,14 +13,14 @@ The Barrows run lifecycle in `BarrowsScript` had blockers listed in issue #315: 
 - Make Akrisae a melee attacker with a small protection state (switch after 150 damage from one style, skip an attack); no general NPC prayer system.
 - Ahrim's successful magic hits lower the target's Strength by 5 levels with a 20% chance.
 - Keep Akrisae locked until a persisted quest-completion source exists.
-- Roll chest armour only from slain brothers' tables (armour moved out of loot table 8 by a manual SQL script, no migration).
+- Roll `min(N+1, 7)` chest rewards: each is a slain brother's armour table or an ordinary band chosen by reward potential (crypt-creature combat levels capped at 1,000, plus 2 per brother); chest loot table 8 is no longer rolled and the tables are created by hand in the database, no migration.
 - Add the centre-door puzzle: one operable chest-room door per run, interface 25 with the four shape puzzles, locked doors via config 452 bits 10-25, a wrong answer moves the operable door and the exit rope.
 - Pack config 453 as brother flags (bits 0-5), chest open (bit 16), kill count (bits 17-31); send config 452 as `1 << (6 + entry)`; register rope 6712.
 
 ### Non-goals
 
 - Success and failure chat messages for the puzzle, re-randomizing every door on a wrong answer, and perimeter door locking (no source states them).
-- Ordinary reward scaling from crypt-creature kills and verified 742 rates (armour rolls use later-era defaults).
+- Verified 742 rates (reward and armour rolls use the published reward-potential model), the ring of wealth bonus drop, and the later Linza, Rise of the Six and defender drops.
 - The 10s-versus-18s prayer-drain interval.
 - Quest completion persistence and the separate Akrisae crypt.
 - Barrows equipment (`barrows-equipment`).

@@ -3,6 +3,9 @@
     public record BarrowsDto
     {
         public int KillCount { get; init; }
+
+        /// <summary>Summed combat levels of crypt creatures slain this run (reward potential).</summary>
+        public int CreatureLevels { get; init; }
         public int CryptStartIndex { get; init; }
         public int TunnelIndex { get; init; }
         public bool LootedChest { get; init; }

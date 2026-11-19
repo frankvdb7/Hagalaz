@@ -189,6 +189,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         /// </summary>
         private int _killCount;
 
+        private int _creatureLevels;
+
         /// <summary>
         ///     Gets the number of defeated brothers, derived from the authoritative killed flags.
         /// </summary>
@@ -315,6 +317,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             }
 
             _killCount = barrowsDto.KillCount;
+            _creatureLevels = barrowsDto.CreatureLevels;
             _lootedChest = barrowsDto.LootedChest;
             _cryptStartIndex = barrowsDto.CryptStartIndex;
             _tunnelIndex = barrowsDto.TunnelIndex;
@@ -350,6 +353,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                     if (compositeID >= 2031 && compositeID <= 2037)
                     {
                         _killCount++;
+                        _creatureLevels += BarrowsRewards.CreatureCombatLevel(compositeID);
                         UpdateBarrowsProfile();
                         RefreshCreaturesSlain();
                         return true; // The event is handled.
@@ -373,6 +377,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                     ToragKilled = _spawnEntries[BarrowsConstants.ToragIndex].Killed,
                     CryptStartIndex = _cryptStartIndex,
                     KillCount = _killCount,
+                    CreatureLevels = _creatureLevels,
                     LootedChest = _lootedChest,
                     TunnelIndex = _tunnelIndex,
                     PuzzleDoorIndex = _puzzleDoorIndex,
@@ -464,14 +469,20 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 return;
             }
 
-            var table = _lootService.FindGameObjectLootTable(obj.Definition.LootTableId).Result;
-            if (table == null)
+            // Resolve every table first so a missing one never leaves the run claimed without its rewards.
+            var slain = Enumerable.Range(0, BarrowsConstants.MoundCount).Where(i => _spawnEntries[i].Killed).ToArray();
+            var tables = BarrowsRewards.RollRewardTables(slain, _creatureLevels, RandomStatic.Generator.Next)
+                .Select(id => _lootService.FindGameObjectLootTable(id).Result)
+                .ToList();
+            if (tables.Any(table => table == null))
             {
                 return;
             }
 
-            Character.Inventory.TryAddLoot(Character, table, out _);
-            AddSetRewards();
+            foreach (var table in tables)
+            {
+                Character.Inventory.TryAddLoot(Character, table!, out _);
+            }
 
             Character.SendChatMessage("You loot the chest and the tomb begins to shake!");
 
@@ -539,22 +550,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
             _cryptStartIndex = BarrowsPuzzle.RerollEntry(_cryptStartIndex, BarrowsConstants.CryptCharacterSpawns.Length, RandomStatic.Generator.Next);
             SendCryptConfiguration();
             UpdateBarrowsProfile();
-        }
-
-        /// <summary>
-        ///     Rolls armour only from the tables of brothers slain in this run.
-        /// </summary>
-        private void AddSetRewards()
-        {
-            var slain = Enumerable.Range(0, BarrowsConstants.MoundCount).Where(i => _spawnEntries[i].Killed).ToArray();
-            foreach (var brother in BarrowsRewards.RollSetBrothers(slain, RandomStatic.Generator.Next))
-            {
-                var setTable = _lootService.FindGameObjectLootTable(BarrowsRewards.BrotherSetLootTableIds[brother]).Result;
-                if (setTable != null)
-                {
-                    Character.Inventory.TryAddLoot(Character, setTable, out _);
-                }
-            }
         }
 
         /// <summary>
@@ -651,6 +646,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         private void ResetKills()
         {
             _killCount = 0;
+            _creatureLevels = 0;
                 foreach (var entry in _spawnEntries)
             {
                 entry.Reset();

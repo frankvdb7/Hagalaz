@@ -27,7 +27,11 @@
 
 - [x] 6.1 `AhrimTheBlighted.ApplyBlightedAura`: 20% chance of -5 Strength on a successful magic hit.
 
-## 7. Verification
+## 7. Reward potential
 
-- [x] 7.1 Run `Hagalaz.Game.Scripts.Tests` (546): all pass.
-- [ ] 7.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).
+- [x] 7.1 `BarrowsRewards`: reward count, armour chance, potential and ordinary bands; crypt-creature levels tracked in `BarrowsDto.CreatureLevels`; `LootChest` rolls the chosen tables and stays unclaimed if one is missing.
+
+## 8. Verification
+
+- [x] 8.1 Run `Hagalaz.Game.Scripts.Tests` (569): all pass.
+- [ ] 8.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).

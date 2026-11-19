@@ -61,7 +61,7 @@ Config 453 SHALL carry brother flags in bits 0-5, chest open in bit 16 and kill 
 
 ### Requirement: Armour rewards come only from slain brothers
 
-A chest claim SHALL roll armour only from the per-brother tables of brothers slain in the run, with `min(N+1, 7)` rolls each hitting at 1 in `max(450 - 58N, 73)`, and SHALL NOT roll armour when no brother was slain. The ordinary chest table SHALL contain no armour.
+A chest claim SHALL give `min(N+1, 7)` rewards for N slain brothers. Each reward SHALL be a slain brother's armour table with a 1 in `max(450 - 58N, 73)` chance, and SHALL NOT be armour when no brother was slain.
 
 #### Scenario: One brother slain
 
@@ -118,3 +118,17 @@ A successful magic hit by Ahrim SHALL lower the target's Strength by 5 levels wi
 
 - **WHEN** the roll is 20% or higher, or the hit misses
 - **THEN** Strength is unchanged
+
+### Requirement: Ordinary rewards scale with the creatures slain
+
+Every other reward SHALL be chosen by a random roll in [0, potential], where potential is the summed combat levels of crypt creatures slain this run (capped at 1,000) plus 2 per slain brother. The roll SHALL select coins (0-379), mind (380-504), chaos (505-629), death (630-754), blood (755-879), bolt racks (880-1004), a loop half (1005-1007), a tooth half (1008-1010) or a dragon medium helm (1011 and above). A claim SHALL NOT complete if a selected loot table is missing.
+
+#### Scenario: No creatures slain
+
+- **WHEN** no crypt creature and no brother was slain
+- **THEN** the single reward is a coins roll
+
+#### Scenario: Crypt creature slain
+
+- **WHEN** a giant crypt spider (combat level 79) is slain
+- **THEN** 79 is added to the reward potential and persisted

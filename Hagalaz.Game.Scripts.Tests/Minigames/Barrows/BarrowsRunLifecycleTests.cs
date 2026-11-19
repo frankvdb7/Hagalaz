@@ -131,8 +131,6 @@ public sealed class BarrowsRunLifecycleTests
     {
         var (character, lootService, generator) = CreateClaimableChestCharacter();
         var chest = Substitute.For<IGameObject>();
-        var ordinaryTable = Substitute.For<ILootTable>();
-        lootService.FindGameObjectLootTable(chest.Definition.LootTableId).Returns(ordinaryTable);
         var (profile, script) = Create(new BarrowsDto { AhrimKilled = true, KillCount = 4, TunnelIndex = 2 }, character: character, lootService: lootService);
         profile.ClearReceivedCalls();
 
@@ -142,8 +140,8 @@ public sealed class BarrowsRunLifecycleTests
         Assert.IsFalse(script.IsKilled(BarrowsConstants.AhrimIndex));
         profile.Received(1).SetObject(BarrowsConstants.MinigamesBarrows,
             Arg.Is<BarrowsDto>(d => d.LootedChest && !d.AhrimKilled && d.KillCount == 0 && d.TunnelIndex < BarrowsConstants.MoundCount));
-        // Optional armour rolls may add generator calls; the ordinary chest table must be rolled exactly once.
-        generator.Received(1).GenerateLoot<ILootItem>(Arg.Is<LootParams>(p => p.Table.Equals(ordinaryTable)));
+        // One slain brother means two rewards, rolled once even though the chest was searched twice.
+        generator.Received(BarrowsRewards.RollCount(1)).GenerateLoot<ILootItem>(Arg.Any<LootParams>());
     }
 
     [TestMethod]
@@ -247,22 +245,90 @@ public sealed class BarrowsRunLifecycleTests
     [TestMethod]
     public void Rewards_NoSlainBrothersNeverRollsArmour()
     {
-        Assert.AreEqual(0, BarrowsRewards.RollSetBrothers([], _ => 0).Count);
+        var tables = BarrowsRewards.RollRewardTables([], 0, _ => 0);
+
+        Assert.AreEqual(1, tables.Count);
+        Assert.IsFalse(tables.Any(t => BarrowsRewards.BrotherSetLootTableIds.Contains(t)));
     }
 
     [TestMethod]
     public void Rewards_OnlySlainBrothersCanBeHit()
     {
-        var hits = BarrowsRewards.RollSetBrothers([1, 4], _ => 0);
+        var tables = BarrowsRewards.RollRewardTables([1, 4], 0, _ => 0);
 
-        Assert.AreEqual(BarrowsRewards.RollCount(2), hits.Count);
-        Assert.IsTrue(hits.All(h => h == 1));
+        Assert.AreEqual(BarrowsRewards.RollCount(2), tables.Count);
+        Assert.IsTrue(tables.All(t => t == BarrowsRewards.BrotherSetLootTableIds[1]));
     }
 
     [TestMethod]
-    public void Rewards_MissesAddNothing()
+    public void Rewards_MissesFallBackToOrdinaryBands()
     {
-        Assert.AreEqual(0, BarrowsRewards.RollSetBrothers([0, 1, 2], _ => 1).Count);
+        var tables = BarrowsRewards.RollRewardTables([0, 1, 2], 0, _ => 1);
+
+        Assert.AreEqual(BarrowsRewards.RollCount(3), tables.Count);
+        Assert.IsTrue(tables.All(t => t == BarrowsRewards.OrdinaryTableId(1)));
+    }
+
+    [TestMethod]
+    [DataRow(0, 42)]
+    [DataRow(379, 42)]
+    [DataRow(380, 43)]
+    [DataRow(504, 43)]
+    [DataRow(505, 44)]
+    [DataRow(629, 44)]
+    [DataRow(630, 45)]
+    [DataRow(754, 45)]
+    [DataRow(755, 46)]
+    [DataRow(879, 46)]
+    [DataRow(880, 47)]
+    [DataRow(1004, 47)]
+    [DataRow(1005, 48)]
+    [DataRow(1007, 48)]
+    [DataRow(1008, 49)]
+    [DataRow(1010, 49)]
+    [DataRow(1011, 50)]
+    [DataRow(1014, 50)]
+    public void Rewards_OrdinaryBandsFollowTheRollThresholds(int roll, int tableId)
+    {
+        Assert.AreEqual(tableId, BarrowsRewards.OrdinaryTableId(roll));
+    }
+
+    [TestMethod]
+    [DataRow(0, 0, 0)]
+    [DataRow(300, 6, 312)]
+    [DataRow(5000, 6, 1012)]
+    public void Rewards_PotentialCapsCreatureLevelsThenAddsTwoPerBrother(int creatureLevels, int brothers, int expected)
+    {
+        Assert.AreEqual(expected, BarrowsRewards.RewardPotential(creatureLevels, brothers));
+    }
+
+    [TestMethod]
+    public void Rewards_RollIsBoundedByThePotential()
+    {
+        var maxima = new List<int>();
+
+        BarrowsRewards.RollRewardTables([], 100, max =>
+        {
+            maxima.Add(max);
+            return 0;
+        });
+
+        CollectionAssert.AreEqual(new[] { 101 }, maxima);
+    }
+
+    [TestMethod]
+    public void KillCredit_CryptCreaturesAddTheirCombatLevelToTheRewardPotential()
+    {
+        EventHappened<CreatureKillEvent>? handler = null;
+        var character = Substitute.For<ICharacter>();
+        character.RegisterEventHandler(Arg.Do<EventHappened<CreatureKillEvent>>(h => handler = h));
+        var (profile, _) = Create(new BarrowsDto(), character: character);
+        var creature = Substitute.For<INpc>();
+        creature.Appearance.CompositeID.Returns(2035);
+
+        handler!(new CreatureKillEvent(character, creature));
+
+        profile.Received().SetObject(BarrowsConstants.MinigamesBarrows, Arg.Is<BarrowsDto>(d => d.CreatureLevels == 79 && d.KillCount == 1));
     }
 
     [TestMethod]
