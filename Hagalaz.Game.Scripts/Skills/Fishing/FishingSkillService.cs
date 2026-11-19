@@ -94,9 +94,21 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             {
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
+                    // One bait is consumed per delivered fish; a single bait never funds multiple fish.
+                    var bait = table.BaitId > 0 ? _itemBuilder.Create().WithId(table.BaitId).Build() : null;
+                    if (bait != null && !character.Inventory.TryRemoveItemExact(bait))
+                    {
+                        break;
+                    }
+
                     var fish = _itemBuilder.Create().WithId(result.Item.Id).Build();
                     if (!character.Inventory.AddItem(fish))
                     {
+                        if (bait != null)
+                        {
+                            character.Inventory.AddItem(bait);
+                        }
+
                         continue;
                     }
 
@@ -145,8 +157,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                     return true; // stop fishing
                 }
 
-                if (table.BaitId <= 0 || (character.Inventory.RemoveItem(_itemBuilder.Create().WithId(table.BaitId).Build()) > 0 &&
-                                          character.Inventory.Items.Contains(table.BaitId)))
+                if (table.BaitId <= 0 || character.Inventory.Items.Contains(table.BaitId))
                 {
                     return false; // keep fishing
                 }
