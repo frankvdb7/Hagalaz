@@ -19,7 +19,11 @@
 
 - [x] 4.1 `BarrowsPuzzle` (models, doors, reroll), `BarrowsPuzzleWidget` (interface 25), door handling in `BarrowCryptDoor`, run state in `BarrowsDto`.
 
-## 5. Verification
+## 5. Akrisae combat
 
-- [x] 5.1 Run `Hagalaz.Game.Scripts.Tests` (537): all pass.
-- [ ] 5.2 Remaining #315 work is tracked outside this change (NPC specials, quest persistence, ordinary reward scaling, live-client checks of the puzzle).
+- [x] 5.1 `AkrisaeProtection` and `AkrisaeTheDoomed`: melee attacks, protection after 150 damage from one style, reduced hits, skipped attack, reset on cancel and death.
+
+## 6. Verification
+
+- [x] 6.1 Run `Hagalaz.Game.Scripts.Tests` (545): all pass.
+- [ ] 6.2 Remaining #315 work is tracked outside this change (Ahrim's drain, quest persistence, ordinary reward scaling, live-client checks of the puzzle).

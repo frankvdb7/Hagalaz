@@ -90,3 +90,17 @@ The operable door SHALL open interface 25 with one of four shape puzzles: three 
 
 - **WHEN** the player picks the correct shape
 - **THEN** the player passes, the lock bits clear, and the next claim starts a fresh puzzle
+
+### Requirement: Akrisae protects against the style that hurts him
+
+Akrisae SHALL attack with melee. After 150 damage from one combat style he SHALL protect against that style, reduce its hits to 60%, and skip his next attack. The protection SHALL reset when he loses his target or dies.
+
+#### Scenario: Switching protection
+
+- **WHEN** magic hits have dealt 150 damage to Akrisae
+- **THEN** magic hits are reduced, other styles are not, and his next attack is skipped
+
+#### Scenario: Misses
+
+- **WHEN** a hit misses
+- **THEN** it does not count towards a switch
