@@ -96,6 +96,10 @@ Choice buttons are model components 2, 3 and 5 at x = -149, -6 and 137 (left to 
 - **Interpretation:** a set bit hides the `Open` option, so locked doors show only `Examine`. This matches the period description that only the operational door has `Open Door` and the other three only `Examine`, but it was not observed on a live client. The door models are the same either way.
 - Period behaviour (Darkan archive, barrows.fandom): one of the four chest-room doors is operable and carries the puzzle; the other three are locked; a wrong answer moves the catacombs around so that the rope and the chest-room door are in different rooms; the chest-room door is the only door that shows the puzzle. Monsters or a remaining brother can appear when a door is opened.
 
+#### Verified on a live client
+
+The project owner checked the following on a running 742 client and reported them correct (no detail beyond "correct" was recorded): the correct choice for all four puzzles (including bars and polygons), locked chest-room doors showing only `Examine` with the operable door opening the puzzle, the effect of a wrong answer (the operable door and the exit rope move), and the 30-tick (18 second) prayer-drain interval. The "cited sources only", "interpretation" and "not independently verified" notes above are superseded by this check for those four points.
+
 #### Still guesswork for the puzzle
 
 - The success and failure chat messages, if any: none found in any source.
@@ -107,7 +111,7 @@ Choice buttons are model components 2, 3 and 5 at x = -149, -6 and 137 (left to 
 
 ### Still unresolved
 
-HUD CS2 semantics; whether the 742 server rerolls the whole tunnel or only the doors on a wrong answer (see the puzzle section below); success/failure chat messages; entry-spawn tile walkability; NPC combat stats, specials and proc rates; prayer-drain interval (10s vs 18s); chest loot rows (database, not cache); quest-completion persistence.
+HUD CS2 semantics; whether the 742 server rerolls the whole tunnel or only the doors on a wrong answer (see the puzzle section below); success/failure chat messages; entry-spawn tile walkability; NPC combat stats, specials and proc rates; chest loot rows (database, not cache); quest-completion persistence.
 
 ## Acceptance evidence still missing
 

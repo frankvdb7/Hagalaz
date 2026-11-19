@@ -12,6 +12,7 @@
 
 - Confirmed from the pinned 742 cache: config 452/453 layouts, rope and door placements, quest id 194 and varbit 9829.
 - Period sources: progress saved on leaving without the reward (Darkan archive); random tunnel brother (2011 knowledge base); reset after a claim on leaving (2009 forum thread). Reset at chest search and preserve-on-death come from guides cited in issue #315 and were not independently verified.
+- Checked on a live 742 client by the project owner and reported correct: all four puzzle answers, locked doors and the operable door, the wrong-answer effect (door and rope move), and the 30-tick prayer drain.
 - The exit message text is original server content; no period source confirms or denies it.
 - "You found nothing." for locked Akrisae is a placeholder; Darkan describes a separate quest-only crypt.
 

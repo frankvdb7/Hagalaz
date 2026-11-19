@@ -21,7 +21,6 @@ The Barrows run lifecycle in `BarrowsScript` had blockers listed in issue #315: 
 
 - Success and failure chat messages for the puzzle, re-randomizing every door on a wrong answer, and perimeter door locking (no source states them).
 - Verified 742 rates (reward and armour rolls use the published reward-potential model), the ring of wealth bonus drop, and the later Linza, Rise of the Six and defender drops.
-- The 10s-versus-18s prayer-drain interval.
 - Quest completion persistence and the separate Akrisae crypt.
 - Barrows equipment (`barrows-equipment`).
 
