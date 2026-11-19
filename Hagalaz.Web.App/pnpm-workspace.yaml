@@ -10,3 +10,12 @@ allowBuilds:
   esbuild: true
   lmdb: true
   msgpackr-extract: true
+
+# The 22.3.0 CLI release reached CI before pnpm's 24-hour cutoff.
+minimumReleaseAgeExclude:
+  - '@angular-devkit/architect@0.2203.0'
+  - '@angular-devkit/core@22.3.0'
+  - '@angular-devkit/schematics@22.3.0'
+  - '@angular/build@22.3.0'
+  - '@angular/cli@22.3.0'
+  - '@schematics/angular@22.3.0'
