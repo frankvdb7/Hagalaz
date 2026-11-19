@@ -23,7 +23,11 @@
 
 - [x] 5.1 `AkrisaeProtection` and `AkrisaeTheDoomed`: melee attacks, protection after 150 damage from one style, reduced hits, skipped attack, reset on cancel and death.
 
-## 6. Verification
+## 6. Ahrim
 
-- [x] 6.1 Run `Hagalaz.Game.Scripts.Tests` (545): all pass.
-- [ ] 6.2 Remaining #315 work is tracked outside this change (Ahrim's drain, quest persistence, ordinary reward scaling, live-client checks of the puzzle).
+- [x] 6.1 `AhrimTheBlighted.ApplyBlightedAura`: 20% chance of -5 Strength on a successful magic hit.
+
+## 7. Verification
+
+- [x] 7.1 Run `Hagalaz.Game.Scripts.Tests` (546): all pass.
+- [ ] 7.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).

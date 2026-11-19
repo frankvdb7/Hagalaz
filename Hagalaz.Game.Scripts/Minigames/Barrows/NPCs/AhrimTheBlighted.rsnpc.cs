@@ -2,7 +2,9 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Common;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 {
@@ -60,7 +62,32 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
             handler.RegisterResultHandler(result =>
             {
                 target.QueueGraphic(result.DamageLifePoints.Succeeded ? Graphic.Create(1019) : Graphic.Create(85, 0, 150));
+                if (result.DamageLifePoints.Succeeded && target is ICharacter character)
+                {
+                    ApplyBlightedAura(character, RandomStatic.Generator.NextDouble());
+                }
             });
+        }
+
+        /// <summary>
+        ///     Chance that a successful hit lowers the target's Strength (about 1 in 5 casts per the Darkan archive).
+        /// </summary>
+        internal const double BlightedAuraChance = 0.20;
+
+        /// <summary>
+        ///     Strength levels removed by Blighted Aura.
+        /// </summary>
+        internal const int BlightedAuraLevels = 5;
+
+        /// <summary>
+        ///     Blighted Aura: a successful magic hit may lower the target's Strength by five levels.
+        /// </summary>
+        internal static void ApplyBlightedAura(ICharacter target, double roll)
+        {
+            if (roll < BlightedAuraChance)
+            {
+                target.Statistics.DamageSkill(StatisticsConstants.Strength, BlightedAuraLevels);
+            }
         }
 
         /// <summary>

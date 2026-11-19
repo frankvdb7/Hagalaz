@@ -141,3 +141,7 @@ Armour and item 7462 are removed from table 8. Tables 36-41 (`barrows_set_*`, on
 #### Akrisae combat (implemented in `AkrisaeTheDoomed`)
 
 The database row for NPC 14297 (checked through the local Aspire MySQL, 2026-11-19) has 1,050 life points (the ×10 scale), attack speed 8, attack animation 422 and magic level 70 / attack bonuses favouring magic. The script now attacks with melee (period sources: Darkan archive, Tip.It) using the standard NPC melee damage, and keeps a small protection state, not an NPC prayer system: after 150 damage from one style he protects against it, that style's hits are reduced to 60%, and he skips his next attack. 150 is the pre-EoC figure; with 1,050 life points the post-EoC 1,500 could never be reached. The 60% reduction is the tormented demon's convention; no period source gives Akrisae's own value. The existing prayer drain on hit is kept but now applies when the player is not using Protect from Melee. Proc chances for transferring or disabling prayers are not established and were not added.
+
+#### Ahrim's Blighted Aura (implemented in `AhrimTheBlighted`)
+
+A successful magic hit lowers the target's Strength by 5 levels with a 20% chance. The 20% is the Darkan archive's "approximately 1 out of 5 casts"; other sources give 1/4 (an older guide), 1/8 (a newer one) and 20-25% (OSRS), so the value is a documented default, not a 742 measurement. No chat message is sent because no source gives one.

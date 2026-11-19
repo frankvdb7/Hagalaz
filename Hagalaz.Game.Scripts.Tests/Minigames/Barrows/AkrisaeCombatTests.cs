@@ -1,3 +1,4 @@
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
@@ -94,5 +95,18 @@ public sealed class AkrisaeCombatTests
 
         Assert.AreEqual(AttackBonus.Crush, script.GetAttackBonusType());
         Assert.AreEqual(AttackStyle.MeleeAccurate, script.GetAttackStyle());
+    }
+
+    [TestMethod]
+    public void Ahrim_BlightedAuraDrainsFiveStrengthLevelsOnlyWhenTheRollIsUnderTwentyPercent()
+    {
+        var hit = Substitute.For<ICharacter>();
+        var miss = Substitute.For<ICharacter>();
+
+        AhrimTheBlighted.ApplyBlightedAura(hit, 0.19);
+        AhrimTheBlighted.ApplyBlightedAura(miss, 0.20);
+
+        hit.Statistics.Received(1).DamageSkill(StatisticsConstants.Strength, 5);
+        miss.Statistics.DidNotReceive().DamageSkill(Arg.Any<int>(), Arg.Any<int>());
     }
 }

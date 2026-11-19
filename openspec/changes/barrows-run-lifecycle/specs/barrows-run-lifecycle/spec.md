@@ -104,3 +104,17 @@ Akrisae SHALL attack with melee. After 150 damage from one combat style he SHALL
 
 - **WHEN** a hit misses
 - **THEN** it does not count towards a switch
+
+### Requirement: Ahrim's Blighted Aura lowers Strength
+
+A successful magic hit by Ahrim SHALL lower the target's Strength by 5 levels with a 20% chance.
+
+#### Scenario: Aura proc
+
+- **WHEN** a successful hit rolls under the 20% chance
+- **THEN** the target's Strength is lowered by 5 levels
+
+#### Scenario: No proc
+
+- **WHEN** the roll is 20% or higher, or the hit misses
+- **THEN** Strength is unchanged
