@@ -187,6 +187,35 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             });
         }
 
+        /// <summary>
+        /// Cancels the current task for a point cost. The task is cleared synchronously before the
+        /// asynchronous debit is published, so a repeated call finds no task and cannot charge twice.
+        /// </summary>
+        public bool TrySkipAssignment(int pointCost)
+        {
+            if (CurrentTaskId == -1)
+            {
+                return false;
+            }
+
+            _owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var points);
+            if (points < pointCost)
+            {
+                return false;
+            }
+
+            if (_creatureKilledHandler != null)
+            {
+                _owner.UnregisterEventHandler<CreatureKillEvent>(_creatureKilledHandler);
+                _creatureKilledHandler = null;
+            }
+
+            CurrentTaskId = -1;
+            CurrentKillCount = 0;
+            _mediator.Publish(new ProfileDecrementIntAction(ProfileConstants.SlayerRewardPoints, pointCost));
+            return true;
+        }
+
         public void Hydrate(HydratedSlayerDto hydration)
         {
             if (hydration.Task == null)
