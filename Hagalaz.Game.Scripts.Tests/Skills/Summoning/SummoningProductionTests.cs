@@ -82,6 +82,58 @@ public sealed class SummoningProductionTests
     }
 
     [TestMethod]
+    public void TryCreatePouches_WithStackedIngredientsInFullInventory_RollsBackBothStacksWhenOutputsDoNotFit()
+    {
+        var (inventory, character, service) = CreateStacked();
+        inventory.Items.Add(new StackItem(Charm, 10));
+        inventory.Items.Add(new StackItem(Shard, 10));
+        for (var i = 0; i < 26; i++) inventory.Items.Add(new StackItem(900 + i, 1, stackable: false));
+        Assert.AreEqual(28, inventory.Items.TakenSlots);
+
+        // Infuse-10: both stacks are drained (2 slots free) but 10 nonstackable pouches need 10 slots.
+        Assert.IsFalse(service.TryCreatePouches(character, Definition, Pouch, 10));
+
+        Assert.AreEqual(10, inventory.Items.GetCountById(Charm));
+        Assert.AreEqual(10, inventory.Items.GetCountById(Shard));
+        Assert.AreEqual(0, inventory.Items.GetCountById(Pouch));
+        Assert.AreEqual(28, inventory.Items.TakenSlots);
+        character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
+    }
+
+    [TestMethod]
+    public void TryCreatePouches_WithPartiallyConsumedStacksInFullInventory_RollsBackAndKeepsStackCounts()
+    {
+        var (inventory, character, service) = CreateStacked();
+        inventory.Items.Add(new StackItem(Charm, 10));
+        inventory.Items.Add(new StackItem(Shard, 10));
+        for (var i = 0; i < 26; i++) inventory.Items.Add(new StackItem(900 + i, 1, stackable: false));
+
+        // Stacks remain after removal, so no slot is freed for the 3 pouches.
+        Assert.IsFalse(service.TryCreatePouches(character, Definition, Pouch, 3));
+
+        Assert.AreEqual(10, inventory.Items.GetCountById(Charm));
+        Assert.AreEqual(10, inventory.Items.GetCountById(Shard));
+        Assert.AreEqual(0, inventory.Items.GetCountById(Pouch));
+        character.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
+    }
+
+    [TestMethod]
+    public void TryCreatePouches_WithStackedIngredientsAndEnoughOutputSlots_ConsumesStacksAndGrantsExperience()
+    {
+        var (inventory, character, service) = CreateStacked();
+        inventory.Items.Add(new StackItem(Charm, 10));
+        inventory.Items.Add(new StackItem(Shard, 10));
+        for (var i = 0; i < 16; i++) inventory.Items.Add(new StackItem(900 + i, 1, stackable: false));
+
+        Assert.IsTrue(service.TryCreatePouches(character, Definition, Pouch, 10));
+
+        Assert.AreEqual(0, inventory.Items.GetCountById(Charm));
+        Assert.AreEqual(0, inventory.Items.GetCountById(Shard));
+        Assert.AreEqual(10, inventory.Items.GetCountById(Pouch));
+        character.Statistics.Received(1).AddExperience(Arg.Any<int>(), PouchXp * 10);
+    }
+
+    [TestMethod]
     public void TryCreateScrolls_WhenScrollsCannotBeInserted_KeepsPouchesAndGrantsNoExperience()
     {
         var (inventory, character, service) = Create();
@@ -133,5 +185,45 @@ public sealed class SummoningProductionTests
         character.Statistics.GetSkillLevel(Arg.Any<int>()).Returns(99);
         return (inventory, character,
             new SummoningSkillService(Substitute.For<INpcBuilder>(), Substitute.For<IFamiliarScriptProvider>(), builder));
+    }
+
+    private static (ComposedTestContainer Inventory, ICharacter Character, SummoningSkillService Service) CreateStacked()
+    {
+        var (inventory, character, _) = Create();
+        var builder = new TestItemBuilder((id, count) => new StackItem(id, count));
+        return (inventory, character,
+            new SummoningSkillService(Substitute.For<INpcBuilder>(), Substitute.For<IFamiliarScriptProvider>(), builder));
+    }
+
+    /// <summary>Item double with real mutable counts; charms and shards stack, everything else does not.</summary>
+    private sealed class StackItem(int id, int count, bool? stackable = null) : IItem
+    {
+        public int Id { get; } = id;
+        public long[] ExtraData => [];
+        public int Count { get; set; } = count;
+        public string Name => $"Item {Id}";
+        public IItemDefinition ItemDefinition { get; } = CreateDefinition(stackable ?? (id == Charm || id == Shard));
+        public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
+        public IItemScript ItemScript { get; } = CreateScript();
+        public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
+        public IItem Clone() => new StackItem(Id, Count, ItemDefinition.Stackable);
+        public IItem Clone(int newCount) => new StackItem(Id, newCount, ItemDefinition.Stackable);
+        public bool Equals(IItem otherItem, bool ignoreCount = true) => otherItem is not null && Id == otherItem.Id &&
+            (ignoreCount || Count == otherItem.Count);
+        public string? SerializeExtraData() => null;
+
+        private static IItemDefinition CreateDefinition(bool stackable)
+        {
+            var definition = Substitute.For<IItemDefinition>();
+            definition.Stackable.Returns(stackable);
+            return definition;
+        }
+
+        private static IItemScript CreateScript()
+        {
+            var script = Substitute.For<IItemScript>();
+            script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(true);
+            return script;
+        }
     }
 }
