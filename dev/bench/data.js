@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795039755169,
+  "lastUpdate": 1795128681278,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -38580,6 +38580,546 @@ window.BENCHMARK_DATA = {
             "value": 921,
             "unit": "ns",
             "range": "± 315.6548748237543"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d3c353d2d926907fa177531ac801cffe3753583",
+          "message": "fix(barrows): repair run lifecycle (constructor order, progress persistence, tunnel index) (#614)\n\n* fix(barrows): repair run lifecycle (constructor order, progress persistence, tunnel index)\n\n- Load the run from the constructor body; Initialize() ran from the base\n  constructor before the NPC/hint-icon builders were assigned.\n- Keep unclaimed progress on normal exit; only reset (with a fresh random\n  tunnel) after the chest was claimed.\n- Randomize the tunnel among the six mounds and persist it at creation.\n- Derive the brother count for prayer drain from the killed flags.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): credit brother kills only to the owning player; message on missing chest table\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(barrows): cover brother spawn through injected builders\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): fix HUD bit overlap, lock Akrisae, despawn brothers on death\n\n- Pack config 453 as flags | chest<<16 | killCount<<17 (candidate layout;\n  chest and kill count previously collided on bit 17).\n- Keep Akrisae locked until an authoritative quest-completion source exists.\n- Death preserves the unclaimed run and despawns active brothers.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(barrows): share spawnable builder setup to remove duplication\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): keep already-dead brothers on player death so kill credit is awarded\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(cache): pin 742 Barrows evidence and document confirmed varbits, objects, interfaces\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): apply 742 cache findings (config 452 rope bits, rope 6712, no Akrisae HUD flag)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): drop evidence test, keep cache findings\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): restore original exit message; drop invented empty-chest message\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): reset the run when the chest is searched, not on exit\n\nSearching the chest clears kills and picks a new tunnel; the claimed flag\nstays until exit so a run cannot be claimed twice, and reopening a claimed\nchest no longer spawns the tunnel brother.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): always send the power-drains message when leaving\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(openspec): add barrows-run-lifecycle change for #315 lifecycle work\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(barrows): cover missing table, claimed chest, kill credit, prayer drain and rope ids\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): record live chest 10284 loot rows\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(barrows): roll armour only from slain brothers' tables\n\nArmour moves out of chest loot table 8 into per-brother tables 36-41 via a\nmanual SQL script (no migration); BarrowsRewards rolls them for slain\nbrothers. Rates are later-era defaults, unverified for 742.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* chore(barrows): remove SQL script from the repo; describe the database edit in docs\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): note the ring of wealth exception to chest odds\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(barrows): share claimable-chest setup to remove duplication\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(barrows): assert the ordinary chest table is rolled once, independent of armour rolls\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): record puzzle models, interface 25 layout and door states\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(barrows): centre-door puzzle with one operable chest-room door\n\nInterface 25 shows the four shape puzzles (742 models 6713-6736); the three\nnon-operable chest doors are locked through config 452 bits 10-25; a wrong\nanswer moves the operable door. Bars/polygons answers and lock behaviour rest\non cited sources, not a live client.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(barrows): resolve CodeQL notes (unused local, reference equality, redundant cast)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(barrows): a wrong puzzle answer also moves the exit rope\n\nOnline guides agree the doors shift and the ladder ends up in another room.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): let a new run start with any of the four chest-room doors\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(barrows): Akrisae attacks with melee and switches protection after 150 damage\n\nA small per-NPC protection state, not an NPC prayer system: protects against\nthe style that dealt 150 damage, reduces it to 60% and skips his next attack.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(barrows): Ahrim's Blighted Aura lowers Strength by 5 on a 20% roll\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(barrows): share the standard melee attack in BarrowBrother\n\nRemoves the clone between Akrisae's new melee attack and Guthan's.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(barrows): ordinary rewards scale with creatures slain (reward potential)\n\nEach claim gives min(N+1, 7) rewards: a slain brother's armour table or an\nordinary band chosen by potential (crypt-creature combat levels capped at 1000\nplus 2 per brother). Band tables are created by hand in the database.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(barrows): clear chest-open state on exit, normalize legacy tunnel index, roll the next tunnel once\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* feat(data): seed the Barrows chest loot tables when absent, never overwriting\n\nBarrowsLootSeeder runs through MigrateDatabase's initialization hook and creates\ngame-object loot tables 36-50 only when their ids are missing; existing tables\nare left as they are. Covered by integration tests on a real MySQL container.\n\nRefs #315\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(data): split the seeder into data source, seeding policy and seeder interface\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): record the owner's live-client check (puzzle, locked doors, wrong answer, prayer drain)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): mark the Akrisae quest gate as a TODO for later\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* docs(barrows): tidy the quest gate TODO comment\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-19T22:38:00Z",
+          "tree_id": "fa5600011718b2da6ec5bba0d149f7d14542842d",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/0d3c353d2d926907fa177531ac801cffe3753583"
+        },
+        "date": 1795128679984,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.CacheArchiveSnapshotLruBenchmarks.ReconstructThreeArchives",
+            "value": 42153.79736328126,
+            "unit": "ns",
+            "range": "± 384.64881293599103"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheArchiveSnapshotLruBenchmarks.EvictAndReloadThreeArchives",
+            "value": 45843.2880045573,
+            "unit": "ns",
+            "range": "± 613.6688026104515"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.LegacyObjectDefinitionWorkload",
+            "value": 42555.704963189266,
+            "unit": "ns",
+            "range": "± 177.3132166042162"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.ZeroRetentionObjectDefinitionWorkload",
+            "value": 45989.934702258724,
+            "unit": "ns",
+            "range": "± 631.8644531834593"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.WarmSnapshotObjectDefinitionWorkload",
+            "value": 588.7682214716783,
+            "unit": "ns",
+            "range": "± 6.714161387141697"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheReferenceTableMemoizationBenchmarks.DecodeReferenceTableWithoutMemoization",
+            "value": 3343782.58984375,
+            "unit": "ns",
+            "range": "± 25280.460939180568"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheReferenceTableMemoizationBenchmarks.ReadMemoizedReferenceTable",
+            "value": 18.941920536756516,
+            "unit": "ns",
+            "range": "± 0.11409127627380894"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentArchiveReconstruction",
+            "value": 4704791.9640625,
+            "unit": "ns",
+            "range": "± 225202.6030878003"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentColdSameArchiveRead",
+            "value": 521354.79296875,
+            "unit": "ns",
+            "range": "± 12254.120694941796"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentWarmSameArchiveRead",
+            "value": 3013.3579132080076,
+            "unit": "ns",
+            "range": "± 44.15183288245572"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.ArchiveReconstructionBaseline",
+            "value": 42598.80255126953,
+            "unit": "ns",
+            "range": "± 615.8360096724394"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.ColdSingleMemberRead",
+            "value": 45548.580041503905,
+            "unit": "ns",
+            "range": "± 275.84674194836214"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.WarmSingleMemberRead",
+            "value": 90.0104609131813,
+            "unit": "ns",
+            "range": "± 0.14309434415094513"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 8.033237177878618,
+            "unit": "ns",
+            "range": "± 0.011690689430862463"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.219691480696201,
+            "unit": "ns",
+            "range": "± 0.00506601843070464"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 565.9384100437164,
+            "unit": "ns",
+            "range": "± 0.5788194016309769"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 69.45173126459122,
+            "unit": "ns",
+            "range": "± 0.5859659944153955"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 1018.0497898101806,
+            "unit": "ns",
+            "range": "± 11.944856068706054"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 115.66795848608017,
+            "unit": "ns",
+            "range": "± 0.9761650320281122"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 859.48834400177,
+            "unit": "ns",
+            "range": "± 5.2323635864643805"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 121.70454874038697,
+            "unit": "ns",
+            "range": "± 1.4498065719782811"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 50.028063678741454,
+            "unit": "ns",
+            "range": "± 0.9056443513187885"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 100)",
+            "value": 1.2945719100534916,
+            "unit": "ns",
+            "range": "± 0.00351397838562504"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 100)",
+            "value": 1.6082671836018563,
+            "unit": "ns",
+            "range": "± 0.010271840384154012"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 100)",
+            "value": 2059.7783654785153,
+            "unit": "ns",
+            "range": "± 0.546539582823892"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 100)",
+            "value": 20256.697148437503,
+            "unit": "ns",
+            "range": "± 47.8670437230069"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 100)",
+            "value": 406181.79671875,
+            "unit": "ns",
+            "range": "± 7627.312744929389"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 100)",
+            "value": 562111.6603125001,
+            "unit": "ns",
+            "range": "± 18328.08918678678"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 606.7082288265228,
+            "unit": "ns",
+            "range": "± 1.5870588710493452"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 60.93403952121734,
+            "unit": "ns",
+            "range": "± 0.6359933267852285"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1523.1925132751464,
+            "unit": "ns",
+            "range": "± 3.4476749928587402"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 916.6930292129516,
+            "unit": "ns",
+            "range": "± 1.3741553523144285"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 2247.711361694336,
+            "unit": "ns",
+            "range": "± 12.32976402953432"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1100.9131236076355,
+            "unit": "ns",
+            "range": "± 7.4033299885099835"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1306.0098304748535,
+            "unit": "ns",
+            "range": "± 9.02119110791479"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 145.2981470823288,
+            "unit": "ns",
+            "range": "± 3.362078194790926"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2174.1362342834473,
+            "unit": "ns",
+            "range": "± 1.6226345665454405"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 1013.8810367584229,
+            "unit": "ns",
+            "range": "± 0.475832200601706"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 1121.4402572631836,
+            "unit": "ns",
+            "range": "± 6.45093652002463"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 657.3691722869874,
+            "unit": "ns",
+            "range": "± 17.90709307277147"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 3560.7234482421873,
+            "unit": "ns",
+            "range": "± 61.65645057626846"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.39472730612754825,
+            "unit": "ns",
+            "range": "± 0.004520507831732985"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 60.74923567771911,
+            "unit": "ns",
+            "range": "± 2.8755852971418925"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.170057402923703,
+            "unit": "ns",
+            "range": "± 0.005909966471569739"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 5256.873092651367,
+            "unit": "ns",
+            "range": "± 21.414105282203128"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 630.8754522323609,
+            "unit": "ns",
+            "range": "± 2.09217947735431"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 9029.856365966796,
+            "unit": "ns",
+            "range": "± 127.69057161260646"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 955.5500345230103,
+            "unit": "ns",
+            "range": "± 0.8994139384025224"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 7736.6244842529295,
+            "unit": "ns",
+            "range": "± 41.99377544683805"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 1001.1055369377136,
+            "unit": "ns",
+            "range": "± 1.6501957886489205"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 224.85858414173126,
+            "unit": "ns",
+            "range": "± 7.097024108469207"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 1000)",
+            "value": 1.2849323987960815,
+            "unit": "ns",
+            "range": "± 0.011151696436139467"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 1000)",
+            "value": 1.5923906937241554,
+            "unit": "ns",
+            "range": "± 0.0020942956784567764"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 1000)",
+            "value": 2068.3567436523435,
+            "unit": "ns",
+            "range": "± 9.58336281160316"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 1000)",
+            "value": 20149.423332031252,
+            "unit": "ns",
+            "range": "± 133.3006185345423"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 1000)",
+            "value": 413162.19875000004,
+            "unit": "ns",
+            "range": "± 10272.919240941743"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 1000)",
+            "value": 558253.2625,
+            "unit": "ns",
+            "range": "± 11851.418511695667"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 616.9044197082519,
+            "unit": "ns",
+            "range": "± 3.102858950775869"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 184.24097681045532,
+            "unit": "ns",
+            "range": "± 1.317895865093175"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 14540.198175048828,
+            "unit": "ns",
+            "range": "± 72.03071221259732"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 9235.925254821777,
+            "unit": "ns",
+            "range": "± 7.022581289284397"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 22042.911389160156,
+            "unit": "ns",
+            "range": "± 270.61689350988667"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 11396.375131225586,
+            "unit": "ns",
+            "range": "± 41.41735889924869"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 13295.14508972168,
+            "unit": "ns",
+            "range": "± 54.00189088085973"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 1320.5212426185608,
+            "unit": "ns",
+            "range": "± 3.6563394477232953"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10090.954412841797,
+            "unit": "ns",
+            "range": "± 46.063577960129194"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 989.4261451721192,
+            "unit": "ns",
+            "range": "± 4.269545894747447"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 8462.133975219727,
+            "unit": "ns",
+            "range": "± 161.5273602128275"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 4921.903909301758,
+            "unit": "ns",
+            "range": "± 47.86581184076277"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 28356.920087890627,
+            "unit": "ns",
+            "range": "± 258.55478080232245"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.3911521297693253,
+            "unit": "ns",
+            "range": "± 0.003013704068947226"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 10)",
+            "value": 97.39563567638398,
+            "unit": "ns",
+            "range": "± 1.047082554009415"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 100)",
+            "value": 964.594881439209,
+            "unit": "ns",
+            "range": "± 2.578820175885384"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 500)",
+            "value": 3933.728063964844,
+            "unit": "ns",
+            "range": "± 5.958118993978045"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapAppearanceRequestBenchmarks.IndividualRequests32",
+            "value": 308102.37265625,
+            "unit": "ns",
+            "range": "± 43769.0406659406"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapAppearanceRequestBenchmarks.BatchRequest32",
+            "value": 219053.105078125,
+            "unit": "ns",
+            "range": "± 10177.029924414808"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapTerrainDecodeBenchmarks.DecodeTerrain",
+            "value": 122222.912109375,
+            "unit": "ns",
+            "range": "± 1801.8321395787107"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapTerrainDecodeBenchmarks.DecodeLandscape",
+            "value": 76212.6257080078,
+            "unit": "ns",
+            "range": "± 5151.946518154056"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 0)",
+            "value": 2612.2,
+            "unit": "ns",
+            "range": "± 52.83180860050126"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 0)",
+            "value": 135.8,
+            "unit": "ns",
+            "range": "± 28.951683888851786"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 1)",
+            "value": 3581,
+            "unit": "ns",
+            "range": "± 53.19774431308154"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 1)",
+            "value": 2509.5,
+            "unit": "ns",
+            "range": "± 67.82329983125268"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 5)",
+            "value": 3595,
+            "unit": "ns",
+            "range": "± 78.49840762716146"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 5)",
+            "value": 2685.75,
+            "unit": "ns",
+            "range": "± 40.74616546375867"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 20)",
+            "value": 3601.2,
+            "unit": "ns",
+            "range": "± 66.24349024621212"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 20)",
+            "value": 2692.9,
+            "unit": "ns",
+            "range": "± 211.05165244555656"
           }
         ]
       }
