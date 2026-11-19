@@ -253,7 +253,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 
         private static BarrowsDto NewRun()
         {
-            var (door, puzzle) = BarrowsPuzzle.Reroll(0, RandomStatic.Generator.Next);
+            var (door, puzzle) = BarrowsPuzzle.New(RandomStatic.Generator.Next);
             return new BarrowsDto
             {
                 TunnelIndex = RandomStatic.Generator.Next(0, BarrowsConstants.MoundCount), PuzzleDoorIndex = door, PuzzleIndex = puzzle

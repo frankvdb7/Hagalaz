@@ -325,6 +325,14 @@ public sealed class BarrowsRunLifecycleTests
     }
 
     [TestMethod]
+    public void Puzzle_NewRunCanStartWithAnyOfTheFourDoors()
+    {
+        var doors = Enumerable.Range(0, 4).Select(pick => BarrowsPuzzle.New(max => Math.Min(pick, max - 1)).DoorIndex);
+
+        CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, doors.ToArray());
+    }
+
+    [TestMethod]
     public void Puzzle_RerollAlwaysMovesToADifferentDoor()
     {
         for (var door = 0; door < 4; door++)

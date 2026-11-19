@@ -75,6 +75,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         public static int RerollEntry(int currentEntry, int entryCount, Func<int, int> next) => (currentEntry + 1 + next(entryCount - 1)) % entryCount;
 
         /// <summary>
+        ///     Picks the operable door (any of the four) and a puzzle for a new run.
+        /// </summary>
+        public static (int DoorIndex, int PuzzleIndex) New(Func<int, int> next) => (next(ChestDoorSlots.Length), next(PuzzleCount));
+
+        /// <summary>
         ///     Picks a different operable door and a puzzle.
         /// </summary>
         public static (int DoorIndex, int PuzzleIndex) Reroll(int currentDoorIndex, Func<int, int> next)
