@@ -132,3 +132,17 @@ Every other reward SHALL be chosen by a random roll in [0, potential], where pot
 
 - **WHEN** a giant crypt spider (combat level 79) is slain
 - **THEN** 79 is added to the reward potential and persisted
+
+### Requirement: Barrows loot tables are seeded without overwriting
+
+Startup SHALL create each Barrows loot table (ids 36-50) with its items only when that id is absent, SHALL NOT change a table that exists, and SHALL log a warning when an owned id exists under a different name.
+
+#### Scenario: Empty database
+
+- **WHEN** the seeder runs and none of tables 36-50 exist
+- **THEN** every table is created with its items
+
+#### Scenario: Edited table
+
+- **WHEN** table 36 exists with different rows
+- **THEN** its rows are unchanged and the other tables are still created

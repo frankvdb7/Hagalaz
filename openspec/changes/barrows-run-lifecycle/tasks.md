@@ -13,7 +13,7 @@
 
 ## 3. Rewards
 
-- [x] 3.1 Move armour out of chest table 8 into per-brother tables 36-41 (manual database edit, no migration, no SQL in the repo); roll them for slain brothers in `BarrowsRewards`.
+- [x] 3.1 Move armour out of chest table 8 into per-brother tables 36-41 (seeded, see 8.1); roll them for slain brothers in `BarrowsRewards`.
 
 ## 4. Centre-door puzzle
 
@@ -31,7 +31,11 @@
 
 - [x] 7.1 `BarrowsRewards`: reward count, armour chance, potential and ordinary bands; crypt-creature levels tracked in `BarrowsDto.CreatureLevels`; `LootChest` rolls the chosen tables and stays unclaimed if one is missing.
 
-## 8. Verification
+## 8. Seeding
 
-- [x] 8.1 Run `Hagalaz.Game.Scripts.Tests` (572): all pass.
-- [ ] 8.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).
+- [x] 8.1 `BarrowsLootSeeder` in `Hagalaz.Database.Migrations`, run through `MigrateDatabase`'s initialization hook; creates tables 36-50 only when their ids are absent; integration tests against a MySQL container.
+
+## 9. Verification
+
+- [x] 9.1 Run `Hagalaz.Game.Scripts.Tests` (572): all pass.
+- [ ] 9.2 Remaining #315 work is tracked outside this change (quest persistence, ordinary reward scaling, live-client checks of the puzzle).

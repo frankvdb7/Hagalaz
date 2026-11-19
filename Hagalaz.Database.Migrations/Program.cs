@@ -12,7 +12,15 @@ builder.AddHagalazDbContextPool("hagalaz-db");
 using var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<MigrationApplication>>();
 var migrationApplication = new MigrationApplication(
-    cancellationToken => host.MigrateDatabase<HagalazDbContext>(cancellationToken: cancellationToken),
+    cancellationToken => host.MigrateDatabase<HagalazDbContext>(
+        async token =>
+        {
+            // Runs under the migration lock, after the schema is up to date. Only seeds what is absent.
+            await using var scope = host.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<HagalazDbContext>();
+            await new BarrowsLootSeeder(context, scope.ServiceProvider.GetRequiredService<ILogger<BarrowsLootSeeder>>()).SeedAsync(token);
+        },
+        cancellationToken),
     logger);
 
 return await migrationApplication.RunAsync();
