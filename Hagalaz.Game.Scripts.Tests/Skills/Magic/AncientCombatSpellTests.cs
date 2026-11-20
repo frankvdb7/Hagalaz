@@ -521,7 +521,7 @@ public sealed class AncientCombatSpellTests
         scenario.Caster.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true);
         scenario.Caster.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
 
-        scenario.Caster.Equipment.Items.GetById(Arg.Any<int>()).Returns((Hagalaz.Game.Abstractions.Model.Items.IItem?)null);
+        scenario.Caster.Equipment.Items.GetById(Arg.Any<int>()).Returns(_ => null);
 
         Assert.IsFalse(spell.CheckRequirements(scenario.Caster));
         scenario.Caster.Received(1).SendChatMessage("You must have Zuriel's staff equipped to cast this spell.");

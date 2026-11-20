@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 
             foreach (var c in caster.Viewport.VisibleCreatures)
             {
-                if (c != victim)
+                if (!ReferenceEquals(c, victim))
                 {
                     if (!multiHit || !caster.Area.MultiCombat || !victim.Area.MultiCombat || !c.Combat.CanBeAttackedBy(caster))
                     {
@@ -78,14 +78,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     }
                 }
 
-                if (c == caster || c.Location.X < victim.Location.X - 1 || c.Location.X > victim.Location.X + 1
+                if (ReferenceEquals(c, caster) || c.Location.X < victim.Location.X - 1 || c.Location.X > victim.Location.X + 1
                     || c.Location.Y < victim.Location.Y - 1 || c.Location.Y > victim.Location.Y + 1)
                 {
                     continue;
                 }
 
                 // render skull if conditions are right
-                if (c != victim && SkullsAdditionalTargets)
+                if (!ReferenceEquals(c, victim) && SkullsAdditionalTargets)
                 {
                     combat.CheckSkullConditions(c);
                 }
