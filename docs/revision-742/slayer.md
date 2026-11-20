@@ -35,7 +35,7 @@ Evidence is a period 742 server, not a pinned-cache fixture: `RuneNova 742` (`Wo
 | 24 (alias 27) | `addRemoval` (block): needs a task and >= 100 points, 5 slots |
 | 37-41 | Cancel a blocked-task slot |
 
-Component 23 is therefore the 30-point skip/cancel control, matching the Slayer points wiki. The client widget label itself (CS2/interface definition from the pinned cache) is still not decoded; Hagalaz only handles 23, not alias 26.
+Component 23 is therefore the 30-point skip/cancel control, matching the Slayer points wiki. Hagalaz binds both 23 and 26 to the same server-validated skip handler (`RewardsAssignmentScreenTests`), so either id the pinned client emits is safe. A capture from the pinned client (or a decoded 742 interface definition) showing which id it sends is still outstanding.
 
 ## Reference and uncertainty
 

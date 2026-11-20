@@ -1,4 +1,4 @@
-﻿using Hagalaz.Configuration;
+using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -40,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 return true;
             });
 
-            InterfaceInstance.AttachClickHandler(23, (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick skipAssignment = (componentID, clickType, extraData1, extraData2) =>
             {
                 if (!Owner.HasSlayerTask())
                 {
@@ -58,7 +58,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 InterfaceInstance.DrawString(19, (balanceBefore - SkipAssignmentCost).ToString());
                 Owner.SendChatMessage("Your current mission has been cancelled. Speak to a Slayer master for a new one.");
                 return true;
-            });
+            };
+            // Period 742 servers route both the button (23) and its label (26) to the 30-point skip.
+            InterfaceInstance.AttachClickHandler(23, skipAssignment);
+            InterfaceInstance.AttachClickHandler(26, skipAssignment);
         }
     }
 }
