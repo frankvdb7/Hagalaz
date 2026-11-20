@@ -14,6 +14,7 @@ using Hagalaz.Game.Scripts.Commands;
 using Hagalaz.Game.Scripts.Extensions;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
+using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.Items;
@@ -67,6 +68,7 @@ namespace Hagalaz.Game.Scripts
             services.AddSingleton<IFletchingSkillService, FletchingSkillService>();
 
             services.AddSingleton<INpcAttackService, NpcAttackService>();
+            services.AddSingleton<IAviansieFlightRule, AviansieFlightRule>();
             services.AddSingleton<IThrowingLogicService, ThrowingLogicService>();
             services.AddSingleton<ICrossbowLogicService, CrossbowLogicService>();
 

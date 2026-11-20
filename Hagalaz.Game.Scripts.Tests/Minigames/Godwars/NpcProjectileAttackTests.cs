@@ -45,7 +45,7 @@ public sealed class NpcProjectileAttackTests
     {
         var world = new NpcAttackWorld();
 
-        NpcProjectileAttacks.Ranged(world.Owner, world.Projectiles, world.Target, new NpcProjectile(1206, 50));
+        world.AttackService.PerformRanged(world.Owner, world.Target, new NpcProjectile(1206, 50));
 
         world.AssertProjectile(graphic: 1206, duration: 40, delay: 50);
         world.AssertRangedAttack(delay: 40, damage: 7, maxDamage: 9);
@@ -56,7 +56,7 @@ public sealed class NpcProjectileAttackTests
     {
         var world = new NpcAttackWorld();
 
-        NpcProjectileAttacks.Ranged(world.Owner, world.Projectiles, world.Target,
+        world.AttackService.PerformRanged(world.Owner, world.Target,
             new NpcProjectile(1190, 25, FromHeight: 50, ToHeight: 30, Angle: 90), baseDelay: 15);
 
         world.AssertProjectile(graphic: 1190, duration: 35, delay: 25, fromHeight: 50, toHeight: 30, angle: 90);
@@ -68,7 +68,7 @@ public sealed class NpcProjectileAttackTests
     {
         var world = new NpcAttackWorld();
 
-        NpcProjectileAttacks.Magic(world.Owner, world.Projectiles, world.Target, new NpcProjectile(1203, 50), baseDamage: 164);
+        world.AttackService.PerformMagic(world.Owner, world.Target, new NpcProjectile(1203, 50), baseDamage: 164);
 
         world.AssertProjectile(graphic: 1203, duration: 40, delay: 50);
         world.AssertMagicAttack(delay: 40, baseDamage: 164);
@@ -80,7 +80,7 @@ public sealed class NpcProjectileAttackTests
     public void SergeantGrimSpike_FiresRangedProjectile1206()
     {
         var world = new NpcAttackWorld();
-        var script = new SergeantGrimSpike(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new SergeantGrimSpike(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -92,7 +92,7 @@ public sealed class NpcProjectileAttackTests
     public void SergeantSteelWill_FiresMagicProjectile1203WithBase164()
     {
         var world = new NpcAttackWorld();
-        var script = new SergeantSteelWill(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new SergeantSteelWill(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -104,7 +104,7 @@ public sealed class NpcProjectileAttackTests
     public void DagannothPrime_FiresMagicProjectile1203WithBase610()
     {
         var world = new NpcAttackWorld();
-        var script = new DagannothPrime(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new DagannothPrime(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -116,7 +116,7 @@ public sealed class NpcProjectileAttackTests
     public void DagannothSupreme_FiresRangedProjectile1206()
     {
         var world = new NpcAttackWorld();
-        var script = new DagannothSupreme(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new DagannothSupreme(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 

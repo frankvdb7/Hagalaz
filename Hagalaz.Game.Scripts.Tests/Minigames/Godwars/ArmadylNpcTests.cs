@@ -34,7 +34,7 @@ public sealed class ArmadylNpcTests
     public void ArmadylFaction_FiresRangedProjectileAndAttacksWithRangeDamage()
     {
         var world = new NpcAttackWorld();
-        var script = new ArmadylFaction(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new ArmadylFaction(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -49,7 +49,7 @@ public sealed class ArmadylNpcTests
     public void FlockleaderGeerin_FiresRangedProjectileAndAttacksWithRangeDamage()
     {
         var world = new NpcAttackWorld();
-        var script = new FlockleaderGeerin(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new FlockleaderGeerin(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -64,7 +64,7 @@ public sealed class ArmadylNpcTests
     public void WingmanSkree_FiresProjectileAndAttacksWithMagicBase250()
     {
         var world = new NpcAttackWorld();
-        var script = new WingmanSkree(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new WingmanSkree(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -79,7 +79,7 @@ public sealed class ArmadylNpcTests
     public void ArmadylSpiritualMage_AttacksWithMagicBase146AndNoProjectile()
     {
         var world = new NpcAttackWorld();
-        var script = new SpiritualMage(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator);
+        var script = new SpiritualMage(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator);
 
         script.PerformAttack(world.Target);
 
@@ -133,7 +133,7 @@ public sealed class ArmadylNpcTests
         var attacker = Substitute.For<ICreature>();
         attacker.Combat.GetAttackStyle().Returns(AttackStyle.MeleeAccurate);
 
-        Assert.IsFalse(new ArmadylFaction(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator)
+        Assert.IsFalse(new ArmadylFaction(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator)
             .CanBeAttackedBy(attacker));
 
         world.Owner.Received(1).QueueTask(Arg.Any<ITaskItem>());
@@ -158,18 +158,18 @@ public sealed class ArmadylNpcTests
 
     private static NpcScriptBase CreateNpc(NpcAttackWorld world, string npc) => npc switch
     {
-        "faction" => new ArmadylFaction(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator),
-        "geerin" => new FlockleaderGeerin(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator),
-        "skree" => new WingmanSkree(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator),
-        "kilisa" => new FlightKilisa(world.Owner, world.NpcService, world.PathFinder, world.WidgetActivator),
+        "faction" => new ArmadylFaction(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator),
+        "geerin" => new FlockleaderGeerin(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator),
+        "skree" => new WingmanSkree(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator),
+        "kilisa" => new FlightKilisa(world.Owner, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator),
         "kreearra" => new Kreearra(world.Owner, Substitute.For<ILocationBuilder>(), Substitute.For<IAnimationBuilder>(),
-            Substitute.For<IMovementBuilder>(), world.Projectiles, Substitute.For<IMapRegionService>(), world.NpcService, world.PathFinder,
+            Substitute.For<IMovementBuilder>(), world.Projectiles, Substitute.For<IMapRegionService>(), world.Flight, world.NpcService, world.PathFinder,
             world.WidgetActivator),
         _ => throw new System.ArgumentOutOfRangeException(nameof(npc))
     };
 
     private sealed class NoRetaliationAviansie(NpcAttackWorld world)
-        : ArmadylFaction(world.Owner, world.Projectiles, world.NpcService, world.PathFinder, world.WidgetActivator)
+        : ArmadylFaction(world.Owner, world.AttackService, world.Flight, world.NpcService, world.PathFinder, world.WidgetActivator)
     {
         public override bool CanRetaliateTo(ICreature creature) => false;
     }

@@ -11,12 +11,12 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
     [NpcScriptMetaData([2881])]
     public class DagannothSupreme : NpcScriptBase
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
 
-        public DagannothSupreme(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        public DagannothSupreme(INpc owner, INpcAttackService attacks, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _projectileBuilder = projectileBuilder;
+            _attacks = attacks;
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth
         {
             RenderAttack();
 
-            NpcProjectileAttacks.Ranged(Owner, _projectileBuilder, target, new NpcProjectile(1206, 50));
+            _attacks.PerformRanged(Owner, target, new NpcProjectile(1206, 50));
         }
     }
 }

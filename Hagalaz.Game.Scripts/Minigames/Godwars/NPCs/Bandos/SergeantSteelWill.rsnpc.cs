@@ -13,11 +13,11 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     [NpcScriptMetaData([6263])]
     public class SergeantSteelWill : BodyGuard
     {
-        private readonly IProjectileBuilder _projectileBuilder;
-        public SergeantSteelWill(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        private readonly INpcAttackService _attacks;
+        public SergeantSteelWill(INpc owner, INpcAttackService attacks, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _projectileBuilder = projectileBuilder;
+            _attacks = attacks;
         }
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
             RenderAttack();
 
 
-            NpcProjectileAttacks.Magic(Owner, _projectileBuilder, target, new NpcProjectile(1203, 50), 164);
+            _attacks.PerformMagic(Owner, target, new NpcProjectile(1203, 50), 164);
         }
 
         /// <summary>

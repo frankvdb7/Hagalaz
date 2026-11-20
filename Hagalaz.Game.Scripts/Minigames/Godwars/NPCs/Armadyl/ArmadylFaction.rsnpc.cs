@@ -16,10 +16,15 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6229, 6230, /*6231,*/ 6232, 6233, 6234, 6235, 6236, 6237, 6238, 6239, 6240, 6241, 6242, 6243, 6244, 6245, 6246])]
     public class ArmadylFaction : NpcScriptBase
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
+        private readonly IAviansieFlightRule _flight;
 
-        public ArmadylFaction(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
-            : base(owner, npcService, pathFinder, widgetScriptActivator) => _projectileBuilder = projectileBuilder;
+        public ArmadylFaction(INpc owner, INpcAttackService attacks, IAviansieFlightRule flight, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            _attacks = attacks;
+            _flight = flight;
+        }
 
         /// <summary>
         ///     Get's attack style of this npc.
@@ -55,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-            NpcProjectileAttacks.Ranged(Owner, _projectileBuilder, target, new NpcProjectile(1190, 30, FromHeight: 50));
+            _attacks.PerformRanged(Owner, target, new NpcProjectile(1190, 30, FromHeight: 50));
         }
 
         /// <summary>
@@ -69,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         ///     If attack can be performed.
         /// </returns>
         public override bool CanBeAttackedBy(ICreature attacker) =>
-            !AviansieFlight.TryDenyMelee(Owner, attacker, CanRetaliateTo) && base.CanBeAttackedBy(attacker);
+            !_flight.TryDenyMelee(Owner, attacker, CanRetaliateTo(attacker)) && base.CanBeAttackedBy(attacker);
 
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.

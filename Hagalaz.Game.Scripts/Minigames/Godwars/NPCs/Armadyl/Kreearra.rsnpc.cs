@@ -24,6 +24,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         private readonly IMovementBuilder _movementBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
         private readonly IMapRegionService _mapRegionService;
+        private readonly IAviansieFlightRule _flight;
 
         /// <summary>
         /// </summary>
@@ -41,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 
         public Kreearra(INpc owner,
             ILocationBuilder locationBuilder, IAnimationBuilder animationBuilder, IMovementBuilder movementBuilder, IProjectileBuilder projectileBuilder,
-            IMapRegionService mapRegionService, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            IMapRegionService mapRegionService, IAviansieFlightRule flight, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
             _locationBuilder = locationBuilder;
@@ -49,6 +50,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
             _movementBuilder = movementBuilder;
             _projectileBuilder = projectileBuilder;
             _mapRegionService = mapRegionService;
+            _flight = flight;
         }
 
         /// <summary>
@@ -62,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         ///     If attack can be performed.
         /// </returns>
         public override bool CanBeAttackedBy(ICreature attacker) =>
-            !AviansieFlight.TryDenyMelee(Owner, attacker, CanRetaliateTo) && base.CanBeAttackedBy(attacker);
+            !_flight.TryDenyMelee(Owner, attacker, CanRetaliateTo(attacker)) && base.CanBeAttackedBy(attacker);
 
         /// <summary>
         ///     Get's attack bonus type of this npc.

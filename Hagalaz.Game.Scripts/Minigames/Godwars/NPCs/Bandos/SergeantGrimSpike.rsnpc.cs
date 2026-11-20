@@ -13,12 +13,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     [NpcScriptMetaData([6265])]
     public class SergeantGrimSpike : BodyGuard
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
 
-        public SergeantGrimSpike(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        public SergeantGrimSpike(INpc owner, INpcAttackService attacks, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _projectileBuilder = projectileBuilder;
+            _attacks = attacks;
         }
 
         /// <summary>
@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
             RenderAttack();
 
 
-            NpcProjectileAttacks.Ranged(Owner, _projectileBuilder, target, new NpcProjectile(1206, 50));
+            _attacks.PerformRanged(Owner, target, new NpcProjectile(1206, 50));
         }
 
         /// <summary>

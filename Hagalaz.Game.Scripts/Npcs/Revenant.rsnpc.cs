@@ -38,17 +38,17 @@ namespace Hagalaz.Game.Scripts.Npcs
     ])]
     public class Revenant : NpcScriptBase
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
 
         /// <summary>
         ///     The attack.
         /// </summary>
         private Attack _attack;
 
-        public Revenant(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        public Revenant(INpc owner, INpcAttackService attacks, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _projectileBuilder = projectileBuilder;
+            _attacks = attacks;
             Owner.AddState(new NpcTypeUndeadState());
         }
 
@@ -97,14 +97,14 @@ namespace Hagalaz.Game.Scripts.Npcs
                     {
                         RenderAttack();
 
-                        NpcProjectileAttacks.Ranged(Owner, _projectileBuilder, target, new NpcProjectile(1278, 50));
+                        _attacks.PerformRanged(Owner, target, new NpcProjectile(1278, 50));
                         break;
                     }
                 case Attack.Magic:
                     {
                         RenderAttack();
 
-                        NpcProjectileAttacks.Magic(Owner, _projectileBuilder, target, new NpcProjectile(1278, 50), 164);
+                        _attacks.PerformMagic(Owner, target, new NpcProjectile(1278, 50), 164);
                         break;
                     }
             }

@@ -14,12 +14,14 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6225])]
     public class FlockleaderGeerin : BodyGuard
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
+        private readonly IAviansieFlightRule _flight;
 
-        public FlockleaderGeerin(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        public FlockleaderGeerin(INpc owner, INpcAttackService attacks, IAviansieFlightRule flight, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _projectileBuilder = projectileBuilder;
+            _attacks = attacks;
+            _flight = flight;
         }
 
         /// <summary>
@@ -56,7 +58,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-            NpcProjectileAttacks.Ranged(Owner, _projectileBuilder, target, new NpcProjectile(1190, 25, FromHeight: 50), baseDelay: 15);
+            _attacks.PerformRanged(Owner, target, new NpcProjectile(1190, 25, FromHeight: 50), baseDelay: 15);
         }
 
         /// <summary>
@@ -70,6 +72,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         ///     If attack can be performed.
         /// </returns>
         public override bool CanBeAttackedBy(ICreature attacker) =>
-            !AviansieFlight.TryDenyMelee(Owner, attacker, CanRetaliateTo) && base.CanBeAttackedBy(attacker);
+            !_flight.TryDenyMelee(Owner, attacker, CanRetaliateTo(attacker)) && base.CanBeAttackedBy(attacker);
     }
 }
