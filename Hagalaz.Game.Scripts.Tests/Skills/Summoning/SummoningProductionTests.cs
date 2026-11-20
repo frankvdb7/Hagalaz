@@ -266,8 +266,11 @@ public sealed class SummoningProductionTests
         var items = Substitute.For<IItemService>();
         items.FindItemDefinitionById(Arg.Any<int>()).Returns(definition);
         character.ServiceProvider.Returns(new ServiceCollection().AddSingleton(items).BuildServiceProvider());
-        var builder = new TestItemBuilder((id, count) => new StackItem(id, count,
-            id == Shard || (id == Charm && charmStackable) || (id == EmptyPouch && emptyPouchStackable) || (id == WolfBones && tertiaryStackable)));
+        var stackableIds = new HashSet<int> { Shard };
+        if (charmStackable) stackableIds.Add(Charm);
+        if (emptyPouchStackable) stackableIds.Add(EmptyPouch);
+        if (tertiaryStackable) stackableIds.Add(WolfBones);
+        var builder = new TestItemBuilder((id, count) => new StackItem(id, count, stackableIds.Contains(id)));
         return (inventory, character,
             new SummoningSkillService(Substitute.For<INpcBuilder>(), Substitute.For<IFamiliarScriptProvider>(), builder));
     }
