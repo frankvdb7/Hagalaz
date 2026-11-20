@@ -10,19 +10,10 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
     /// <summary>
     ///     Class for all smoke blitz,burst,barrage,rush
     /// </summary>
-    public class AncientSmokeCombatSpell : ICombatSpell
+    public class AncientSmokeCombatSpell : AncientCombatSpell
     {
-        private readonly IProjectileBuilder _projectileBuilder;
-
-        /// <summary>
-        ///     Contains type of the spell.
-        /// </summary>
-        public int SpellType { get; }
-
-        public AncientSmokeCombatSpell(int spellType, IProjectileBuilder projectileBuilder)
+        public AncientSmokeCombatSpell(int spellType, IProjectileBuilder projectileBuilder) : base(spellType, projectileBuilder)
         {
-            _projectileBuilder = projectileBuilder;
-            SpellType = spellType;
         }
 
         /// <summary>
@@ -66,225 +57,24 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// </summary>
         private static readonly short[] _poisonDamage = [20, 20, 48, 40];
 
-        /// <summary>
-        ///     Perform's attack to target.
-        /// </summary>
-        public void PerformAttack(ICharacter caster, ICreature victim)
+        protected override AncientSpellData Data { get; } = new(_runeRequirements, _runeAmounts, _levelRequirements, _configIds, _exp, _baseDamage);
+
+        private static readonly int[] _projectileIds = [384, 388, 386, 390];
+
+        private static readonly int[] _hitGraphicIds = [385, 389, 387, 391];
+
+        protected override void RenderCastEffects(ICharacter caster, ICreature victim, int duration) =>
+            SendProjectile(caster, victim, _projectileIds[SpellType], duration, 31);
+
+        protected override void BeforeAttack(ICharacter caster, ICreature target, int damage, int delay)
         {
-            var multiHit = SpellType is 1 or 3;
-            caster.QueueAnimation(Animation.Create(multiHit ? 1979 : 1978));
-            var combat = (ICharacterCombat)caster.Combat;
-
-            caster.Statistics.AddExperience(StatisticsConstants.Magic, _exp[SpellType]);
-
-            var vDeltaX = caster.Location.X - victim.Location.X;
-            var vDeltaY = caster.Location.Y - victim.Location.Y;
-            if (vDeltaX < 0)
+            if (RandomStatic.Generator.NextDouble() > 0.65)
             {
-                vDeltaX = -vDeltaX;
-            }
-
-            if (vDeltaY < 0)
-            {
-                vDeltaY = -vDeltaY;
-            }
-
-            var duration = vDeltaX * 5 + vDeltaY * 5;
-
-            switch (SpellType)
-            {
-                case 0:
-                    {
-                        _projectileBuilder.Create()
-                            .WithGraphicId(384)
-                            .FromCreature(caster)
-                            .ToCreature(victim)
-                            .WithDuration(duration)
-                            .WithFromHeight(43)
-                            .WithToHeight(31)
-                            .WithDelay(51)
-                            .WithSlope(16)
-                            .WithAngle(64)
-                            .Send();
-                        break;
-                    }
-                case 1:
-                    {
-                        _projectileBuilder.Create()
-                            .WithGraphicId(388)
-                            .FromCreature(caster)
-                            .ToCreature(victim)
-                            .WithDuration(duration)
-                            .WithFromHeight(43)
-                            .WithToHeight(31)
-                            .WithDelay(51)
-                            .WithSlope(16)
-                            .WithAngle(64)
-                            .Send();
-                        break;
-                    }
-                case 2:
-                    {
-                        _projectileBuilder.Create()
-                            .WithGraphicId(386)
-                            .FromCreature(caster)
-                            .ToCreature(victim)
-                            .WithDuration(duration)
-                            .WithFromHeight(43)
-                            .WithToHeight(31)
-                            .WithDelay(51)
-                            .WithSlope(16)
-                            .WithAngle(64)
-                            .Send();
-                        break;
-                    }
-                case 3:
-                    {
-                        _projectileBuilder.Create()
-                            .WithGraphicId(390)
-                            .FromCreature(caster)
-                            .ToCreature(victim)
-                            .WithDuration(duration)
-                            .WithFromHeight(43)
-                            .WithToHeight(31)
-                            .WithDelay(51)
-                            .WithSlope(16)
-                            .WithAngle(64)
-                            .Send();
-                        break;
-                    }
-            }
-
-            var visibleCreatures = caster.Viewport.VisibleCreatures;
-            foreach (var c in visibleCreatures)
-            {
-                if (c != victim)
-                {
-                    if (!multiHit || !caster.Area.MultiCombat || !victim.Area.MultiCombat || !c.Combat.CanBeAttackedBy(caster))
-                    {
-                        continue;
-                    }
-
-                    if (victim is ICharacter && !victim.Area.IsPvP || c is ICharacter && !c.Area.IsPvP)
-                    {
-                        continue;
-                    }
-                }
-
-                if (c == caster || c.Location.X < victim.Location.X - 1 || c.Location.X > victim.Location.X + 1
-                    || c.Location.Y < victim.Location.Y - 1 || c.Location.Y > victim.Location.Y + 1)
-                {
-                    continue;
-                }
-
-                // render skull if conditions are right
-                if (c != victim)
-                {
-                    combat.CheckSkullConditions(c);
-                }
-
-                var maxDamage = combat.GetMagicMaxHit(c, _baseDamage[SpellType]);
-                var damage = combat.GetMagicDamage(c, maxDamage);
-
-                var deltaX = caster.Location.X - c.Location.X;
-                var deltaY = caster.Location.Y - c.Location.Y;
-                if (deltaX < 0)
-                {
-                    deltaX = -deltaX;
-                }
-
-                if (deltaY < 0)
-                {
-                    deltaY = -deltaY;
-                }
-
-                var delay = 51 + deltaX * 5 + deltaY * 5;
-
-                if (RandomStatic.Generator.NextDouble() > 0.65)
-                {
-                    c.Poison(_poisonDamage[SpellType]);
-                }
-
-                var handle = caster.Combat.PerformAttack(new AttackParams()
-                {
-                    Target = c.Handle,
-                    Damage = damage,
-                    MaxDamage = maxDamage,
-                    Delay = delay,
-                    DamageType = DamageType.FullMagic
-                });
-
-                handle.RegisterResultHandler(result =>
-                {
-                    if (result.Damage.Succeeded)
-                    {
-                        switch (SpellType)
-                        {
-                            case 0: c.QueueGraphic(Graphic.Create(385, height: 124)); break;
-                            case 1: c.QueueGraphic(Graphic.Create(389, height: 124)); break;
-                            case 2: c.QueueGraphic(Graphic.Create(387, height: 124)); break;
-                            case 3: c.QueueGraphic(Graphic.Create(391, height: 124)); break;
-                        }
-                    }
-                    else
-                    {
-                        c.QueueGraphic(Graphic.Create(85, height: 150));
-                    }
-                });
+                target.Poison(_poisonDamage[SpellType]);
             }
         }
 
-        /// <summary>
-        ///     Determines whether this instance can attack the specified caster.
-        /// </summary>
-        /// <param name="caster">The caster.</param>
-        /// <param name="victim">The victim.</param>
-        /// <returns></returns>
-        public bool CanAttack(ICharacter caster, ICreature victim) => true;
-
-        /// <summary>
-        ///     Check's requirements for this spell.
-        /// </summary>
-        /// <returns></returns>
-        public bool CheckRequirements(ICharacter caster) =>
-            caster.Magic.CheckMagicLevel(_levelRequirements[SpellType]) && caster.Magic.CheckRunes(_runeRequirements[SpellType], _runeAmounts[SpellType]);
-
-        /// <summary>
-        ///     Removes required items from actor.
-        /// </summary>
-        /// <param name="caster"></param>
-        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(_runeRequirements[SpellType], _runeAmounts[SpellType]);
-
-        /// <summary>
-        ///     Get's called when autocasting is set to this spell.
-        /// </summary>
-        /// <param name="activatedOn"></param>
-        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, _configIds[SpellType]);
-
-        /// <summary>
-        ///     Get's called when autocasting is unset to this spell.
-        /// </summary>
-        /// <param name="deactivatedOn"></param>
-        public void OnAutoCastingDeactivation(ICharacter deactivatedOn) => deactivatedOn.Configurations.SendStandardConfiguration(108, -1);
-
-        /// <summary>
-        ///     Get's speed of this spell.
-        /// </summary>
-        /// <param name="caster"></param>
-        /// <returns></returns>
-        public int GetCastingSpeed(ICharacter caster) => 5;
-
-        /// <summary>
-        ///     Get's combat distance of this spell.
-        /// </summary>
-        /// <param name="caster"></param>
-        /// <returns></returns>
-        public int GetCombatDistance(ICharacter caster) => 8;
-
-        /// <summary>
-        ///     Get's amount of magic experience this spell gives.
-        /// </summary>
-        /// <returns></returns>
-        public double GetMagicExperience() => _exp[SpellType];
+        protected override void OnHit(ICharacter caster, ICreature target, AttackResult result, int delay) =>
+            target.QueueGraphic(Graphic.Create(_hitGraphicIds[SpellType], height: 124));
     }
 }
