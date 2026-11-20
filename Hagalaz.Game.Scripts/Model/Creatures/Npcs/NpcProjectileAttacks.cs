@@ -20,7 +20,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         public static void Ranged(INpc owner, IProjectileBuilder projectileBuilder, ICreature target, NpcProjectile projectile, int baseDelay = 20)
         {
             var combat = (INpcCombat)owner.Combat;
-            var delay = Launch(owner, projectileBuilder, target, projectile, baseDelay);
+            var delay = NpcAttackDelay.FromDistance(owner, target, baseDelay);
+            Launch(owner, projectileBuilder, target, projectile, delay);
             owner.Combat.PerformAttack(new AttackParams()
             {
                 Damage = combat.GetRangeDamage(target),
@@ -34,7 +35,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
         public static void Magic(INpc owner, IProjectileBuilder projectileBuilder, ICreature target, NpcProjectile projectile, int baseDamage, int baseDelay = 20)
         {
             var combat = (INpcCombat)owner.Combat;
-            var delay = Launch(owner, projectileBuilder, target, projectile, baseDelay);
+            var delay = NpcAttackDelay.FromDistance(owner, target, baseDelay);
+            Launch(owner, projectileBuilder, target, projectile, delay);
             owner.Combat.PerformAttack(new AttackParams()
             {
                 Damage = combat.GetMagicDamage(target, baseDamage),
@@ -45,20 +47,16 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             });
         }
 
-        private static int Launch(INpc owner, IProjectileBuilder projectileBuilder, ICreature target, NpcProjectile projectile, int baseDelay)
-        {
-            var delay = NpcAttackDelay.FromDistance(owner, target, baseDelay);
+        private static void Launch(INpc owner, IProjectileBuilder projectileBuilder, ICreature target, NpcProjectile projectile, int duration) =>
             projectileBuilder.Create()
                 .WithGraphicId(projectile.GraphicId)
                 .FromCreature(owner)
                 .ToCreature(target)
-                .WithDuration(delay)
+                .WithDuration(duration)
                 .WithAngle(projectile.Angle)
                 .WithDelay(projectile.LaunchDelay)
                 .WithFromHeight(projectile.FromHeight)
                 .WithToHeight(projectile.ToHeight)
                 .Send();
-            return delay;
-        }
     }
 }

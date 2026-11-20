@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         ///     If attack can be performed.
         /// </returns>
         public override bool CanBeAttackedBy(ICreature attacker) =>
-            !AviansieFlight.DeniesMelee(Owner, attacker, CanRetaliateTo) && base.CanBeAttackedBy(attacker);
+            !AviansieFlight.TryDenyMelee(Owner, attacker, CanRetaliateTo) && base.CanBeAttackedBy(attacker);
 
     }
 }

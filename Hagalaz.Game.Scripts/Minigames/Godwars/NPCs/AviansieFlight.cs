@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
         ///     Denies a melee attacker: tells characters why and, when allowed, makes the aviansie retaliate next tick.
         /// </summary>
         /// <returns><c>true</c> if the attacker used melee and was denied; <c>false</c> if normal attack rules apply.</returns>
-        public static bool DeniesMelee(INpc owner, ICreature attacker, Func<ICreature, bool> canRetaliateTo)
+        public static bool TryDenyMelee(INpc owner, ICreature attacker, Func<ICreature, bool> canRetaliateTo)
         {
             if (attacker.Combat.GetAttackStyle() is not (AttackStyle.MeleeAccurate or AttackStyle.MeleeAggressive
                 or AttackStyle.MeleeControlled or AttackStyle.MeleeDefensive))
