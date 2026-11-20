@@ -1,11 +1,12 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 {
     [NpcScriptMetaData([6278])]
-    public class SpiritualMage(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+    public class SpiritualMage(INpc owner, INpcAttackService attacks, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
         : BandosFaction(owner, npcService, pathFinder, widgetScriptActivator)
     {
         public override AttackBonus GetAttackBonusType() => AttackBonus.Magic;
@@ -14,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-            SpiritualAttacks.PerformMagicAttack(Owner, target);
+            attacks.PerformMagic(Owner, target, GodwarsSpiritualStats.MageBaseDamage);
         }
     }
 }
