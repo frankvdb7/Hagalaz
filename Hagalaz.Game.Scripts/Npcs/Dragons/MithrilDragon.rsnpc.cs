@@ -5,6 +5,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Npcs.Dragons
 {
     /// <summary>
@@ -50,19 +52,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     Style = AttackStyle.RangedAccurate;
                     Owner.QueueAnimation(Animation.Create(14252));
 
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
-                    {
-                        deltaX = -deltaX;
-                    }
-
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var delay = 30 + deltaX * 5 + deltaY * 5;
+                    var delay = NpcAttackDelay.FromDistance(Owner, target, 30);
                     _projectileBuilder.Create()
                         .WithGraphicId(12)
                         .FromCreature(Owner)
@@ -90,19 +80,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Dragons
                     Owner.QueueAnimation(Animation.Create(14252));
 
                     const int maxDamage = 550;
-                    var deltaX = Owner.Location.X - target.Location.X;
-                    var deltaY = Owner.Location.Y - target.Location.Y;
-                    if (deltaX < 0)
-                    {
-                        deltaX = -deltaX;
-                    }
-
-                    if (deltaY < 0)
-                    {
-                        deltaY = -deltaY;
-                    }
-
-                    var delay = 20 + deltaX * 5 + deltaY * 5;
+                    var delay = NpcAttackDelay.FromDistance(Owner, target);
                     _projectileBuilder.Create()
                         .WithGraphicId(2705)
                         .FromCreature(Owner)

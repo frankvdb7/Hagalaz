@@ -377,19 +377,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
                         var combat = (INpcCombat)Owner.Combat;
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var duration = 20 + deltaX * 5 + deltaY * 5;
+                        var duration = NpcAttackDelay.FromDistance(Owner, target);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(962)
@@ -419,19 +407,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
 
                         var combat = (INpcCombat)Owner.Combat;
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var duration = 20 + deltaX * 5 + deltaY * 5;
+                        var duration = NpcAttackDelay.FromDistance(Owner, target);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(2875)

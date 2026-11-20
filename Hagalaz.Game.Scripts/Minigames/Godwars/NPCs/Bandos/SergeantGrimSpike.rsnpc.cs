@@ -3,6 +3,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 {
     /// <summary>
@@ -11,12 +13,12 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
     [NpcScriptMetaData([6265])]
     public class SergeantGrimSpike : BodyGuard
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
 
-        public SergeantGrimSpike(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+        public SergeantGrimSpike(INpc owner, INpcAttackService attacks, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)
         {
-            _projectileBuilder = projectileBuilder;
+            _attacks = attacks;
         }
 
         /// <summary>
@@ -29,41 +31,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 
             RenderAttack();
 
-            var combat = (INpcCombat)Owner.Combat;
 
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
-
-            _projectileBuilder.Create()
-                .WithGraphicId(1206)
-                .FromCreature(Owner)
-                .ToCreature(target)
-                .WithDuration(delay)
-                .WithAngle(180)
-                .WithFromHeight(35)
-                .WithToHeight(35)
-                .WithDelay(50)
-                .Send();
-
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
-                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
-                Delay = delay,
-                DamageType = DamageType.StandardRange,
-                Target = target.Handle,
-            });
+            _attacks.PerformRanged(Owner, target, new NpcProjectile(1206, 50));
         }
 
         /// <summary>

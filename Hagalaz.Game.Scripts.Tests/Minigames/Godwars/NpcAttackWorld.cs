@@ -10,6 +10,8 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs;
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Minigames.Godwars;
@@ -72,6 +74,9 @@ internal sealed class NpcAttackWorld
     public ISimplePathFinder PathFinder { get; } = Substitute.For<ISimplePathFinder>();
     public IWidgetScriptActivator WidgetActivator { get; } = Substitute.For<IWidgetScriptActivator>();
     public List<AttackParams> Attacks { get; } = [];
+    public INpcAttackService AttackService => _attackService ??= new NpcAttackService(Projectiles);
+    public IAviansieFlightRule Flight { get; } = new AviansieFlightRule();
+    private INpcAttackService? _attackService;
 
     public IReadOnlyList<(string Method, object?[] Args)> ProjectileCalls =>
         Recorder.ReceivedCalls().Select(c => (c.GetMethodInfo().Name, c.GetArguments())).ToList();

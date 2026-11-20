@@ -103,19 +103,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
                 case AttackType.Magic:
                     {
                         const int magicMax = 250;
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 30 + deltaX * 5 + deltaY * 5;
+                        var delay = NpcAttackDelay.FromDistance(Owner, target, 30);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(2705)
@@ -140,19 +128,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Fiends
                     }
                 case AttackType.Ranged:
                     {
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 30 + deltaX * 5 + deltaY * 5;
+                        var delay = NpcAttackDelay.FromDistance(Owner, target, 30);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(2705)

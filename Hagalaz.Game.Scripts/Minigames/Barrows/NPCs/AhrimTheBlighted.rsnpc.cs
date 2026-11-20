@@ -6,6 +6,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 {
     [NpcScriptMetaData([2025])]
@@ -27,19 +29,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs
 
             var combat = (INpcCombat)Owner.Combat;
 
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 51 + deltaX * 5 + deltaY * 5;
+            var delay = NpcAttackDelay.FromDistance(Owner, target, 51);
 
             _projectileBuilder.Create()
                 .WithGraphicId(156)

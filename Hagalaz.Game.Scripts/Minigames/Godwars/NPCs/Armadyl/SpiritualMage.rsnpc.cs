@@ -3,6 +3,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
 {
     /// <summary>
@@ -10,7 +12,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6231])]
     public class SpiritualMage : ArmadylFaction
     {
-        public SpiritualMage(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator) : base(owner, projectileBuilder, npcService, pathFinder, widgetScriptActivator) { }
+        private readonly INpcAttackService _attacks;
+
+        public SpiritualMage(INpc owner, INpcAttackService attacks, IAviansieFlightRule flight, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, attacks, flight, npcService, pathFinder, widgetScriptActivator) => _attacks = attacks;
 
         /// <summary>
         ///     Get's attack bonus type of this npc.
@@ -46,29 +51,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
-
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 146),
-                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 146),
-                DamageType = DamageType.StandardMagic,
-                Delay = delay,
-                Target = target.Handle
-            });
+            _attacks.PerformMagic(Owner, target, GodwarsSpiritualStats.MageBaseDamage);
         }
     }
 }

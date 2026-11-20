@@ -15,8 +15,6 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.Godwars;
 [TestClass]
 public sealed class SpiritualNpcTests
 {
-    private readonly NpcAttackService _attacks = new();
-
     // ---------- NpcAttackService ----------
 
     [TestMethod]
@@ -24,7 +22,7 @@ public sealed class SpiritualNpcTests
     {
         var world = new NpcAttackWorld();
 
-        _attacks.PerformRanged(world.Owner, world.Target);
+        world.AttackService.PerformRanged(world.Owner, world.Target);
 
         world.AssertRangedAttack(delay: 40, damage: 7, maxDamage: 9);
     }
@@ -34,7 +32,7 @@ public sealed class SpiritualNpcTests
     {
         var world = new NpcAttackWorld();
 
-        _attacks.PerformRanged(world.Owner, world.Target, baseDelay: 15);
+        world.AttackService.PerformRanged(world.Owner, world.Target, baseDelay: 15);
 
         world.AssertRangedAttack(delay: 35, damage: 7, maxDamage: 9);
     }
@@ -44,7 +42,7 @@ public sealed class SpiritualNpcTests
     {
         var world = new NpcAttackWorld();
 
-        _attacks.PerformMagic(world.Owner, world.Target, baseDamage: 164);
+        world.AttackService.PerformMagic(world.Owner, world.Target, baseDamage: 164);
 
         world.AssertMagicAttack(delay: 40, baseDamage: 164);
     }
@@ -97,10 +95,10 @@ public sealed class SpiritualNpcTests
     }
 
     private NpcScriptBase CreateMage(string faction, NpcAttackWorld world) => faction == "bandos"
-        ? new SpiritualMage(world.Owner, _attacks, world.NpcService, world.PathFinder, world.WidgetActivator)
-        : new Saradomin.SpiritualMage(world.Owner, _attacks, world.NpcService, world.PathFinder, world.WidgetActivator);
+        ? new SpiritualMage(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator)
+        : new Saradomin.SpiritualMage(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator);
 
     private NpcScriptBase CreateRanger(string faction, NpcAttackWorld world) => faction == "bandos"
-        ? new SpiritualRanger(world.Owner, _attacks, world.NpcService, world.PathFinder, world.WidgetActivator)
-        : new Saradomin.SpiritualRanger(world.Owner, _attacks, world.NpcService, world.PathFinder, world.WidgetActivator);
+        ? new SpiritualRanger(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator)
+        : new Saradomin.SpiritualRanger(world.Owner, world.AttackService, world.NpcService, world.PathFinder, world.WidgetActivator);
 }
