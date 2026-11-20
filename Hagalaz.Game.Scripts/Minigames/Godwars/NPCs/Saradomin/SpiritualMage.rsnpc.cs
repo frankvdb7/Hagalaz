@@ -47,29 +47,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
-
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 146),
-                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 146),
-                Target = target.Handle,
-                Delay = delay,
-                DamageType = DamageType.StandardMagic
-            });
+            SpiritualAttacks.PerformMagicAttack(Owner, target);
         }
     }
 }
