@@ -1,5 +1,6 @@
 using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -27,17 +28,20 @@ internal static class AlchemyOperations
         var slot = caster.Inventory.Items.GetInstanceSlot(item);
         if (slot == -1) return false;
 
-        var coins = itemBuilder.Create().WithId(995).WithCount(coinAmount).Build();
-        if (!caster.Inventory.Items.HasSpaceFor(coins) && !caster.MoneyPouch.HasSpaceForCoins(coins.Count))
+        // Runes, the source item and the coin payout commit together or not at all.
+        using (var transaction = ItemContainerTransaction.Begin(caster.MoneyPouch))
         {
-            caster.SendChatMessage(GameStrings.InventoryFull);
-            return false;
-        }
+            removeRunes();
+            if (caster.Inventory.Items[slot] is not { } remaining || remaining.Id != item.Id ||
+                !caster.Inventory.TryRemoveItemExact(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot) ||
+                !TryPay(caster, itemBuilder, coinAmount))
+            {
+                caster.SendChatMessage(GameStrings.InventoryFull);
+                return false;
+            }
 
-        removeRunes();
-        var removed = caster.Inventory.RemoveItem(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot);
-        if (removed <= 0) return true;
-        if (!caster.Inventory.AddItem(coins)) return true;
+            transaction.Commit();
+        }
 
         caster.QueueAnimation(Animation.Create(animationId));
         caster.QueueGraphic(Graphic.Create(graphicId));
@@ -45,5 +49,13 @@ internal static class AlchemyOperations
         caster.Configurations.SendGlobalCs2Int(168, 7);
         caster.AddState(new AlchingState { TicksLeft = 2 });
         return true;
+    }
+
+    // Coins go to the inventory when they fit (the pre-existing normal-cast result); the money pouch is the fallback.
+    // The 742 destination for the full-inventory case is unverified; the pouch avoids losing the cast's cost.
+    private static bool TryPay(ICharacter caster, IItemBuilder itemBuilder, int coinAmount)
+    {
+        var coins = itemBuilder.Create().WithId(995).WithCount(coinAmount).Build();
+        return caster.Inventory.Items.HasSpaceFor(coins) ? caster.Inventory.AddItem(coins) : caster.MoneyPouch.Add(coinAmount);
     }
 }
