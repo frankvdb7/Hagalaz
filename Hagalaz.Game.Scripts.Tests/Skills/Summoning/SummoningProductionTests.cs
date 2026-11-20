@@ -134,6 +134,35 @@ public sealed class SummoningProductionTests
     }
 
     [TestMethod]
+    public void TryCreatePouches_InfuseAll28WithStackedIngredientsAndEmptySlots_CreatesTwentyEightPouches()
+    {
+        var (inventory, character, service) = CreateStacked();
+        inventory.Items.Add(new StackItem(Charm, 28));
+        inventory.Items.Add(new StackItem(Shard, 28));
+
+        Assert.IsTrue(service.TryCreatePouches(character, Definition, Pouch, 28));
+
+        Assert.AreEqual(0, inventory.Items.GetCountById(Charm));
+        Assert.AreEqual(0, inventory.Items.GetCountById(Shard));
+        Assert.AreEqual(28, inventory.Items.GetCountById(Pouch));
+        character.Statistics.Received(1).AddExperience(Arg.Any<int>(), PouchXp * 28);
+    }
+
+    [TestMethod]
+    public void TryCreateScrolls_WithMorePouchesRequestedThanOwned_ConvertsOnlyOwnedPouches()
+    {
+        var (inventory, character, service) = Create();
+        inventory.Items.Add(CreateItem(Pouch, 1));
+        inventory.Items.Add(CreateItem(Pouch, 1));
+
+        Assert.IsTrue(service.TryCreateScrolls(character, Definition, int.MaxValue));
+
+        Assert.AreEqual(0, inventory.Items.GetCountById(Pouch));
+        Assert.AreEqual(20, inventory.Items.GetCountById(Scroll));
+        character.Statistics.Received(1).AddExperience(Arg.Any<int>(), ScrollXp * 2);
+    }
+
+    [TestMethod]
     public void TryCreateScrolls_WhenScrollsCannotBeInserted_KeepsPouchesAndGrantsNoExperience()
     {
         var (inventory, character, service) = Create();
