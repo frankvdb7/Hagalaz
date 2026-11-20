@@ -2,6 +2,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
 {
     /// <summary>
@@ -20,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
                 Damage = combat.GetMagicDamage(target, MageSpellBonus),
                 MaxDamage = combat.GetMagicMaxHit(target, MageSpellBonus),
                 Target = target.Handle,
-                Delay = GetDelay(owner, target),
+                Delay = NpcAttackDelay.FromDistance(owner, target),
                 DamageType = DamageType.StandardMagic
             });
         }
@@ -32,13 +34,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs
             {
                 Damage = combat.GetRangeDamage(target),
                 MaxDamage = combat.GetRangeMaxHit(target),
-                Delay = GetDelay(owner, target),
+                Delay = NpcAttackDelay.FromDistance(owner, target),
                 DamageType = DamageType.StandardRange,
                 Target = target.Handle
             });
         }
-
-        private static int GetDelay(INpc owner, ICreature target) =>
-            20 + System.Math.Abs(owner.Location.X - target.Location.X) * 5 + System.Math.Abs(owner.Location.Y - target.Location.Y) * 5;
     }
 }

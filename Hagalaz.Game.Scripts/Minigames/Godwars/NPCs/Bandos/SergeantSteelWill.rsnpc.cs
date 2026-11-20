@@ -3,6 +3,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 {
     /// <summary>
@@ -28,41 +30,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos
 
             RenderAttack();
 
-            var combat = (INpcCombat)Owner.Combat;
 
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
-
-            _projectileBuilder.Create()
-                .WithGraphicId(1203)
-                .FromCreature(Owner)
-                .ToCreature(target)
-                .WithDuration(delay)
-                .WithAngle(180)
-                .WithDelay(50)
-                .WithFromHeight(35)
-                .WithToHeight(35)
-                .Send();
-
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 164),
-                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 164),
-                Delay = delay,
-                DamageType = DamageType.StandardMagic,
-                Target = target.Handle,
-            });
+            NpcProjectileAttacks.Magic(Owner, _projectileBuilder, target, new NpcProjectile(1203, 50), 164);
         }
 
         /// <summary>

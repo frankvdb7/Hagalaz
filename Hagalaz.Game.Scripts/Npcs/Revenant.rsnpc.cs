@@ -96,83 +96,15 @@ namespace Hagalaz.Game.Scripts.Npcs
                 case Attack.Ranged:
                     {
                         RenderAttack();
-                        var combat = (INpcCombat)Owner.Combat;
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 20 + deltaX * 5 + deltaY * 5;
-
-                        // 1203
-                        _projectileBuilder.Create()
-                            .WithGraphicId(1278)
-                            .FromCreature(Owner)
-                            .ToCreature(target)
-                            .WithDuration(delay)
-                            .WithDelay(50)
-                            .WithAngle(180)
-                            .WithFromHeight(35)
-                            .WithToHeight(35)
-                            .Send();
-
-                        Owner.Combat.PerformAttack(new AttackParams()
-                        {
-                            Damage = combat.GetRangeDamage(target),
-                            MaxDamage = combat.GetRangeMaxHit(target),
-                            Delay = delay,
-                            DamageType = DamageType.StandardRange,
-                            Target = target.Handle,
-                        });
+                        NpcProjectileAttacks.Ranged(Owner, _projectileBuilder, target, new NpcProjectile(1278, 50));
                         break;
                     }
                 case Attack.Magic:
                     {
                         RenderAttack();
-                        var combat = (INpcCombat)Owner.Combat;
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 20 + deltaX * 5 + deltaY * 5;
-
-                        // 1203
-                        _projectileBuilder.Create()
-                            .WithGraphicId(1278)
-                            .FromCreature(Owner)
-                            .ToCreature(target)
-                            .WithDuration(delay)
-                            .WithDelay(50)
-                            .WithAngle(180)
-                            .WithFromHeight(35)
-                            .WithToHeight(35)
-                            .Send();
-
-                        Owner.Combat.PerformAttack(new AttackParams()
-                        {
-                            Damage = combat.GetMagicDamage(target, 164),
-                            MaxDamage = combat.GetMagicMaxHit(target, 164),
-                            Delay = delay,
-                            DamageType = DamageType.StandardMagic,
-                            Target = target.Handle,
-                        });
+                        NpcProjectileAttacks.Magic(Owner, _projectileBuilder, target, new NpcProjectile(1278, 50), 164);
                         break;
                     }
             }

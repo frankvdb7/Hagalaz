@@ -46,29 +46,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
-
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Damage = ((INpcCombat)Owner.Combat).GetMagicDamage(target, 146),
-                MaxDamage = ((INpcCombat)Owner.Combat).GetMagicMaxHit(target, 146),
-                DamageType = DamageType.StandardMagic,
-                Delay = delay,
-                Target = target.Handle
-            });
+            SpiritualAttacks.PerformMagicAttack(Owner, target);
         }
     }
 }

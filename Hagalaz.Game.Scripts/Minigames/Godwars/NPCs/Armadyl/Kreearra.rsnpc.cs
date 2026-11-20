@@ -61,28 +61,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// <returns>
         ///     If attack can be performed.
         /// </returns>
-        public override bool CanBeAttackedBy(ICreature attacker)
-        {
-            var style = attacker.Combat.GetAttackStyle();
-            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled &&
-                style != AttackStyle.MeleeDefensive)
-            {
-                return base.CanBeAttackedBy(attacker);
-            }
-
-            if (attacker is ICharacter character)
-            {
-                character.SendChatMessage("The aviansie is flying too high for you to attack using melee.");
-            }
-
-            if (CanRetaliateTo(attacker))
-            {
-                var attackerHandle = attacker.Handle;
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attackerHandle), 1));
-            }
-
-            return false;
-        }
+        public override bool CanBeAttackedBy(ICreature attacker) =>
+            !AviansieFlight.DeniesMelee(Owner, attacker, CanRetaliateTo) && base.CanBeAttackedBy(attacker);
 
         /// <summary>
         ///     Get's attack bonus type of this npc.
