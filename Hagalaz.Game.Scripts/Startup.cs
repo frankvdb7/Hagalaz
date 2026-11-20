@@ -66,6 +66,7 @@ namespace Hagalaz.Game.Scripts
             services.AddSingleton<IFarmingSkillService, FarmingSkillService>();
             services.AddSingleton<IFletchingSkillService, FletchingSkillService>();
 
+            services.AddSingleton<INpcAttackService, NpcAttackService>();
             services.AddSingleton<IThrowingLogicService, ThrowingLogicService>();
             services.AddSingleton<ICrossbowLogicService, CrossbowLogicService>();
 

@@ -4,8 +4,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 {
     /// <summary>
-    ///     Owns the distance-based hit delay of ranged and magic NPC attacks: a base delay plus five ticks per tile of
-    ///     horizontal and vertical distance.
+    ///     The distance-based hit delay of ranged and magic NPC attacks: a base delay plus five ticks per tile of
+    ///     horizontal and vertical distance. A pure function of positions, so it needs no instance or dependencies.
     /// </summary>
     internal static class NpcAttackDelay
     {
