@@ -1,4 +1,4 @@
-﻿using Hagalaz.Configuration;
+using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -9,6 +9,8 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
     /// </summary>
     public class RewardsAssignmentScreen : WidgetScript
     {
+        private const int SkipAssignmentCost = 30;
+
         public RewardsAssignmentScreen(ICharacterContextAccessor contextAccessor) : base(contextAccessor)
         {
         }
@@ -38,26 +40,28 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 return true;
             });
 
-            InterfaceInstance.AttachClickHandler(23, (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick skipAssignment = (componentID, clickType, extraData1, extraData2) =>
             {
-                if (Owner.Profile.GetValue<int>(ProfileConstants.SlayerRewardPoints) > 30)
+                if (!Owner.HasSlayerTask())
                 {
-                    Owner.SendChatMessage("You need 30 points in order to reassign your current mission!");
+                    Owner.SendChatMessage("You do not have a task assigned to you yet.");
                     return false;
                 }
 
-                if (Owner.HasSlayerTask())
+                var balanceBefore = Owner.Profile.GetValue<int>(ProfileConstants.SlayerRewardPoints);
+                if (!Owner.Slayer.TrySkipAssignment(SkipAssignmentCost))
                 {
-                    var dialogue = Owner.ServiceProvider.GetRequiredService<SlayerMasterDialogue>();
-                    dialogue.StandardCharacterDialogue(DialogueAnimations.CalmTalk, "Please give me a task.");
-                }
-                else
-                {
-                    Owner.SendChatMessage("You do not have a task assigned to you yet.");
+                    Owner.SendChatMessage($"You need {SkipAssignmentCost} points in order to cancel your current mission!");
+                    return false;
                 }
 
+                InterfaceInstance.DrawString(19, (balanceBefore - SkipAssignmentCost).ToString());
+                Owner.SendChatMessage("Your current mission has been cancelled. Speak to a Slayer master for a new one.");
                 return true;
-            });
+            };
+            // Period 742 servers route both the button (23) and its label (26) to the 30-point skip.
+            InterfaceInstance.AttachClickHandler(23, skipAssignment);
+            InterfaceInstance.AttachClickHandler(26, skipAssignment);
         }
     }
 }
