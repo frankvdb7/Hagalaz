@@ -15,6 +15,16 @@ These are examples, not a complete table: trout/salmon, swordfish, shark, monkfi
 
 **To implement:** map every target fishing NPC definition to click option -> fishing method -> required tool/bait -> weighted catch entries -> XP -> move/respawn behavior. A successful catch consumes bait only for methods requiring bait. Verify catch rates and NPC IDs with 742 captures.
 
+## Repository baited-method definition used by bait tests
+
+Hagalaz seed definition for the fly-fishing method (database-backed `FishingService.FindSpotByNpcIdClickType` source; extracted from the repository seed dump, **not** a 742 cache capture):
+
+| Spot | NPC IDs | Click | Tool | Bait | Catch (item, level, XP, weight) |
+|---:|---|---|---|---|---|
+| 1 | 309, 329 | Option1Click | 309 (fly fishing rod, anim 623/622) | 314 (feather) | 331 (30, 70.0, 2.0); 335 (20, 50.0, 3.0) |
+
+`FishingBaitTests` pins these IDs and XP values and verifies one bait per **delivered** fish, a single bait never funding two fish, and no bait or XP for a rejected insertion. Cost policy source: [2011.rs fishing basics](https://2011.rs/kb/fishing_the_basics), [fishing bait](https://wiki.darkan.org/Fishing_bait). The spot IDs and weights still need 742 cache/capture verification.
+
 ## Implementation evidence still required
 
 - Target client/cache item, NPC, object, animation, config and interface identifiers, with provenance and hash.

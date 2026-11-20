@@ -1,5 +1,6 @@
 using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model;
@@ -94,10 +95,22 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
             {
                 foreach (var result in _lootGenerator.GenerateLoot<IFishingLoot>(new CharacterLootParams(table, character)))
                 {
+                    // One bait is consumed per delivered fish, committed together with the fish; a single bait never funds multiple fish.
                     var fish = _itemBuilder.Create().WithId(result.Item.Id).Build();
-                    if (!character.Inventory.AddItem(fish))
+                    var bait = table.BaitId > 0 ? _itemBuilder.Create().WithId(table.BaitId).Build() : null;
+                    using (var transaction = ItemContainerTransaction.Begin(character.Inventory))
                     {
-                        continue;
+                        if (bait != null && !character.Inventory.TryRemoveItemExact(bait))
+                        {
+                            break; // no bait left to fund this fish.
+                        }
+
+                        if (!character.Inventory.AddItem(fish))
+                        {
+                            continue; // disposing the uncommitted transaction restores the bait.
+                        }
+
+                        transaction.Commit();
                     }
 
                     character.Statistics.AddExperience(StatisticsConstants.Fishing, result.Item.FishingExperience);
@@ -145,8 +158,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
                     return true; // stop fishing
                 }
 
-                if (table.BaitId <= 0 || (character.Inventory.RemoveItem(_itemBuilder.Create().WithId(table.BaitId).Build()) > 0 &&
-                                          character.Inventory.Items.Contains(table.BaitId)))
+                if (table.BaitId <= 0 || character.Inventory.Items.Contains(table.BaitId))
                 {
                     return false; // keep fishing
                 }
