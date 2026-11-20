@@ -56,13 +56,30 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
         [TestMethod]
         public void Catch_IntoLastFreeSlot_ConsumesBaitAndStopsFishing()
         {
-            // tool + 2 bait + 1 free slot; the bait removed first frees a second slot, so one slot remains afterwards.
-            var fixture = Create(capacity: 4, baitCount: 2, fishCount: 1, exhaustChance: 0.0);
+            // tool + bait stack + exactly one free slot: the fish fills the inventory.
+            var fixture = Create(capacity: 3, baitCount: 2, fishCount: 1, exhaustChance: 0.0);
 
             fixture.Task!.Tick();
 
+            Assert.AreEqual(0, fixture.Inventory.Items.FreeSlots);
             Assert.AreEqual(1, fixture.Count(BaitId));
             Assert.AreEqual(1, fixture.Count(FishId));
+            fixture.Statistics.Received(1).AddExperience(StatisticsConstants.Fishing, Experience);
+            Assert.IsTrue(fixture.Task.IsCancelled);
+        }
+
+        [TestMethod]
+        public void MultipleLoot_WhenFishCannotBeInserted_RefundsBaitAndAwardsNoExperience()
+        {
+            // One free slot: the first fish fits, the second cannot be inserted and its bait is restored.
+            var fixture = Create(capacity: 3, baitCount: 3, fishCount: 2, exhaustChance: 0.0);
+
+            fixture.Task!.Tick();
+
+            Assert.AreEqual(2, fixture.Count(BaitId));
+            Assert.AreEqual(1, fixture.Count(FishId));
+            fixture.Statistics.Received(1).AddExperience(StatisticsConstants.Fishing, Experience);
+            Assert.IsTrue(fixture.Task.IsCancelled);
         }
 
         [TestMethod]
@@ -162,25 +179,19 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             definition.Name.Returns("fishing rod");
             itemService.FindItemDefinitionById(Arg.Any<int>()).Returns(definition);
 
-            inventory.Items.Add(ComposedTestContainer.CreateTestItem(ToolId));
-            var baitPool = new List<IItem>();
-            for (var i = 0; i < baitCount; i++)
+            inventory.Items.Add(new TestItem(ToolId, 1, stackable: false));
+            if (baitCount > 0)
             {
-                var bait = ComposedTestContainer.CreateTestItem(BaitId);
-                baitPool.Add(bait);
-                inventory.Items.Add(bait);
+                inventory.Items.Add(new TestItem(BaitId, baitCount, stackable: true));
             }
 
-            // Test items compare by reference, so the builder hands back a bait instance that is still held.
             var idStep = Substitute.For<IItemId>();
             itemBuilder.Create().Returns(idStep);
             idStep.WithId(Arg.Any<int>()).Returns(call =>
             {
                 var id = call.ArgAt<int>(0);
                 var optional = Substitute.For<IItemOptional>();
-                optional.Build().Returns(_ => id == BaitId
-                    ? baitPool.FirstOrDefault(b => inventory.Items.GetSlotByItem(b) >= 0) ?? ComposedTestContainer.CreateTestItem(id)
-                    : ComposedTestContainer.CreateTestItem(id));
+                optional.Build().Returns(_ => new TestItem(id, 1, stackable: id == BaitId));
                 return optional;
             });
 
@@ -230,6 +241,38 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             return fixture;
         }
 
+        private sealed class TestItem(int id, int count, bool stackable) : IItem
+        {
+            public int Id { get; } = id;
+            public string Name => "item";
+            public long[] ExtraData => [];
+            public int Count { get; set; } = count;
+            public IItemDefinition ItemDefinition { get; } = CreateDefinition(stackable);
+            public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
+            public IItemScript ItemScript { get; } = CreateScript(stackable);
+            public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
+            public IItem Clone() => new TestItem(Id, Count, ItemDefinition.Stackable);
+            public IItem Clone(int newCount) => new TestItem(Id, newCount, ItemDefinition.Stackable);
+            public bool Equals(IItem otherItem, bool ignoreCount = true) =>
+                otherItem is not null && Id == otherItem.Id && (ignoreCount || Count == otherItem.Count);
+            public string? SerializeExtraData() => null;
+
+            private static IItemScript CreateScript(bool stackable)
+            {
+                var script = Substitute.For<IItemScript>();
+                script.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(stackable);
+                return script;
+            }
+
+            private static IItemDefinition CreateDefinition(bool stackable)
+            {
+                var definition = Substitute.For<IItemDefinition>();
+                definition.Stackable.Returns(stackable);
+                definition.Name.Returns("item");
+                return definition;
+            }
+        }
+
         private sealed class Fixture
         {
             public required ComposedTestContainer Inventory { get; init; }
@@ -238,7 +281,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             public FishingTask? Task { get; set; }
             public ITaskItem? RespawnTask { get; set; }
 
-            public int Count(int id) => Inventory.Items.Count(item => item != null && item.Id == id);
+            public int Count(int id) => Inventory.Items.Where(item => item != null && item.Id == id).Sum(item => item!.Count);
         }
     }
 }
