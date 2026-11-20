@@ -155,6 +155,27 @@ public sealed class SpellCastRegressionTests
         character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, 65);
     }
 
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Alchemy_WhenPouchIsFullPaysExactCoinsToInventory(bool existingCoinStack)
+    {
+        var inventory = new ComposedTestContainer(3); var source = CreateMagicItem(1963, 3); var runes = CreateMagicItem(554, 5);
+        source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source); inventory.SetItem(1, runes);
+        if (existingCoinStack) inventory.SetItem(2, CreateMagicItem(995, 100)); else inventory.SetItem(2, null);
+        var character = CreateAlchemyCharacter(inventory, out var states);
+        Assert.IsTrue(character.MoneyPouch.Add(int.MaxValue));
+        if (!existingCoinStack) Assert.AreEqual(0, inventory.Items.GetCountById(995));
+        character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true); character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
+        character.Magic.When(x => x.RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>())).Do(_ => inventory.SetItem(1, CreateMagicItem(554, 4)));
+
+        Assert.IsTrue(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
+
+        Assert.AreEqual(2, inventory.Items.GetCountById(1963)); Assert.AreEqual(4, inventory.Items.GetCountById(554));
+        Assert.AreEqual(int.MaxValue, character.MoneyPouch.Count); Assert.AreEqual(existingCoinStack ? 600 : 500, inventory.Items.GetCountById(995));
+        Assert.AreEqual(1, states.Count); character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, 65);
+    }
+
     [TestMethod]
     public void Alchemy_FailedCoinCreditRollsBackRunesAndItem()
     {
