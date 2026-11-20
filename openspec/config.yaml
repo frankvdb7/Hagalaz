@@ -1,4 +1,5 @@
 schema: spec-driven
+skillsScope: project
 
 context: |
   Tech stack: .NET 10, ASP.NET Core, .NET Aspire, MySQL/EF Core, Redis, RabbitMQ, Angular, and Electron.
@@ -30,6 +31,7 @@ operations:
       - Read the proposal, delta spec, design, and tasks before editing code.
       - If implementation reveals work outside the proposal, pause and recommend a follow-up change instead of expanding scope silently.
       - Keep code changes minimal, preserve existing ownership boundaries, and update tasks immediately after completing them.
+      - 'For C# changes use Rider first: find usages/implementations before changing a symbol, Rider refactorings and Safe Delete, `get_file_problems` on edited files, and Rider test runs. See `.agents/skills/hagalaz-engineering-design/references/rider-tooling.md` (worktree and `rootFolder` caveats).'
       - Do not mark a task complete based only on compilation; verify its acceptance behavior.
   archive:
     guidance:
