@@ -111,6 +111,62 @@ public sealed class SlayerTests
     }
 
     [TestMethod]
+    public void PausedKillLookup_AfterSkipAndSameIdReassignment_DoesNotTouchNewAssignment()
+    {
+        var character = Substitute.For<ICharacter>();
+        var statistics = Substitute.For<ICharacterStatistics>();
+        character.Statistics.Returns(statistics);
+        var profile = new Profile();
+        profile.SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 100);
+        character.Profile.Returns(profile);
+        var queued = new System.Collections.Generic.List<Hagalaz.Game.Abstractions.Tasks.ITaskItem>();
+        character.QueueTask(Arg.Do<Func<CancellationToken, Task>>(op => queued.Add(new Hagalaz.Game.Abstractions.Tasks.RsAsyncTask(op))))
+            .Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
+        var killHandler = default(EventHappened<CreatureKillEvent>);
+        character.RegisterEventHandler(Arg.Do<EventHappened<CreatureKillEvent>>(handler => killHandler = handler));
+
+        var definition = Substitute.For<ISlayerTaskDefinition>();
+        definition.Id.Returns(1);
+        definition.CoinCount.Returns(0);
+        definition.SlayerMasterId.Returns(7);
+        var pendingLookup = new TaskCompletionSource<ISlayerTaskDefinition?>();
+        var slayerService = Substitute.For<ISlayerService>();
+        slayerService.FindSlayerTaskDefinition(1).Returns(pendingLookup.Task);
+        slayerService.FindSlayerMasterTableByNpcId(7).Returns(Task.FromResult<ISlayerMasterTable?>(Substitute.For<ISlayerMasterTable>()));
+        var generator = Substitute.For<ISlayerTaskGenerator>();
+        generator.GenerateTask(Arg.Any<SlayerTaskParams>()).Returns([new SlayerTaskResult(definition, 5)]);
+
+        var slayer = new Slayer(
+            character,
+            slayerService,
+            Substitute.For<IRatesService>(),
+            generator,
+            Substitute.For<ISlayerTaskCompletedDialogue>(),
+            Substitute.For<IGameMediator>());
+        slayer.Hydrate(new HydratedSlayerDto { Task = new HydratedSlayerDto.SlayerTaskDto { Id = 1, KillCount = 1 } });
+
+        var npc = Substitute.For<INpc>();
+        var npcDefinition = Substitute.For<INpcDefinition>();
+        npcDefinition.MaxLifePoints.Returns(100);
+        npc.Definition.Returns(npcDefinition);
+        killHandler!(new CreatureKillEvent(character, npc));
+        queued[0].Tick(); // old kill is now paused inside the definition lookup
+
+        Assert.IsTrue(slayer.TrySkipAssignment(30));
+        slayer.AssignNewTask(7);
+        queued[1].Tick();
+        Assert.AreEqual(1, slayer.CurrentTaskId);
+        Assert.AreEqual(5, slayer.CurrentKillCount);
+
+        pendingLookup.SetResult(definition);
+
+        Assert.AreEqual(5, slayer.CurrentKillCount);
+        Assert.AreEqual(1, slayer.CurrentTaskId);
+        statistics.DidNotReceiveWithAnyArgs().AddExperience(default, default);
+        character.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default);
+    }
+
+    [TestMethod]
     public void CreatureKillHandler_DoesNotWaitForPendingTaskDefinitionLookup()
     {
         var character = Substitute.For<ICharacter>();
