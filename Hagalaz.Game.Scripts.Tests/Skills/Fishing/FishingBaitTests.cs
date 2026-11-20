@@ -143,7 +143,67 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             fixture.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
         }
 
-        private static Fixture Create(int capacity, int baitCount, int fishCount, double exhaustChance)
+        // Repository spot definition 1 (NPC 309/329, Option1Click, fly fishing rod 309, feather 314): raw salmon 331
+        // (level 30, 70 xp) and raw trout 335 (level 20, 50 xp). See docs/revision-742/reference/fishing.md.
+        private const int FlyRodId = 309;
+        private const int FeatherId = 314;
+        private const int RawSalmonId = 331;
+        private const int RawTroutId = 335;
+
+        [TestMethod]
+        public void FlyFishingSpot_MultipleDeliveredFish_ConsumeOneFeatherEachWithTheirOwnExperience()
+        {
+            var fixture = Create(capacity: 6, baitCount: 5, fishCount: 0, exhaustChance: 1.0, FlyRodId, FeatherId,
+                [(RawSalmonId, 70.0), (RawTroutId, 50.0)]);
+
+            fixture.Task!.Tick();
+
+            Assert.AreEqual(3, fixture.Count(FeatherId));
+            Assert.AreEqual(1, fixture.Count(RawSalmonId));
+            Assert.AreEqual(1, fixture.Count(RawTroutId));
+            fixture.Statistics.Received(1).AddExperience(StatisticsConstants.Fishing, 70.0);
+            fixture.Statistics.Received(1).AddExperience(StatisticsConstants.Fishing, 50.0);
+            fixture.Statistics.Received(2).AddExperience(Arg.Any<int>(), Arg.Any<double>());
+        }
+
+        [TestMethod]
+        public void FlyFishingSpot_RejectedSecondFish_RestoresItsFeatherAndAwardsNoExperience()
+        {
+            // tool + feathers + one free slot: salmon is delivered, trout is rejected.
+            var fixture = Create(capacity: 3, baitCount: 5, fishCount: 0, exhaustChance: 0.0, FlyRodId, FeatherId,
+                [(RawSalmonId, 70.0), (RawTroutId, 50.0)]);
+
+            fixture.Task!.Tick();
+
+            Assert.AreEqual(4, fixture.Count(FeatherId));
+            Assert.AreEqual(1, fixture.Count(RawSalmonId));
+            Assert.AreEqual(0, fixture.Count(RawTroutId));
+            fixture.Statistics.Received(1).AddExperience(StatisticsConstants.Fishing, 70.0);
+            fixture.Statistics.DidNotReceive().AddExperience(StatisticsConstants.Fishing, 50.0);
+        }
+
+        [TestMethod]
+        public void FlyFishingSpot_SingleFeather_FundsOnlyOneFish()
+        {
+            var fixture = Create(capacity: 6, baitCount: 1, fishCount: 0, exhaustChance: 0.0, FlyRodId, FeatherId,
+                [(RawSalmonId, 70.0), (RawTroutId, 50.0)]);
+
+            fixture.Task!.Tick();
+
+            Assert.AreEqual(0, fixture.Count(FeatherId));
+            Assert.AreEqual(1, fixture.Count(RawSalmonId));
+            Assert.AreEqual(0, fixture.Count(RawTroutId));
+            fixture.Statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
+        }
+
+        private static Fixture Create(
+            int capacity,
+            int baitCount,
+            int fishCount,
+            double exhaustChance,
+            int toolId = ToolId,
+            int baitId = BaitId,
+            (int Id, double Experience)[]? catches = null)
         {
             var character = Substitute.For<ICharacter>();
             var inventory = new ComposedTestContainer(capacity);
@@ -179,10 +239,10 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             definition.Name.Returns("fishing rod");
             itemService.FindItemDefinitionById(Arg.Any<int>()).Returns(definition);
 
-            inventory.Items.Add(new TestItem(ToolId, 1, stackable: false));
+            inventory.Items.Add(new TestItem(toolId, 1, stackable: false));
             if (baitCount > 0)
             {
-                inventory.Items.Add(new TestItem(BaitId, baitCount, stackable: true));
+                inventory.Items.Add(new TestItem(baitId, baitCount, stackable: true));
             }
 
             var idStep = Substitute.For<IItemId>();
@@ -191,7 +251,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             {
                 var id = call.ArgAt<int>(0);
                 var optional = Substitute.For<IItemOptional>();
-                optional.Build().Returns(_ => new TestItem(id, 1, stackable: id == BaitId));
+                optional.Build().Returns(_ => new TestItem(id, 1, stackable: id == baitId));
                 return optional;
             });
 
@@ -202,11 +262,12 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             scopeFactory.CreateScope().Returns(scope);
             scopedProvider.GetService(typeof(IItemService)).Returns(itemService);
 
-            var loot = Enumerable.Range(0, fishCount).Select(_ =>
+            catches ??= Enumerable.Repeat((FishId, Experience), fishCount).ToArray();
+            var loot = catches.Select(entry =>
             {
                 var item = Substitute.For<IFishingLoot>();
-                item.Id.Returns(FishId);
-                item.FishingExperience.Returns(Experience);
+                item.Id.Returns(entry.Id);
+                item.FishingExperience.Returns(entry.Experience);
                 return new LootResult<IFishingLoot>(item, 1);
             }).ToArray();
             lootGenerator.GenerateLoot<IFishingLoot>(Arg.Any<CharacterLootParams>()).Returns(loot);
@@ -228,8 +289,8 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             table.BaseCatchChance.Returns(1.0);
             table.ExhaustChance.Returns(exhaustChance);
             table.RespawnTime.Returns(0.0);
-            table.BaitId.Returns(BaitId);
-            table.RequiredTool.Returns(new FishingToolDto { ItemId = ToolId, FishAnimationId = 1, CastAnimationId = 0 });
+            table.BaitId.Returns(baitId);
+            table.RequiredTool.Returns(new FishingToolDto { ItemId = toolId, FishAnimationId = 1, CastAnimationId = 0 });
 
             character.QueueTask(Arg.Do<ITaskItem>(task => fixture.Task = task as FishingTask))
                 .Returns(Substitute.For<IRsTaskHandle>());
