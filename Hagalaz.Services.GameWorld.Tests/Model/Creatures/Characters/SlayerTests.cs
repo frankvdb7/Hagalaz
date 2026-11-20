@@ -18,6 +18,154 @@ namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Characters;
 [TestClass]
 public sealed class SlayerTests
 {
+    private static (Slayer Slayer, IGameMediator Mediator, ICharacter Character) CreateSlayer(int? balance, bool withTask)
+    {
+        var character = Substitute.For<ICharacter>();
+        var profile = Substitute.For<IProfile>();
+        profile.TryGetValue<int>(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, out Arg.Any<int>())
+            .Returns(call =>
+            {
+                call[1] = balance ?? 0;
+                return balance.HasValue;
+            });
+        character.Profile.Returns(profile);
+        var mediator = Substitute.For<IGameMediator>();
+        var slayer = new Slayer(
+            character,
+            Substitute.For<ISlayerService>(),
+            Substitute.For<IRatesService>(),
+            Substitute.For<ISlayerTaskGenerator>(),
+            Substitute.For<ISlayerTaskCompletedDialogue>(),
+            mediator);
+        if (withTask)
+        {
+            slayer.Hydrate(new HydratedSlayerDto { Task = new HydratedSlayerDto.SlayerTaskDto { Id = 1, KillCount = 10 } });
+        }
+
+        return (slayer, mediator, character);
+    }
+
+    [TestMethod]
+    [DataRow(29, false)]
+    [DataRow(30, true)]
+    [DataRow(31, true)]
+    public void TrySkipAssignment_RequiresThirtyPoints(int balance, bool expected)
+    {
+        var (slayer, _, character) = CreateSlayer(balance, withTask: true);
+
+        Assert.AreEqual(expected, slayer.TrySkipAssignment(30));
+        Assert.AreEqual(expected ? -1 : 1, slayer.CurrentTaskId);
+        character.Profile.Received(expected ? 1 : 0).SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, balance - 30);
+    }
+
+    [TestMethod]
+    public void TrySkipAssignment_WithoutTaskOrBalance_DoesNotDebit()
+    {
+        var (noTask, _, noTaskCharacter) = CreateSlayer(100, withTask: false);
+        var (noBalance, _, noBalanceCharacter) = CreateSlayer(null, withTask: true);
+
+        Assert.IsFalse(noTask.TrySkipAssignment(30));
+        Assert.IsFalse(noBalance.TrySkipAssignment(30));
+        noTaskCharacter.Profile.DidNotReceiveWithAnyArgs().SetValue<int>(default!, default);
+        noBalanceCharacter.Profile.DidNotReceiveWithAnyArgs().SetValue<int>(default!, default);
+    }
+
+    [TestMethod]
+    public void TrySkipAssignment_RepeatedCall_ChargesOnceAndUnregistersKillHandler()
+    {
+        var (slayer, _, character) = CreateSlayer(100, withTask: true);
+
+        Assert.IsTrue(slayer.TrySkipAssignment(30));
+        Assert.IsFalse(slayer.TrySkipAssignment(30));
+
+        character.Profile.Received(1).SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 70);
+        character.Received(1).UnregisterEventHandler<CreatureKillEvent>(Arg.Any<EventHappened>());
+    }
+
+    [TestMethod]
+    public void TrySkipAssignment_WithRealProfile_PersistsDebitAndClearedTaskAcrossRelogin()
+    {
+        var character = Substitute.For<ICharacter>();
+        var profile = new Profile();
+        profile.SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 45);
+        character.Profile.Returns(profile);
+        Slayer Create() => new(
+            character,
+            Substitute.For<ISlayerService>(),
+            Substitute.For<IRatesService>(),
+            Substitute.For<ISlayerTaskGenerator>(),
+            Substitute.For<ISlayerTaskCompletedDialogue>(),
+            Substitute.For<IGameMediator>());
+        var slayer = Create();
+        slayer.Hydrate(new HydratedSlayerDto { Task = new HydratedSlayerDto.SlayerTaskDto { Id = 1, KillCount = 10 } });
+
+        Assert.IsTrue(slayer.TrySkipAssignment(30));
+        Assert.IsFalse(slayer.TrySkipAssignment(30));
+
+        var reloadedProfile = new Profile();
+        reloadedProfile.Hydrate(profile.Dehydrate());
+        var reloadedSlayer = Create();
+        reloadedSlayer.Hydrate(slayer.Dehydrate());
+        Assert.AreEqual(15, reloadedProfile.GetValue<int>(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints));
+        Assert.AreEqual(-1, reloadedSlayer.CurrentTaskId);
+    }
+
+    [TestMethod]
+    public void PausedKillLookup_AfterSkipAndSameIdReassignment_DoesNotTouchNewAssignment()
+    {
+        var character = Substitute.For<ICharacter>();
+        var statistics = Substitute.For<ICharacterStatistics>();
+        character.Statistics.Returns(statistics);
+        var profile = new Profile();
+        profile.SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 100);
+        character.Profile.Returns(profile);
+        var queued = new System.Collections.Generic.List<Hagalaz.Game.Abstractions.Tasks.ITaskItem>();
+        character.QueueTask(Arg.Do<Func<CancellationToken, Task>>(op => queued.Add(new Hagalaz.Game.Abstractions.Tasks.RsAsyncTask(op))))
+            .Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
+        var killHandler = default(EventHappened<CreatureKillEvent>);
+        character.RegisterEventHandler(Arg.Do<EventHappened<CreatureKillEvent>>(handler => killHandler = handler));
+
+        var definition = Substitute.For<ISlayerTaskDefinition>();
+        definition.Id.Returns(1);
+        definition.CoinCount.Returns(0);
+        definition.SlayerMasterId.Returns(7);
+        var pendingLookup = new TaskCompletionSource<ISlayerTaskDefinition?>();
+        var slayerService = Substitute.For<ISlayerService>();
+        slayerService.FindSlayerTaskDefinition(1).Returns(pendingLookup.Task);
+        slayerService.FindSlayerMasterTableByNpcId(7).Returns(Task.FromResult<ISlayerMasterTable?>(Substitute.For<ISlayerMasterTable>()));
+        var generator = Substitute.For<ISlayerTaskGenerator>();
+        generator.GenerateTask(Arg.Any<SlayerTaskParams>()).Returns([new SlayerTaskResult(definition, 5)]);
+
+        var slayer = new Slayer(
+            character,
+            slayerService,
+            Substitute.For<IRatesService>(),
+            generator,
+            Substitute.For<ISlayerTaskCompletedDialogue>(),
+            Substitute.For<IGameMediator>());
+        slayer.Hydrate(new HydratedSlayerDto { Task = new HydratedSlayerDto.SlayerTaskDto { Id = 1, KillCount = 1 } });
+
+        var npc = Substitute.For<INpc>();
+        var npcDefinition = Substitute.For<INpcDefinition>();
+        npcDefinition.MaxLifePoints.Returns(100);
+        npc.Definition.Returns(npcDefinition);
+        killHandler!(new CreatureKillEvent(character, npc));
+        queued[0].Tick(); // old kill is now paused inside the definition lookup
+
+        Assert.IsTrue(slayer.TrySkipAssignment(30));
+        slayer.AssignNewTask(7);
+        queued[1].Tick();
+        Assert.AreEqual(1, slayer.CurrentTaskId);
+        Assert.AreEqual(5, slayer.CurrentKillCount);
+
+        pendingLookup.SetResult(definition);
+
+        Assert.AreEqual(5, slayer.CurrentKillCount);
+        Assert.AreEqual(1, slayer.CurrentTaskId);
+        statistics.DidNotReceiveWithAnyArgs().AddExperience(default, default);
+        character.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default);
+    }
+
     [TestMethod]
     public void CreatureKillHandler_DoesNotWaitForPendingTaskDefinitionLookup()
     {

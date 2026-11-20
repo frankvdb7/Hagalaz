@@ -18,5 +18,11 @@
         /// </summary>
         /// <param name="slayerMasterId">The ID of the Slayer Master assigning the task.</param>
         void AssignNewTask(int slayerMasterId);
+        /// <summary>
+        /// Cancels the current task by spending reward points. Fails without side effects when there is no task or the balance is too low.
+        /// </summary>
+        /// <param name="pointCost">The reward points to spend.</param>
+        /// <returns><c>true</c> if the task was cancelled and points were debited.</returns>
+        bool TrySkipAssignment(int pointCost);
     }
 }

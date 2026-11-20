@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Logic.Dehydrations;
@@ -47,6 +47,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int CurrentKillCount { get; private set; }
 
         public int CurrentTaskId { get; private set; } = -1;
+
+        /// <summary>
+        /// Identifies the current assignment. Changes whenever the assignment is replaced, skipped or completed,
+        /// so in-flight kill work cannot touch a later assignment that reuses the same task definition id.
+        /// </summary>
+        private int _assignmentGeneration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Slayer"/> class.
@@ -99,9 +105,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         private async Task ProcessCreatureKillAsync(INpc npc, System.Threading.CancellationToken cancellationToken)
         {
             var taskId = CurrentTaskId;
+            var generation = _assignmentGeneration;
             var task = await _slayerService.FindSlayerTaskDefinition(taskId);
             cancellationToken.ThrowIfCancellationRequested();
-            if (task == null || taskId != CurrentTaskId)
+            if (task == null || generation != _assignmentGeneration)
             {
                 return;
             }
@@ -111,7 +118,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             {
                 masterTable = await _slayerService.FindSlayerMasterTableByNpcId(task.SlayerMasterId);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (masterTable == null || taskId != CurrentTaskId)
+                if (masterTable == null || generation != _assignmentGeneration)
                 {
                     return;
                 }
@@ -149,6 +156,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, pointsEarned));
 
             _owner.Widgets.OpenDialogue(_slayerTaskCompletedDialogue, true);
+            _assignmentGeneration++;
             CurrentTaskId = -1;
         }
 
@@ -181,10 +189,43 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     return;
                 }
 
+                _assignmentGeneration++;
                 CurrentTaskId = result.Definition.Id;
                 CurrentKillCount = result.KillCount;
                 OnStarted();
             });
+        }
+
+        /// <summary>
+        /// Cancels the current task for a point cost. The profile debit and task clearing are one synchronous
+        /// transition, so a repeated call finds no task and cannot charge twice.
+        /// </summary>
+        public bool TrySkipAssignment(int pointCost)
+        {
+            if (CurrentTaskId == -1)
+            {
+                return false;
+            }
+
+            _owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var points);
+            if (points < pointCost)
+            {
+                return false;
+            }
+
+            if (_creatureKilledHandler != null)
+            {
+                _owner.UnregisterEventHandler<CreatureKillEvent>(_creatureKilledHandler);
+                _creatureKilledHandler = null;
+            }
+
+            // Debit and task clearing happen in one synchronous step on the owning thread, so the new
+            // balance is visible to the next action and persisted with the profile snapshot.
+            _owner.Profile.SetValue(ProfileConstants.SlayerRewardPoints, points - pointCost);
+            _assignmentGeneration++;
+            CurrentTaskId = -1;
+            CurrentKillCount = 0;
+            return true;
         }
 
         public void Hydrate(HydratedSlayerDto hydration)
@@ -194,6 +235,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
+            _assignmentGeneration++;
             CurrentTaskId = hydration.Task.Id;
             CurrentKillCount = hydration.Task.KillCount;
             OnStarted();
