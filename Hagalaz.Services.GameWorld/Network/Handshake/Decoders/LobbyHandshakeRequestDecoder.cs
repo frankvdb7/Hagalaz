@@ -32,47 +32,11 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 return false;
             }
 
-            // RSA header / block
             var rsaKeys = _rsaOptions.Value;
-            if (!HandshakeDecoderHelper.TryParseRsaHeader(ref reader, rsaKeys.PrivateKey, rsaKeys.ModulusKey, out var rsaBigInteger) || 
-                !HandshakeDecoderHelper.TryParseRsaBlock(rsaBigInteger, out var isaacSeed, out var password))
-            {
-                message = default;
-                return false;
-            }
-
-            // XTEA block
             RaidoMessage? decodedMessage = default;
-            var decoded = HandshakeDecoderHelper.TryParseXteaBlock(ref reader, isaacSeed,
-                (in ReadOnlySequence<byte> xteaData) =>
+            var decoded = HandshakeDecoderHelper.TryParseSignInPayload(ref reader, rsaKeys.PrivateKey, rsaKeys.ModulusKey,
+                (ref SequenceReader<byte> xteaDataReader, uint[] isaacSeed, string password, string login) =>
                 {
-                var xteaDataReader = new SequenceReader<byte>(xteaData);
-
-                if (!xteaDataReader.TryRead(out bool isLoginString))
-                {
-                    return false;
-                }
-
-                string? login;
-                if (!isLoginString)
-                {
-                    if (!xteaDataReader.TryReadBigEndian(out long encodedLogin))
-                    {
-                        return false;
-                    }
-                    login = encodedLogin.LongToString();
-                }
-                else
-                {
-                    if (!xteaDataReader.TryRead(out login))
-                    {
-                        return false;
-                    }
-                }
-                if (login == null)
-                {
-                    return false;
-                }
 
                 if (!xteaDataReader.TryRead(out byte gameId))
                 {
@@ -84,29 +48,20 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                     return false;
                 }
 
-                var userId = new byte[24];
-                if (!xteaDataReader.TryCopyTo(userId))
+                if (!HandshakeDecoderHelper.TryReadUserId(ref xteaDataReader, out var userId))
                 {
                     return false;
                 }
-                xteaDataReader.Advance(24);
 
                 if (!xteaDataReader.TryRead(out string settings))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out byte settingsDataLength))
+                if (!HandshakeDecoderHelper.TrySkipSettingsData(ref xteaDataReader))
                 {
                     return false;
                 }
-
-                // TODO - read settings block
-                if (xteaDataReader.Remaining < settingsDataLength)
-                {
-                    return false;
-                }
-                xteaDataReader.Advance(settingsDataLength);
 
                 // start hardware block
 
@@ -139,19 +94,9 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 }
 
                 // start cache CRC block
-                var cacheCrcCount = _cacheApi.GetFileCount(byte.MaxValue) - 1;
-                if (cacheCrcCount < 0)
+                if (!HandshakeDecoderHelper.TryReadCacheCrcs(ref xteaDataReader, _cacheApi, out var cacheCrCs))
                 {
                     return false;
-                }
-                var cacheCrCs = new int[cacheCrcCount];
-                for (var indexId = 0; indexId < cacheCrCs.Length; indexId++)
-                {
-                    if (!xteaDataReader.TryReadBigEndian(out int crc))
-                    {
-                        return false;
-                    }
-                    cacheCrCs[indexId] = crc;
                 }
 
                 // stop cache CRC block
