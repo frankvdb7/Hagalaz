@@ -107,7 +107,7 @@ public sealed class SpellCastRegressionTests
 
         Assert.IsTrue(high ? ((HighLevelAlchemy)spell).Cast(source) : ((LowLevelAlchemy)spell).Cast(source));
 
-        Assert.AreEqual(0, inventory.Items.GetCountById(100)); Assert.AreEqual(value, character.MoneyPouch.Count);
+        Assert.AreEqual(0, inventory.Items.GetCountById(100)); Assert.AreEqual(value, inventory.Items.GetCountById(995)); Assert.AreEqual(0, character.MoneyPouch.Count);
         character.Received(1).QueueAnimation(Arg.Is<IAnimation>(x => x.Id == animation));
         character.Received(1).QueueGraphic(Arg.Is<IGraphic>(x => x.Id == graphic));
         character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, xp);
@@ -204,7 +204,7 @@ public sealed class SpellCastRegressionTests
 
         Assert.IsTrue(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
 
-        Assert.AreEqual(0, inventory.Items.GetCountById(561)); Assert.AreEqual(500, character.MoneyPouch.Count); Assert.AreEqual(1, states.Count);
+        Assert.AreEqual(0, inventory.Items.GetCountById(561)); Assert.AreEqual(500, inventory.Items.GetCountById(995)); Assert.AreEqual(1, states.Count);
     }
 
     [TestMethod]

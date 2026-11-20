@@ -34,7 +34,7 @@ internal static class AlchemyOperations
             removeRunes();
             if (caster.Inventory.Items[slot] is not { } remaining || remaining.Id != item.Id ||
                 !caster.Inventory.TryRemoveItemExact(itemBuilder.Create().WithId(item.Id).WithCount(1).Build(), slot) ||
-                !caster.MoneyPouch.Add(coinAmount))
+                !TryPay(caster, itemBuilder, coinAmount))
             {
                 caster.SendChatMessage(GameStrings.InventoryFull);
                 return false;
@@ -49,5 +49,12 @@ internal static class AlchemyOperations
         caster.Configurations.SendGlobalCs2Int(168, 7);
         caster.AddState(new AlchingState { TicksLeft = 2 });
         return true;
+    }
+
+    // Coins go to the inventory when they fit (the pre-existing normal-cast result); the money pouch is the fallback.
+    private static bool TryPay(ICharacter caster, IItemBuilder itemBuilder, int coinAmount)
+    {
+        var coins = itemBuilder.Create().WithId(995).WithCount(coinAmount).Build();
+        return caster.Inventory.Items.HasSpaceFor(coins) ? caster.Inventory.AddItem(coins) : caster.MoneyPouch.Add(coinAmount);
     }
 }
