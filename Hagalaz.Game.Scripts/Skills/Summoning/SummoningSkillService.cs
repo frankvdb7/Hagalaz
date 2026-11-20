@@ -1,4 +1,7 @@
+using System;
 using System.Threading.Tasks;
+using Hagalaz.Game.Abstractions.Builders.Item;
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -18,11 +21,107 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     {
         private readonly INpcBuilder _npcBuilder;
         private readonly IFamiliarScriptProvider _familiarScriptProvider;
+        private readonly IItemBuilder _itemBuilder;
 
-        public SummoningSkillService(INpcBuilder npcBuilder, IFamiliarScriptProvider familiarScriptProvider)
+        /// <summary>
+        ///     The amount of scrolls per pouch.
+        /// </summary>
+        private const int _scrollsPerPouch = 10;
+
+        public SummoningSkillService(INpcBuilder npcBuilder, IFamiliarScriptProvider familiarScriptProvider, IItemBuilder itemBuilder)
         {
             _npcBuilder = npcBuilder;
             _familiarScriptProvider = familiarScriptProvider;
+            _itemBuilder = itemBuilder;
+        }
+
+        /// <summary>
+        ///     Infuses pouches atomically: the ingredients are consumed, the pouches inserted and the experience granted
+        ///     together, or nothing changes.
+        /// </summary>
+        public bool TryCreatePouches(ICharacter character, SummoningDto definition, int itemId, int count)
+        {
+            if (count <= 0 || !CanCreatePouch(character, definition, itemId, count))
+            {
+                return false;
+            }
+
+            var itemDef = character.ServiceProvider.GetRequiredService<IItemService>().FindItemDefinitionById(itemId);
+            var requirements = ItemTypeLogic.GetCreateItemRequirements(itemDef);
+            if (requirements == null || requirements.Count == 0)
+            {
+                character.SendChatMessage("You don't have the required items to create this pouch.");
+                return false;
+            }
+
+            using (var transaction = ItemContainerTransaction.Begin(character.Inventory))
+            {
+                foreach (var (key, amount) in requirements)
+                {
+                    if (!TryMultiply(amount, count, out var total) ||
+                        !character.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(key).WithCount(total).Build()))
+                    {
+                        character.SendChatMessage("You don't have the required items to create this pouch.");
+                        return false;
+                    }
+                }
+
+                if (!character.Inventory.AddItem(_itemBuilder.Create().WithId(itemId).WithCount(count).Build()))
+                {
+                    character.SendChatMessage("You don't have enough inventory space.");
+                    return false;
+                }
+
+                transaction.Commit();
+            }
+
+            character.Statistics.AddExperience(StatisticsConstants.Summoning, definition.CreatePouchExperience * count);
+            return true;
+        }
+
+        /// <summary>
+        ///     Transforms up to <paramref name="count" /> pouches into scrolls atomically; nothing changes and no
+        ///     experience is granted when the scrolls cannot be inserted.
+        /// </summary>
+        public bool TryCreateScrolls(ICharacter character, SummoningDto definition, int count)
+        {
+            if (count <= 0 || !CanCreateScroll(character, definition))
+            {
+                return false;
+            }
+
+            var pouches = Math.Min(count, character.Inventory.Items.GetCountById(definition.PouchId));
+            if (pouches <= 0 || !TryMultiply(pouches, _scrollsPerPouch, out var scrolls))
+            {
+                character.SendChatMessage("You don't have the required pouch to create this scroll.");
+                return false;
+            }
+
+            using (var transaction = ItemContainerTransaction.Begin(character.Inventory))
+            {
+                if (!character.Inventory.TryRemoveItemExact(_itemBuilder.Create().WithId(definition.PouchId).WithCount(pouches).Build()))
+                {
+                    return false;
+                }
+
+                if (!character.Inventory.AddItem(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(scrolls).Build()))
+                {
+                    character.SendChatMessage("You don't have enough inventory space.");
+                    return false;
+                }
+
+                transaction.Commit();
+            }
+
+            character.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * pouches);
+            return true;
+        }
+
+        private static bool TryMultiply(int a, int b, out int result)
+        {
+            var product = (long)a * b;
+            result = (int)product;
+            return product is > 0 and <= int.MaxValue;
         }
 
         /// <summary>
@@ -137,12 +236,12 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             {
                 var def = itemRepository.FindItemDefinitionById(key);
 
-                if (character.Inventory.Items.Contains(key, amount * count))
+                if (TryMultiply(amount, count, out var total) && character.Inventory.Items.Contains(key, total))
                 {
                     continue;
                 }
 
-                character.SendChatMessage("You need to have " + def.Name + " x " + amount * count);
+                character.SendChatMessage("You need to have " + def.Name + " x " + (long)amount * count);
                 return false;
             }
 

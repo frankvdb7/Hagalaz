@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -13,18 +12,12 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
     {
         public ScrollScreen(
             ICharacterContextAccessor characterContextAccessor, IItemService itemService, ISummoningService summoningService,
-            ISummoningSkillService summoningSkillService, IItemBuilder itemBuilder) : base(characterContextAccessor)
+            ISummoningSkillService summoningSkillService) : base(characterContextAccessor)
         {
             _itemService = itemService;
             _summoningService = summoningService;
             _summoningSkillService = summoningSkillService;
-            _itemBuilder = itemBuilder;
         }
-
-        /// <summary>
-        ///     The amount of scrolls per pouch.
-        /// </summary>
-        private const short _scrollsPerPouch = 10;
 
         /// <summary>
         ///     Contains bank X unEquipHandler.
@@ -38,7 +31,6 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
 
         private readonly ISummoningService _summoningService;
         private readonly ISummoningSkillService _summoningSkillService;
-        private readonly IItemBuilder _itemBuilder;
 
         /// <summary>
         ///     Happens when interface is opened for character.
@@ -101,21 +93,10 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                             if (value <= 0)
                             {
                                 Owner.SendChatMessage("Value can't be negative.");
-                            }
-
-                            if (!_summoningSkillService.CanCreateScroll(Owner, definition))
-                            {
                                 return;
                             }
 
-                            var removed = Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(definition.PouchId).WithCount(value).Build());
-                            if (removed <= 0)
-                            {
-                                return;
-                            }
-
-                            Owner.Inventory.AddItem(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
-                            Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * removed);
+                            _summoningSkillService.TryCreateScrolls(Owner, definition, value);
                         };
                         Owner.Configurations.SendIntegerInput("Please enter the amount to transform:");
                         return true;
@@ -130,20 +111,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                         return true;
                     }
 
-                    if (!_summoningSkillService.CanCreateScroll(Owner, definition))
-                    {
-                        return true;
-                    }
-
-
-                    var removed = Owner.Inventory.RemoveItem(_itemBuilder.Create().WithId(definition.PouchId).WithCount(amount).Build());
-                    if (removed <= 0)
-                    {
-                        return true;
-                    }
-
-                    Owner.Inventory.AddItem(_itemBuilder.Create().WithId(definition.ScrollId).WithCount(removed * _scrollsPerPouch).Build());
-                    Owner.Statistics.AddExperience(StatisticsConstants.Summoning, definition.ScrollExperience * removed);
+                    _summoningSkillService.TryCreateScrolls(Owner, definition, amount);
 
                     return true;
                 });
