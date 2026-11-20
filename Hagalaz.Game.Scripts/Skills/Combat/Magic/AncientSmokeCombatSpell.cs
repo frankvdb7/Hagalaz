@@ -57,17 +57,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// </summary>
         private static readonly short[] _poisonDamage = [20, 20, 48, 40];
 
-        protected override RuneType[][] RuneRequirements => _runeRequirements;
-
-        protected override int[][] RuneAmounts => _runeAmounts;
-
-        protected override int[] LevelRequirements => _levelRequirements;
-
-        protected override int[] ConfigIds => _configIds;
-
-        protected override double[] Experience => _exp;
-
-        protected override int[] BaseDamage => _baseDamage;
+        protected override AncientSpellData Data { get; } = new(_runeRequirements, _runeAmounts, _levelRequirements, _configIds, _exp, _baseDamage);
 
         private static readonly int[] _projectileIds = [384, 388, 386, 390];
 

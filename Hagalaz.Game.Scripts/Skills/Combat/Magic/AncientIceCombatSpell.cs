@@ -85,17 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
             180, 220, 260, 300
         ];
 
-        protected override RuneType[][] RuneRequirements => _runeRequirements;
-
-        protected override int[][] RuneAmounts => _runeAmounts;
-
-        protected override int[] LevelRequirements => _levelRequirements;
-
-        protected override int[] ConfigIds => _configIds;
-
-        protected override double[] Experience => _exp;
-
-        protected override int[] BaseDamage => _baseDamage;
+        protected override AncientSpellData Data { get; } = new(_runeRequirements, _runeAmounts, _levelRequirements, _configIds, _exp, _baseDamage);
 
         protected override void RenderCastEffects(ICharacter caster, ICreature victim, int duration)
         {
