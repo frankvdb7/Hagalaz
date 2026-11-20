@@ -83,6 +83,34 @@ public sealed class SlayerTests
     }
 
     [TestMethod]
+    public void TrySkipAssignment_WithRealProfile_PersistsDebitAndClearedTaskAcrossRelogin()
+    {
+        var character = Substitute.For<ICharacter>();
+        var profile = new Profile();
+        profile.SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 45);
+        character.Profile.Returns(profile);
+        Slayer Create() => new(
+            character,
+            Substitute.For<ISlayerService>(),
+            Substitute.For<IRatesService>(),
+            Substitute.For<ISlayerTaskGenerator>(),
+            Substitute.For<ISlayerTaskCompletedDialogue>(),
+            Substitute.For<IGameMediator>());
+        var slayer = Create();
+        slayer.Hydrate(new HydratedSlayerDto { Task = new HydratedSlayerDto.SlayerTaskDto { Id = 1, KillCount = 10 } });
+
+        Assert.IsTrue(slayer.TrySkipAssignment(30));
+        Assert.IsFalse(slayer.TrySkipAssignment(30));
+
+        var reloadedProfile = new Profile();
+        reloadedProfile.Hydrate(profile.Dehydrate());
+        var reloadedSlayer = Create();
+        reloadedSlayer.Hydrate(slayer.Dehydrate());
+        Assert.AreEqual(15, reloadedProfile.GetValue<int>(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints));
+        Assert.AreEqual(-1, reloadedSlayer.CurrentTaskId);
+    }
+
+    [TestMethod]
     public void CreatureKillHandler_DoesNotWaitForPendingTaskDefinitionLookup()
     {
         var character = Substitute.For<ICharacter>();
