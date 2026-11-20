@@ -52,6 +52,7 @@ internal static class AlchemyOperations
     }
 
     // Coins go to the inventory when they fit (the pre-existing normal-cast result); the money pouch is the fallback.
+    // The 742 destination for the full-inventory case is unverified; the pouch avoids losing the cast's cost.
     private static bool TryPay(ICharacter caster, IItemBuilder itemBuilder, int coinAmount)
     {
         var coins = itemBuilder.Create().WithId(995).WithCount(coinAmount).Build();
