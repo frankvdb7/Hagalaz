@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
+using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Hagalaz.Services.GameWorld.Model;
 using MassTransit;
@@ -21,6 +23,7 @@ using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Polly;
+using Polly.RateLimiting;
 using Raido.Server;
 using Hagalaz.Services.GameWorld.Extensions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -97,7 +100,7 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         public async ValueTask<SignInResult> SignInLobbyAsync(SignInRequest signInRequest) =>
-            await ExecuteSignInAsync(async cancellationToken =>
+            await MeasureSignInAsync(SignInFlow.Lobby, () => ExecuteSignInAsync(async cancellationToken =>
             {
                 var result = await SignInAsync(signInRequest, Constants.OAuth.LobbyClientId, _lobbyClientScopes, cancellationToken);
                 if (!result.Succeeded)
@@ -138,10 +141,10 @@ namespace Hagalaz.Services.GameWorld.Services
                 context.Features.Set<IContactsFeature>(new ContactsFeature());
                 context.Features.Set<IUserProfileFeature>(new UserProfileFeature()); // TODO
                 return result;
-            });
+            }));
 
         public async ValueTask<SignInResult> SignInWorldAsync(SignInRequest signInRequest) =>
-            await ExecuteSignInAsync(async cancellationToken =>
+            await MeasureSignInAsync(SignInFlow.World, () => ExecuteSignInAsync(async cancellationToken =>
             {
                 var characterCount = await _characterService.CountAsync();
                 // TODO - character count / give donators extra queue
@@ -185,7 +188,7 @@ namespace Hagalaz.Services.GameWorld.Services
                     await RevokeCurrentAuthenticationAsync("world sign-in initialization failed");
                     throw;
                 }
-            });
+            }));
 
         public async ValueTask<WorldReconnectAuthenticationResult> AuthenticateWorldReconnectAsync(WorldReconnectAuthenticationRequest request) =>
             await ExecuteSignInAsync(GetSignInPartitionKey(request), async cancellationToken =>
@@ -209,6 +212,42 @@ namespace Hagalaz.Services.GameWorld.Services
                     result.IsDisabled,
                     result.AreCredentialsInvalid);
             });
+
+        // Records the outward sign-in outcome exactly once. Rate-limited requests are owned by
+        // AuthenticationRateLimitingMetrics and are not recorded here.
+        private static async ValueTask<SignInResult> MeasureSignInAsync(string flow, Func<ValueTask<SignInResult>> signIn)
+        {
+            var start = Stopwatch.GetTimestamp();
+            SignInResult result;
+            try
+            {
+                result = await signIn();
+            }
+            catch (RateLimiterRejectedException)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                GameWorldMetrics.RecordSignIn(flow, SignInOutcome.Cancelled, Stopwatch.GetElapsedTime(start));
+                throw;
+            }
+            catch
+            {
+                GameWorldMetrics.RecordSignIn(flow, SignInOutcome.Error, Stopwatch.GetElapsedTime(start));
+                throw;
+            }
+
+            GameWorldMetrics.RecordSignIn(flow, GetSignInOutcome(result), Stopwatch.GetElapsedTime(start));
+            return result;
+        }
+
+        private static string GetSignInOutcome(SignInResult result) =>
+            result.Succeeded ? SignInOutcome.Success
+            : result.IsFull ? SignInOutcome.Full
+            : result.IsAlreadyLoggedOn ? SignInOutcome.Duplicate
+            : result.AreCredentialsInvalid || result.IsDisabled || result.IsLockedOut ? SignInOutcome.Rejected
+            : SignInOutcome.Failed;
 
         private async ValueTask<TResult> ExecuteSignInAsync<TResult>(
             Func<CancellationToken, ValueTask<TResult>> signIn)

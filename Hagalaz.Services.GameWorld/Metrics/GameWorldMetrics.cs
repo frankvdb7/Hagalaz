@@ -68,6 +68,18 @@ internal static class GameWorldMetrics
         "hagalaz.gameworld.character.logout.recovery",
         "{recovery}");
 
+    // Outward sign-in outcome, recorded once by the sign-in owner. Rate-limit rejections are
+    // owned by AuthenticationRateLimitingMetrics and are deliberately not counted here.
+    private static readonly Counter<long> SignIns = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.signin",
+        "{signin}");
+    private static readonly Histogram<double> SignInDuration = Meter.CreateHistogram<double>(
+        "hagalaz.gameworld.signin.duration",
+        "s");
+    private static readonly Counter<long> SessionLeaseRenewals = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.session.lease.renew",
+        "{renewal}");
+
     private static readonly Histogram<int> TickRegions = Meter.CreateHistogram<int>(
         "hagalaz.gameworld.tick.regions",
         "{region}");
@@ -80,6 +92,8 @@ internal static class GameWorldMetrics
     private static int _idleRegions;
     private static int _activeTasks;
     private static int _inFlightRegionLoads;
+    private static int _pendingClaimReleases;
+    private static int _pendingAborts;
 
     // Registered characters are those held by the character store. World admission registers a
     // character before its session is committed, so this is not the authenticated player population.
@@ -111,6 +125,35 @@ internal static class GameWorldMetrics
         "hagalaz.gameworld.region.load.inflight",
         () => Volatile.Read(ref _inFlightRegionLoads),
         "{load}");
+
+    // Deferred cleanup still owned by GameSessionStore: claim releases awaiting reconciliation and
+    // connection aborts not yet removed (including one being processed).
+    private static readonly ObservableGauge<int> PendingSessionCleanup = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.session.cleanup.pending",
+        () => new[]
+        {
+            new Measurement<int>(Volatile.Read(ref _pendingClaimReleases), new TagList { { "kind", SessionCleanupKind.ClaimRelease } }),
+            new Measurement<int>(Volatile.Read(ref _pendingAborts), new TagList { { "kind", SessionCleanupKind.Abort } })
+        },
+        "{session}");
+
+    public static void PendingClaimReleaseAdded() => Interlocked.Increment(ref _pendingClaimReleases);
+
+    public static void PendingClaimReleaseRemoved() => Interlocked.Decrement(ref _pendingClaimReleases);
+
+    public static void PendingAbortAdded() => Interlocked.Increment(ref _pendingAborts);
+
+    public static void PendingAbortRemoved() => Interlocked.Decrement(ref _pendingAborts);
+
+    public static void RecordSignIn(string flow, string outcome, TimeSpan duration)
+    {
+        var tags = new TagList { { "flow", flow }, { "outcome", outcome } };
+        SignIns.Add(1, tags);
+        SignInDuration.Record(duration.TotalSeconds, tags);
+    }
+
+    public static void RecordSessionLeaseRenewal(string outcome) =>
+        SessionLeaseRenewals.Add(1, new TagList { { "outcome", outcome } });
 
     public static void CharacterRegistered() => Interlocked.Increment(ref _registeredCharacters);
 
@@ -235,6 +278,37 @@ internal static class LogoutRecoveryOutcome
     public const string Incomplete = "incomplete";
     public const string Failed = "failed";
     public const string Cancelled = "cancelled";
+}
+
+internal static class SignInFlow
+{
+    public const string World = "world";
+    public const string Lobby = "lobby";
+}
+
+internal static class SignInOutcome
+{
+    public const string Success = "success";
+    public const string Rejected = "rejected";
+    public const string Full = "full";
+    public const string Duplicate = "duplicate";
+    public const string Failed = "failed";
+    public const string Error = "error";
+    public const string Cancelled = "cancelled";
+}
+
+internal static class LeaseRenewalOutcome
+{
+    public const string Success = "success";
+    public const string Lost = "lost";
+    public const string Error = "error";
+    public const string Cancelled = "cancelled";
+}
+
+internal static class SessionCleanupKind
+{
+    public const string ClaimRelease = "claim_release";
+    public const string Abort = "abort";
 }
 
 internal static class TickPhase

@@ -41,7 +41,8 @@ public sealed class GameWorldPopulationMetricsTests
             Assert.IsTrue(values.ContainsKey(name), name);
         }
 
-        Assert.IsTrue(spy.Measurements.All(item => item.Tags.Count == 0));
+        Assert.IsTrue(spy.Measurements.Where(item => item.InstrumentName is Characters or Npcs or IdleRegions or ReadyRegions)
+            .All(item => item.Tags.Count == 0));
         Assert.AreEqual("{character}", spy.Measurements.First(item => item.InstrumentName == Characters).Unit);
         Assert.AreEqual("{npc}", spy.Measurements.First(item => item.InstrumentName == Npcs).Unit);
         Assert.AreEqual("{region}", spy.Measurements.First(item => item.InstrumentName == IdleRegions).Unit);
