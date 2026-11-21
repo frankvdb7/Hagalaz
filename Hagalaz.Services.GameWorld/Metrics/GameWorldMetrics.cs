@@ -54,6 +54,20 @@ internal static class GameWorldMetrics
         "hagalaz.gameworld.region.load.queue.duration",
         "s");
 
+    // Snapshot capture and flush hand-off only. Durable commits are measured by the Characters service.
+    private static readonly Histogram<double> CharacterSnapshotDuration = Meter.CreateHistogram<double>(
+        "hagalaz.gameworld.character.snapshot.duration",
+        "s");
+    private static readonly Histogram<double> CharacterFlushDuration = Meter.CreateHistogram<double>(
+        "hagalaz.gameworld.character.flush.duration",
+        "s");
+    private static readonly Counter<long> CharacterFlushes = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.character.flush",
+        "{flush}");
+    private static readonly Counter<long> CharacterLogoutRecoveries = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.character.logout.recovery",
+        "{recovery}");
+
     private static readonly Histogram<int> TickRegions = Meter.CreateHistogram<int>(
         "hagalaz.gameworld.tick.regions",
         "{region}");
@@ -163,6 +177,19 @@ internal static class GameWorldMetrics
     internal static void RecordTickPhase(string phase, TimeSpan duration) =>
         TickPhaseDuration.Record(duration.TotalSeconds, new TagList { { "phase", phase } });
 
+    public static void RecordCharacterSnapshot(string outcome, TimeSpan duration) =>
+        CharacterSnapshotDuration.Record(duration.TotalSeconds, new TagList { { "outcome", outcome } });
+
+    public static void RecordCharacterFlush(string mode, string outcome, TimeSpan duration)
+    {
+        var tags = new TagList { { "mode", mode }, { "outcome", outcome } };
+        CharacterFlushes.Add(1, tags);
+        CharacterFlushDuration.Record(duration.TotalSeconds, tags);
+    }
+
+    public static void RecordCharacterLogoutRecovery(string outcome) =>
+        CharacterLogoutRecoveries.Add(1, new TagList { { "outcome", outcome } });
+
     public static void RecordRegionLoad(string outcome, double durationSeconds)
     {
         var tags = new TagList { { "outcome", outcome } };
@@ -193,6 +220,20 @@ internal static class TickOutcome
 {
     public const string Success = "success";
     public const string Failure = "failure";
+    public const string Cancelled = "cancelled";
+}
+
+internal static class CharacterFlushMode
+{
+    public const string Periodic = "periodic";
+    public const string Shutdown = "shutdown";
+}
+
+internal static class LogoutRecoveryOutcome
+{
+    public const string Completed = "completed";
+    public const string Incomplete = "incomplete";
+    public const string Failed = "failed";
     public const string Cancelled = "cancelled";
 }
 

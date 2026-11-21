@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
@@ -11,6 +12,7 @@ using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
+using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -100,7 +102,32 @@ namespace Hagalaz.Services.GameWorld.Services
             }
         }
 
+        // One attempt is one flush: the result reflects the hand-off to the persistence service,
+        // not the asynchronous database commit, and any failed character makes the attempt a failure.
         internal async Task FlushAsync(bool force, CancellationToken cancellationToken)
+        {
+            var mode = force ? CharacterFlushMode.Shutdown : CharacterFlushMode.Periodic;
+            var start = Stopwatch.GetTimestamp();
+            var outcome = TickOutcome.Failure;
+            try
+            {
+                if (await FlushCoreAsync(force, cancellationToken))
+                {
+                    outcome = TickOutcome.Success;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                outcome = TickOutcome.Cancelled;
+                throw;
+            }
+            finally
+            {
+                GameWorldMetrics.RecordCharacterFlush(mode, outcome, Stopwatch.GetElapsedTime(start));
+            }
+        }
+
+        private async Task<bool> FlushCoreAsync(bool force, CancellationToken cancellationToken)
         {
             await using (var recoveryScope = _serviceProvider.CreateAsyncScope())
             {
@@ -150,6 +177,8 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 throw new AggregateException("One or more character snapshots could not be durably handed off during shutdown.", failures);
             }
+
+            return failures.IsEmpty;
         }
 
         private async Task<IReadOnlyDictionary<uint, CharacterModel>> CaptureSnapshotsAsync(CancellationToken cancellationToken)
@@ -158,6 +187,8 @@ namespace Hagalaz.Services.GameWorld.Services
                 TaskCreationOptions.RunContinuationsAsynchronously);
             _taskScheduler.Schedule(new RsAsyncTask(async token =>
             {
+                var start = Stopwatch.GetTimestamp();
+                var outcome = TickOutcome.Failure;
                 try
                 {
                     var characters = await _characterStore.GetSnapshotAsync(token);
@@ -175,12 +206,22 @@ namespace Hagalaz.Services.GameWorld.Services
                         };
                     }
 
+                    outcome = TickOutcome.Success;
                     completion.TrySetResult(snapshots);
                 }
                 catch (Exception exception)
                 {
+                    if (exception is OperationCanceledException && token.IsCancellationRequested)
+                    {
+                        outcome = TickOutcome.Cancelled;
+                    }
+
                     completion.TrySetException(exception);
                     throw;
+                }
+                finally
+                {
+                    GameWorldMetrics.RecordCharacterSnapshot(outcome, Stopwatch.GetElapsedTime(start));
                 }
             }, cancellationToken));
 
