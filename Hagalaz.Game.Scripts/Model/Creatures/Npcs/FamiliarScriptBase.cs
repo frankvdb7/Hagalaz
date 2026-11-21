@@ -461,8 +461,16 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                 SetUsingSpecialMove(false);
 
                 Summoner.Statistics.AddExperience(StatisticsConstants.Summoning, Definition.ScrollExperience);
+                ApplySpecialMoveEffect(target);
             }
         }
+
+        /// <summary>
+        /// Applies the effect of the special move once its scroll and points have been spent. By default the move has no
+        /// effect beyond its cost.
+        /// </summary>
+        /// <param name="target">The target the move was triggered on.</param>
+        protected virtual void ApplySpecialMoveEffect(IRuneObject target) { }
 
         /// <summary>
         /// Sets the special move target.
