@@ -1,6 +1,10 @@
-﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
+﻿using System;
+using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Combat;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
@@ -24,5 +28,26 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
         public override string GetSpecialMoveName() => "Slime Spray";
 
         public override string GetSpecialMoveDescription() => "Inflicts up to 80 damage against your opponent.";
+
+        protected override void ApplySpecialMoveEffect(IRuneObject target)
+        {
+            if (target is not ICreature creature)
+            {
+                return;
+            }
+
+            var combat = (INpcCombat)Owner.Combat;
+            Owner.Combat.PerformAttack(new AttackParams
+            {
+                Target = creature.Handle,
+                DamageType = DamageType.FullSummoning,
+                HitType = HitSplatType.HitMagicDamage,
+                Damage = Math.Min(combat.GetMagicDamage(creature, MaxHit), MaxHit),
+                MaxDamage = MaxHit,
+            });
+        }
+
+        // Life points are tenths in the combat engine, so 80 life points is 800.
+        private const int MaxHit = 800;
     }
 }

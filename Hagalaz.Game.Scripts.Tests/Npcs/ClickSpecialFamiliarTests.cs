@@ -7,6 +7,7 @@ using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -87,6 +88,50 @@ public sealed class ClickSpecialFamiliarTests
 
         world.Summoner.Statistics.Received(1).HealSkill(StatisticsConstants.Agility, max, 2);
         world.Summoner.Statistics.Received(1).HealRunEnergy(energy);
+    }
+
+    [TestMethod]
+    [DataRow(450, 450)]
+    [DataRow(0, 0)]
+    [DataRow(1000, 800)]
+    public void SlimeSpray_HitsTheTargetForUpToEightyLifePoints(int rolled, int expected)
+    {
+        var world = new World();
+        var script = world.CreateAttached("thornySnail");
+        ((INpcCombat)world.NpcCombat).GetMagicDamage(world.Target, 800).Returns(rolled);
+        script.SetSpecialMovePoints(3);
+        script.SetUsingSpecialMove(true);
+
+        script.PerformSpecialMove(world.Target);
+
+        world.NpcCombat.Received(1).PerformAttack(Arg.Is<AttackParams>(p =>
+            p!.Target == world.Target.Handle && p.Damage == expected && p.MaxDamage == 800 && p.HitType == HitSplatType.HitMagicDamage));
+    }
+
+    [TestMethod]
+    public void SlimeSpray_WithoutEnoughPoints_DealsNoDamage()
+    {
+        var world = new World();
+        var script = world.CreateAttached("thornySnail");
+        script.SetSpecialMovePoints(2);
+        script.SetUsingSpecialMove(true);
+
+        script.PerformSpecialMove(world.Target);
+
+        world.NpcCombat.DidNotReceiveWithAnyArgs().PerformAttack(default!);
+    }
+
+    [TestMethod]
+    public void SlimeSpray_WithoutACreature_DealsNoDamage()
+    {
+        var world = new World();
+        var script = world.CreateAttached("thornySnail");
+        script.SetSpecialMovePoints(3);
+
+        script.SetSpecialMoveTarget(null);
+        script.SetSpecialMoveTarget(Substitute.For<IRuneObject>());
+
+        world.NpcCombat.DidNotReceiveWithAnyArgs().PerformAttack(default!);
     }
 
     [TestMethod]
@@ -235,10 +280,12 @@ public sealed class ClickSpecialFamiliarTests
         public ComposedTestContainer Inventory { get; }
         public ICharacter Summoner { get; }
         public ICreature Target { get; }
+        public ICreatureCombat NpcCombat { get; } = Substitute.For<ICreatureCombat, INpcCombat>();
 
         public BobFamiliarScriptBase Create(string familiar)
         {
             var owner = Substitute.For<INpc>();
+            owner.Combat.Returns(NpcCombat);
             var factory = Substitute.For<IItemContainerFactory>();
             var pathFinder = Substitute.For<ISmartPathFinder>();
             var npcService = Substitute.For<INpcService>();
