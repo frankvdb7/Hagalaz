@@ -1,3 +1,4 @@
+using Hagalaz.TestSupport;
 using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
@@ -22,25 +23,12 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoRemainingCoverageTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = new();
-    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+    private readonly TrackedConnections _tracked = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _tracked.CleanupAsync();
     }
 
     private sealed class EmptyFilter : IRaidoHubFilter { }
@@ -61,20 +49,7 @@ public sealed class RaidoRemainingCoverageTests
         }
     }
 
-    private ConnectionContext CreateRawConnection(string id = "factory")
-    {
-        var connection = Substitute.For<ConnectionContext>();
-        connection.ConnectionId.Returns(id);
-        var transport = Substitute.For<IDuplexPipe>();
-        var input = new Pipe();
-        var output = new Pipe();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        connection.Transport.Returns(transport);
-        connection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
-        return connection;
-    }
+    private ConnectionContext CreateRawConnection(string id = "factory") => _tracked.CreateRawConnection(id);
 
     [TestMethod]
     public void OptionsSetup_AppliesDefaultsAndPreservesConfiguredValues()
@@ -132,7 +107,7 @@ public sealed class RaidoRemainingCoverageTests
                 KeepAliveInterval = TimeSpan.FromSeconds(1),
                 ClientTimeoutInterval = TimeSpan.FromSeconds(2)
             });
-        _connections.Add(built);
+        _tracked.Add(built);
         Assert.AreNotSame(connection.Transport.Input, built.TransportInput);
         Assert.IsInstanceOfType<TestProtocol>(built.Protocol);
         Assert.AreEqual("factory", built.ConnectionId);
@@ -164,7 +139,7 @@ public sealed class RaidoRemainingCoverageTests
                 StatefulReconnectEnabled = true,
                 StatefulReconnectTimeout = TimeSpan.FromSeconds(5)
             });
-        _connections.Add(built);
+        _tracked.Add(built);
 
         var detach = metrics.Listener.Measurements.Single(measurement =>
             measurement.InstrumentName == "raido.server.reconnect.events" &&
@@ -182,7 +157,7 @@ public sealed class RaidoRemainingCoverageTests
         var dispatcher = new DefaultRaidoDispatcher(new[] { first, second });
         var rawConnection = CreateRawConnection("dispatcher");
         var connection = RaidoTestConnectionFactory.Create(rawConnection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        _connections.Add(connection);
+        _tracked.Add(connection);
         var message = new TestMessage();
         await dispatcher.OnConnectedAsync(connection);
         await dispatcher.OnDisconnectedAsync(connection, null);
