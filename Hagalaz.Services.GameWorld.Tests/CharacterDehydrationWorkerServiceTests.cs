@@ -92,7 +92,7 @@ public sealed class CharacterDehydrationWorkerServiceTests
             false,
             Arg.Any<CancellationToken>());
         character.DidNotReceive().Destroy();
-        _ = mediator.DidNotReceive().SendAsync(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.DidNotReceive().SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

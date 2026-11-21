@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Hagalaz.Game.Abstractions.Mediator
@@ -32,8 +33,9 @@ namespace Hagalaz.Game.Abstractions.Mediator
         /// </summary>
         /// <typeparam name="TMessage">The type of the message.</typeparam>
         /// <param name="message">The message to be sent.</param>
+        /// <param name="cancellationToken">Cancels the send and the consumer's work; a consumer that never completes otherwise never returns.</param>
         /// <returns>A <see cref="Task"/> that is completed once the send is acknowledged.</returns>
-        public Task SendAsync<TMessage>(TMessage message) where TMessage : class;
+        public Task SendAsync<TMessage>(TMessage message, CancellationToken cancellationToken = default) where TMessage : class;
 
         /// <summary>
         /// Connects a consumer instance to the mediator to handle a specific message type.

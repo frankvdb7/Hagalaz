@@ -14,6 +14,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
+using Hagalaz.Services.GameWorld.Mediator;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Services.Model;
@@ -545,7 +546,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                     if (character != null && persistenceSucceeded && sessionRemoved && masterId is not null)
                     {
-                        await _characterLogoutService.CompleteLogoutAsync(character);
+                        await _characterLogoutService.CompleteLogoutAsync(character, cancellationToken);
                     }
                     else if (character != null && characterDetached)
                     {
@@ -557,7 +558,10 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     try
                     {
-                        await _mediator.SendAsync(new LobbySignOutCommand(masterId.Value, session.SessionGeneration, session.ConnectionId));
+                        await LifecycleNotification.SendAsync(
+                            _mediator,
+                            new LobbySignOutCommand(masterId.Value, session.SessionGeneration, session.ConnectionId),
+                            cancellationToken);
                     }
                     catch (Exception exception)
                     {

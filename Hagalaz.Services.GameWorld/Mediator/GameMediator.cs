@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Mediator;
 using MassTransit;
@@ -33,7 +34,8 @@ namespace Hagalaz.Services.GameWorld.Mediator
                     typeof(TMessage).Name),
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
 
-        public Task SendAsync<TMessage>(TMessage message) where TMessage : class => _mMediator.Send(message);
+        public Task SendAsync<TMessage>(TMessage message, CancellationToken cancellationToken = default) where TMessage : class =>
+            _mMediator.Send(message, cancellationToken);
 
         public async ValueTask<TResponse> GetResponseAsync<TRequest, TResponse>(TRequest request) 
             where TRequest : class
