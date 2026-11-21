@@ -13,378 +13,167 @@ namespace Hagalaz.Cache.Logic
     public static class ItemTypeLogic
     {
         /// <summary>
+        /// Reads an integer from the item's extra data.
+        /// </summary>
+        /// <param name="itemType">The item type to read from.</param>
+        /// <param name="key">The extra data key.</param>
+        /// <param name="defaultValue">The value to use when the item has no extra data, no such key, or the value is not an integer.</param>
+        private static int GetExtraInt(IItemType itemType, int key, int defaultValue) =>
+            itemType.ExtraData != null && itemType.ExtraData.TryGetValue(key, out var value) && value is int intValue ? intValue : defaultValue;
+
+        /// <summary>
         /// Determines whether this item has a special attack bar when equipped.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns><c>true</c> if the item has a special attack bar; otherwise, <c>false</c>.</returns>
-        public static bool HasSpecialBar(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.HasSpecialBar, out var value))
-            {
-                if (value is int intValue && intValue == 1)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+        public static bool HasSpecialBar(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.HasSpecialBar, 0) == 1;
 
         /// <summary>
         /// Gets the quest ID required to use or see this item.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The quest ID, or -1 if no quest is required.</returns>
-        public static int GetQuestId(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.QuestId, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return -1;
-        }
+        public static int GetQuestId(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.QuestId, -1);
 
         /// <summary>
         /// Gets the attack speed of the weapon.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The attack speed value, defaulting to 4 if not specified.</returns>
-        public static int GetAttackSpeed(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AttackSpeed, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 4;
-        }
+        public static int GetAttackSpeed(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.AttackSpeed, 4);
 
         /// <summary>
         /// Gets the stab attack bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The stab attack bonus.</returns>
-        public static int GetStabAttack(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.StabAttack, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetStabAttack(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.StabAttack, 0);
 
         /// <summary>
         /// Gets the slash attack bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The slash attack bonus.</returns>
-        public static int GetSlashAttack(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.SlashAttack, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetSlashAttack(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.SlashAttack, 0);
 
         /// <summary>
         /// Gets the crush attack bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The crush attack bonus.</returns>
-        public static int GetCrushAttack(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.CrushAttack, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetCrushAttack(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.CrushAttack, 0);
 
         /// <summary>
         /// Gets the magic attack bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The magic attack bonus.</returns>
-        public static int GetMagicAttack(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.MagicAttack, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetMagicAttack(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.MagicAttack, 0);
 
         /// <summary>
         /// Gets the ranged attack bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The ranged attack bonus.</returns>
-        public static int GetRangeAttack(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RangeAttack, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetRangeAttack(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.RangeAttack, 0);
 
         /// <summary>
         /// Gets the stab defence bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The stab defence bonus.</returns>
-        public static int GetStabDefence(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.StabDefence, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetStabDefence(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.StabDefence, 0);
 
         /// <summary>
         /// Gets the slash defence bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The slash defence bonus.</returns>
-        public static int GetSlashDefence(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.SlashDefence, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetSlashDefence(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.SlashDefence, 0);
 
         /// <summary>
         /// Gets the crush defence bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The crush defence bonus.</returns>
-        public static int GetCrushDefence(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.CrushDefence, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetCrushDefence(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.CrushDefence, 0);
 
         /// <summary>
         /// Gets the magic defence bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The magic defence bonus.</returns>
-        public static int GetMagicDefence(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.MagicDefence, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetMagicDefence(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.MagicDefence, 0);
 
         /// <summary>
         /// Gets the ranged defence bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The ranged defence bonus.</returns>
-        public static int GetRangeDefence(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RangeDefence, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetRangeDefence(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.RangeDefence, 0);
 
         /// <summary>
         /// Gets the summoning defence bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The summoning defence bonus.</returns>
-        public static int GetSummoningDefence(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.SummoningDefence, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetSummoningDefence(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.SummoningDefence, 0);
 
         /// <summary>
         /// Gets the melee absorption bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The melee absorption bonus.</returns>
-        public static int GetAbsorbMeleeBonus(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AbsorbMeleeBonus, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetAbsorbMeleeBonus(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.AbsorbMeleeBonus, 0);
 
         /// <summary>
         /// Gets the magic absorption bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The magic absorption bonus.</returns>
-        public static int GetAbsorbMageBonus(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AbsorbMageBonus, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetAbsorbMageBonus(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.AbsorbMageBonus, 0);
 
         /// <summary>
         /// Gets the ranged absorption bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The ranged absorption bonus.</returns>
-        public static int GetAbsorbRangeBonus(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.AbsorbRangeBonus, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetAbsorbRangeBonus(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.AbsorbRangeBonus, 0);
 
         /// <summary>
         /// Gets the strength bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The strength bonus.</returns>
-        public static int GetStrengthBonus(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.StrengthBonus, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue / 10;
-                }
-            }
-            return 0;
-        }
+        public static int GetStrengthBonus(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.StrengthBonus, 0) / 10;
 
         /// <summary>
         /// Gets the ranged strength bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The ranged strength bonus.</returns>
-        public static int GetRangedStrengthBonus(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RangedStrengthBonus, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue / 10;
-                }
-            }
-            return 0;
-        }
+        public static int GetRangedStrengthBonus(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.RangedStrengthBonus, 0) / 10;
 
         /// <summary>
         /// Gets the magic damage bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The magic damage bonus.</returns>
-        public static int GetMagicDamage(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.MagicDamage, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetMagicDamage(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.MagicDamage, 0);
 
         /// <summary>
         /// Gets the prayer bonus.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The prayer bonus.</returns>
-        public static int GetPrayerBonus(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.PrayerBonus, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetPrayerBonus(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.PrayerBonus, 0);
 
         /// <summary>
         /// Gets the weapon type ID.
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The weapon type ID.</returns>
-        public static int GetWeaponType(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.WeaponType, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return 0;
-        }
+        public static int GetWeaponType(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.WeaponType, 0);
 
         /// <summary>
         /// Gets the attack bonus types for this weapon.
@@ -580,17 +369,7 @@ namespace Hagalaz.Cache.Logic
         /// </summary>
         /// <param name="itemType">The item type to check.</param>
         /// <returns>The render animation ID, or -1 if not applicable.</returns>
-        public static int GetRenderAnimationId(this IItemType itemType)
-        {
-            if (itemType.ExtraData != null && itemType.ExtraData.TryGetValue(ItemConstants.RenderAnimationId, out var value))
-            {
-                if (value is int intValue)
-                {
-                    return intValue;
-                }
-            }
-            return -1;
-        }
+        public static int GetRenderAnimationId(this IItemType itemType) => GetExtraInt(itemType, ItemConstants.RenderAnimationId, -1);
 
         /// <summary>
         /// Determines whether the item has a "destroy" option in the inventory.
