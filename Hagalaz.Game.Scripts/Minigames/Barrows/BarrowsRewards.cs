@@ -7,7 +7,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
     ///     Decides which loot tables a chest claim rolls: per reward either one slain brother's armour table or an
     ///     ordinary band table chosen by reward potential. The model is the published reward-potential system (the 742
     ///     cache's 10-bit field in config 453 fits its 1,014 maximum); the rates are not measured on 742
-    ///     (see docs/revision-742/reference/minigames.md).
+    ///     (see docs/revision-742/reference/minigames-barrows.md).
     /// </summary>
     internal static class BarrowsRewards
     {

@@ -9,7 +9,7 @@
 ## 2. Client encodings
 
 - [x] 2.1 Config 453 packing, config 452 rope bits, rope 6712.
-- [x] 2.2 Record confirmed 742 values in `docs/revision-742/reference/minigames.md`.
+- [x] 2.2 Record confirmed 742 values in `docs/revision-742/reference/minigames-barrows.md`.
 
 ## 3. Rewards
 
