@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
+using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -468,13 +469,19 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 continue;
             }
 
+            // One claim is one recovery attempt; a claim that leaves the logout pending is retried
+            // later and is counted as incomplete, never as a completed recovery.
+            var outcome = LogoutRecoveryOutcome.Failed;
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await RecoverPendingLogoutAsync(pending, cancellationToken);
+                outcome = await RecoverPendingLogoutAsync(pending, cancellationToken)
+                    ? LogoutRecoveryOutcome.Completed
+                    : LogoutRecoveryOutcome.Incomplete;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                outcome = LogoutRecoveryOutcome.Cancelled;
                 throw;
             }
             catch (Exception exception)
@@ -483,12 +490,13 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             }
             finally
             {
+                GameWorldMetrics.RecordCharacterLogoutRecovery(outcome);
                 _logoutState.ReleaseRecoveryClaim(pending);
             }
         }
     }
 
-    private async Task RecoverPendingLogoutAsync(
+    private async Task<bool> RecoverPendingLogoutAsync(
         CharacterLogoutState.PendingLogout pending,
         CancellationToken cancellationToken)
     {
@@ -521,20 +529,20 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         if (outcome is not (CharacterPersistenceOutcome.Committed or CharacterPersistenceOutcome.Duplicate))
         {
             _logoutState.ClearPersistenceReceipt(pending.Character, receipt);
-            return;
+            return false;
         }
 
         if (!pending.SessionRemoved)
         {
             if (!await _gameSessionService!.RemoveSession(pending.Session, CancellationToken.None))
             {
-                return;
+                return false;
             }
 
             _logoutState.MarkSessionRemoved(pending.Character);
         }
 
-        CompleteLogout(pending.Character);
+        return TryCompleteLogout(pending.Character);
     }
 
     public async Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default)
@@ -615,11 +623,13 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         }
     }
 
-    public void CompleteLogout(ICharacter character)
+    public void CompleteLogout(ICharacter character) => TryCompleteLogout(character);
+
+    private bool TryCompleteLogout(ICharacter character)
     {
         if (!_logoutState.TryGetSessionGeneration(character, out var sessionGeneration))
         {
-            return;
+            return false;
         }
 
         var releaseResult = _persistenceState.ReleaseForLogout(character.MasterId, sessionGeneration);
@@ -629,12 +639,15 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
                 "Could not release persistence state for character '{MasterId}' during logout completion.",
                 character.MasterId);
             _logoutState.MarkRecoveryEligible(character);
-            return;
+            return false;
         }
 
-        if (_logoutState.TryComplete(character, out var command))
+        if (!_logoutState.TryComplete(character, out var command))
         {
-            _mediator.Publish(command);
+            return false;
         }
+
+        _mediator.Publish(command);
+        return true;
     }
 }
