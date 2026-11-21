@@ -22,33 +22,16 @@ namespace Hagalaz.Services.Characters.Tests;
 [DoNotParallelize]
 public sealed class CharacterPersistenceIntegrationTests
 {
-    private static MySqlContainer? _database;
+    private static string? _connectionString;
     private static int _nextMasterId = 1000;
 
     [ClassInitialize]
     public static async Task Initialize(TestContext _)
     {
-        _database = new MySqlBuilder("mysql:8.4")
-            .WithDatabase("hagalaz-characters-integration-test")
-            .WithUsername("root")
-            .WithPassword("hagalaz-characters-integration-test")
-            .WithCommand(
-                "--character-set-server=utf8mb4",
-                "--collation-server=utf8mb4_0900_ai_ci")
-            .Build();
-        await _database.StartAsync();
+        _connectionString = await SharedMySqlServer.CreateDatabaseAsync();
 
         await using var context = CreateContext();
         await context.Database.MigrateAsync();
-    }
-
-    [ClassCleanup]
-    public static async Task Cleanup()
-    {
-        if (_database != null)
-        {
-            await _database.DisposeAsync();
-        }
     }
 
     [TestMethod]
@@ -360,7 +343,7 @@ public sealed class CharacterPersistenceIntegrationTests
             .AddSingleton<RetryCompletionCapture>()
             .AddSingleton<FaultCapture>()
             .AddSingleton<ErrorQueueCapture>()
-            .AddDbContext<HagalazDbContext>(options => options.UseMySQL(_database!.GetConnectionString()))
+            .AddDbContext<HagalazDbContext>(options => options.UseMySQL(_connectionString!))
             .AddScoped<ICharacterUnitOfWork>(serviceProvider =>
             {
                 ICharacterUnitOfWork unitOfWork = new CharacterUnitOfWork(
@@ -413,7 +396,7 @@ public sealed class CharacterPersistenceIntegrationTests
     private static ServiceProvider CreateHydrationProvider(HydrationReadGate gate) => new ServiceCollection()
         .AddLogging()
         .AddDbContext<HagalazDbContext>(options => options
-            .UseMySQL(_database!.GetConnectionString(), mysqlOptions => mysqlOptions.EnableRetryOnFailure(6))
+            .UseMySQL(_connectionString!, mysqlOptions => mysqlOptions.EnableRetryOnFailure(6))
             .AddInterceptors(gate))
         .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
         .AddScoped<ICharacterService, CharacterService>()
@@ -481,7 +464,7 @@ public sealed class CharacterPersistenceIntegrationTests
 
     private static HagalazDbContext CreateContext() => new(
         new DbContextOptionsBuilder<HagalazDbContext>()
-            .UseMySQL(_database!.GetConnectionString())
+            .UseMySQL(_connectionString!)
             .Options);
 
     private static PersistCharacterCommand CreateCommand(uint masterId, long revision, int coordX = 3200, string noteText = "note") =>
