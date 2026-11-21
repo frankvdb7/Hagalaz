@@ -29,7 +29,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 namespace Hagalaz.Services.GameWorld.Tests;
 
 [TestClass]
-public sealed class AuthenticationSignInTests
+public sealed partial class AuthenticationSignInTests
 {
     [TestMethod]
     [Timeout(5000)]
@@ -1332,7 +1332,8 @@ public sealed class AuthenticationSignInTests
         ICharacterFactory? characterFactory = null,
         ICharacterStore? characterStore = null,
         SignInUserResponseMessage? signInResponseMessage = null,
-        IRequestClient<SignInUserRequestMessage>? signInUserRequestClient = null)
+        IRequestClient<SignInUserRequestMessage>? signInUserRequestClient = null,
+        ResiliencePipeline? authLoginPipeline = null)
     {
         var mapper = Substitute.For<IMapper>();
         mapper.Map<CharacterModel>(Arg.Any<CharacterHydrated>()).Returns(new CharacterModel { SnapshotRevision = snapshotRevision });
@@ -1443,7 +1444,7 @@ public sealed class AuthenticationSignInTests
             claimsPrincipalFactory,
             contextAccessor ?? CreateContextAccessor(connectionId),
             Substitute.For<IGameMediator>(),
-            new ResiliencePipelineBuilder().Build(),
+            authLoginPipeline ?? new ResiliencePipelineBuilder().Build(),
             new ResiliencePipelineBuilder().Build());
     }
 

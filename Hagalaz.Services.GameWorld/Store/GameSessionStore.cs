@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Services;
 using Nito.AsyncEx;
@@ -103,6 +104,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
                 if (currentSession.ConnectionId != expectedSession.ConnectionId)
                 {
                     currentSlot.PendingAbort = new PendingSessionAbort(currentSession);
+                    GameWorldMetrics.PendingAbortAdded();
                 }
 
                 RemoveSlotIfEmpty(currentSession.ConnectionId, currentSlot);
@@ -189,6 +191,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             }
 
             slot.PendingClaimCleanups.Add(session);
+            GameWorldMetrics.PendingClaimReleaseAdded();
             return true;
         }
     }
@@ -231,6 +234,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             }
 
             slot.PendingClaimCleanups.RemoveAt(cleanupIndex);
+            GameWorldMetrics.PendingClaimReleaseRemoved();
             if (slot.PendingClaimCleanups.Count == 0)
             {
                 slot.PendingClaimCleanups = null;
@@ -267,6 +271,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             {
                 slot.ActiveSession = null;
                 slot.PendingAbort = new PendingSessionAbort(expectedSession);
+                GameWorldMetrics.PendingAbortAdded();
                 return true;
             }
 
@@ -275,6 +280,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             {
                 slot.PendingWorld = null;
                 slot.PendingAbort = new PendingSessionAbort(expectedSession);
+                GameWorldMetrics.PendingAbortAdded();
                 return true;
             }
 
@@ -311,6 +317,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
             }
 
             slot.PendingAbort = null;
+            GameWorldMetrics.PendingAbortRemoved();
             RemoveSlotIfEmpty(expectedSession.ConnectionId, slot);
             return true;
         }
@@ -448,6 +455,7 @@ public class GameSessionStore : IGameSessionStore, IGameSessionAbortState
         }
 
         slot.PendingClaimCleanups.Add(session);
+        GameWorldMetrics.PendingClaimReleaseAdded();
     }
 
     private sealed class SessionSlot

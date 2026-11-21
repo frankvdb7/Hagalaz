@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.Hosting;
@@ -73,20 +74,24 @@ public sealed class GameSessionLeaseService : BackgroundService
                 var renewalStartedAt = DateTimeOffset.UtcNow;
                 if (await _claims.RenewAsync(session.MasterId, session.SessionClaimId, cancellationToken))
                 {
+                    GameWorldMetrics.RecordSessionLeaseRenewal(LeaseRenewalOutcome.Success);
                     session.ClaimLeaseValidUntil =
                         renewalStartedAt + GameSessionClaimOptions.LeaseDuration;
                     continue;
                 }
 
+                GameWorldMetrics.RecordSessionLeaseRenewal(LeaseRenewalOutcome.Lost);
                 _logger.LogWarning("Lost active game-session claim for account '{masterId}' and session '{sessionClaimId}'. Aborting the connection.",
                     session.MasterId, session.SessionClaimId);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                GameWorldMetrics.RecordSessionLeaseRenewal(LeaseRenewalOutcome.Cancelled);
                 throw;
             }
             catch (Exception ex)
             {
+                GameWorldMetrics.RecordSessionLeaseRenewal(LeaseRenewalOutcome.Error);
                 var nextRenewalAttemptAt = DateTimeOffset.UtcNow + GameSessionClaimOptions.RenewalInterval;
                 if (nextRenewalAttemptAt < session.ClaimLeaseValidUntil)
                 {

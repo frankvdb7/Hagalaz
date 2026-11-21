@@ -27,8 +27,12 @@ internal sealed class MeterListenerSpy : IDisposable
 
     public List<MetricMeasurement> Measurements { get; } = [];
 
-    /// <summary>Triggers the observable gauges and returns each one's value, keyed by instrument name.</summary>
-    public IReadOnlyDictionary<string, double> ObserveGauges()
+    /// <summary>Triggers the observable gauges and returns each untagged gauge's value, keyed by instrument name.</summary>
+    public IReadOnlyDictionary<string, double> ObserveGauges() =>
+        ObserveGaugeMeasurements().Where(item => item.Tags.Count == 0).ToDictionary(item => item.InstrumentName, item => item.Value);
+
+    /// <summary>Triggers the observable gauges and returns every measurement, including tagged ones.</summary>
+    public IReadOnlyList<MetricMeasurement> ObserveGaugeMeasurements()
     {
         int start;
         lock (_sync)
@@ -39,7 +43,7 @@ internal sealed class MeterListenerSpy : IDisposable
         _listener.RecordObservableInstruments();
         lock (_sync)
         {
-            return Measurements.Skip(start).ToDictionary(item => item.InstrumentName, item => item.Value);
+            return Measurements.Skip(start).ToArray();
         }
     }
 
