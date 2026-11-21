@@ -913,6 +913,41 @@ public sealed class MapRegionServiceTests
         Assert.IsFalse(service.IsCurrentMapRegion(currentRegion.Id, location.Dimension, otherRegion));
     }
 
+    [TestMethod]
+    public void GetClippingFlag_ReadsTheInstanceRegionInsteadOfTheGlobalRegion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var global = Location.Create(67, 69, 0, 0);
+        var instance = Location.Create(67, 69, 0, dimension!.Id);
+        var globalRegion = service.GetOrCreateMapRegion(global.RegionId, global.Dimension);
+        var instanceRegion = service.GetOrCreateMapRegion(instance.RegionId, instance.Dimension);
+        globalRegion.FlagCollision(global.RegionLocalX, global.RegionLocalY, global.Z, CollisionFlag.FloorBlock);
+        globalRegion.MarkReady();
+        instanceRegion.MarkReady();
+
+        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(global.X, global.Y, global.Z));
+        Assert.AreEqual(CollisionFlag.Walkable, service.GetClippingFlag(instance.X, instance.Y, instance.Z, instance.Dimension));
+        Assert.IsFalse(service.IsAccessible(global));
+        Assert.IsTrue(service.IsAccessible(instance));
+    }
+
+    [TestMethod]
+    public void GetClippingFlag_MissingInstanceRegionOrDimension_BlocksWithoutCreatingARegion()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var location = Location.Create(67, 69, 0, dimension!.Id);
+
+        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, location.Dimension));
+        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, 200));
+        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, MapRegionService.MaxDimensions));
+        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, -1));
+        Assert.IsNull(service.FindMapRegion(location.RegionId, location.Dimension));
+    }
+
     private static ServiceProvider CreateProvider(IMapRegionLoadScheduler? loadRequests = null) => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
         .AddSingleton<IEntityStore, EntityStore>()

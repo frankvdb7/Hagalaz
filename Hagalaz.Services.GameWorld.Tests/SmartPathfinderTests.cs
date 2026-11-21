@@ -16,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Initialize()
         {
             _mapRegionService = Substitute.For<IMapRegionService>();
-            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
+            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
             _pathfinder = new SmartPathFinder(_mapRegionService);
         }
 
@@ -45,7 +45,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Block the direct path
-            _mapRegionService.GetClippingFlag(2, 1, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
@@ -66,14 +66,14 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Block all paths to the destination
-            _mapRegionService.GetClippingFlag(2, 0, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(2, 1, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(2, 2, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(3, 0, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(3, 2, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(4, 0, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(4, 1, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(4, 2, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 0, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 2, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(3, 0, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(3, 2, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(4, 0, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(4, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(4, 2, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);

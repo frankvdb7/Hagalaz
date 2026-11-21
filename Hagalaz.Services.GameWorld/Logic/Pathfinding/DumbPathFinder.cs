@@ -26,7 +26,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="surroundings">The surroundings.</param>
         /// <param name="moveNear">if set to <c>true</c> [move near].</param>
         /// <returns></returns>
-        public override IPath Find(
+        protected override IPath FindPath(
             IVector3 from, int selfSize, IVector3 to, int targetSizeX, int targetSizeY, int rotation, int shape, int surroundings, bool moveNear)
         {
             var x = from.X;

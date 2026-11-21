@@ -15,7 +15,7 @@ public sealed class PathfinderStepValidationTests
     public PathfinderStepValidationTests()
     {
         _mapRegionService = Substitute.For<IMapRegionService>();
-        _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+        _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(CollisionFlag.Walkable);
         _pathFinder = new DumbPathFinder(_mapRegionService);
     }
@@ -52,7 +52,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0)
+        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, 2);
@@ -76,7 +76,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0)
+        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
@@ -96,7 +96,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0)
+        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
@@ -116,7 +116,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0)
+        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
@@ -127,7 +127,7 @@ public sealed class PathfinderStepValidationTests
     [TestMethod]
     public void CheckStep_SizeTwo_NorthEast_IgnoresBlockedOverlappingTile()
     {
-        _mapRegionService.GetClippingFlag(11, 11, 0)
+        _mapRegionService.GetClippingFlag(11, 11, 0, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(11, 11, 0, 1, 1, 2);
@@ -140,7 +140,7 @@ public sealed class PathfinderStepValidationTests
     [DataRow(4)]
     public void CheckStep_VariableSize_NorthEast_UsesSouthVariableForTopEdge(int size)
     {
-        _mapRegionService.GetClippingFlag(11, 10 + size, 0)
+        _mapRegionService.GetClippingFlag(11, 10 + size, 0, 0)
             .Returns(CollisionFlag.WallSouthEast);
 
         var result = _pathFinder.CheckStep(11, 11, 0, 1, 1, size);
@@ -153,7 +153,7 @@ public sealed class PathfinderStepValidationTests
     [DataRow(4)]
     public void CheckStep_VariableSize_NorthEast_UsesWestVariableForRightEdge(int size)
     {
-        _mapRegionService.GetClippingFlag(10 + size, 11, 0)
+        _mapRegionService.GetClippingFlag(10 + size, 11, 0, 0)
             .Returns(CollisionFlag.WallNorthEast);
 
         var result = _pathFinder.CheckStep(11, 11, 0, 1, 1, size);
@@ -179,7 +179,7 @@ public sealed class PathfinderStepValidationTests
     [TestMethod]
     public void CheckStep_DistanceCheck_UsesUnitSteps()
     {
-        _mapRegionService.GetClippingFlag(10, 10, 0).Returns(CollisionFlag.FloorBlock);
+        _mapRegionService.GetClippingFlag(10, 10, 0, 0).Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(Location.Create(10, 10, 0), 1);
 
@@ -197,7 +197,7 @@ public sealed class PathfinderStepValidationTests
     [TestMethod]
     public void CheckStep_DistanceCheck_GreaterThanOne_RejectsBlockedIntermediateUnit()
     {
-        _mapRegionService.GetClippingFlag(9, 9, 0).Returns(CollisionFlag.FloorBlock);
+        _mapRegionService.GetClippingFlag(9, 9, 0, 0).Returns(CollisionFlag.FloorBlock);
 
         var result = _pathFinder.CheckStep(Location.Create(10, 10, 0), 2);
 

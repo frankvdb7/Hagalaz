@@ -28,7 +28,7 @@ public sealed class MovementTests
         Assert.IsTrue(path.Successful);
 
         creature.Movement.AddToQueue(path);
-        mapRegionService.GetClippingFlag(11, 10, 0).Returns(CollisionFlag.FloorBlock);
+        mapRegionService.GetClippingFlag(11, 10, 0, 0).Returns(CollisionFlag.FloorBlock);
 
         creature.Movement.Tick();
 
@@ -48,7 +48,7 @@ public sealed class MovementTests
 
         creature.Movement.MovementType = MovementType.Run;
         creature.Movement.AddToQueue(path);
-        mapRegionService.GetClippingFlag(12, 10, 0).Returns(CollisionFlag.FloorBlock);
+        mapRegionService.GetClippingFlag(12, 10, 0, 0).Returns(CollisionFlag.FloorBlock);
 
         creature.Movement.Tick();
 
@@ -147,7 +147,7 @@ public sealed class MovementTests
 
         creature.Movement.MovementType = MovementType.Warp;
         creature.Movement.AddToQueue(target);
-        mapRegionService.GetClippingFlag(15, 10, 0).Returns(CollisionFlag.FloorBlock);
+        mapRegionService.GetClippingFlag(15, 10, 0, 0).Returns(CollisionFlag.FloorBlock);
 
         creature.Movement.Tick();
 
@@ -155,7 +155,7 @@ public sealed class MovementTests
         Assert.AreEqual(start.Y, creature.Location.Y);
         Assert.IsTrue(creature.Movement.Moving);
 
-        mapRegionService.GetClippingFlag(15, 10, 0).Returns(CollisionFlag.Walkable);
+        mapRegionService.GetClippingFlag(15, 10, 0, 0).Returns(CollisionFlag.Walkable);
 
         creature.Movement.Tick();
 
@@ -172,14 +172,14 @@ public sealed class MovementTests
         var (creature, mapRegionService, _) = CreateCreature(start, 1);
 
         creature.Movement.AddToQueue(target);
-        mapRegionService.GetClippingFlag(11, 10, 0).Returns(CollisionFlag.FloorBlock);
+        mapRegionService.GetClippingFlag(11, 10, 0, 0).Returns(CollisionFlag.FloorBlock);
 
         creature.Movement.Tick();
 
         Assert.AreEqual(start.X, creature.Location.X);
         Assert.IsTrue(creature.Movement.Moving);
 
-        mapRegionService.GetClippingFlag(11, 10, 0).Returns(CollisionFlag.Walkable);
+        mapRegionService.GetClippingFlag(11, 10, 0, 0).Returns(CollisionFlag.Walkable);
         for (var i = 0; i < 6; i++)
         {
             creature.Movement.Tick();
@@ -237,7 +237,7 @@ public sealed class MovementTests
         var (creature, mapRegionService, _) = CreateCreature(start, size);
 
         creature.Movement.AddToQueue(target);
-        mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0)
+        mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         creature.Movement.Tick();
@@ -247,12 +247,44 @@ public sealed class MovementTests
         Assert.IsTrue(creature.Movement.Moving);
     }
 
+    [TestMethod]
+    public void Tick_InstanceCreature_ConsumesPathAndReadsInstanceCollision()
+    {
+        var start = Location.Create(10, 10, 0, 1);
+        var (creature, mapRegionService, pathFinder) = CreateCreature(start, 1);
+        var path = pathFinder.Find(start, 1, Location.Create(13, 10, 0), 1, 1, 0, 0, 0, false);
+        Assert.IsTrue(path.Successful);
+
+        creature.Movement.AddToQueue(path);
+        creature.Movement.Tick();
+
+        Assert.AreEqual(11, creature.Location.X);
+        Assert.AreEqual(1, creature.Location.Dimension);
+        mapRegionService.DidNotReceive().GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Is<int>(d => d == 0));
+    }
+
+    [TestMethod]
+    public void Tick_InstanceCreature_StopsAtInstanceBlockerThatIsOpenGlobally()
+    {
+        var start = Location.Create(10, 10, 0, 1);
+        var (creature, mapRegionService, pathFinder) = CreateCreature(start, 1);
+        var path = pathFinder.Find(start, 1, Location.Create(13, 10, 0), 1, 1, 0, 0, 0, false);
+        Assert.IsTrue(path.Successful);
+        creature.Movement.AddToQueue(path);
+        mapRegionService.GetClippingFlag(11, 10, 0, 1).Returns(CollisionFlag.FloorBlock);
+
+        creature.Movement.Tick();
+
+        Assert.AreEqual(start.X, creature.Location.X);
+        Assert.IsTrue(creature.Movement.Moving);
+    }
+
     private static (TestCreature Creature, IMapRegionService MapRegionService, SmartPathFinder PathFinder) CreateCreature(
         ILocation location,
         int size)
     {
         var mapRegionService = Substitute.For<IMapRegionService>();
-        mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+        mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(CollisionFlag.Walkable);
         var pathFinder = new SmartPathFinder(mapRegionService);
         var serviceProvider = Substitute.For<IServiceProvider>();

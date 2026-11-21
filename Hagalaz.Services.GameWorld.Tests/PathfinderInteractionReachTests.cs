@@ -18,7 +18,7 @@ public sealed class PathfinderInteractionReachTests
     public PathfinderInteractionReachTests()
     {
         _mapRegionService = Substitute.For<IMapRegionService>();
-        _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+        _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(CollisionFlag.Walkable);
         _pathFinder = new DumbPathFinder(_mapRegionService);
     }
@@ -118,7 +118,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDoorInteract_LargeEntityActualSideIsBlocked_ReturnsFalse(DoorInteractionCase testCase)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(testCase.CollisionX, testCase.CollisionY, Plane)
+        _mapRegionService.GetClippingFlag(testCase.CollisionX, testCase.CollisionY, Plane, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         // Act
@@ -141,7 +141,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDoorInteract_LargeEntityUnrelatedCollision_ReturnsTrue(DoorInteractionCase testCase)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(testCase.CollisionX + 20, testCase.CollisionY + 20, Plane)
+        _mapRegionService.GetClippingFlag(testCase.CollisionX + 20, testCase.CollisionY + 20, Plane, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         // Act
@@ -165,7 +165,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDoorInteract_ShapeZeroRotationZero_UsesTargetXAndCurrentYForCollision(int size)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(CurrentX, CurrentY, Plane)
+        _mapRegionService.GetClippingFlag(CurrentX, CurrentY, Plane, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         // Act
@@ -181,7 +181,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDoorInteract_ShapeZeroRotationZero_IgnoresCollisionAtXUsedAsY(int size)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(CurrentX, CurrentX, Plane)
+        _mapRegionService.GetClippingFlag(CurrentX, CurrentX, Plane, 0)
             .Returns(CollisionFlag.FloorBlock);
 
         // Act
@@ -196,7 +196,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDecorationInteract_LargeEntityActualSideIsBlocked_ReturnsFalse(DecorationInteractionCase testCase)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(testCase.CollisionX, testCase.CollisionY, Plane)
+        _mapRegionService.GetClippingFlag(testCase.CollisionX, testCase.CollisionY, Plane, 0)
             .Returns(testCase.BlockingFlag);
 
         // Act
@@ -219,7 +219,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDecorationInteract_LargeEntityUnrelatedCollision_ReturnsTrue(DecorationInteractionCase testCase)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(testCase.CollisionX + 20, testCase.CollisionY + 20, Plane)
+        _mapRegionService.GetClippingFlag(testCase.CollisionX + 20, testCase.CollisionY + 20, Plane, 0)
             .Returns(testCase.BlockingFlag);
 
         // Act
@@ -243,7 +243,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDecorationInteract_ShapeSixRotationZero_UsesWestSideTargetYForCollision(int size)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(CurrentX, CurrentY, Plane)
+        _mapRegionService.GetClippingFlag(CurrentX, CurrentY, Plane, 0)
             .Returns(CollisionFlag.WallWest);
 
         // Act
@@ -259,7 +259,7 @@ public sealed class PathfinderInteractionReachTests
     public void CanDecorationInteract_ShapeSixRotationZero_IgnoresCollisionAtTargetXAsY(int size)
     {
         // Arrange
-        _mapRegionService.GetClippingFlag(CurrentX, CurrentX - 1, Plane)
+        _mapRegionService.GetClippingFlag(CurrentX, CurrentX - 1, Plane, 0)
             .Returns(CollisionFlag.WallWest);
 
         // Act

@@ -71,19 +71,21 @@ namespace Hagalaz.Services.GameWorld.Services
             _entityStore = entityStore;
         }
 
-        public bool IsAccessible(ILocation location) => ((int)GetClippingFlag(location.X, location.Y, location.Z) & 0x7fe40000) == 0;
+        public bool IsAccessible(ILocation location) => ((int)GetClippingFlag(location.X, location.Y, location.Z, location.Dimension) & 0x7fe40000) == 0;
 
         /// <summary>
-        /// Gets the clipping flag.
+        /// Gets the clipping flag of the global world.
         /// </summary>
-        /// <param name="absX">The x.</param>
-        /// <param name="absY">The y.</param>
-        /// <param name="z">The z.</param>
-        /// <returns></returns>
-        public CollisionFlag GetClippingFlag(int absX, int absY, int z)
+        public CollisionFlag GetClippingFlag(int absX, int absY, int z) => GetClippingFlag(absX, absY, z, 0);
+
+        /// <summary>
+        /// Gets the clipping flag of the world that owns the tile. Never creates or resumes a region;
+        /// a missing or not ready region blocks the tile.
+        /// </summary>
+        public CollisionFlag GetClippingFlag(int absX, int absY, int z, int dimension)
         {
             var regionId = absX >> 6 << 8 | absY >> 6;
-            var mapRegion = FindMapRegion(regionId, 0);
+            var mapRegion = FindMapRegion(regionId, dimension);
             if (mapRegion is null)
             {
                 return CollisionFlag.FloorBlock;
@@ -104,6 +106,11 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <returns>Returns the active or idle map region, or <c>null</c> when it is not known.</returns>
         public IMapRegion? FindMapRegion(int id, int dimension)
         {
+            if ((uint)dimension >= MaxDimensions)
+            {
+                return null;
+            }
+
             lock (_residencyGate)
             {
                 var dim = _dimensions[dimension];

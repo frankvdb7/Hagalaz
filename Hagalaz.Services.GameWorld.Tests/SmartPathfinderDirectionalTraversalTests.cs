@@ -253,7 +253,7 @@ public sealed class SmartPathfinderDirectionalTraversalTests
 
         var clippingLookups = new List<(int X, int Y)>();
         var mapRegionService = Substitute.For<IMapRegionService>();
-        mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+        mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(callInfo =>
             {
                 var coordinate = (callInfo.ArgAt<int>(0), callInfo.ArgAt<int>(1));

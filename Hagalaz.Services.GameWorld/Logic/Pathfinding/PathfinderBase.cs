@@ -36,6 +36,12 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         private readonly IMapRegionService _regionService;
 
         /// <summary>
+        /// The world whose collision the traversal in progress reads. It is bound from the source
+        /// location at each public entry point and restored on exit, so it is 0 (global) outside one.
+        /// </summary>
+        private int _dimension;
+
+        /// <summary>
         /// Gets or sets a value indicating whether [found path].
         /// </summary>
         /// <value>
@@ -55,7 +61,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="absY">The y.</param>
         /// <param name="z">The z.</param>
         /// <returns></returns>
-        public CollisionFlag GetClippingFlag(int absX, int absY, int z) => _regionService.GetClippingFlag(absX, absY, z);
+        public CollisionFlag GetClippingFlag(int absX, int absY, int z) => _regionService.GetClippingFlag(absX, absY, z, _dimension);
 
         /// <summary>
         /// Gets the clipping flag int.
@@ -64,7 +70,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="mapY">The map y.</param>
         /// <param name="z">The z.</param>
         /// <returns></returns>
-        public int GetClippingFlagInt(int absX, int mapY, int z) => (int)_regionService.GetClippingFlag(absX, mapY, z);
+        public int GetClippingFlagInt(int absX, int mapY, int z) => (int)_regionService.GetClippingFlag(absX, mapY, z, _dimension);
 
         /// <summary>
         /// Get's if specific coordinates (X=fromX to fromX + fromSizeX,Y=fromY to fromSizeY)
@@ -665,7 +671,16 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="z">The z.</param>
         /// <param name="flag">The flag.</param>
         /// <returns></returns>
-        private bool CheckStep(int x, int y, int z, CollisionFlag flag) => (_regionService.GetClippingFlag(x, y, z) & flag) == 0;
+        private bool CheckStep(int x, int y, int z, CollisionFlag flag) => (_regionService.GetClippingFlag(x, y, z, _dimension) & flag) == 0;
+
+        private static int WorldOf(IVector3 vector) => vector is ILocation location ? location.Dimension : 0;
+
+        private int BindWorld(IVector3 source)
+        {
+            var previous = _dimension;
+            _dimension = WorldOf(source);
+            return previous;
+        }
 
         /// <summary>
         /// Checks the step.
@@ -919,7 +934,18 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="yOffset">The y offset.</param>
         /// <param name="size">The size.</param>
         /// <returns></returns>
-        public bool CheckStep(IVector3 location, int xOffset, int yOffset, int size) => CheckStep(location.X, location.Y, location.Z, xOffset, yOffset, size);
+        public bool CheckStep(IVector3 location, int xOffset, int yOffset, int size)
+        {
+            var previous = BindWorld(location);
+            try
+            {
+                return CheckStep(location.X, location.Y, location.Z, xOffset, yOffset, size);
+            }
+            finally
+            {
+                _dimension = previous;
+            }
+        }
 
         /// <summary>
         /// Checks the step around a location.
@@ -934,22 +960,30 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 return false;
             }
 
-            var previousCheck = location.ToLocation();
-            for (var xDelta = -checkDistance; xDelta <= checkDistance; xDelta++)
+            var previous = BindWorld(location);
+            try
             {
-                for (var yDelta = -checkDistance; yDelta <= checkDistance; yDelta++)
+                var previousCheck = location.ToLocation();
+                for (var xDelta = -checkDistance; xDelta <= checkDistance; xDelta++)
                 {
-                    var check = location.ToLocation() + Location.Create(xDelta, yDelta, 0);
-                    if (!CheckUnitPath(previousCheck, check, 1))
+                    for (var yDelta = -checkDistance; yDelta <= checkDistance; yDelta++)
                     {
-                        return false;
+                        var check = location.ToLocation() + Location.Create(xDelta, yDelta, 0);
+                        if (!CheckUnitPath(previousCheck, check, 1))
+                        {
+                            return false;
+                        }
+
+                        previousCheck = check;
                     }
-
-                    previousCheck = check;
                 }
-            }
 
-            return true;
+                return true;
+            }
+            finally
+            {
+                _dimension = previous;
+            }
         }
 
         private bool CheckUnitPath(IVector3 from, IVector3 to, int size)
@@ -991,9 +1025,15 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <returns></returns>
         public bool CheckStep(IVector3 from, IVector3 to, int size)
         {
-            var xOffset = from.X - to.X;
-            var yOffset = from.Y - to.Y;
-            return CheckStep(to.X, to.Y, to.Z, xOffset, yOffset, size);
+            var previous = BindWorld(from);
+            try
+            {
+                return CheckStep(to.X, to.Y, to.Z, from.X - to.X, from.Y - to.Y, size);
+            }
+            finally
+            {
+                _dimension = previous;
+            }
         }
 
         /// <summary>
@@ -1004,7 +1044,18 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="z">The z.</param>
         /// <param name="size">The size.</param>
         /// <returns></returns>
-        public bool CheckStep(IVector3 location, IVector3 offset, int z, int size) => CheckStep(location.X, location.Y, z, offset.X, offset.Y, size);
+        public bool CheckStep(IVector3 location, IVector3 offset, int z, int size)
+        {
+            var previous = BindWorld(location);
+            try
+            {
+                return CheckStep(location.X, location.Y, z, offset.X, offset.Y, size);
+            }
+            finally
+            {
+                _dimension = previous;
+            }
+        }
 
         /// <summary>
         /// Finds the specified entity.
@@ -1015,6 +1066,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <returns></returns>
         public IPath Find(IEntity entity, IGameObject target, bool moveNear)
         {
+            if (!IsSameWorld(entity.Location, target.Location))
+            {
+                return new Path { Successful = false };
+            }
+
             if (!target.IsStandard())
             {
                 return Find(entity.Location, entity.Size, target.Location, 0, 0, target.Rotation, 1 + (int)target.ShapeType, 0, moveNear);
@@ -1052,7 +1108,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 return Find(entity, gameObject, moveNear);
             }
 
-            return Find(entity.Location, target.Location, entity.Size, target.Size, moveNear);
+            return IsSameWorld(entity.Location, target.Location)
+                ? Find(entity.Location, target.Location, entity.Size, target.Size, moveNear)
+                : new Path { Successful = false };
         }
 
         /// <summary>
@@ -1088,6 +1146,29 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <param name="surroundings">The surroundings.</param>
         /// <param name="moveNear">if set to <c>true</c> [move near].</param>
         /// <returns></returns>
-        public abstract IPath Find(IVector3 from, int selfSize, IVector3 to, int targetSizeX, int targetSizeY, int rotation, int shape, int surroundings, bool moveNear);
+        public IPath Find(IVector3 from, int selfSize, IVector3 to, int targetSizeX, int targetSizeY, int rotation, int shape, int surroundings, bool moveNear)
+        {
+            var previous = BindWorld(from);
+            try
+            {
+                return FindPath(from, selfSize, to, targetSizeX, targetSizeY, rotation, shape, surroundings, moveNear);
+            }
+            finally
+            {
+                _dimension = previous;
+            }
+        }
+
+        /// <summary>
+        /// Finds a path reading collision from the world bound by <see cref="Find(IVector3, int, IVector3, int, int, int, int, int, bool)"/>.
+        /// A coordinate-only <paramref name="to"/> is a tile of the source's world; the returned points are
+        /// coordinates that <c>Movement</c> maps into the moving creature's own location.
+        /// </summary>
+        protected abstract IPath FindPath(IVector3 from, int selfSize, IVector3 to, int targetSizeX, int targetSizeY, int rotation, int shape, int surroundings, bool moveNear);
+
+        /// <summary>
+        /// Overlapping coordinates of different worlds are unrelated tiles, so entity-to-entity checks never match them.
+        /// </summary>
+        protected static bool IsSameWorld(ILocation source, ILocation target) => source.Dimension == target.Dimension;
     }
 }

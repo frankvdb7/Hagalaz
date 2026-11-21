@@ -19,6 +19,15 @@ namespace Hagalaz.Game.Abstractions.Model.Maps.PathFinding
         /// <returns></returns>
         bool CheckStep(int x, int y, int z, int xOffset, int yOffset, int size);
         /// <summary>
+        /// Checks the step into <paramref name="location"/> in the world that location belongs to.
+        /// </summary>
+        /// <param name="location">The tile being stepped into.</param>
+        /// <param name="xOffset">The x offset.</param>
+        /// <param name="yOffset">The y offset.</param>
+        /// <param name="size">The size.</param>
+        /// <returns></returns>
+        bool CheckStep(IVector3 location, int xOffset, int yOffset, int size);
+        /// <summary>
         /// Checks the step.
         /// </summary>
         /// <param name="location">The location.</param>

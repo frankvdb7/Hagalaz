@@ -322,7 +322,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
                     var stepY = Math.Sign(delta.Y);
 
                     var newLocation = Location.Create(finalLocation.X + stepX, finalLocation.Y + stepY, finalLocation.Z, finalLocation.Dimension);
-                    if (!_pathFinder.CheckStep(newLocation.X, newLocation.Y, newLocation.Z, stepX, stepY, _owner.Size))
+                    if (!_pathFinder.CheckStep(newLocation, stepX, stepY, _owner.Size))
                         break; // we didn't move
 
                     finalLocation = newLocation;

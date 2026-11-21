@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
@@ -18,7 +18,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
         /// <summary>
         /// Finds a projectile line of sight from the source tile to the target tile.
         /// </summary>
-        public override IPath Find(
+        protected override IPath FindPath(
             IVector3 from, int selfSize, IVector3 to, int targetSizeX, int targetSizeY, int rotation, int shape, int surroundings, bool moveNear)
         {
             var path = new Path
