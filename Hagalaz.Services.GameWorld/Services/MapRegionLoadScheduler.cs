@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Data;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,8 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly Dictionary<IMapRegion, TaskCompletionSource> _inFlight = new();
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<MapRegionLoadScheduler> _logger;
-        private readonly Channel<IMapRegion> _requests = Channel.CreateUnbounded<IMapRegion>(new UnboundedChannelOptions
+        private readonly TimeProvider _timeProvider;
+        private readonly Channel<(IMapRegion Region, long EnqueuedAt)> _requests = Channel.CreateUnbounded<(IMapRegion Region, long EnqueuedAt)>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = false,
@@ -32,10 +34,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
         public MapRegionLoadScheduler(
             IServiceScopeFactory scopeFactory,
-            ILogger<MapRegionLoadScheduler> logger)
+            ILogger<MapRegionLoadScheduler> logger,
+            TimeProvider? timeProvider = null)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
         public void RequestLoad(IMapRegion region) => _ = GetOrRequestLoad(region, true);
@@ -57,8 +61,10 @@ namespace Hagalaz.Services.GameWorld.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await foreach (var region in _requests.Reader.ReadAllAsync(stoppingToken))
+            await foreach (var (region, enqueuedAt) in _requests.Reader.ReadAllAsync(stoppingToken))
             {
+                if (enqueuedAt != 0)
+                    GameWorldMetrics.RecordRegionLoadQueueDuration(_timeProvider.GetElapsedTime(enqueuedAt));
                 Exception? failure = null;
                 var canceled = false;
                 try
@@ -115,8 +121,12 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _inFlight.Add(region, completion);
-                if (_requests.Writer.TryWrite(region))
+                var enqueuedAt = GameWorldMetrics.RegionLoadQueueDurationEnabled ? _timeProvider.GetTimestamp() : 0;
+                if (_requests.Writer.TryWrite((region, enqueuedAt)))
+                {
+                    GameWorldMetrics.RegionLoadQueued();
                     return completion.Task;
+                }
 
                 _inFlight.Remove(region);
                 completion.TrySetException(new InvalidOperationException($"Unable to schedule loading for region {region.Id}."));
@@ -132,6 +142,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
             if (completion is null)
                 return;
+            GameWorldMetrics.RegionLoadsFinished(1);
             if (cancellation)
                 completion.TrySetCanceled();
             else if (exception is null)
@@ -147,6 +158,8 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 _stopping = true;
                 completions = _inFlight.Values.ToList();
+                GameWorldMetrics.RegionLoadsFinished(_inFlight.Count);
+                _inFlight.Clear();
             }
 
             _requests.Writer.TryComplete();

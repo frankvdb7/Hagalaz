@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.Logging;
 
 namespace Hagalaz.Services.GameWorld.Services
@@ -14,6 +15,7 @@ namespace Hagalaz.Services.GameWorld.Services
     public class RsTaskService : IRsTaskService
     {
         private readonly ILogger<RsTaskService> _logger;
+        private readonly TimeProvider _timeProvider;
         private readonly GameLoopSynchronizationContext _synchronizationContext = new();
 
         /// <summary>
@@ -24,7 +26,11 @@ namespace Hagalaz.Services.GameWorld.Services
 
         internal IReadOnlyList<ITaskItem> Tasks => _tasks;
 
-        public RsTaskService(ILogger<RsTaskService> logger) => _logger = logger;
+        public RsTaskService(ILogger<RsTaskService> logger, TimeProvider? timeProvider = null)
+        {
+            _logger = logger;
+            _timeProvider = timeProvider ?? TimeProvider.System;
+        }
 
         /// <summary>
         /// Schedules the specified task.
@@ -37,6 +43,9 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         public void Tick()
         {
+            var measureDuration = GameWorldMetrics.TaskTickDurationEnabled;
+            var start = measureDuration ? _timeProvider.GetTimestamp() : 0;
+            var processed = 0;
             var previousContext = SynchronizationContext.Current;
             SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
 
@@ -63,6 +72,7 @@ namespace Hagalaz.Services.GameWorld.Services
                         continue;
                     }
 
+                    processed++;
                     try
                     {
                         task.Tick();
@@ -82,6 +92,10 @@ namespace Hagalaz.Services.GameWorld.Services
             finally
             {
                 SynchronizationContext.SetSynchronizationContext(previousContext);
+                GameWorldMetrics.RecordTaskTick(
+                    processed,
+                    _tasks.Count,
+                    measureDuration ? _timeProvider.GetElapsedTime(start) : null);
             }
         }
     }

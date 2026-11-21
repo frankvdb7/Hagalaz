@@ -44,6 +44,16 @@ internal static class GameWorldMetrics
         "hagalaz.gameworld.tick.interval",
         "s");
 
+    private static readonly Counter<long> TaskTicks = Meter.CreateCounter<long>(
+        "hagalaz.gameworld.tasks.processed",
+        "{tick}");
+    private static readonly Histogram<double> TaskTickDuration = Meter.CreateHistogram<double>(
+        "hagalaz.gameworld.tasks.tick.duration",
+        "s");
+    private static readonly Histogram<double> RegionLoadQueueDuration = Meter.CreateHistogram<double>(
+        "hagalaz.gameworld.region.load.queue.duration",
+        "s");
+
     private static readonly Histogram<int> TickRegions = Meter.CreateHistogram<int>(
         "hagalaz.gameworld.tick.regions",
         "{region}");
@@ -54,6 +64,8 @@ internal static class GameWorldMetrics
     private static int _registeredNpcs;
     private static int _readyRegions;
     private static int _idleRegions;
+    private static int _activeTasks;
+    private static int _inFlightRegionLoads;
 
     // Registered characters are those held by the character store. World admission registers a
     // character before its session is committed, so this is not the authenticated player population.
@@ -75,6 +87,17 @@ internal static class GameWorldMetrics
         () => Volatile.Read(ref _idleRegions),
         "{region}");
 
+    // Active tasks are the tasks the task service retains after its latest tick, pending tasks excluded.
+    private static readonly ObservableGauge<int> ActiveTasks = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.tasks.active",
+        () => Volatile.Read(ref _activeTasks),
+        "{task}");
+    // In-flight region loads are unique deduplicated requests, queued or executing.
+    private static readonly ObservableGauge<int> InFlightRegionLoads = Meter.CreateObservableGauge(
+        "hagalaz.gameworld.region.load.inflight",
+        () => Volatile.Read(ref _inFlightRegionLoads),
+        "{load}");
+
     public static void CharacterRegistered() => Interlocked.Increment(ref _registeredCharacters);
 
     public static void CharacterUnregistered() => Interlocked.Decrement(ref _registeredCharacters);
@@ -92,6 +115,31 @@ internal static class GameWorldMetrics
         Volatile.Write(ref _readyRegions, readyRegions);
         TickRegions.Record(readyRegions);
     }
+
+    public static bool TaskTickDurationEnabled => TaskTickDuration.Enabled;
+
+    public static void RecordTaskTick(int processedTasks, int activeTasks, TimeSpan? duration)
+    {
+        Volatile.Write(ref _activeTasks, activeTasks);
+        if (processedTasks > 0)
+        {
+            TaskTicks.Add(processedTasks);
+        }
+
+        if (duration is { } elapsed)
+        {
+            TaskTickDuration.Record(elapsed.TotalSeconds);
+        }
+    }
+
+    public static bool RegionLoadQueueDurationEnabled => RegionLoadQueueDuration.Enabled;
+
+    public static void RegionLoadQueued() => Interlocked.Increment(ref _inFlightRegionLoads);
+
+    public static void RegionLoadsFinished(int count) => Interlocked.Add(ref _inFlightRegionLoads, -count);
+
+    public static void RecordRegionLoadQueueDuration(TimeSpan duration) =>
+        RegionLoadQueueDuration.Record(duration.TotalSeconds);
 
     public static bool TickMetricsEnabled =>
         TickDuration.Enabled || Ticks.Enabled || TickOverruns.Enabled || TickInterval.Enabled;
