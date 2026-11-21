@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     ///     Contains the armadyl faction npc script.
     /// </summary>
     [NpcScriptMetaData([6229, 6230, /*6231,*/ 6232, 6233, 6234, 6235, 6236, 6237, 6238, 6239, 6240, 6241, 6242, 6243, 6244, 6245, 6246])]
-    public class ArmadylFaction : NpcScriptBase
+    public class ArmadylFaction : GodwarsFactionScript<ArmadylFaction>
     {
         private readonly INpcAttackService _attacks;
         private readonly IAviansieFlightRule _flight;
@@ -76,35 +76,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override bool CanBeAttackedBy(ICreature attacker) =>
             !_flight.TryDenyMelee(Owner, attacker, CanRetaliateTo(attacker)) && base.CanBeAttackedBy(attacker);
 
-        /// <summary>
-        ///     Get's if this npc can aggro attack specific character.
-        ///     By default this method does check if character is character.
-        ///     This method does not get called by ticks if npc reaction is not aggresive.
-        /// </summary>
-        /// <param name="creature">The creature.</param>
-        /// <returns>
-        ///     <c>true</c> if this instance can aggro the specified creature; otherwise, <c>false</c>.
-        /// </returns>
-        public override bool IsAggressiveTowards(ICreature creature)
-        {
-            if (!Owner.WithinRange(creature, 1 + GetAttackDistance()))
-            {
-                return false;
-            }
-
-            if (creature is not INpc npc)
-            {
-                return creature.Combat.RecentAttackers.Count() <= 2;
-            }
-
-            var script = npc.Script;
-            if (script is ArmadylFaction or FamiliarScriptBase)
-            {
-                return false;
-            }
-
-            return creature.Combat.RecentAttackers.Count() <= 2;
-        }
 
         /// <summary>
         ///     Performs the aggressiveness check.
