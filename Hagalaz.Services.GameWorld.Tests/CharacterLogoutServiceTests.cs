@@ -56,7 +56,9 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
-    public async Task CompleteLogout_ReleasesPersistenceStateForTheCompletedLifecycle()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task CompleteLogout_ReleasesPersistenceStateForTheCompletedLifecycle(bool notificationFaults)
     {
         var character = CreateCharacter(42);
         var persistenceState = new CharacterPersistenceState();
@@ -64,6 +66,11 @@ public sealed class CharacterLogoutServiceTests
         var logoutState = new CharacterLogoutState();
         Assert.IsTrue(logoutState.TryBeginLogout(character, out _));
         var mediator = Substitute.For<IGameMediator>();
+        if (notificationFaults)
+        {
+            mediator.SendAsync(Arg.Any<WorldSignOutCommand>()).Returns(Task.FromException(new InvalidOperationException("consumer failed")));
+        }
+
         var service = new CharacterLogoutService(
             logoutState,
             Substitute.For<ICharacterService>(),
@@ -73,6 +80,7 @@ public sealed class CharacterLogoutServiceTests
 
         await service.CompleteLogoutAsync(character);
 
+        Assert.IsFalse(logoutState.IsPending(character));
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
         _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>());
     }
@@ -121,30 +129,6 @@ public sealed class CharacterLogoutServiceTests
         await service.CompleteLogoutAsync(character);
 
         Assert.IsFalse(state.IsPending(character));
-        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>());
-    }
-
-    [TestMethod]
-    public async Task CompleteLogout_WhenSignOutNotificationFaults_StillCompletesLocalLogout()
-    {
-        var character = CreateCharacter(42);
-        var persistenceState = new CharacterPersistenceState();
-        persistenceState.InitializeRevision(42, 500, 7);
-        var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var mediator = Substitute.For<IGameMediator>();
-        mediator.SendAsync(Arg.Any<WorldSignOutCommand>()).Returns(Task.FromException(new InvalidOperationException("consumer failed")));
-        var service = new CharacterLogoutService(
-            state,
-            Substitute.For<ICharacterService>(),
-            new InlineTaskScheduler(),
-            mediator,
-            persistenceState);
-
-        await service.CompleteLogoutAsync(character);
-
-        Assert.IsFalse(state.IsPending(character));
-        Assert.AreEqual(1L, persistenceState.NextRevision(42));
         _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>());
     }
 
