@@ -47,7 +47,7 @@ For each populated NPC index-18 record: `fixture_sha256,cache_definition_present
 
 ## Known source anomalies and review gates
 
-- `Hagalaz.Game.Scripts/Areas/Edgeville/Npcs/Wilfred/Wilfred.rsnpc.cs` derives from `NpcScriptBase` but has **`[ItemScriptMetaData([4906])]`**, not the NPC attribute. The ID is **not** listed as an item or claimed to be a working NPC script. Check registration and correct in a focused code change.
+- `Wilfred` (NPC 4906, verified in `npc_definitions`) was annotated with `ItemScriptMetaData`; fixed to `NpcScriptMetaData([4906])`.
 - The abstract `AuraItemScript` declares an empty array; that is not an item ID or an exception.
 - `SilverBar.rsitem.cs` uses a symbolic constant; it was resolved at source commit from `CraftingSkillService.SilverBar = 2355`.
 - NPC IDs 5362 appear under multiple source script registrations; determine if this is intentional or ambiguous before making one authoritative handler.
@@ -68,7 +68,7 @@ The [source-family summary](source-family-coverage.csv) groups existing registra
 - `Hagalaz.Services.GameWorld/Factories/FamiliarScriptFactory.cs` consumes discovered NPC types and selects familiar scripts.
 - `Hagalaz.Services.GameWorld/Providers/NpcScriptProvider.cs` registers all `INpcScriptFactory` outputs with `TryAdd`; a duplicate logs a warning, and **the earlier registration wins**. Therefore NPC 5362, registered on both `BrutalDragon` and `StandardDragon`, is not guaranteed to resolve to the specialized script. Both classes share the same inherited implementation at present; nonetheless, this is an ambiguous ownership path and should be clarified rather than auto-overwritten.
 - `Hagalaz.Services.GameWorld/Providers/ItemScriptProvider.cs` likewise uses `TryAdd` for item script IDs.
-- `Wilfred` is declared using an item attribute on a class deriving `NpcScriptBase`. `NpcScriptMetaDataFactory` only reads `NpcScriptMetaDataAttribute` for concrete NPC scripts, so that attribute **does not supply an NPC mapping**. This is a concrete registration gap unless another factory supplies the ID.
+- `Wilfred` previously used an item attribute; now registered via `NpcScriptMetaData([4906])`.
 
 The runtime provider plus all registered factory outputs are authoritative for **which script actually gets selected**; static metadata counts alone cannot establish that mapping. A complete audit should dump `(id,selected script type,origin factory)` during a controlled startup, then compare it against the CSVs and actual cache definitions.
 
