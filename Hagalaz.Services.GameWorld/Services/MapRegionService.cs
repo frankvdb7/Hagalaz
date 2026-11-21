@@ -86,17 +86,19 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             var regionId = absX >> 6 << 8 | absY >> 6;
             var mapRegion = FindMapRegion(regionId, dimension);
-            if (mapRegion is null)
+            if (mapRegion is null || mapRegion.State != MapRegionState.Ready)
             {
-                return CollisionFlag.FloorBlock;
-            }
-            if (mapRegion.State != MapRegionState.Ready)
-            {
-                return CollisionFlag.FloorBlock;
+                return UnavailableRegionFlag;
             }
 
             return mapRegion.GetCollision(absX & 0x3F, absY & 0x3F, z);
         }
+
+        /// <summary>
+        /// Blocks movement (<see cref="CollisionFlag.FloorBlock"/>) and projectile line of sight
+        /// (<see cref="CollisionFlag.ObjectBlock"/>) on tiles whose region is missing or not ready.
+        /// </summary>
+        private const CollisionFlag UnavailableRegionFlag = CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock;
 
         /// <summary>
         /// Finds a map region by its Id without creating or resuming it.

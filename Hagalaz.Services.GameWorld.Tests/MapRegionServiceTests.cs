@@ -36,7 +36,7 @@ public sealed class MapRegionServiceTests
 
         region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, CollisionFlag.WallNorth);
 
-        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z));
+        Assert.AreEqual(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock, service.GetClippingFlag(location.X, location.Y, location.Z));
     }
 
     [TestMethod]
@@ -60,7 +60,7 @@ public sealed class MapRegionServiceTests
         var region = service.GetOrCreateMapRegion(location.RegionId, location.Dimension);
         region.MarkDiscarded();
 
-        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z));
+        Assert.AreEqual(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock, service.GetClippingFlag(location.X, location.Y, location.Z));
     }
 
     [TestMethod]
@@ -941,11 +941,33 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(service.TryCreateDimension(out var dimension));
         var location = Location.Create(67, 69, 0, dimension!.Id);
 
-        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, location.Dimension));
-        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, 200));
-        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, MapRegionService.MaxDimensions));
-        Assert.AreEqual(CollisionFlag.FloorBlock, service.GetClippingFlag(location.X, location.Y, location.Z, -1));
+        Assert.AreEqual(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock, service.GetClippingFlag(location.X, location.Y, location.Z, location.Dimension));
+        Assert.AreEqual(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock, service.GetClippingFlag(location.X, location.Y, location.Z, 200));
+        Assert.AreEqual(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock, service.GetClippingFlag(location.X, location.Y, location.Z, MapRegionService.MaxDimensions));
+        Assert.AreEqual(CollisionFlag.FloorBlock | CollisionFlag.ObjectBlock, service.GetClippingFlag(location.X, location.Y, location.Z, -1));
         Assert.IsNull(service.FindMapRegion(location.RegionId, location.Dimension));
+    }
+
+    [TestMethod]
+    public void ProjectileFind_ThroughMissingOrNotReadyRegion_IsBlocked()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var pathFinder = new ProjectilePathFinder(service);
+        var from = Location.Create(60, 10, 0, dimension!.Id);
+        var to = Location.Create(70, 10, 0, dimension.Id);
+
+        Assert.IsFalse(pathFinder.Find(from, 1, to, 1, 1, 0, 0, 0, true).Successful);
+
+        service.GetOrCreateMapRegion(from.RegionId, from.Dimension).MarkReady();
+        service.GetOrCreateMapRegion(to.RegionId, to.Dimension);
+
+        Assert.IsFalse(pathFinder.Find(from, 1, to, 1, 1, 0, 0, 0, true).Successful);
+
+        service.GetOrCreateMapRegion(to.RegionId, to.Dimension).MarkReady();
+
+        Assert.IsTrue(pathFinder.Find(from, 1, to, 1, 1, 0, 0, 0, true).Successful);
     }
 
     private static ServiceProvider CreateProvider(IMapRegionLoadScheduler? loadRequests = null) => new ServiceCollection()
