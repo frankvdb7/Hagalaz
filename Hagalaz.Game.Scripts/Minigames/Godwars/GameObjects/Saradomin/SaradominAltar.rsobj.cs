@@ -6,6 +6,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin
     [GameObjectScriptMetaData([26287])]
     public class SaradominAltar : GodwarsAltarScript<SaradominAltarPrayedState>
     {
-        protected override (int X, int Y) TeleportDestination => (2829, 5287);
+        protected override (int X, int Y) TeleportDestination => (2923, 5257);
     }
 }

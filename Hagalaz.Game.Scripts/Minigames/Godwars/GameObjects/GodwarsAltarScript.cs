@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects
     {
         private const int PrayerPointsRestored = 990;
         private const int PrayerCooldownTicks = 1000;
-        private const int AltarPlane = 2;
+        private const int AltarPlane = 0;
 
         /// <summary>
         ///     Where Option 2 teleports to, on the Godwars plane.

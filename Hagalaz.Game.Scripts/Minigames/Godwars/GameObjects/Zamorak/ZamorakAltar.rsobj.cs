@@ -6,6 +6,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Zamorak
     [GameObjectScriptMetaData([26286])]
     public class ZamorakAltar : GodwarsAltarScript<ZamorakAltarPrayedState>
     {
-        protected override (int X, int Y) TeleportDestination => (2828, 5342);
+        protected override (int X, int Y) TeleportDestination => (2925, 5333);
     }
 }
