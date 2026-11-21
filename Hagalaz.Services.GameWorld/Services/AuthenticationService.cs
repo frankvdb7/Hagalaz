@@ -545,7 +545,7 @@ namespace Hagalaz.Services.GameWorld.Services
 
                     if (character != null && persistenceSucceeded && sessionRemoved && masterId is not null)
                     {
-                        _characterLogoutService.CompleteLogout(character);
+                        await _characterLogoutService.CompleteLogoutAsync(character);
                     }
                     else if (character != null && characterDetached)
                     {
@@ -555,7 +555,20 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 if (session is not null && session is not IGameWorldSession && masterId is not null)
                 {
-                    _mediator.Publish(new LobbySignOutCommand(masterId.Value, session.SessionGeneration, session.ConnectionId));
+                    try
+                    {
+                        await _mediator.SendAsync(new LobbySignOutCommand(masterId.Value, session.SessionGeneration, session.ConnectionId));
+                    }
+                    catch (Exception exception)
+                    {
+                        // The notification must not skip token revocation below.
+                        _logger.LogError(
+                            exception,
+                            "Lobby sign-out notification failed for master id '{MasterId}', generation {SessionGeneration}, connection '{ConnectionId}'.",
+                            masterId.Value,
+                            session.SessionGeneration,
+                            session.ConnectionId);
+                    }
                 }
 
                 // Token revocation is remote cleanup. It must not retain a successfully

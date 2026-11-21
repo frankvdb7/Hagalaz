@@ -30,7 +30,7 @@ public interface ICharacterLogoutService
     bool IsPendingLogout(uint masterId);
     Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
     Task RecoverPendingLogoutsAsync(CancellationToken cancellationToken = default);
-    void CompleteLogout(ICharacter character);
+    Task CompleteLogoutAsync(ICharacter character);
 }
 
 public sealed class CharacterLogoutState
@@ -542,7 +542,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             _logoutState.MarkSessionRemoved(pending.Character);
         }
 
-        return TryCompleteLogout(pending.Character);
+        return await TryCompleteLogoutAsync(pending.Character);
     }
 
     public async Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default)
@@ -623,9 +623,9 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         }
     }
 
-    public void CompleteLogout(ICharacter character) => TryCompleteLogout(character);
+    public Task CompleteLogoutAsync(ICharacter character) => TryCompleteLogoutAsync(character);
 
-    private bool TryCompleteLogout(ICharacter character)
+    private async Task<bool> TryCompleteLogoutAsync(ICharacter character)
     {
         if (!_logoutState.TryGetSessionGeneration(character, out var sessionGeneration))
         {
@@ -647,7 +647,23 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             return false;
         }
 
-        _mediator.Publish(command);
+        // Local logout is complete and irreversible here. A mediator send only reports the
+        // consumer's completion, not Contacts' processing, so a failure is logged and never
+        // rewinds the logout or retries persistence.
+        try
+        {
+            await _mediator.SendAsync(command);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "World sign-out notification failed for character '{MasterId}', generation {SessionGeneration}, connection '{ConnectionId}'.",
+                command.MasterId,
+                command.SessionGeneration,
+                command.ConnectionId);
+        }
+
         return true;
     }
 }
