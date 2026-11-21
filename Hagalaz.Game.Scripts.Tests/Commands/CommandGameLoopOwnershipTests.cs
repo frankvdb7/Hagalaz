@@ -17,6 +17,8 @@ namespace Hagalaz.Game.Scripts.Tests.Commands;
 [TestClass]
 public sealed class CommandGameLoopOwnershipTests
 {
+    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(30);
+
     [TestMethod]
     public async Task SearchObjectCommand_SendsResultsOnlyOnGameWorkerContinuation()
     {
@@ -42,7 +44,7 @@ public sealed class CommandGameLoopOwnershipTests
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
 
         scheduler.Tick();
-        await queuedContinuation.Task;
+        await queuedContinuation.Task.WaitAsync(TestTimeout);
         scheduler.Tick();
 
         character.Received(1).SendChatMessage("0 - Test Object", ChatMessageType.ConsoleText);
@@ -74,7 +76,7 @@ public sealed class CommandGameLoopOwnershipTests
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
 
         scheduler.Tick();
-        await queuedContinuation.Task;
+        await queuedContinuation.Task.WaitAsync(TestTimeout);
         scheduler.Tick();
 
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
@@ -93,7 +95,7 @@ public sealed class CommandGameLoopOwnershipTests
         itemService.GetTotalItemCount().Returns(_ =>
         {
             searchStarted.SetResult(true);
-            releaseSearch.Task.GetAwaiter().GetResult();
+            releaseSearch.Task.Wait(TestTimeout);
             return 1;
         });
         itemService.FindItemDefinitionById(0).Returns(_ =>
@@ -123,16 +125,16 @@ public sealed class CommandGameLoopOwnershipTests
 
         scheduler.Schedule(task);
         scheduler.Tick();
-        await searchStarted.Task;
+        await searchStarted.Task.WaitAsync(TestTimeout);
 
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         releaseSearch.SetResult(true);
-        await searchCompleted.Task;
+        await searchCompleted.Task.WaitAsync(TestTimeout);
         character.Destroy();
 
         scheduler.Tick();
-        await queuedContinuation.Task;
+        await queuedContinuation.Task.WaitAsync(TestTimeout);
         scheduler.Tick();
         scheduler.Tick();
 

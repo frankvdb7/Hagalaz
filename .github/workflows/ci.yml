@@ -39,7 +39,7 @@ jobs:
         run: dotnet build --no-restore --verbosity minimal -p:ContinuousIntegrationBuild=true -clp:NoSummary
 
       - name: Test
-        run: dotnet test --no-build --no-restore --results-directory TestResults --logger trx --collect "Code Coverage;Format=cobertura"
+        run: dotnet test --no-build --no-restore --blame-hang-timeout 10m --blame-hang-dump-type none --results-directory TestResults --logger trx --collect "Code Coverage;Format=cobertura"
 
       - name: Upload Test Results
         if: always()
