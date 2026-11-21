@@ -1,3 +1,4 @@
+using Hagalaz.TestSupport;
 using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;

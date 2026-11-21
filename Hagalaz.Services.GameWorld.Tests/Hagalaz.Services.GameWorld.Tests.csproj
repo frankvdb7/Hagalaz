@@ -27,6 +27,7 @@
   <ItemGroup>
     <Compile Include="..\TestSupport\ComposedTestContainer.cs" Link="TestSupport\ComposedTestContainer.cs" />
     <Compile Include="..\TestSupport\MemoryFileStore.cs" Link="TestSupport\MemoryFileStore.cs" />
+    <Compile Include="..\TestSupport\TrackedConnections.cs" Link="TestSupport\TrackedConnections.cs" />
     <ProjectReference Include="..\Hagalaz.Services.GameWorld\Hagalaz.Services.GameWorld.csproj" />
     <ProjectReference Include="..\Hagalaz.Game.Abstractions\Hagalaz.Game.Abstractions.csproj" />
     <!-- Build-order only: the plugin is staged and loaded dynamically, never referenced statically. -->

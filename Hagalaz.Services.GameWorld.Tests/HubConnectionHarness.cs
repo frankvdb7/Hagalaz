@@ -1,8 +1,7 @@
-using System.IO.Pipelines;
 using System.Security.Claims;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Features;
-using Microsoft.AspNetCore.Connections;
+using Hagalaz.TestSupport;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,27 +17,18 @@ namespace Hagalaz.Services.GameWorld.Tests;
 /// </summary>
 internal sealed class HubConnectionHarness
 {
-    private readonly List<RaidoHubConnectionContext> _connections = [];
-    private readonly List<(Pipe Input, Pipe Output)> _transports = [];
+    private readonly TrackedConnections _tracked = new();
+    private int _count;
 
     public RaidoHubConnectionContext CreateConnection(ICharacter character, string connectionIdPrefix, ClaimsPrincipal? user = null)
     {
+        var rawConnection = _tracked.CreateRawConnection($"{connectionIdPrefix}-{_count++}");
         var features = new FeatureCollection();
         features.Set<IConnectionUserFeature>(new ConnectionUserFeature
         {
             User = user ?? new ClaimsPrincipal(new ClaimsIdentity([], "test"))
         });
-        var rawConnection = Substitute.For<ConnectionContext>();
-        rawConnection.ConnectionId.Returns($"{connectionIdPrefix}-{_connections.Count}");
         rawConnection.Features.Returns(features);
-        var input = new Pipe();
-        var output = new Pipe();
-        var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        rawConnection.Transport.Returns(transport);
-        rawConnection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
 
         var options = new RaidoConnectionContextOptions();
         var tcpConnection = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
@@ -50,26 +40,11 @@ internal sealed class HubConnectionHarness
             NullLoggerFactory.Instance,
             TimeProvider.System);
         connection.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        _connections.Add(connection);
+        _tracked.Add(connection);
         return connection;
     }
 
-    public async Task CleanupAsync()
-    {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
-    }
+    public Task CleanupAsync() => _tracked.CleanupAsync();
 }
 
 /// <summary>

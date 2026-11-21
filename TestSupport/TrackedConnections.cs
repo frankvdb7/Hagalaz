@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Connections;
 using NSubstitute;
 using Raido.Server;
 
-namespace Raido.Server.Tests;
+namespace Hagalaz.TestSupport;
 
 /// <summary>
 ///     Remembers the hub connections and in-memory pipes a test created, so the test cleanup can abort and complete

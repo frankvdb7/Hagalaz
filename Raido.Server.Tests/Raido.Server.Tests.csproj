@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Raido.Server\Raido.Server.csproj" />
+    <Compile Include="..\TestSupport\TrackedConnections.cs" Link="TestSupport\TrackedConnections.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
