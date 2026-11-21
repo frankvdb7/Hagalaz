@@ -113,6 +113,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 return;
             }
 
+            if (!task.NpcIds.Contains(npc.Definition.Id))
+            {
+                return; // not an assigned target: no XP, no count change, no rewards.
+            }
+
             ISlayerMasterTable? masterTable = null;
             if (CurrentKillCount <= 1)
             {
