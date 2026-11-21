@@ -11,8 +11,8 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
 {
     /// <summary>
     ///     A beast of burden familiar whose special move is performed as soon as it is triggered (clicked, or aimed at a
-    ///     creature) and has no extra effect of its own: it only consumes the scroll and points and grants experience.
-    ///     The familiar declares its capacity, move name, description and cost.
+    ///     creature) and consumes the scroll and points and grants experience, then applies the familiar's own effect.
+    ///     The familiar declares its capacity, move name, description, cost and effect.
     /// </summary>
     public abstract class SingleMoveBobFamiliarScriptBase(
         INpc owner,
@@ -35,7 +35,15 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             }
 
             base.PerformSpecialMove(target);
+            ApplySpecialMoveEffect(target);
         }
+
+        /// <summary>
+        ///     Applies the effect of the special move once its scroll and points have been spent. By default the move has no
+        ///     effect beyond its cost.
+        /// </summary>
+        /// <param name="target">The target the move was triggered on.</param>
+        protected virtual void ApplySpecialMoveEffect(IRuneObject target) { }
 
         /// <inheritdoc />
         public override void PerformAttack(ICreature target)

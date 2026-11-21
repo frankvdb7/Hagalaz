@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Factories;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
@@ -23,7 +24,15 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
 
         public override string GetSpecialMoveName() => "Testudo";
 
-        // TODO - the move does not hit yet (max 80); it only consumes the scroll and points.
-        public override string GetSpecialMoveDescription() => "Inflicts up to 80 damage against your opponent.";
+        public override string GetSpecialMoveDescription() => "Boosts your Defence level by 8.";
+
+        protected override void ApplySpecialMoveEffect(IRuneObject target)
+        {
+            var statistics = Summoner.Statistics;
+            var max = statistics.LevelForExperience(StatisticsConstants.Defence) + DefenceBoost;
+            statistics.HealSkill(StatisticsConstants.Defence, max, DefenceBoost);
+        }
+
+        private const int DefenceBoost = 8;
     }
 }

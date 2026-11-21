@@ -50,9 +50,73 @@ public sealed class ClickSpecialFamiliarTests
     }
 
     [TestMethod]
-    public void Familiar_DescribesTheWarTortoiseMove()
+    [DataRow("warTortoise", "Boosts your Defence level by 8.")]
+    [DataRow("terrorBird", "Boosts your Agility level by 2 and restores run energy by half your Agility level.")]
+    [DataRow("thornySnail", "Inflicts up to 80 damage against your opponent.")]
+    public void Familiar_DescribesItsMove(string familiar, string description)
     {
-        Assert.AreEqual("Inflicts up to 80 damage against your opponent.", new World().Create("warTortoise").GetSpecialMoveDescription());
+        Assert.AreEqual(description, new World().Create(familiar).GetSpecialMoveDescription());
+    }
+
+    [TestMethod]
+    public void Testudo_BoostsDefenceByEight()
+    {
+        var world = new World();
+        var script = world.CreateAttached("warTortoise");
+        world.Summoner.Statistics.LevelForExperience(StatisticsConstants.Defence).Returns(70);
+        script.SetSpecialMovePoints(20);
+        script.SetUsingSpecialMove(true);
+
+        script.PerformSpecialMove(world.Target);
+
+        world.Summoner.Statistics.Received(1).HealSkill(StatisticsConstants.Defence, 78, 8);
+    }
+
+    [TestMethod]
+    [DataRow(51, 53, 26)]
+    [DataRow(52, 54, 26)]
+    public void TirelessRun_BoostsAgilityAndRestoresHalfTheLevelRoundedUp(int level, int max, int energy)
+    {
+        var world = new World();
+        var script = world.CreateAttached("terrorBird");
+        world.Summoner.Statistics.LevelForExperience(StatisticsConstants.Agility).Returns(level);
+        script.SetSpecialMovePoints(8);
+        script.SetUsingSpecialMove(true);
+
+        script.PerformSpecialMove(world.Target);
+
+        world.Summoner.Statistics.Received(1).HealSkill(StatisticsConstants.Agility, max, 2);
+        world.Summoner.Statistics.Received(1).HealRunEnergy(energy);
+    }
+
+    [TestMethod]
+    [DataRow("warTortoise")]
+    [DataRow("terrorBird")]
+    public void SpecialMoveEffect_WithoutEnoughPoints_IsNotApplied(string familiar)
+    {
+        var world = new World();
+        var script = world.CreateAttached(familiar);
+        script.SetSpecialMovePoints(script.GetRequiredSpecialMovePoints() - 1);
+        script.SetUsingSpecialMove(true);
+
+        script.PerformSpecialMove(world.Target);
+
+        world.Summoner.Statistics.DidNotReceiveWithAnyArgs().HealSkill(default, default, default);
+        world.Summoner.Statistics.DidNotReceiveWithAnyArgs().HealRunEnergy(default);
+    }
+
+    [TestMethod]
+    [DataRow("warTortoise")]
+    [DataRow("terrorBird")]
+    public void SetSpecialMoveTarget_WithoutACreature_AppliesNoEffect(string familiar)
+    {
+        var world = new World();
+        var script = world.CreateAttached(familiar);
+        script.SetSpecialMovePoints(script.GetRequiredSpecialMovePoints());
+
+        script.SetSpecialMoveTarget(null);
+
+        world.Summoner.Statistics.DidNotReceiveWithAnyArgs().HealSkill(default, default, default);
     }
 
     [TestMethod]
