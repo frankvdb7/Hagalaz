@@ -105,13 +105,25 @@ namespace Hagalaz.Game.Abstractions.Services
         bool IsAccessible(ILocation location);
 
         /// <summary>
-        /// Gets the collision flag for a specific tile in the world.
+        /// Gets the collision flag for a specific tile of the global world. Instance-originated
+        /// callers must use the overload that names the world.
         /// </summary>
         /// <param name="absX">The absolute X-coordinate of the tile.</param>
         /// <param name="absY">The absolute Y-coordinate of the tile.</param>
         /// <param name="z">The plane (height level) of the tile.</param>
         /// <returns>The <see cref="CollisionFlag"/> for the specified tile.</returns>
         CollisionFlag GetClippingFlag(int absX, int absY, int z);
+
+        /// <summary>
+        /// Gets the collision flag for a tile of the world identified by <paramref name="dimension"/>.
+        /// A missing or not ready region is reported as blocked; the region is never created or resumed.
+        /// </summary>
+        /// <param name="absX">The absolute X-coordinate of the tile.</param>
+        /// <param name="absY">The absolute Y-coordinate of the tile.</param>
+        /// <param name="z">The plane (height level) of the tile.</param>
+        /// <param name="dimension">The world the tile belongs to, 0 for the global world.</param>
+        /// <returns>The <see cref="CollisionFlag"/> for the specified tile.</returns>
+        CollisionFlag GetClippingFlag(int absX, int absY, int z, int dimension);
 
         /// <summary>
         /// Adds a collision flag to a specific tile, creating the region if necessary.

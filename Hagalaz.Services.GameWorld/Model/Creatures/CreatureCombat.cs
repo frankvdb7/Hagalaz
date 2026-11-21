@@ -608,7 +608,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Checks whether movement collision allows a unit connection between two adjacent footprint tiles.
         /// </summary>
         private bool CanMeleeStep(int fromX, int fromY, int toX, int toY) =>
-            Owner.PathFinder.CheckStep(toX, toY, Owner.Location.Z, Math.Sign(toX - fromX), Math.Sign(toY - fromY), 1);
+            Owner.PathFinder.CheckStep(Location.Create(toX, toY, Owner.Location.Z, Owner.Location.Dimension), Math.Sign(toX - fromX), Math.Sign(toY - fromY), 1);
 
         /// <summary>
         ///     Get's if this creature is in combat.

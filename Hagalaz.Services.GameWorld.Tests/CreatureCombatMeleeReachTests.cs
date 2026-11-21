@@ -45,8 +45,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             _target.Movement.Returns(_targetMovement);
             SetTargetLocation(3201, 3200);
 
-            _pathFinder.CheckStep(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(call => !_blockedSteps.Contains((call.ArgAt<int>(0), call.ArgAt<int>(1), call.ArgAt<int>(3), call.ArgAt<int>(4))));
+            _pathFinder.CheckStep(Arg.Any<IVector3>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+                .Returns(call => !_blockedSteps.Contains((call.ArgAt<IVector3>(0).X, call.ArgAt<IVector3>(0).Y, call.ArgAt<int>(1), call.ArgAt<int>(2))));
             _pathFinder.Find(Arg.Any<IEntity>(), Arg.Any<IEntity>(), Arg.Any<bool>()).Returns(Substitute.For<IPath>());
 
             entityStore.Add(_owner);
@@ -136,8 +136,8 @@ namespace Hagalaz.Services.GameWorld.Tests
             _combat.Tick();
 
             Assert.AreEqual(1, _combat.Attacks);
-            _pathFinder.Received().CheckStep(3201, 3200, 0, 1, 0, 1);
-            _pathFinder.DidNotReceive().CheckStep(3202, 3200, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>());
+            _pathFinder.Received().CheckStep(Arg.Is<IVector3>(l => l.X == 3201 && l.Y == 3200 && l.Z == 0), 1, 0, 1);
+            _pathFinder.DidNotReceive().CheckStep(Arg.Is<IVector3>(l => l.X == 3202 && l.Y == 3200), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>());
         }
 
         [TestMethod]
@@ -155,7 +155,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _combat.Tick();
 
             Assert.AreEqual(1, _combat.Attacks);
-            _pathFinder.DidNotReceiveWithAnyArgs().CheckStep(default, default, default, default, default, default);
+            _pathFinder.DidNotReceiveWithAnyArgs().CheckStep(default!, default, default, default);
         }
 
         [TestMethod]
@@ -180,8 +180,8 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Tick_RealPathFinderWithWestWallOnTargetTile_DoesNotAttack()
         {
             var regionService = Substitute.For<IMapRegionService>();
-            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
-            regionService.GetClippingFlag(3201, 3200, 0).Returns(CollisionFlag.CheckWest);
+            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
+            regionService.GetClippingFlag(3201, 3200, 0, 0).Returns(CollisionFlag.CheckWest);
             _owner.PathFinder.Returns(new DumbPathFinder(regionService));
 
             _combat.Tick();
@@ -195,8 +195,8 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             // Gateway walls carry WallWest without WallAllowRangeWest or FloorBlock.
             var regionService = Substitute.For<IMapRegionService>();
-            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
-            regionService.GetClippingFlag(3201, 3200, 0).Returns(CollisionFlag.WallWest);
+            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
+            regionService.GetClippingFlag(3201, 3200, 0, 0).Returns(CollisionFlag.WallWest);
             _owner.PathFinder.Returns(new DumbPathFinder(regionService));
 
             _combat.Tick();
@@ -209,7 +209,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Tick_RealPathFinderWithOpenGround_Attacks()
         {
             var regionService = Substitute.For<IMapRegionService>();
-            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
+            regionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
             _owner.PathFinder.Returns(new DumbPathFinder(regionService));
 
             _combat.Tick();

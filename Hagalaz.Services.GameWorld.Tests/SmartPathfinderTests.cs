@@ -1,3 +1,4 @@
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -16,7 +17,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Initialize()
         {
             _mapRegionService = Substitute.For<IMapRegionService>();
-            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
+            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>()).Returns(CollisionFlag.Walkable);
             _pathfinder = new SmartPathFinder(_mapRegionService);
         }
 
@@ -31,10 +32,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             // Assert
-            Assert.IsTrue(path.Successful);
-            Assert.IsTrue(path.Any());
-            var lastPoint = path.Last();
-            Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= 1 && Math.Abs(to.Y - lastPoint.Y) <= 1);
+            AssertReachesNear(path, to);
         }
 
         [TestMethod]
@@ -45,16 +43,13 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Block the direct path
-            _mapRegionService.GetClippingFlag(2, 1, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             // Assert
-            Assert.IsTrue(path.Successful);
-            Assert.IsTrue(path.Any());
-            var lastPoint = path.Last();
-            Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= 1 && Math.Abs(to.Y - lastPoint.Y) <= 1);
+            AssertReachesNear(path, to);
             Assert.AreNotEqual(Location.Create(2, 1, 0), path.First()); // Ensure it didn't go through the obstacle
         }
 
@@ -66,14 +61,14 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Block all paths to the destination
-            _mapRegionService.GetClippingFlag(2, 0, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(2, 1, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(2, 2, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(3, 0, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(3, 2, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(4, 0, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(4, 1, 0).Returns(CollisionFlag.FloorBlock);
-            _mapRegionService.GetClippingFlag(4, 2, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 0, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 2, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(3, 0, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(3, 2, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(4, 0, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(4, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(4, 2, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
@@ -101,5 +96,14 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= size && Math.Abs(to.Y - lastPoint.Y) <= size);
         }
 
-    }
+    
+
+        private static void AssertReachesNear(IPath path, ILocation to)
+        {
+            Assert.IsTrue(path.Successful);
+            Assert.IsTrue(path.Any());
+            var lastPoint = path.Last();
+            Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= 1 && Math.Abs(to.Y - lastPoint.Y) <= 1);
+        }
+}
 }

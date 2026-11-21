@@ -413,7 +413,7 @@ public sealed class ProjectilePathfinderTests
     {
         var inspectedTiles = new List<Location>();
         var mapRegionService = Substitute.For<IMapRegionService>();
-        mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+        mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
             .Returns(callInfo =>
             {
                 var x = callInfo.ArgAt<int>(0);

@@ -18,7 +18,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Initialize()
         {
             _mapRegionService = Substitute.For<IMapRegionService>();
-            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+            _mapRegionService.GetClippingFlag(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
                 .Returns(CollisionFlag.Walkable);
             _pathfinder = new DumbPathFinder(_mapRegionService);
         }
@@ -70,7 +70,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(3, 1, 0);
 
             // Mock getClippingFlag
-            _mapRegionService.GetClippingFlag(2, 1, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(2, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
@@ -129,7 +129,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         {
             var from = Location.Create(1, 1, 0);
             var to = Location.Create(4, 1, 0);
-            _mapRegionService.GetClippingFlag(3, 1, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(3, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
@@ -168,7 +168,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(5, 1, 0);
 
             // Block a tile on the path
-            _mapRegionService.GetClippingFlag(3, 1, 0).Returns(CollisionFlag.FloorBlock);
+            _mapRegionService.GetClippingFlag(3, 1, 0, 0).Returns(CollisionFlag.FloorBlock);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, true);
@@ -211,6 +211,15 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(path.Any());
         }
 
+        private void AssertReachesNeighbor(TraversalCase testCase, ILocation from, ILocation to)
+        {
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            Assert.IsTrue(path.Successful, testCase.Name);
+            Assert.AreEqual(1, path.Count(), testCase.Name);
+            Assert.AreEqual(to, path.Single(), testCase.Name);
+        }
+
         [TestMethod]
         [DynamicData(nameof(SingleTraversalCases))]
         public void Find_SizeOneClearDirection_ReachesRequestedNeighbor(TraversalCase testCase)
@@ -219,13 +228,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var from = Location.Create(10, 10, 0);
             var to = Location.Create(from.X + testCase.DeltaX, from.Y + testCase.DeltaY, from.Z);
 
-            // Act
-            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
-
-            // Assert
-            Assert.IsTrue(path.Successful, testCase.Name);
-            Assert.AreEqual(1, path.Count(), testCase.Name);
-            Assert.AreEqual(to, path.Single(), testCase.Name);
+            AssertReachesNeighbor(testCase, from, to);
         }
 
         [TestMethod]
@@ -235,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Arrange
             var from = Location.Create(10, 10, 0);
             var to = Location.Create(from.X + testCase.DeltaX, from.Y + testCase.DeltaY, from.Z);
-            _mapRegionService.GetClippingFlag(to.X, to.Y, to.Z).Returns(testCase.MatchingBlocker);
+            _mapRegionService.GetClippingFlag(to.X, to.Y, to.Z, 0).Returns(testCase.MatchingBlocker);
 
             // Act
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
@@ -252,15 +255,9 @@ namespace Hagalaz.Services.GameWorld.Tests
             // Arrange
             var from = Location.Create(10, 10, 0);
             var to = Location.Create(from.X + testCase.DeltaX, from.Y + testCase.DeltaY, from.Z);
-            _mapRegionService.GetClippingFlag(to.X, to.Y, to.Z).Returns(testCase.UnrelatedBlocker);
+            _mapRegionService.GetClippingFlag(to.X, to.Y, to.Z, 0).Returns(testCase.UnrelatedBlocker);
 
-            // Act
-            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
-
-            // Assert
-            Assert.IsTrue(path.Successful, testCase.Name);
-            Assert.AreEqual(1, path.Count(), testCase.Name);
-            Assert.AreEqual(to, path.Single(), testCase.Name);
+            AssertReachesNeighbor(testCase, from, to);
         }
 
         [TestMethod]
@@ -290,7 +287,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _mapRegionService.GetClippingFlag(
                     from.X + testCase.CollisionDeltaX,
                     from.Y + testCase.CollisionDeltaY,
-                    from.Z)
+                    from.Z, 0)
                 .Returns(testCase.BlockingFlag);
 
             // Act
