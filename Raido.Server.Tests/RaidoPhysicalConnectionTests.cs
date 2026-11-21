@@ -318,27 +318,12 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
         var message = new TestMessage();
         await context.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
-        {
-            dispatched.TrySetResult();
-            return Task.CompletedTask;
-        });
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.PhysicalConnection");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        var (dispatcher, dispatched) = CreateDispatcherSignaling(context, message);
+        using var fixture = CreateHandler("Raido.Server.Tests.PhysicalConnection", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
-        initial.Input.Writer.Complete();
-        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
+        await DetachCurrentConnectionAsync(context, initial);
         Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
 
         await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
@@ -354,37 +339,18 @@ public sealed class RaidoPhysicalConnectionTests
     [TestMethod]
     public async Task DetachedPartialMessageIsNotCombinedWithReplacementInput()
     {
-        using var initial = CreatePhysicalConnection("initial");
-        using var replacement = CreatePhysicalConnection("replacement");
-        var initialMessage = new TestMessage();
-        var replacementMessage = new TestMessage();
-        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
-        await context.SetProtocolAsync(protocol, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new List<RaidoMessage>();
-        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
-        {
-            var message = callInfo.Arg<RaidoMessage>()!;
-            dispatched.Add(message);
-            if (ReferenceEquals(message, replacementMessage))
-            {
-                replacementDispatched.TrySetResult();
-            }
-
-            return Task.CompletedTask;
-        });
-        using var meter = new Meter("Raido.Server.Tests.StreamBoundary");
-        var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var scenario = await CreateStreamBoundaryScenarioAsync();
+        var initial = scenario.Initial;
+        var replacement = scenario.Replacement;
+        var initialMessage = scenario.InitialMessage;
+        var replacementMessage = scenario.ReplacementMessage;
+        var context = scenario.Context;
+        var dispatcher = scenario.Dispatcher;
+        var dispatched = scenario.Dispatched;
+        var replacementDispatched = scenario.ReplacementDispatched;
+        var protocol = scenario.Protocol;
+        using var fixture = CreateHandler("Raido.Server.Tests.StreamBoundary", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
 
@@ -481,37 +447,18 @@ public sealed class RaidoPhysicalConnectionTests
             new ReadOnlySequence<byte>(new byte[] { 1 }),
             isCanceled: false,
             isCompleted: false));
-        using var initial = CreatePhysicalConnection("initial", inputReader: initialReader);
-        using var replacement = CreatePhysicalConnection("replacement");
-        var initialMessage = new TestMessage();
-        var replacementMessage = new TestMessage();
-        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
-        await context.SetProtocolAsync(protocol, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new List<RaidoMessage>();
-        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
-        {
-            var message = callInfo.Arg<RaidoMessage>()!;
-            dispatched.Add(message);
-            if (ReferenceEquals(message, replacementMessage))
-            {
-                replacementDispatched.TrySetResult();
-            }
-
-            return Task.CompletedTask;
-        });
-        using var meter = new Meter("Raido.Server.Tests.InputCommitBoundary");
-        var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var scenario = await CreateStreamBoundaryScenarioAsync(initialInputReader: initialReader);
+        var initial = scenario.Initial;
+        var replacement = scenario.Replacement;
+        var initialMessage = scenario.InitialMessage;
+        var replacementMessage = scenario.ReplacementMessage;
+        var context = scenario.Context;
+        var dispatcher = scenario.Dispatcher;
+        var dispatched = scenario.Dispatched;
+        var replacementDispatched = scenario.ReplacementDispatched;
+        var protocol = scenario.Protocol;
+        using var fixture = CreateHandler("Raido.Server.Tests.InputCommitBoundary", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         initialReader.BeforeReturning = initial.Closed.Cancel;
         var run = handler.ConnectAsync(context);
@@ -542,37 +489,18 @@ public sealed class RaidoPhysicalConnectionTests
             new ReadOnlySequence<byte>(new byte[] { 1 }),
             isCanceled: false,
             isCompleted: false));
-        using var initial = CreatePhysicalConnection("initial", inputReader: inputReader);
-        using var replacement = CreatePhysicalConnection("replacement");
-        var initialMessage = new TestMessage();
-        var replacementMessage = new TestMessage();
-        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
-        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
-        await context.SetProtocolAsync(protocol, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new List<RaidoMessage>();
-        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
-        {
-            var message = callInfo.Arg<RaidoMessage>()!;
-            dispatched.Add(message);
-            if (ReferenceEquals(message, replacementMessage))
-            {
-                replacementDispatched.TrySetResult();
-            }
-
-            return Task.CompletedTask;
-        });
-        using var meter = new Meter("Raido.Server.Tests.InputAdmissionBoundary");
-        var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var scenario = await CreateStreamBoundaryScenarioAsync(initialInputReader: inputReader);
+        var initial = scenario.Initial;
+        var replacement = scenario.Replacement;
+        var initialMessage = scenario.InitialMessage;
+        var replacementMessage = scenario.ReplacementMessage;
+        var context = scenario.Context;
+        var dispatcher = scenario.Dispatcher;
+        var dispatched = scenario.Dispatched;
+        var replacementDispatched = scenario.ReplacementDispatched;
+        var protocol = scenario.Protocol;
+        using var fixture = CreateHandler("Raido.Server.Tests.InputAdmissionBoundary", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         Task? run = null;
         try
@@ -640,16 +568,8 @@ public sealed class RaidoPhysicalConnectionTests
 
             return Task.CompletedTask;
         });
-        using var meter = new Meter("Raido.Server.Tests.CompleteAndPartialBoundary");
-        var meterFactory = Substitute.For<IMeterFactory>();
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.CompleteAndPartialBoundary", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1, 2 });
@@ -683,16 +603,8 @@ public sealed class RaidoPhysicalConnectionTests
         using var initial = CreatePhysicalConnection("initial");
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.PhysicalInputCompletion");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.PhysicalInputCompletion", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         initial.Input.Writer.Complete();
@@ -716,31 +628,16 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
         var message = new TestMessage();
         await context.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
-        {
-            dispatched.TrySetResult();
-            return Task.CompletedTask;
-        });
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.DetachedHandler");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        var (dispatcher, dispatched) = CreateDispatcherSignaling(context, message);
+        using var fixture = CreateHandler("Raido.Server.Tests.DetachedHandler", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
 
         var run = handler.ConnectAsync(context);
 
         Assert.IsFalse(run.IsCompleted);
-        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
+        await AttachReplacementAndSendAsync(context, replacement);
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
         context.Abort();
         await run.WaitAsync(TimeSpan.FromSeconds(2));
@@ -1146,31 +1043,16 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
         var message = new TestMessage();
         await context.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
-        {
-            dispatched.TrySetResult();
-            return Task.CompletedTask;
-        });
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.ReadFailure");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        var (dispatcher, dispatched) = CreateDispatcherSignaling(context, message);
+        using var fixture = CreateHandler("Raido.Server.Tests.ReadFailure", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
 
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
+        await AttachReplacementAndSendAsync(context, replacement);
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
         replacement.Input.Writer.Complete();
         context.Abort();
@@ -1190,16 +1072,8 @@ public sealed class RaidoPhysicalConnectionTests
         var initial = CreatePhysicalConnection("initial", inputReader: failingReader);
         var replacement = CreatePhysicalConnection("replacement");
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.ReadCancellation");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            Substitute.For<IRaidoDispatcher>(),
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.ReadCancellation");
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await failingReader.ReadInvoked.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -1247,16 +1121,8 @@ public sealed class RaidoPhysicalConnectionTests
         var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var allowHandlerStart = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         lifetimeManager.OnConnectedAsync(context).Returns(allowHandlerStart.Task);
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.UnexpectedRelayFault");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            lifetimeManager,
-            Substitute.For<IRaidoDispatcher>(),
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.UnexpectedRelayFault", lifetimeManager: lifetimeManager);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
 
@@ -1530,23 +1396,9 @@ public sealed class RaidoPhysicalConnectionTests
 
             var message = new TestMessage();
             await context.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
-            var dispatcher = Substitute.For<IRaidoDispatcher>();
-            var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
-            {
-                dispatched.TrySetResult();
-                return Task.CompletedTask;
-            });
-            using var meter = new Meter("Raido.Server.Tests.RapidInputBoundary");
-            var meterFactory = Substitute.For<IMeterFactory>();
-            meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-            using var metrics = new RaidoMetrics(meterFactory);
-            var handler = new RaidoHubConnectionHandler(
-                NullLoggerFactory.Instance,
-                Options.Create(new RaidoOptions()),
-                Substitute.For<IRaidoHubLifetimeManager>(),
-                dispatcher,
-                metrics);
+            var (dispatcher, dispatched) = CreateDispatcherSignaling(context, message);
+            using var fixture = CreateHandler("Raido.Server.Tests.RapidInputBoundary", dispatcher: dispatcher);
+            var handler = fixture.Handler;
 
             run = handler.ConnectAsync(context);
             await later.Input.Writer.WriteAsync(new byte[] { 1 });
@@ -1951,91 +1803,19 @@ public sealed class RaidoPhysicalConnectionTests
     [TestMethod]
     public async Task ProtocolParserFailureIsTerminalAndCannotOpenReconnectWindow()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
-        var parserFailure = new InvalidOperationException("parser failure");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        await context.SetProtocolAsync(new TestProtocol { ParseException = parserFailure }, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.ParserFailure");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
-
-        var run = handler.ConnectAsync(context);
-        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
-        await run.WaitAsync(TimeSpan.FromSeconds(1));
-
-        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await context.CleanupAsync();
+        await AssertParserFaultIsTerminalAsync(new InvalidOperationException("parser failure"), "Raido.Server.Tests.ParserFailure");
     }
 
     [TestMethod]
     public async Task ParserIOExceptionIsTerminalWhenItDoesNotComeFromThePhysicalConnectionRead()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
-        var parserFailure = new IOException("parser failure");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        await context.SetProtocolAsync(new TestProtocol { ParseException = parserFailure }, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.ParserIOException");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
-
-        var run = handler.ConnectAsync(context);
-        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
-        await run.WaitAsync(TimeSpan.FromSeconds(1));
-
-        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await context.CleanupAsync();
+        await AssertParserFaultIsTerminalAsync(new IOException("parser failure"), "Raido.Server.Tests.ParserIOException");
     }
 
     [TestMethod]
     public async Task ParserCancellationIsTerminalWhenItDoesNotComeFromThePhysicalConnectionRead()
     {
-        var initial = CreatePhysicalConnection("initial");
-        var replacement = CreatePhysicalConnection("replacement");
-        var parserFailure = new OperationCanceledException("parser failure");
-        var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        await context.SetProtocolAsync(new TestProtocol { ParseException = parserFailure }, CancellationToken.None);
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.ParserCancellation");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
-
-        var run = handler.ConnectAsync(context);
-        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
-        await run.WaitAsync(TimeSpan.FromSeconds(1));
-
-        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
-        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
-        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await context.CleanupAsync();
+        await AssertParserFaultIsTerminalAsync(new OperationCanceledException("parser failure"), "Raido.Server.Tests.ParserCancellation");
     }
 
     [TestMethod]
@@ -2046,16 +1826,8 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         await context.SetProtocolAsync(new TestProtocol { ParseMessageReturns = false }, CancellationToken.None);
         var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.IncompleteProtocolData");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.IncompleteProtocolData", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await context.TcpConnection.Application.Output.WriteAsync(new byte[] { 1 });
@@ -2076,16 +1848,8 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
         await context.SetProtocolAsync(new TestProtocol { ParseMessageReturns = false }, CancellationToken.None);
         var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.OversizedProtocolData");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions { MaximumReceiveMessageSize = 0 }),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.OversizedProtocolData", dispatcher: dispatcher, options: new RaidoOptions { MaximumReceiveMessageSize = 0 });
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
@@ -2108,16 +1872,8 @@ public sealed class RaidoPhysicalConnectionTests
         await context.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
         var dispatcher = Substitute.For<IRaidoDispatcher>();
         dispatcher.DispatchMessageAsync(context, message).Returns(Task.FromException(dispatchFailure));
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.ApplicationFailure");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            dispatcher,
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.ApplicationFailure", dispatcher: dispatcher);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await initial.Input.Writer.WriteAsync(new byte[] { 1 });
@@ -2138,29 +1894,13 @@ public sealed class RaidoPhysicalConnectionTests
         var message = new TestMessage();
         await context.SetProtocolAsync(new TestProtocol { MessageToReturn = message }, CancellationToken.None);
         var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
-        var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
-        {
-            dispatched.TrySetResult();
-            return Task.CompletedTask;
-        });
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.PhysicalConnectionLifetime");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            lifetimeManager,
-            dispatcher,
-            metrics);
+        var (dispatcher, dispatched) = CreateDispatcherSignaling(context, message);
+        using var fixture = CreateHandler("Raido.Server.Tests.PhysicalConnectionLifetime", dispatcher: dispatcher, lifetimeManager: lifetimeManager);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
-        initial.Input.Writer.Complete();
-        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
-        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
-        await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
+        await DetachCurrentConnectionAsync(context, initial);
+        await AttachReplacementAndSendAsync(context, replacement);
         await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(1));
         replacement.Input.Writer.Complete();
         context.Abort();
@@ -2732,16 +2472,8 @@ public sealed class RaidoPhysicalConnectionTests
         blockedWriter.ReleaseOnCancel = false;
         using var initial = CreatePhysicalConnection("initial", outputWriter: blockedWriter);
         var context = CreateContext(initial.Connection, reconnectEnabled: true);
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.StablePipeCleanup");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            Substitute.For<IRaidoHubLifetimeManager>(),
-            Substitute.For<IRaidoDispatcher>(),
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.StablePipeCleanup");
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         var write = context.WriteAsync(new TestMessage());
@@ -2926,35 +2658,15 @@ public sealed class RaidoPhysicalConnectionTests
             timeProvider: timeProvider);
         var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        lifetimeManager.OnConnectedAsync(context).Returns(_ =>
-        {
-            lifetimeConnected.TrySetResult();
-            return Task.CompletedTask;
-        });
-        dispatcher.OnConnectedAsync(context).Returns(_ =>
-        {
-            dispatcherConnected.TrySetResult();
-            return Task.CompletedTask;
-        });
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.HandlerTimeout");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            lifetimeManager,
-            dispatcher,
-            metrics);
+        var (lifetimeConnected, dispatcherConnected) = CreateConnectionSignals(lifetimeManager, dispatcher, context);
+        using var fixture = CreateHandler("Raido.Server.Tests.HandlerTimeout", dispatcher: dispatcher, lifetimeManager: lifetimeManager);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await lifetimeConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await dispatcherConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        initial.Input.Writer.Complete();
-        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
+        await DetachCurrentConnectionAsync(context, initial);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         timeProvider.Advance(TimeSpan.FromSeconds(2));
 
@@ -2975,35 +2687,15 @@ public sealed class RaidoPhysicalConnectionTests
         var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
         var lifetimeManager = Substitute.For<IRaidoHubLifetimeManager>();
         var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        lifetimeManager.OnConnectedAsync(context).Returns(_ =>
-        {
-            lifetimeConnected.TrySetResult();
-            return Task.CompletedTask;
-        });
-        dispatcher.OnConnectedAsync(context).Returns(_ =>
-        {
-            dispatcherConnected.TrySetResult();
-            return Task.CompletedTask;
-        });
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.HandlerAbort");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            lifetimeManager,
-            dispatcher,
-            metrics);
+        var (lifetimeConnected, dispatcherConnected) = CreateConnectionSignals(lifetimeManager, dispatcher, context);
+        using var fixture = CreateHandler("Raido.Server.Tests.HandlerAbort", dispatcher: dispatcher, lifetimeManager: lifetimeManager);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await lifetimeConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await dispatcherConnected.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        initial.Input.Writer.Complete();
-        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
+        await DetachCurrentConnectionAsync(context, initial);
         Assert.IsFalse(context.TcpConnection.TryGetCurrentConnection(out _));
         context.Abort();
 
@@ -3268,23 +2960,14 @@ public sealed class RaidoPhysicalConnectionTests
         var store = new RaidoHubConnectionStore();
         var lifetimeManager = new DefaultRaidoHubLifetimeManager(store);
         var dispatcher = Substitute.For<IRaidoDispatcher>();
-        var meterFactory = Substitute.For<IMeterFactory>();
-        using var meter = new Meter("Raido.Server.Tests.StorePhysicalConnection");
-        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
-        using var metrics = new RaidoMetrics(meterFactory);
-        var handler = new RaidoHubConnectionHandler(
-            NullLoggerFactory.Instance,
-            Options.Create(new RaidoOptions()),
-            lifetimeManager,
-            dispatcher,
-            metrics);
+        using var fixture = CreateHandler("Raido.Server.Tests.StorePhysicalConnection", dispatcher: dispatcher, lifetimeManager: lifetimeManager);
+        var handler = fixture.Handler;
 
         var run = handler.ConnectAsync(context);
         await WaitForConditionAsync(() => store[context.ConnectionId] is not null);
         Assert.AreSame(context, store[context.ConnectionId]);
 
-        initial.Input.Writer.Complete();
-        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
+        await DetachCurrentConnectionAsync(context, initial);
         Assert.AreSame(context, store[context.ConnectionId]);
 
         Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
@@ -3349,6 +3032,182 @@ public sealed class RaidoPhysicalConnectionTests
 
             await context.CleanupAsync();
         }
+    }
+
+
+    /// <summary>
+    ///     A connection handler with real metrics on a private meter; disposing releases the metrics and the meter.
+    /// </summary>
+    private sealed class HandlerFixture(Meter meter, RaidoMetrics metrics, RaidoHubConnectionHandler handler) : IDisposable
+    {
+        public Meter Meter { get; } = meter;
+        public RaidoMetrics Metrics { get; } = metrics;
+        public RaidoHubConnectionHandler Handler { get; } = handler;
+
+        public void Dispose()
+        {
+            Metrics.Dispose();
+            Meter.Dispose();
+        }
+    }
+
+    private static HandlerFixture CreateHandler(
+        string meterName,
+        IRaidoDispatcher? dispatcher = null,
+        IRaidoHubLifetimeManager? lifetimeManager = null,
+        RaidoOptions? options = null)
+    {
+        var meter = new Meter(meterName);
+        var meterFactory = Substitute.For<IMeterFactory>();
+        meterFactory.Create(Arg.Any<MeterOptions>()).Returns(meter);
+        var metrics = new RaidoMetrics(meterFactory);
+        var handler = new RaidoHubConnectionHandler(
+            NullLoggerFactory.Instance,
+            Options.Create(options ?? new RaidoOptions()),
+            lifetimeManager ?? Substitute.For<IRaidoHubLifetimeManager>(),
+            dispatcher ?? Substitute.For<IRaidoDispatcher>(),
+            metrics);
+        return new HandlerFixture(meter, metrics, handler);
+    }
+
+
+    /// <summary>
+    ///     A reconnect-enabled connection whose protocol yields one message per stream, a replacement physical connection
+    ///     waiting to take over, and a dispatcher that records what it receives.
+    /// </summary>
+    private sealed class StreamBoundaryScenario(
+        PhysicalConnection initial,
+        PhysicalConnection replacement,
+        TestMessage initialMessage,
+        TestMessage replacementMessage,
+        StreamBoundaryProtocol protocol,
+        TestHubConnectionContext context,
+        IRaidoDispatcher dispatcher,
+        List<RaidoMessage> dispatched,
+        TaskCompletionSource replacementDispatched) : IDisposable
+    {
+        public PhysicalConnection Initial { get; } = initial;
+        public PhysicalConnection Replacement { get; } = replacement;
+        public TestMessage InitialMessage { get; } = initialMessage;
+        public TestMessage ReplacementMessage { get; } = replacementMessage;
+        public StreamBoundaryProtocol Protocol { get; } = protocol;
+        public TestHubConnectionContext Context { get; } = context;
+        public IRaidoDispatcher Dispatcher { get; } = dispatcher;
+        public List<RaidoMessage> Dispatched { get; } = dispatched;
+        public TaskCompletionSource ReplacementDispatched { get; } = replacementDispatched;
+
+        public void Dispose()
+        {
+            Replacement.Dispose();
+            Initial.Dispose();
+        }
+    }
+
+    private async Task<StreamBoundaryScenario> CreateStreamBoundaryScenarioAsync(PipeReader? initialInputReader = null)
+    {
+        var initial = CreatePhysicalConnection("initial", inputReader: initialInputReader);
+        var replacement = CreatePhysicalConnection("replacement");
+        var initialMessage = new TestMessage();
+        var replacementMessage = new TestMessage();
+        var protocol = new StreamBoundaryProtocol(initialMessage, replacementMessage);
+        var context = CreateContext(initial.Connection, reconnectEnabled: true, timeout: TimeSpan.FromSeconds(5));
+        await context.SetProtocolAsync(protocol, CancellationToken.None);
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new List<RaidoMessage>();
+        var replacementDispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, Arg.Any<RaidoMessage>()).Returns(callInfo =>
+        {
+            var message = callInfo.Arg<RaidoMessage>()!;
+            dispatched.Add(message);
+            if (ReferenceEquals(message, replacementMessage))
+            {
+                replacementDispatched.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        });
+        return new StreamBoundaryScenario(initial, replacement, initialMessage, replacementMessage, protocol, context, dispatcher, dispatched, replacementDispatched);
+    }
+
+
+    /// <summary>
+    ///     A dispatcher that completes the returned signal when <paramref name="message"/> is dispatched on the context.
+    /// </summary>
+    private static (IRaidoDispatcher Dispatcher, TaskCompletionSource Dispatched) CreateDispatcherSignaling(
+        RaidoHubConnectionContext context, RaidoMessage message)
+    {
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        var dispatched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dispatcher.DispatchMessageAsync(context, message).Returns(_ =>
+        {
+            dispatched.TrySetResult();
+            return Task.CompletedTask;
+        });
+        return (dispatcher, dispatched);
+    }
+
+    /// <summary>
+    ///     Signals that complete when the lifetime manager and the dispatcher are told the context connected.
+    /// </summary>
+    private static (TaskCompletionSource Lifetime, TaskCompletionSource Dispatcher) CreateConnectionSignals(
+        IRaidoHubLifetimeManager lifetimeManager, IRaidoDispatcher dispatcher, RaidoHubConnectionContext context)
+    {
+        var lifetimeConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dispatcherConnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lifetimeManager.OnConnectedAsync(context).Returns(_ =>
+        {
+            lifetimeConnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        dispatcher.OnConnectedAsync(context).Returns(_ =>
+        {
+            dispatcherConnected.TrySetResult();
+            return Task.CompletedTask;
+        });
+        return (lifetimeConnected, dispatcherConnected);
+    }
+
+
+    /// <summary>
+    ///     A protocol parser that throws <paramref name="parserFailure"/> ends the connection for good: the dispatcher is
+    ///     told, the connection aborts and no replacement physical connection can attach.
+    /// </summary>
+    private async Task AssertParserFaultIsTerminalAsync(Exception parserFailure, string meterName)
+    {
+        var initial = CreatePhysicalConnection("initial");
+        var replacement = CreatePhysicalConnection("replacement");
+        var context = CreateContext(initial.Connection, reconnectEnabled: true);
+        await context.SetProtocolAsync(new TestProtocol { ParseException = parserFailure }, CancellationToken.None);
+        var dispatcher = Substitute.For<IRaidoDispatcher>();
+        using var fixture = CreateHandler(meterName, dispatcher: dispatcher);
+
+        var run = fixture.Handler.ConnectAsync(context);
+        await initial.Input.Writer.WriteAsync(new byte[] { 1 });
+        await run.WaitAsync(TimeSpan.FromSeconds(1));
+
+        await dispatcher.Received(1).OnDisconnectedAsync(context, parserFailure);
+        Assert.IsTrue(context.ConnectionAborted.IsCancellationRequested);
+        Assert.IsFalse(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
+        await context.CleanupAsync();
+    }
+
+
+    /// <summary>
+    ///     Ends the initial physical connection's input and waits until the context no longer has a current connection.
+    /// </summary>
+    private static async Task DetachCurrentConnectionAsync(TestHubConnectionContext context, PhysicalConnection initial)
+    {
+        initial.Input.Writer.Complete();
+        await WaitForConditionAsync(() => !context.TcpConnection.TryGetCurrentConnection(out _));
+    }
+
+    /// <summary>
+    ///     Attaches the replacement physical connection, which must be accepted, and sends it one byte of input.
+    /// </summary>
+    private static async Task AttachReplacementAndSendAsync(TestHubConnectionContext context, PhysicalConnection replacement)
+    {
+        Assert.IsTrue(context.TcpConnection.TryAttachPhysicalConnection(replacement.Connection));
+        await replacement.Input.Writer.WriteAsync(new byte[] { 1 });
     }
 
     private TestHubConnectionContext CreateContext(
