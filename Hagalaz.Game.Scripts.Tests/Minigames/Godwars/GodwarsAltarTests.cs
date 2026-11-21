@@ -100,11 +100,11 @@ public sealed class GodwarsAltarTests
     }
 
     [TestMethod]
-    [DataRow("armadyl", 2829, 5287)]
-    [DataRow("bandos", 2828, 5342)]
-    [DataRow("saradomin", 2829, 5287)]
-    [DataRow("zamorak", 2828, 5342)]
-    public void Option2_TeleportsToTheAltarsDestinationOnPlaneTwo(string altar, int x, int y)
+    [DataRow("armadyl", 2835, 5294)]
+    [DataRow("bandos", 2862, 5357)]
+    [DataRow("saradomin", 2923, 5257)]
+    [DataRow("zamorak", 2925, 5333)]
+    public void Option2_TeleportsToTheAltarsDestinationOnGroundPlane(string altar, int x, int y)
     {
         var world = new World();
 
@@ -114,8 +114,23 @@ public sealed class GodwarsAltarTests
         var location = world.Teleports.Single().Location;
         Assert.AreEqual(x, location.X);
         Assert.AreEqual(y, location.Y);
-        Assert.AreEqual(2, location.Z);
+        Assert.AreEqual(0, location.Z);
         Assert.AreEqual(0, location.Dimension);
+    }
+
+    [TestMethod]
+    public void Option2_EachFactionTeleportsToItsOwnDestination()
+    {
+        var destinations = new[] { "armadyl", "bandos", "saradomin", "zamorak" }.Select(altar =>
+        {
+            var world = new World();
+            world.Click(altar, GameObjectClickType.Option2Click);
+            world.RunTeleportTask();
+            var location = world.Teleports.Single().Location;
+            return (location.X, location.Y);
+        }).ToArray();
+
+        Assert.HasCount(4, destinations.Distinct());
     }
 
     [TestMethod]

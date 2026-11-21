@@ -6,7 +6,7 @@
 - The brother count is computed from the killed flags; there is no second counter.
 - Reset happens when the chest is searched (kills cleared, new tunnel). The claim flag is only the guard against a second claim; a fresh run is written when the script is removed after a claim.
 - `OnDeath` despawns living brothers only; the run itself is untouched.
-- Encodings come from decoded 742 data recorded in `docs/revision-742/reference/minigames.md`.
+- Encodings come from decoded 742 data recorded in `docs/revision-742/reference/minigames-barrows.md`.
 
 ## Evidence and open choices
 

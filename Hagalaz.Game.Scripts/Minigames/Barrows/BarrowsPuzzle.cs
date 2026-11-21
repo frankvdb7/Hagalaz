@@ -5,7 +5,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
 {
     /// <summary>
     ///     The centre-door puzzle: which chest-room door is operable, which shapes are shown and which choice is correct.
-    ///     Model ids, interface layout and door slots come from the pinned 742 cache (docs/revision-742/reference/minigames.md);
+    ///     Model ids, interface layout and door slots come from the pinned 742 cache (docs/revision-742/reference/minigames-barrows.md);
     ///     the answers, locked-door behaviour and wrong-answer effect were checked on a live 742 client by the project owner.
     /// </summary>
     internal static class BarrowsPuzzle

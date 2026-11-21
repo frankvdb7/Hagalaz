@@ -6,6 +6,6 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Bandos
     [GameObjectScriptMetaData([26289])]
     public class BandosAltar : GodwarsAltarScript<BandosAltarPrayedState>
     {
-        protected override (int X, int Y) TeleportDestination => (2828, 5342);
+        protected override (int X, int Y) TeleportDestination => (2862, 5357);
     }
 }

@@ -34,4 +34,4 @@ The Barrows run lifecycle in `BarrowsScript` had blockers listed in issue #315: 
 
 - `Hagalaz.Game.Scripts/Minigames/Barrows/*`
 - `Hagalaz.Game.Scripts.Tests/Minigames/Barrows/BarrowsRunLifecycleTests.cs`
-- `docs/revision-742/reference/minigames.md`
+- `docs/revision-742/reference/minigames-barrows.md`
