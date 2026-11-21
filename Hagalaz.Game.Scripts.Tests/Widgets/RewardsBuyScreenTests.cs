@@ -53,7 +53,7 @@ public sealed class RewardsBuyScreenTests
     [DataRow(28)]
     [DataRow(37)]
     [DataRow(39)]
-    public void ItemReward_WithFullInventory_KeepsPointsAndGrantsNothing(int component)
+    public void ItemReward_WhenAtomicInsertionRejected_KeepsPointsAndGrantsNothing(int component)
     {
         var harness = new Harness(100, hasSpace: false);
 
@@ -101,13 +101,16 @@ public sealed class RewardsBuyScreenTests
             profile.GetValue<int>(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()).Returns(_ => Balance);
             profile.When(x => x.SetValue(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()))
                 .Do(call => Balance = call.ArgAt<int>(1));
-            var items = Substitute.For<IReadOnlyItemContainer>();
-            items.HasSpaceForRange(Arg.Any<IEnumerable<IItem?>>()).Returns(hasSpace);
             var inventory = Substitute.For<IInventoryContainer>();
-            inventory.Items.Returns(items);
-            inventory.AddItem(Arg.Any<IItem>()).Returns(call =>
+            // Atomic insertion: a rejected range adds nothing.
+            inventory.AddItems(Arg.Any<IEnumerable<IItem?>>()).Returns(call =>
             {
-                AddedItems.Add(call.Arg<IItem>());
+                if (!hasSpace)
+                {
+                    return false;
+                }
+
+                AddedItems.AddRange(call.Arg<IEnumerable<IItem?>>().OfType<IItem>());
                 return true;
             });
             var character = Substitute.For<ICharacter>();

@@ -57,8 +57,8 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
         }
 
         /// <summary>
-        ///     The single owner of a reward purchase: check balance (absent key is zero), verify the whole reward fits,
-        ///     grant it, then debit. Everything runs synchronously on the owning thread, so a repeated click sees the
+        ///     The single owner of a reward purchase: check balance (absent key is zero), grant the whole reward with
+        ///     one atomic inventory insertion, and debit only if that succeeded. Everything runs synchronously on the owning thread, so a repeated click sees the
         ///     already-debited balance and can neither mint points nor items.
         /// </summary>
         private bool TryPurchase(int cost, IReadOnlyCollection<IItem> items, Action? grant = null)
@@ -70,18 +70,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 return false;
             }
 
-            if (items.Count > 0)
+            if (items.Count > 0 && !Owner.Inventory.AddItems(items))
             {
-                if (!Owner.Inventory.Items.HasSpaceForRange(items))
-                {
-                    Owner.SendChatMessage(GameStrings.InventoryFull);
-                    return false;
-                }
-
-                foreach (var item in items)
-                {
-                    Owner.Inventory.AddItem(item);
-                }
+                Owner.SendChatMessage(GameStrings.InventoryFull);
+                return false;
             }
 
             grant?.Invoke();
