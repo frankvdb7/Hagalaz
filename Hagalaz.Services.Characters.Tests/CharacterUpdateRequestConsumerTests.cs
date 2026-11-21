@@ -11,7 +11,6 @@ using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
-using Testcontainers.MySql;
 
 namespace Hagalaz.Services.Characters.Tests;
 
@@ -419,17 +418,9 @@ public sealed class CharacterUpdateRequestConsumerTests
     [DoNotParallelize]
     public async Task Consume_DefaultFamiliarSentinel_DoesNotPersistFamiliar()
     {
-        await using var database = new MySqlBuilder("mysql:8.4")
-            .WithDatabase("hagalaz-characters-test")
-            .WithUsername("root")
-            .WithPassword("hagalaz-characters-test")
-            .WithCommand(
-                "--character-set-server=utf8mb4",
-                "--collation-server=utf8mb4_0900_ai_ci")
-            .Build();
-        await database.StartAsync();
+        var connectionString = await SharedMySqlServer.CreateDatabaseAsync();
 
-        await using (var seedContext = CreateMySqlContext(database))
+        await using (var seedContext = CreateMySqlContext(connectionString))
         {
             await seedContext.Database.MigrateAsync();
             seedContext.Characters.Add(new Character
@@ -443,7 +434,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             await seedContext.SaveChangesAsync();
         }
 
-        await using var provider = BuildConsumerProvider(() => CreateMySqlContext(database));
+        await using var provider = BuildConsumerProvider(() => CreateMySqlContext(connectionString));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -460,7 +451,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         Assert.AreEqual(request.MasterId, response.Message.MasterId);
         await harness.Stop();
 
-        await using var verificationContext = CreateMySqlContext(database);
+        await using var verificationContext = CreateMySqlContext(connectionString);
         Assert.IsFalse(await verificationContext.CharactersFamiliars.AnyAsync(x => x.MasterId == request.MasterId));
         Assert.IsFalse(await verificationContext.CharactersFamiliars.AnyAsync(x => x.FamiliarId == 0));
     }
@@ -470,17 +461,9 @@ public sealed class CharacterUpdateRequestConsumerTests
     [DoNotParallelize]
     public async Task Consume_MultipleFarmingPatches_PersistsEachPatchAndValidSeedId()
     {
-        await using var database = new MySqlBuilder("mysql:8.4")
-            .WithDatabase("hagalaz-characters-farming-test")
-            .WithUsername("root")
-            .WithPassword("hagalaz-characters-farming-test")
-            .WithCommand(
-                "--character-set-server=utf8mb4",
-                "--collation-server=utf8mb4_0900_ai_ci")
-            .Build();
-        await database.StartAsync();
+        var connectionString = await SharedMySqlServer.CreateDatabaseAsync();
 
-        await using (var seedContext = CreateMySqlContext(database))
+        await using (var seedContext = CreateMySqlContext(connectionString))
         {
             await seedContext.Database.MigrateAsync();
             seedContext.Characters.Add(new Character
@@ -500,7 +483,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             await seedContext.SaveChangesAsync();
         }
 
-        await using var provider = BuildConsumerProvider(() => CreateMySqlContext(database));
+        await using var provider = BuildConsumerProvider(() => CreateMySqlContext(connectionString));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -527,7 +510,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         await harness.Stop();
 
         Assert.AreEqual(CharacterPersistenceOutcome.Committed, response.Message.Outcome);
-        await using var verificationContext = CreateMySqlContext(database);
+        await using var verificationContext = CreateMySqlContext(connectionString);
         var persisted = await verificationContext.CharactersFarmingPatches
             .Where(patch => patch.MasterId == request.MasterId)
             .OrderBy(patch => patch.PatchId)
@@ -720,9 +703,9 @@ public sealed class CharacterUpdateRequestConsumerTests
             .UseInMemoryDatabase(databaseName)
             .Options);
 
-    private static HagalazDbContext CreateMySqlContext(MySqlContainer database) => new(
+    private static HagalazDbContext CreateMySqlContext(string connectionString) => new(
         new DbContextOptionsBuilder<HagalazDbContext>()
-            .UseMySQL(database.GetConnectionString())
+            .UseMySQL(connectionString)
             .Options);
 
     private static SkillsFarmingSeedDefinition CreateSeedDefinition(ushort itemId) => new()
