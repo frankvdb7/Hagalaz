@@ -84,10 +84,10 @@ public sealed class SkillCapeMasterTests
     }
 
     [TestMethod]
-    public void Wilfred_KeepsItsExistingItemScriptRegistration()
+    public void Wilfred_IsRegisteredAsAnNpcScript()
     {
-        Assert.IsNull(typeof(Wilfred).GetCustomAttribute<NpcScriptMetaDataAttribute>());
-        Assert.IsNotNull(typeof(Wilfred).GetCustomAttributes().SingleOrDefault(a => a.GetType().Name == "ItemScriptMetaDataAttribute"));
+        CollectionAssert.AreEqual(new[] { 4906 }, NpcIds<Wilfred>());
+        Assert.IsFalse(typeof(Wilfred).GetCustomAttributes().Any(a => a.GetType().Name == "ItemScriptMetaDataAttribute"));
     }
 
     private static int[] NpcIds<T>() => typeof(T).GetCustomAttribute<NpcScriptMetaDataAttribute>()!.NpcIds.ToArray();
