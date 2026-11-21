@@ -1,8 +1,8 @@
+using System;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
+using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -13,13 +13,10 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
     /// </summary>
     public class RewardsBuyScreen : WidgetScript
     {
-        private readonly IScopedGameMediator _mediator;
         private readonly IItemBuilder _itemBuilder;
 
-        public RewardsBuyScreen(ICharacterContextAccessor characterContextAccessor, IScopedGameMediator mediator, IItemBuilder itemBuilder) : base(
-            characterContextAccessor)
+        public RewardsBuyScreen(ICharacterContextAccessor characterContextAccessor, IItemBuilder itemBuilder) : base(characterContextAccessor)
         {
-            _mediator = mediator;
             _itemBuilder = itemBuilder;
         }
 
@@ -47,92 +44,50 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     Owner.Widgets.OpenWidget(161, 0, Owner.ServiceProvider.GetRequiredService<RewardsAssignmentScreen>(), true);
                     return true;
                 });
-            InterfaceInstance.AttachClickHandler(24,
-                (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(24, (componentID, clickType, extraData1, extraData2) =>
+                TryPurchase(400, [], () => Owner.Statistics.AddExperience(StatisticsConstants.Slayer, 10000)));
+            InterfaceInstance.AttachClickHandler(26, (componentID, clickType, extraData1, extraData2) =>
+                TryPurchase(75, [_itemBuilder.Create().WithId(13281).Build()]));
+            InterfaceInstance.AttachClickHandler(28, (componentID, clickType, extraData1, extraData2) =>
+                TryPurchase(35, [_itemBuilder.Create().WithId(560).Build(), _itemBuilder.Create().WithId(558).WithCount(4).Build()]));
+            InterfaceInstance.AttachClickHandler(37, (componentID, clickType, extraData1, extraData2) =>
+                TryPurchase(35, [_itemBuilder.Create().WithId(13280).WithCount(250).Build()]));
+            InterfaceInstance.AttachClickHandler(39, (componentID, clickType, extraData1, extraData2) =>
+                TryPurchase(35, [_itemBuilder.Create().WithId(4160).WithCount(250).Build()]));
+        }
+
+        /// <summary>
+        ///     The single owner of a reward purchase: check balance (absent key is zero), verify the whole reward fits,
+        ///     grant it, then debit. Everything runs synchronously on the owning thread, so a repeated click sees the
+        ///     already-debited balance and can neither mint points nor items.
+        /// </summary>
+        private bool TryPurchase(int cost, IReadOnlyCollection<IItem> items, Action? grant = null)
+        {
+            var balance = Owner.Profile.GetValue<int>(ProfileConstants.SlayerRewardPoints);
+            if (balance < cost)
+            {
+                Owner.SendChatMessage($"You need {cost} points in order to obtain this reward!");
+                return false;
+            }
+
+            if (items.Count > 0)
+            {
+                if (!Owner.Inventory.Items.HasSpaceForRange(items))
                 {
-                    if (Owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var value) && value < 400)
-                    {
-                        Owner.SendChatMessage("You need 400 points in order to obtain this reward!");
-                        return false;
-                    }
+                    Owner.SendChatMessage(GameStrings.InventoryFull);
+                    return false;
+                }
 
-                    _mediator.Publish(new ProfileDecrementIntAction(ProfileConstants.SlayerRewardPoints, 400));
-                    Owner.Statistics.AddExperience(StatisticsConstants.Slayer, 10000);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(26,
-                (componentID, clickType, extraData1, extraData2) =>
+                foreach (var item in items)
                 {
-                    if (Owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var value) && value < 75)
-                    {
-                        Owner.SendChatMessage("You need 75 points in order to obtain this reward!");
-                        return false;
-                    }
+                    Owner.Inventory.AddItem(item);
+                }
+            }
 
-                    if (Owner.Inventory.AddItem(_itemBuilder.Create().WithId(13281).Build()))
-                    {
-                        _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 75));
-                    }
-
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(28,
-                (componentID, clickType, extraData1, extraData2) =>
-                {
-                    if (Owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var value) && value < 35)
-                    {
-                        Owner.SendChatMessage("You need 35 points in order to obtain this reward!");
-                        return false;
-                    }
-
-                    var deathRune = _itemBuilder.Create().WithId(560).Build();
-                    var mindRune = _itemBuilder.Create().WithId(558).WithCount(4).Build();
-                    if (Owner.Inventory.Items.HasSpaceForRange([deathRune, mindRune]))
-                    {
-                        Owner.Inventory.AddItem(deathRune);
-                        Owner.Inventory.AddItem(mindRune);
-                        _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
-                    }
-                    else
-                    {
-                        Owner.SendChatMessage(GameStrings.InventoryFull);
-                        return false;
-                    }
-
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(37,
-                (componentID, clickType, extraData1, extraData2) =>
-                {
-                    if (Owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var value) && value < 35)
-                    {
-                        Owner.SendChatMessage("You need 35 points in order to obtain this reward!");
-                        return false;
-                    }
-
-                    if (Owner.Inventory.AddItem(_itemBuilder.Create().WithId(13280).WithCount(250).Build()))
-                    {
-                        _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
-                    }
-
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(39,
-                (componentID, clickType, extraData1, extraData2) =>
-                {
-                    if (Owner.Profile.TryGetValue<int>(ProfileConstants.SlayerRewardPoints, out var value) && value < 35)
-                    {
-                        Owner.SendChatMessage("You need 35 points in order to obtain this reward!");
-                        return false;
-                    }
-
-                    if (Owner.Inventory.AddItem(_itemBuilder.Create().WithId(4160).WithCount(250).Build()))
-                    {
-                        _mediator.Publish(new ProfileIncrementIntAction(ProfileConstants.SlayerRewardPoints, 35));
-                    }
-
-                    return true;
-                });
+            grant?.Invoke();
+            Owner.Profile.SetValue(ProfileConstants.SlayerRewardPoints, balance - cost);
+            InterfaceInstance.DrawString(20, (balance - cost).ToString());
+            return true;
         }
     }
 }
