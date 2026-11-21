@@ -224,19 +224,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
 
                         var combat = (INpcCombat)Owner.Combat;
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 20 + deltaX * 5 + deltaY * 5;
+                        var delay = NpcAttackDelay.FromDistance(Owner, target);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(1887)
@@ -263,19 +251,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Demons
                     {
                         Owner.QueueAnimation(Animation.Create(10918));
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 20 + deltaX * 5 + deltaY * 5;
+                        var delay = NpcAttackDelay.FromDistance(Owner, target);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(1884)

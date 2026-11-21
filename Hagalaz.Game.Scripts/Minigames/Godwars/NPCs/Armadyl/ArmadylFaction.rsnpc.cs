@@ -16,10 +16,15 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6229, 6230, /*6231,*/ 6232, 6233, 6234, 6235, 6236, 6237, 6238, 6239, 6240, 6241, 6242, 6243, 6244, 6245, 6246])]
     public class ArmadylFaction : NpcScriptBase
     {
-        private readonly IProjectileBuilder _projectileBuilder;
+        private readonly INpcAttackService _attacks;
+        private readonly IAviansieFlightRule _flight;
 
-        public ArmadylFaction(INpc owner, IProjectileBuilder projectileBuilder, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
-            : base(owner, npcService, pathFinder, widgetScriptActivator) => _projectileBuilder = projectileBuilder;
+        public ArmadylFaction(INpc owner, INpcAttackService attacks, IAviansieFlightRule flight, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator)
+        {
+            _attacks = attacks;
+            _flight = flight;
+        }
 
         /// <summary>
         ///     Get's attack style of this npc.
@@ -55,40 +60,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         public override void PerformAttack(ICreature target)
         {
             RenderAttack();
-
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
-
-            _projectileBuilder.Create()
-                .WithGraphicId(1190)
-                .FromCreature(Owner)
-                .ToCreature(target)
-                .WithDuration(delay)
-                .WithAngle(180)
-                .WithDelay(30)
-                .WithFromHeight(50)
-                .WithToHeight(35)
-                .Send();
-
-            Owner.Combat.PerformAttack(new AttackParams()
-            {
-                Damage = ((INpcCombat)Owner.Combat).GetRangeDamage(target),
-                MaxDamage = ((INpcCombat)Owner.Combat).GetRangeMaxHit(target),
-                Delay = delay,
-                DamageType = DamageType.StandardRange,
-                Target = target.Handle
-            });
+            _attacks.PerformRanged(Owner, target, new NpcProjectile(1190, 30, FromHeight: 50));
         }
 
         /// <summary>
@@ -101,28 +73,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// <returns>
         ///     If attack can be performed.
         /// </returns>
-        public override bool CanBeAttackedBy(ICreature attacker)
-        {
-            var style = attacker.Combat.GetAttackStyle();
-            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled &&
-                style != AttackStyle.MeleeDefensive)
-            {
-                return base.CanBeAttackedBy(attacker);
-            }
-
-            if (attacker is ICharacter character)
-            {
-                character.SendChatMessage("The aviansie is flying too high for you to attack using melee.");
-            }
-
-            if (CanRetaliateTo(attacker))
-            {
-                var attackerHandle = attacker.Handle;
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attackerHandle), 1));
-            }
-
-            return false;
-        }
+        public override bool CanBeAttackedBy(ICreature attacker) =>
+            !_flight.TryDenyMelee(Owner, attacker, CanRetaliateTo(attacker)) && base.CanBeAttackedBy(attacker);
 
         /// <summary>
         ///     Get's if this npc can aggro attack specific character.

@@ -11,10 +11,10 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
     [NpcScriptMetaData([6227])]
     public class FlightKilisa : BodyGuard
     {
-        public FlightKilisa(INpc owner, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
-            : base(owner, npcService, pathFinder, widgetScriptActivator)
-        {
-        }
+        private readonly IAviansieFlightRule _flight;
+
+        public FlightKilisa(INpc owner, IAviansieFlightRule flight, INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
+            : base(owner, npcService, pathFinder, widgetScriptActivator) => _flight = flight;
         /// <summary>
         ///     Get's if this npc can be attacked by the specified character ('attacker').
         ///     By default , this method does check if this npc is attackable.
@@ -25,28 +25,8 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Armadyl
         /// <returns>
         ///     If attack can be performed.
         /// </returns>
-        public override bool CanBeAttackedBy(ICreature attacker)
-        {
-            var style = attacker.Combat.GetAttackStyle();
-            if (style != AttackStyle.MeleeAccurate && style != AttackStyle.MeleeAggressive && style != AttackStyle.MeleeControlled && style != AttackStyle.MeleeDefensive)
-            {
-                return base.CanBeAttackedBy(attacker);
-            }
-
-            if (attacker is ICharacter character)
-            {
-                character.SendChatMessage("The aviansie is flying too high for you to attack using melee.");
-            }
-
-            if (CanRetaliateTo(attacker))
-            {
-                var attackerHandle = attacker.Handle;
-                Owner.QueueTask(new RsTask(() => Owner.Combat.SetTarget(attackerHandle), 1));
-            }
-
-            return false;
-
-        }
+        public override bool CanBeAttackedBy(ICreature attacker) =>
+            !_flight.TryDenyMelee(Owner, attacker, CanRetaliateTo(attacker)) && base.CanBeAttackedBy(attacker);
 
     }
 }

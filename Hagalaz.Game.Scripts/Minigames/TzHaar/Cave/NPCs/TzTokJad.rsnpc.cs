@@ -7,6 +7,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
 {
     [NpcScriptMetaData([2745])]
@@ -109,19 +111,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                         Owner.QueueAnimation(Animation.Create(16202));
                         Owner.QueueGraphic(Graphic.Create(2994));
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 25 + deltaX * 5 + deltaY * 5;
+                        var delay = NpcAttackDelay.FromDistance(Owner, target, 25);
                         //Projectile projectile = new Projectile(12);
                         //projectile.SetSenderData(this.owner, 50, false);
                         // projectile.SetReceiverData(target, 35);
@@ -145,19 +135,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.NPCs
                         Owner.QueueAnimation(Animation.Create(16195));
                         Owner.QueueGraphic(Graphic.Create(2995));
 
-                        var deltaX = Owner.Location.X - target.Location.X;
-                        var deltaY = Owner.Location.Y - target.Location.Y;
-                        if (deltaX < 0)
-                        {
-                            deltaX = -deltaX;
-                        }
-
-                        if (deltaY < 0)
-                        {
-                            deltaY = -deltaY;
-                        }
-
-                        var delay = 50 + deltaX * 5 + deltaY * 5;
+                        var delay = NpcAttackDelay.FromDistance(Owner, target, 50);
 
                         _projectileBuilder.Create()
                             .WithGraphicId(2996)

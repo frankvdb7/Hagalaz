@@ -3,6 +3,8 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
+using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
+
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
 {
     /// <summary>
@@ -27,19 +29,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin
             RenderAttack();
             //this.owner.QueueGraphic(Graphic.Create(1187));
 
-            var deltaX = Owner.Location.X - target.Location.X;
-            var deltaY = Owner.Location.Y - target.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
-
-            var delay = 20 + deltaX * 5 + deltaY * 5;
+            var delay = NpcAttackDelay.FromDistance(Owner, target);
 
             _projectileBuilder.Create()
                 .WithGraphicId(1188)
