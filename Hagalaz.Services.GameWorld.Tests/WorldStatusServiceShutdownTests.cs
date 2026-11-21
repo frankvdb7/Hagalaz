@@ -109,6 +109,13 @@ public sealed class WorldStatusServiceShutdownTests
 
         await host.StartAsync();
         await onlinePublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // The online publish is observed before the service marks the world ready, so wait for readiness.
+        var readyDeadline = DateTime.UtcNow.AddSeconds(5);
+        while (!lifecycle.CanAcceptWorldSignIns && DateTime.UtcNow < readyDeadline)
+        {
+            await Task.Delay(10);
+        }
+
         Assert.IsTrue(lifecycle.CanAcceptWorldSignIns);
         await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
 
