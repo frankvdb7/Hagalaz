@@ -127,7 +127,7 @@ public sealed class SwitchBookDialogueTests
             _ => new AltarOfZaros()
         };
         script.Initialize(owner);
-        var expected = altar switch { "ancient" => (DialogueScript)ancient, "lunar" => lunar, _ => prayer };
+        DialogueScript expected = altar switch { "ancient" => ancient, "lunar" => lunar, _ => prayer };
 
         script.OnCharacterClickPerform(world.Character, click);
 
