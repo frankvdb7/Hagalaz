@@ -20,8 +20,7 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoHagalazUsageTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = new();
-    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+    private readonly TrackedConnections _tracked = new();
 
     private sealed class UsageRequest : RaidoMessage
     {
@@ -186,19 +185,7 @@ public sealed class RaidoHagalazUsageTests
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _tracked.CleanupAsync();
     }
 
     [TestMethod]
@@ -224,7 +211,7 @@ public sealed class RaidoHagalazUsageTests
             rawConnection,
             protocol,
             statefulReconnect: false);
-        _connections.Add(built);
+        _tracked.Add(built);
 
         Assert.AreEqual(protocol.Name, built.Protocol.Name);
         Assert.AreEqual("factory", built.ConnectionId);
@@ -368,7 +355,7 @@ public sealed class RaidoHagalazUsageTests
         transport.Input.Returns(input.Reader);
         transport.Output.Returns(output.Writer);
         context.Transport.Returns(transport);
-        _transports.Add((input, output));
+        _tracked.Add(input, output);
         return (context, input, output);
     }
 
@@ -384,7 +371,7 @@ public sealed class RaidoHagalazUsageTests
             NullLoggerFactory.Instance,
             protocol: protocol,
             metrics: metrics);
-        _connections.Add(connection);
+        _tracked.Add(connection);
         return (connection, raw.Output.Reader);
     }
 

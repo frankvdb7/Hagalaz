@@ -24,25 +24,12 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class AdminHubAuthorizationTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = new();
-    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+    private readonly HubConnectionHarness _hubConnections = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _hubConnections.CleanupAsync();
     }
 
     [TestMethod]
@@ -85,58 +72,17 @@ public sealed class AdminHubAuthorizationTests
         return services.BuildServiceProvider();
     }
 
-    private RaidoHubConnectionContext CreateConnection(IEventManager eventManager, string role)
-    {
-        var features = new FeatureCollection();
-        features.Set<IConnectionUserFeature>(new ConnectionUserFeature
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity(
-                new[] { new Claim(ClaimTypes.Role, role) }, "test"))
-        });
-        var rawConnection = Substitute.For<ConnectionContext>();
-        rawConnection.ConnectionId.Returns("admin-hub-test");
-        rawConnection.Features.Returns(features);
-        var input = new Pipe();
-        var output = new Pipe();
-        var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        rawConnection.Transport.Returns(transport);
-        rawConnection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
-
-        var connection = CreateHubConnection(rawConnection);
-        connection.Features.Set<ICharacterFeature>(new CharacterFeature
-        {
-            Character = CreateCharacter(eventManager)
-        });
-        _connections.Add(connection);
-        return connection;
-    }
-
-    private static RaidoHubConnectionContext CreateHubConnection(ConnectionContext physicalConnection)
-    {
-        var options = new RaidoConnectionContextOptions();
-        var tcpConnection = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
-        Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(physicalConnection));
-        return new RaidoHubConnectionContext(
-            tcpConnection,
-            options,
-            Substitute.For<IRaidoProtocol>(),
-            NullLoggerFactory.Instance,
-            TimeProvider.System);
-    }
+    private RaidoHubConnectionContext CreateConnection(IEventManager eventManager, string role) =>
+        _hubConnections.CreateConnection(
+            CreateCharacter(eventManager),
+            "admin-hub-test",
+            new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, role) }, "test")));
 
     private static ICharacter CreateCharacter(IEventManager eventManager)
     {
         var character = Substitute.For<ICharacter>();
         character.EventManager.Returns(eventManager);
         return character;
-    }
-
-    private sealed class ConnectionUserFeature : IConnectionUserFeature
-    {
-        public ClaimsPrincipal? User { get; set; }
     }
 
 }

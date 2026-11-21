@@ -33,25 +33,12 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class CharacterHubTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = [];
-    private readonly List<(Pipe Input, Pipe Output)> _transports = [];
+    private readonly HubConnectionHarness _hubConnections = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _hubConnections.CleanupAsync();
     }
 
     [TestMethod]
@@ -146,20 +133,8 @@ public sealed class CharacterHubTests
     {
         using var provider = CreateProvider();
         var character = CreateCharacter(out var eventManager, out var queuedTasks);
-        var currentType = ClientChatType.Normal;
-        character.CurrentChatType.Returns(_ => currentType);
-        character.WhenForAnyArgs(value => value.CurrentChatType = default)
-            .Do(callInfo => currentType = callInfo.Arg<ClientChatType>());
-        var observedTypes = new List<ClientChatType>();
-        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(callInfo =>
-        {
-            if (callInfo.Arg<IEvent>() is ChatAllowEvent)
-            {
-                observedTypes.Add(character.CurrentChatType);
-            }
-
-            return true;
-        });
+        var chat = TrackChatTypes(character, eventManager);
+        var observedTypes = chat.Observed;
         var connection = CreateConnection(character);
 
         var dispatcher = provider.GetRequiredService<IRaidoDispatcher>();
@@ -180,7 +155,7 @@ public sealed class CharacterHubTests
         scheduler.Tick();
 
         Assert.AreEqual(ClientChatType.Normal, observedTypes.Single());
-        Assert.AreEqual(ClientChatType.Friends, currentType);
+        Assert.AreEqual(ClientChatType.Friends, chat.Current);
     }
 
     [TestMethod]
@@ -188,20 +163,8 @@ public sealed class CharacterHubTests
     {
         using var provider = CreateProvider();
         var character = CreateCharacter(out var eventManager, out var queuedTasks);
-        var currentType = ClientChatType.Normal;
-        character.CurrentChatType.Returns(_ => currentType);
-        character.WhenForAnyArgs(value => value.CurrentChatType = default)
-            .Do(callInfo => currentType = callInfo.Arg<ClientChatType>());
-        var observedTypes = new List<ClientChatType>();
-        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(callInfo =>
-        {
-            if (callInfo.Arg<IEvent>() is ChatAllowEvent)
-            {
-                observedTypes.Add(character.CurrentChatType);
-            }
-
-            return true;
-        });
+        var chat = TrackChatTypes(character, eventManager);
+        var observedTypes = chat.Observed;
         var connection = CreateConnection(character);
 
         var dispatcher = provider.GetRequiredService<IRaidoDispatcher>();
@@ -222,22 +185,15 @@ public sealed class CharacterHubTests
         scheduler.Tick();
 
         Assert.AreEqual(ClientChatType.Friends, observedTypes.Single());
-        Assert.AreEqual(ClientChatType.Friends, currentType);
+        Assert.AreEqual(ClientChatType.Friends, chat.Current);
     }
 
     [TestMethod]
     public async Task OnCharacterClick_WhenTargetRemainsOwnedAndVisible_InvokesClickOnCurrentTarget()
     {
         using var provider = CreateProvider();
-        var characterService = provider.GetRequiredService<ICharacterService>();
-        var characterStore = provider.GetRequiredService<ICharacterStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<ICharacter>();
-        target.MasterId.Returns(1u);
-        Assert.IsTrue(await characterStore.AddAsync(target));
-        entityStore.Add(target);
-        characterService.FindByIndex(target.Index)
-            .Returns(new ValueTask<ICharacter?>(target));
+        var owned = await AddOwnedTargetAsync(provider);
+        var target = owned.Target;
 
         var character = CreateCharacter(out _, out var queuedTasks);
         character.Viewport.VisibleCreatures.Returns(new List<ICreature> { target });
@@ -256,26 +212,12 @@ public sealed class CharacterHubTests
     public async Task OnCharacterClick_WhenTargetIsRemovedBeforeQueuedTask_DropsClick()
     {
         using var provider = CreateProvider();
-        var characterService = provider.GetRequiredService<ICharacterService>();
-        var characterStore = provider.GetRequiredService<ICharacterStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<ICharacter>();
-        target.MasterId.Returns(1u);
-        Assert.IsTrue(await characterStore.AddAsync(target));
-        entityStore.Add(target);
-        characterService.FindByIndex(target.Index)
-            .Returns(new ValueTask<ICharacter?>(target));
+        var owned = await AddOwnedTargetAsync(provider);
+        var target = owned.Target;
+        var characterStore = owned.Store;
+        var entityStore = owned.Entities;
 
-        var character = CreateCharacter(out _, out var queuedTasks);
-        character.Viewport.VisibleCreatures.Returns(new List<ICreature> { target });
-        var connection = CreateConnection(character);
-
-        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
-            connection,
-            new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
-
-        Assert.IsTrue(characterStore.Remove(target));
-        Assert.IsTrue(entityStore.Remove(target));
+        var (character, queuedTasks) = await ClickTargetThenRemoveItAsync(provider, owned);
         queuedTasks[0].Tick();
 
         character.DidNotReceive().OnCharacterClicked(
@@ -286,26 +228,12 @@ public sealed class CharacterHubTests
     public async Task OnCharacterClick_WhenTargetSlotIsReused_DoesNotRedirectClickToReplacement()
     {
         using var provider = CreateProvider();
-        var characterService = provider.GetRequiredService<ICharacterService>();
-        var characterStore = provider.GetRequiredService<ICharacterStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<ICharacter>();
-        target.MasterId.Returns(1u);
-        Assert.IsTrue(await characterStore.AddAsync(target));
-        entityStore.Add(target);
-        characterService.FindByIndex(target.Index)
-            .Returns(new ValueTask<ICharacter?>(target));
+        var owned = await AddOwnedTargetAsync(provider);
+        var target = owned.Target;
+        var characterStore = owned.Store;
+        var entityStore = owned.Entities;
 
-        var character = CreateCharacter(out _, out var queuedTasks);
-        character.Viewport.VisibleCreatures.Returns(new List<ICreature> { target });
-        var connection = CreateConnection(character);
-
-        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
-            connection,
-            new CharacterClickMessage { Index = target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
-
-        Assert.IsTrue(characterStore.Remove(target));
-        Assert.IsTrue(entityStore.Remove(target));
+        var (character, queuedTasks) = await ClickTargetThenRemoveItAsync(provider, owned);
         var replacement = EntityTestFactory.Create<ICharacter>();
         replacement.MasterId.Returns(2u);
         Assert.IsTrue(await characterStore.AddAsync(replacement));
@@ -340,38 +268,75 @@ public sealed class CharacterHubTests
         Limits = { MaxConcurrentConnections = 10 }
     }));
 
-    private RaidoHubConnectionContext CreateConnection(ICharacter character)
-    {
-        var features = new FeatureCollection();
-        features.Set<IConnectionUserFeature>(new ConnectionUserFeature
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity([], "test"))
-        });
-        var rawConnection = Substitute.For<ConnectionContext>();
-        rawConnection.ConnectionId.Returns($"character-hub-test-{_connections.Count}");
-        rawConnection.Features.Returns(features);
-        var input = new Pipe();
-        var output = new Pipe();
-        var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        rawConnection.Transport.Returns(transport);
-        rawConnection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
+    private RaidoHubConnectionContext CreateConnection(ICharacter character) => _hubConnections.CreateConnection(character, "character-hub-test");
 
-        var options = new RaidoConnectionContextOptions();
-        var tcpConnection = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
-        Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(rawConnection));
-        var connection = new RaidoHubConnectionContext(
-            tcpConnection,
-            options,
-            Substitute.For<IRaidoProtocol>(),
-            NullLoggerFactory.Instance,
-            TimeProvider.System);
-        connection.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        _connections.Add(connection);
-        return connection;
+
+    /// <summary>
+    ///     Records the character's chat type each time a chat is checked, and makes the chat type a settable property.
+    /// </summary>
+    private static ChatTypeTracker TrackChatTypes(ICharacter character, IEventManager eventManager)
+    {
+        var tracker = new ChatTypeTracker();
+        character.CurrentChatType.Returns(_ => tracker.Current);
+        character.WhenForAnyArgs(value => value.CurrentChatType = default)
+            .Do(callInfo => tracker.Current = callInfo.Arg<ClientChatType>());
+        var observedTypes = tracker.Observed;
+        eventManager.SendEvent(Arg.Any<IEvent>()).Returns(callInfo =>
+        {
+            if (callInfo.Arg<IEvent>() is ChatAllowEvent)
+            {
+                observedTypes.Add(character.CurrentChatType);
+            }
+
+            return true;
+        });
+        return tracker;
     }
+
+    private sealed class ChatTypeTracker
+    {
+        public ClientChatType Current { get; set; } = ClientChatType.Normal;
+        public List<ClientChatType> Observed { get; } = [];
+    }
+
+    /// <summary>
+    ///     A character owned by master 1, registered in the character and entity stores and findable by index.
+    /// </summary>
+
+    /// <summary>
+    ///     A character that is viewing the target clicks it, and the target is then removed from both stores before
+    ///     the queued click task runs.
+    /// </summary>
+    private async Task<(ICharacter Character, List<ITaskItem> QueuedTasks)> ClickTargetThenRemoveItAsync(ServiceProvider provider, OwnedTarget owned)
+    {
+        var character = CreateCharacter(out _, out var queuedTasks);
+        character.Viewport.VisibleCreatures.Returns(new List<ICreature> { owned.Target });
+        var connection = CreateConnection(character);
+
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(
+            connection,
+            new CharacterClickMessage { Index = owned.Target.Index, ClickType = CharacterClickType.Option1Click, ForceRun = false });
+
+        Assert.IsTrue(owned.Store.Remove(owned.Target));
+        Assert.IsTrue(owned.Entities.Remove(owned.Target));
+        return (character, queuedTasks);
+    }
+
+    private static async Task<OwnedTarget> AddOwnedTargetAsync(ServiceProvider provider)
+    {
+        var characterService = provider.GetRequiredService<ICharacterService>();
+        var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        var target = EntityTestFactory.Create<ICharacter>();
+        target.MasterId.Returns(1u);
+        Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
+        characterService.FindByIndex(target.Index)
+            .Returns(new ValueTask<ICharacter?>(target));
+        return new OwnedTarget(characterService, characterStore, entityStore, target);
+    }
+
+    private sealed record OwnedTarget(ICharacterService Service, ICharacterStore Store, IEntityStore Entities, ICharacter Target);
 
     private static ICharacter CreateCharacter(out IEventManager eventManager, out List<ITaskItem> queuedTasks)
     {
@@ -397,10 +362,5 @@ public sealed class CharacterHubTests
         character.QueueTask(Arg.Do<ITaskItem>(task => tasks.Add(task)))
             .Returns(Substitute.For<IRsTaskHandle>());
         return character;
-    }
-
-    private sealed class ConnectionUserFeature : IConnectionUserFeature
-    {
-        public ClaimsPrincipal? User { get; set; }
     }
 }

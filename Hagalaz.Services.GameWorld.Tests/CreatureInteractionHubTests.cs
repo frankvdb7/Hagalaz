@@ -30,25 +30,12 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class CreatureInteractionHubTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = [];
-    private readonly List<(Pipe Input, Pipe Output)> _transports = [];
+    private readonly HubConnectionHarness _hubConnections = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _hubConnections.CleanupAsync();
     }
 
     [TestMethod]
@@ -120,18 +107,9 @@ public sealed class CreatureInteractionHubTests
     public async Task OnComponentUseOnCharacter_WhenTargetRemainsOwned_InvokesCurrentTarget()
     {
         using var provider = CreateProvider(out var characterService, out _);
-        var characterStore = provider.GetRequiredService<ICharacterStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<ICharacter>();
-        target.MasterId.Returns(1u);
-        Assert.IsTrue(await characterStore.AddAsync(target));
-        entityStore.Add(target);
-        characterService.FindByIndex(target.Index).Returns(new ValueTask<ICharacter?>(target));
+        var (characterStore, entityStore, target) = await CreateOwnedCharacterTargetAsync(provider, characterService);
 
-        var widget = CreateOpenWidget(out var widgets);
-        var character = CreateCharacter(out var queuedTasks, widgets: widgets);
-        var connection = CreateConnection(character);
-        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateCharacterUseMessage(target.Index));
+        var (widget, queuedTasks) = await UseComponentOnCharacterAsync(provider, target);
 
         queuedTasks[0].Tick();
 
@@ -181,18 +159,9 @@ public sealed class CreatureInteractionHubTests
     public async Task OnComponentUseOnCharacter_WhenTargetSlotIsReused_DropsTheOriginalInteraction()
     {
         using var provider = CreateProvider(out var characterService, out _);
-        var characterStore = provider.GetRequiredService<ICharacterStore>();
-        var entityStore = provider.GetRequiredService<IEntityStore>();
-        var target = EntityTestFactory.Create<ICharacter>();
-        target.MasterId.Returns(1u);
-        Assert.IsTrue(await characterStore.AddAsync(target));
-        entityStore.Add(target);
-        characterService.FindByIndex(target.Index).Returns(new ValueTask<ICharacter?>(target));
+        var (characterStore, entityStore, target) = await CreateOwnedCharacterTargetAsync(provider, characterService);
 
-        var widget = CreateOpenWidget(out var widgets);
-        var character = CreateCharacter(out var queuedTasks, widgets: widgets);
-        var connection = CreateConnection(character);
-        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateCharacterUseMessage(target.Index));
+        var (widget, queuedTasks) = await UseComponentOnCharacterAsync(provider, target);
 
         Assert.IsTrue(characterStore.Remove(target));
         Assert.IsTrue(entityStore.Remove(target));
@@ -246,6 +215,33 @@ public sealed class CreatureInteractionHubTests
         Index = index,
         ForceRun = false
     };
+
+
+
+    /// <summary>
+    ///     A character with an open widget uses component 7 on the target, which queues the interaction.
+    /// </summary>
+    private async Task<(IWidget Widget, List<ITaskItem> QueuedTasks)> UseComponentOnCharacterAsync(ServiceProvider provider, ICharacter target)
+    {
+        var widget = CreateOpenWidget(out var widgets);
+        var character = CreateCharacter(out var queuedTasks, widgets: widgets);
+        var connection = CreateConnection(character);
+        await provider.GetRequiredService<IRaidoDispatcher>().DispatchMessageAsync(connection, CreateCharacterUseMessage(target.Index));
+        return (widget, queuedTasks);
+    }
+
+    private static async Task<(ICharacterStore CharacterStore, IEntityStore EntityStore, ICharacter Target)> CreateOwnedCharacterTargetAsync(
+        ServiceProvider provider, ICharacterService characterService)
+    {
+        var characterStore = provider.GetRequiredService<ICharacterStore>();
+        var entityStore = provider.GetRequiredService<IEntityStore>();
+        var target = EntityTestFactory.Create<ICharacter>();
+        target.MasterId.Returns(1u);
+        Assert.IsTrue(await characterStore.AddAsync(target));
+        entityStore.Add(target);
+        characterService.FindByIndex(target.Index).Returns(new ValueTask<ICharacter?>(target));
+        return (characterStore, entityStore, target);
+    }
 
     private static INpc CreateOwnedNpcTarget(ServiceProvider provider, INpcService npcService)
     {
@@ -310,38 +306,7 @@ public sealed class CreatureInteractionHubTests
         Limits = { MaxConcurrentConnections = 10 }
     }));
 
-    private RaidoHubConnectionContext CreateConnection(ICharacter character)
-    {
-        var features = new FeatureCollection();
-        features.Set<IConnectionUserFeature>(new ConnectionUserFeature
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity([], "test"))
-        });
-        var rawConnection = Substitute.For<ConnectionContext>();
-        rawConnection.ConnectionId.Returns($"creature-hub-test-{_connections.Count}");
-        rawConnection.Features.Returns(features);
-        var input = new Pipe();
-        var output = new Pipe();
-        var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        rawConnection.Transport.Returns(transport);
-        rawConnection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
-
-        var options = new RaidoConnectionContextOptions();
-        var tcpConnection = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
-        Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(rawConnection));
-        var connection = new RaidoHubConnectionContext(
-            tcpConnection,
-            options,
-            Substitute.For<IRaidoProtocol>(),
-            NullLoggerFactory.Instance,
-            TimeProvider.System);
-        connection.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        _connections.Add(connection);
-        return connection;
-    }
+    private RaidoHubConnectionContext CreateConnection(ICharacter character) => _hubConnections.CreateConnection(character, "creature-hub-test");
 
     private static ICharacter CreateCharacter(
         out List<ITaskItem> queuedTasks,
@@ -361,10 +326,5 @@ public sealed class CreatureInteractionHubTests
             return Substitute.For<IRsTaskHandle>();
         });
         return character;
-    }
-
-    private sealed class ConnectionUserFeature : IConnectionUserFeature
-    {
-        public ClaimsPrincipal? User { get; set; }
     }
 }

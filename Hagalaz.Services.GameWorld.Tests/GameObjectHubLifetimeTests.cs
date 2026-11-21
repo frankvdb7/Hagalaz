@@ -28,25 +28,12 @@ namespace Hagalaz.Services.GameWorld.Tests;
 [TestClass]
 public sealed class GameObjectHubLifetimeTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = [];
-    private readonly List<(Pipe Input, Pipe Output)> _transports = [];
+    private readonly HubConnectionHarness _hubConnections = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _hubConnections.CleanupAsync();
     }
 
     [TestMethod]
@@ -101,38 +88,7 @@ public sealed class GameObjectHubLifetimeTests
         gameObjectScript.Received(1).OnCharacterClick(character, GameObjectClickType.Option1Click, false);
     }
 
-    private RaidoHubConnectionContext CreateConnection(ICharacter character)
-    {
-        var features = new FeatureCollection();
-        features.Set<IConnectionUserFeature>(new ConnectionUserFeature
-        {
-            User = new ClaimsPrincipal(new ClaimsIdentity([], "test"))
-        });
-        var rawConnection = Substitute.For<ConnectionContext>();
-        rawConnection.ConnectionId.Returns($"game-object-hub-test-{_connections.Count}");
-        rawConnection.Features.Returns(features);
-        var input = new Pipe();
-        var output = new Pipe();
-        var transport = Substitute.For<IDuplexPipe>();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        rawConnection.Transport.Returns(transport);
-        rawConnection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
-
-        var options = new RaidoConnectionContextOptions();
-        var tcpConnection = new RaidoTcpConnectionContext(options, NullLoggerFactory.Instance);
-        Assert.IsTrue(tcpConnection.TryAttachPhysicalConnection(rawConnection));
-        var connection = new RaidoHubConnectionContext(
-            tcpConnection,
-            options,
-            Substitute.For<IRaidoProtocol>(),
-            NullLoggerFactory.Instance,
-            TimeProvider.System);
-        connection.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        _connections.Add(connection);
-        return connection;
-    }
+    private RaidoHubConnectionContext CreateConnection(ICharacter character) => _hubConnections.CreateConnection(character, "game-object-hub-test");
 
     private static ICharacter CreateCharacter(IServiceProvider serviceProvider, IRsTaskService scheduler)
     {
@@ -191,10 +147,5 @@ public sealed class GameObjectHubLifetimeTests
         }
 
         public void Dispose() => probe.MessageScopeDisposed = true;
-    }
-
-    private sealed class ConnectionUserFeature : IConnectionUserFeature
-    {
-        public ClaimsPrincipal? User { get; set; }
     }
 }

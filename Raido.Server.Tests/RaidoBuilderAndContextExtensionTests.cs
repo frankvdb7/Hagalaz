@@ -14,25 +14,12 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoBuilderAndContextExtensionTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = new();
-    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+    private readonly TrackedConnections _tracked = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _tracked.CleanupAsync();
     }
 
     private sealed class SimpleProtocol : IRaidoProtocol
@@ -64,7 +51,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         connection.Transport.Returns(transport);
         connection.ConnectionId.Returns("extensions");
         connection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
+        _tracked.Add(input, output);
         return connection;
     }
 
@@ -109,7 +96,7 @@ public sealed class RaidoBuilderAndContextExtensionTests
         Assert.IsNotNull(context.Clients);
         var connection = RaidoTestConnectionFactory.Create(RawConnection(), new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
         await connection.SetProtocolAsync(new SimpleProtocol(), CancellationToken.None);
-        _connections.Add(connection);
+        _tracked.Add(connection);
         var caller = new DefaultRaidoCallerContext(connection);
         Assert.AreEqual(connection.ConnectionId, caller.ConnectionId);
         Assert.AreSame(connection.Items, caller.Items);

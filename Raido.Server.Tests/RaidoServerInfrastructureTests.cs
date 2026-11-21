@@ -18,25 +18,12 @@ namespace Raido.Server.Tests;
 [TestClass]
 public sealed class RaidoServerInfrastructureTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = new();
-    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+    private readonly TrackedConnections _tracked = new();
 
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _tracked.CleanupAsync();
     }
 
     private sealed class Encoder : IRaidoMessageEncoder<TestMessage>
@@ -87,18 +74,9 @@ public sealed class RaidoServerInfrastructureTests
 
     private RaidoHubConnectionContext CreateConnection(string id)
     {
-        var connection = Substitute.For<ConnectionContext>();
-        connection.ConnectionId.Returns(id);
-        var transport = Substitute.For<IDuplexPipe>();
-        var input = new Pipe();
-        var output = new Pipe();
-        transport.Input.Returns(input.Reader);
-        transport.Output.Returns(output.Writer);
-        connection.Transport.Returns(transport);
-        connection.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
+        var connection = _tracked.CreateRawConnection(id);
         var context = RaidoTestConnectionFactory.Create(connection, new RaidoConnectionContextOptions(), NullLoggerFactory.Instance);
-        _connections.Add(context);
+        _tracked.Add(context);
         return context;
     }
 

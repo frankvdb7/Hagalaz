@@ -23,8 +23,7 @@ namespace Raido.Server.Tests;
 [DoNotParallelize]
 public sealed class RaidoHubDispatcherTests
 {
-    private readonly List<RaidoHubConnectionContext> _connections = new();
-    private readonly List<(Pipe Input, Pipe Output)> _transports = new();
+    private readonly TrackedConnections _tracked = new();
 
     private sealed class DispatchMessage : RaidoMessage { }
     private sealed class OtherMessage : RaidoMessage { }
@@ -227,19 +226,7 @@ public sealed class RaidoHubDispatcherTests
     [TestCleanup]
     public async Task CleanupConnections()
     {
-        foreach (var connection in _connections)
-        {
-            connection.Abort();
-            await connection.CleanupAsync();
-        }
-
-        foreach (var (input, output) in _transports)
-        {
-            input.Reader.Complete();
-            input.Writer.Complete();
-            output.Reader.Complete();
-            output.Writer.Complete();
-        }
+        await _tracked.CleanupAsync();
     }
 
     private RaidoHubConnectionContext CreateConnection(
@@ -257,13 +244,13 @@ public sealed class RaidoHubDispatcherTests
         context.Transport.Returns(transport);
         context.Features.Returns(new FeatureCollection());
         context.ConnectionClosed.Returns(CancellationToken.None);
-        _transports.Add((input, output));
+        _tracked.Add(input, output);
         var connection = RaidoTestConnectionFactory.Create(
             context,
             new RaidoConnectionContextOptions(),
             NullLoggerFactory.Instance,
             protocol: protocol ?? new TestProtocol());
-        _connections.Add(connection);
+        _tracked.Add(connection);
         return connection;
     }
 
