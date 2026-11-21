@@ -211,6 +211,15 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(path.Any());
         }
 
+        private void AssertReachesNeighbor(TraversalCase testCase, ILocation from, ILocation to)
+        {
+            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
+
+            Assert.IsTrue(path.Successful, testCase.Name);
+            Assert.AreEqual(1, path.Count(), testCase.Name);
+            Assert.AreEqual(to, path.Single(), testCase.Name);
+        }
+
         [TestMethod]
         [DynamicData(nameof(SingleTraversalCases))]
         public void Find_SizeOneClearDirection_ReachesRequestedNeighbor(TraversalCase testCase)
@@ -219,13 +228,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var from = Location.Create(10, 10, 0);
             var to = Location.Create(from.X + testCase.DeltaX, from.Y + testCase.DeltaY, from.Z);
 
-            // Act
-            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
-
-            // Assert
-            Assert.IsTrue(path.Successful, testCase.Name);
-            Assert.AreEqual(1, path.Count(), testCase.Name);
-            Assert.AreEqual(to, path.Single(), testCase.Name);
+            AssertReachesNeighbor(testCase, from, to);
         }
 
         [TestMethod]
@@ -254,13 +257,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var to = Location.Create(from.X + testCase.DeltaX, from.Y + testCase.DeltaY, from.Z);
             _mapRegionService.GetClippingFlag(to.X, to.Y, to.Z, 0).Returns(testCase.UnrelatedBlocker);
 
-            // Act
-            var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
-
-            // Assert
-            Assert.IsTrue(path.Successful, testCase.Name);
-            Assert.AreEqual(1, path.Count(), testCase.Name);
-            Assert.AreEqual(to, path.Single(), testCase.Name);
+            AssertReachesNeighbor(testCase, from, to);
         }
 
         [TestMethod]

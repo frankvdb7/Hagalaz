@@ -1,3 +1,4 @@
+using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -31,10 +32,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             // Assert
-            Assert.IsTrue(path.Successful);
-            Assert.IsTrue(path.Any());
-            var lastPoint = path.Last();
-            Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= 1 && Math.Abs(to.Y - lastPoint.Y) <= 1);
+            AssertReachesNear(path, to);
         }
 
         [TestMethod]
@@ -51,10 +49,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var path = _pathfinder.Find(from, 1, to, 1, 1, 0, 0, 0, false);
 
             // Assert
-            Assert.IsTrue(path.Successful);
-            Assert.IsTrue(path.Any());
-            var lastPoint = path.Last();
-            Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= 1 && Math.Abs(to.Y - lastPoint.Y) <= 1);
+            AssertReachesNear(path, to);
             Assert.AreNotEqual(Location.Create(2, 1, 0), path.First()); // Ensure it didn't go through the obstacle
         }
 
@@ -101,5 +96,14 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= size && Math.Abs(to.Y - lastPoint.Y) <= size);
         }
 
-    }
+    
+
+        private static void AssertReachesNear(IPath path, ILocation to)
+        {
+            Assert.IsTrue(path.Successful);
+            Assert.IsTrue(path.Any());
+            var lastPoint = path.Last();
+            Assert.IsTrue(Math.Abs(to.X - lastPoint.X) <= 1 && Math.Abs(to.Y - lastPoint.Y) <= 1);
+        }
+}
 }

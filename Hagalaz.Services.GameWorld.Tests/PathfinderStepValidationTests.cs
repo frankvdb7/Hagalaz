@@ -76,12 +76,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
-            .Returns(CollisionFlag.FloorBlock);
-
-        var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
-
-        Assert.IsFalse(result);
+        AssertBlockedStepRejected(size, xOffset, yOffset, blockedOffsetX, blockedOffsetY);
     }
 
     [TestMethod]
@@ -96,12 +91,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
-            .Returns(CollisionFlag.FloorBlock);
-
-        var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
-
-        Assert.IsFalse(result);
+        AssertBlockedStepRejected(size, xOffset, yOffset, blockedOffsetX, blockedOffsetY);
     }
 
     [TestMethod]
@@ -116,12 +106,7 @@ public sealed class PathfinderStepValidationTests
         int blockedOffsetX,
         int blockedOffsetY)
     {
-        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
-            .Returns(CollisionFlag.FloorBlock);
-
-        var result = _pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size);
-
-        Assert.IsFalse(result);
+        AssertBlockedStepRejected(size, xOffset, yOffset, blockedOffsetX, blockedOffsetY);
     }
 
     [TestMethod]
@@ -210,5 +195,13 @@ public sealed class PathfinderStepValidationTests
         var result = _pathFinder.CheckStep(Location.Create(10, 10, 0), 2);
 
         Assert.IsTrue(result);
+    }
+
+    private void AssertBlockedStepRejected(int size, int xOffset, int yOffset, int blockedOffsetX, int blockedOffsetY)
+    {
+        _mapRegionService.GetClippingFlag(10 + blockedOffsetX, 10 + blockedOffsetY, 0, 0)
+            .Returns(CollisionFlag.FloorBlock);
+
+        Assert.IsFalse(_pathFinder.CheckStep(10 + xOffset, 10 + yOffset, 0, xOffset, yOffset, size));
     }
 }
