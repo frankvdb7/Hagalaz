@@ -1,3 +1,4 @@
+using System;
 using AutoMapper;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Characters.Messages.Model;
@@ -119,22 +120,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x =>
-            {
-                x.AddConsumer<UpdateCharacterRequestConsumer>();
-                x.AddConfigureEndpointsCallback((name, endpoint) =>
-                {
-                    if (name == "UpdateCharacterRequest")
-                    {
-                        endpoint.ConcurrentMessageLimit = 1;
-                    }
-                });
-            })
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName), serializeUpdates: true);
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -170,22 +156,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x =>
-            {
-                x.AddConsumer<UpdateCharacterRequestConsumer>();
-                x.AddConfigureEndpointsCallback((name, endpoint) =>
-                {
-                    if (name == "UpdateCharacterRequest")
-                    {
-                        endpoint.ConcurrentMessageLimit = 1;
-                    }
-                });
-            })
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName), serializeUpdates: true);
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -212,12 +183,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -243,12 +209,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -280,12 +241,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName, snapshotRevision: 2);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -302,12 +258,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName, snapshotRevision: 20);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -334,12 +285,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -376,12 +322,7 @@ public sealed class CharacterUpdateRequestConsumerTests
         var databaseName = Guid.NewGuid().ToString();
         await SeedCharacterAsync(databaseName);
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -430,12 +371,7 @@ public sealed class CharacterUpdateRequestConsumerTests
     public async Task Consume_UnknownCharacter_RespondsCharacterNotFound()
     {
         var databaseName = Guid.NewGuid().ToString();
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -459,12 +395,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             await seedContext.SaveChangesAsync();
         }
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateContext(databaseName))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateContext(databaseName));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -512,12 +443,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             await seedContext.SaveChangesAsync();
         }
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateMySqlContext(database))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateMySqlContext(database));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -574,12 +500,7 @@ public sealed class CharacterUpdateRequestConsumerTests
             await seedContext.SaveChangesAsync();
         }
 
-        await using var provider = new ServiceCollection()
-            .AddScoped(_ => CreateMySqlContext(database))
-            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
-            .AddAutoMapper(_ => { }, typeof(Program))
-            .AddMassTransitTestHarness(x => x.AddConsumer<UpdateCharacterRequestConsumer>())
-            .BuildServiceProvider(true);
+        await using var provider = BuildConsumerProvider(() => CreateMySqlContext(database));
 
         var harness = provider.GetTestHarness();
         await harness.Start();
@@ -767,6 +688,32 @@ public sealed class CharacterUpdateRequestConsumerTests
         context.CharactersStates.Add(new CharactersState { MasterId = 1, StateId = "50", TicksLeft = 1 });
         await context.SaveChangesAsync();
     }
+
+
+    /// <summary>
+    ///     A provider with the update consumer on the MassTransit test harness, backed by the given database context.
+    ///     <paramref name="serializeUpdates"/> limits the update endpoint to one concurrent message.
+    /// </summary>
+    private static ServiceProvider BuildConsumerProvider(Func<HagalazDbContext> createContext, bool serializeUpdates = false) =>
+        new ServiceCollection()
+            .AddScoped(_ => createContext())
+            .AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>()
+            .AddAutoMapper(_ => { }, typeof(Program))
+            .AddMassTransitTestHarness(x =>
+            {
+                x.AddConsumer<UpdateCharacterRequestConsumer>();
+                if (serializeUpdates)
+                {
+                    x.AddConfigureEndpointsCallback((name, endpoint) =>
+                    {
+                        if (name == "UpdateCharacterRequest")
+                        {
+                            endpoint.ConcurrentMessageLimit = 1;
+                        }
+                    });
+                }
+            })
+            .BuildServiceProvider(true);
 
     private static HagalazDbContext CreateContext(string databaseName) => new(
         new DbContextOptionsBuilder<HagalazDbContext>()
