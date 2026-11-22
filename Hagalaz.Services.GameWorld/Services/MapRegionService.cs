@@ -498,6 +498,8 @@ namespace Hagalaz.Services.GameWorld.Services
                     var sourceParts = dynamicSource is not null ? ReadSourceParts(dynamicSource) : CreateIdentityParts(source);
                     var templates = await LoadSourceTemplatesAsync(sourceParts, cancellationToken);
 
+                    // A loader may finish without observing cancellation; nothing is published for a canceled creation.
+                    cancellationToken.ThrowIfCancellationRequested();
                     PublishPopulatedDynamicRegion(source, destination, destinationDimension, dynamicSource, sourceParts, templates);
                 }
                 finally

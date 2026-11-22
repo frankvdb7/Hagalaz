@@ -984,6 +984,35 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public async Task CreateDynamicRegion_CanceledWhileALoaderIgnoresCancellation_PublishesNothing()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var templateLoader = Substitute.For<IMapRegionTemplateLoader>();
+        templateLoader.LoadAsync(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(async callInfo =>
+            {
+                await gate.Task; // deliberately ignores the cancellation token
+                return new MapRegionTemplate(callInfo.ArgAt<int>(0), [], []);
+            });
+        using var provider = CreateProvider(templateLoader: templateLoader);
+        var service = CreateService(provider);
+        var destination = Location.Create(128, 64, 0, 0);
+        var taskService = provider.GetRequiredService<IRsTaskService>();
+        var handle = service.CreateDynamicRegion(Location.Create(64, 64, 0, 0), destination);
+        taskService.Tick();
+
+        handle.Cancel();
+        gate.SetResult();
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            taskService.Tick();
+            await Task.Delay(10);
+        }
+
+        Assert.IsNull(service.FindMapRegion(destination.RegionId, destination.Dimension));
+    }
+
+    [TestMethod]
     public void CreateDynamicRegion_FailedTemplateLoadNeverExposesAPartialDestination()
     {
         var templateLoader = Substitute.For<IMapRegionTemplateLoader>();
