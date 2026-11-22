@@ -678,12 +678,14 @@ public sealed class MapRegionLoaderTests
         var plane1Source = mappings.Single(mapping => mapping.Z == 1).SourceZ;
         var bridges = new HashSet<(int, int)>();
         for (var x = 0; x < 8; x++)
-        for (var y = 0; y < 8; y++)
         {
-            if ((template.GetTerrainFlags(plane1Source, sourceMinX + x, sourceMinY + y) & 0x2) != 0)
+            for (var y = 0; y < 8; y++)
             {
-                var (dx, dy) = Rotate(x, y);
-                bridges.Add((destinationMinX + dx, destinationMinY + dy));
+                if ((template.GetTerrainFlags(plane1Source, sourceMinX + x, sourceMinY + y) & 0x2) != 0)
+                {
+                    var (dx, dy) = Rotate(x, y);
+                    bridges.Add((destinationMinX + dx, destinationMinY + dy));
+                }
             }
         }
 
@@ -719,14 +721,16 @@ public sealed class MapRegionLoaderTests
             }
 
             for (var x = 0; x < 8; x++)
-            for (var y = 0; y < 8; y++)
             {
-                if ((template.GetTerrainFlags(sourceZ, sourceMinX + x, sourceMinY + y) & 0x1) == 0)
-                    continue;
-                var (dx, dy) = Rotate(x, y);
-                var height = Height(z, destinationMinX + dx, destinationMinY + dy);
-                if (height >= 0)
-                    floor.Add((destinationMinX + dx, destinationMinY + dy, height));
+                for (var y = 0; y < 8; y++)
+                {
+                    if ((template.GetTerrainFlags(sourceZ, sourceMinX + x, sourceMinY + y) & 0x1) == 0)
+                        continue;
+                    var (dx, dy) = Rotate(x, y);
+                    var height = Height(z, destinationMinX + dx, destinationMinY + dy);
+                    if (height >= 0)
+                        floor.Add((destinationMinX + dx, destinationMinY + dy, height));
+                }
             }
         }
 

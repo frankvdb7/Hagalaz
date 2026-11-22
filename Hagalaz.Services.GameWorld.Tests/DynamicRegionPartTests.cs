@@ -460,8 +460,12 @@ public sealed class DynamicRegionPartTests
             terrain =>
             {
                 for (var x = 0; x < 8; x++)
-                for (var y = 0; y < 8; y++)
-                    terrain[1, SourceMinX + 8 + x, SourceMinY + y] = 0x2;
+                {
+                    for (var y = 0; y < 8; y++)
+                    {
+                        terrain[1, SourceMinX + 8 + x, SourceMinY + y] = 0x2;
+                    }
+                }
             });
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);

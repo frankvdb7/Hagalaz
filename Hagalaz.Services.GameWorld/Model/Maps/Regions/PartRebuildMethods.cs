@@ -207,12 +207,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             var enabled = new List<IGameObject>();
-            foreach (var stored in objects.GroupBy(obj => obj.Location.GetRegionPartHash()))
+            var storedByPart = objects
+                .GroupBy(obj => obj.Location.GetRegionPartHash())
+                .Select(stored => (Part: _parts[stored.Key], Objects: stored.ToList()))
+                .Where(stored => stored.Part is not null);
+            foreach (var (part, stored) in storedByPart)
             {
-                if (_parts.TryGetValue(stored.Key, out var part))
-                {
-                    enabled.AddRange(DiscardObjects(part, stored.ToList()));
-                }
+                enabled.AddRange(DiscardObjects(part!, stored));
             }
 
             foreach (var (x, y, z) in floorTiles)

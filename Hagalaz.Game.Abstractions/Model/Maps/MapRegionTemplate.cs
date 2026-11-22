@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         }
 
         private MapRegionTemplate(int regionId, MapRegionTemplateObject[] objects, BlockedTerrainTile[] blockedTiles)
-            : this(regionId, objects, blockedTiles, objects, TerrainFromBlockedTiles(blockedTiles))
+            : this(regionId, objects, blockedTiles, objects, MapTerrain.FromBlockedTiles(blockedTiles))
         {
         }
 
@@ -72,17 +72,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Gets the raw terrain flags of a tile on a raw plane.
         /// </summary>
         public sbyte GetTerrainFlags(int plane, int localX, int localY) => _terrainFlags[plane, localX, localY];
-
-        private static sbyte[,,] TerrainFromBlockedTiles(IEnumerable<BlockedTerrainTile> blockedTiles)
-        {
-            var terrain = new sbyte[MapTerrain.MapPlanes, MapTerrain.MapDimension, MapTerrain.MapDimension];
-            foreach (var tile in blockedTiles)
-            {
-                terrain[tile.Z, tile.LocalX, tile.LocalY] |= MapTerrain.BlockedFlag;
-            }
-
-            return terrain;
-        }
     }
 
     /// <summary>

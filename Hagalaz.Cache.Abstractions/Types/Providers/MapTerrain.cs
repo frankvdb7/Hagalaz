@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Hagalaz.Cache.Abstractions.Types.Providers
 {
     /// <summary>
@@ -19,5 +21,19 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
         /// one lower when plane 1 of that tile is a bridge, as the client does.
         /// </summary>
         public static int GetCollisionPlane(int plane, bool isBridge) => isBridge ? plane - 1 : plane;
+
+        /// <summary>
+        /// Builds terrain flags for a region without bridges: only the given tiles are blocked.
+        /// </summary>
+        public static sbyte[,,] FromBlockedTiles(IEnumerable<BlockedTerrainTile> blockedTiles)
+        {
+            var terrain = new sbyte[MapPlanes, MapDimension, MapDimension];
+            foreach (var tile in blockedTiles)
+            {
+                terrain[tile.Z, tile.LocalX, tile.LocalY] |= BlockedFlag;
+            }
+
+            return terrain;
+        }
     }
 }
