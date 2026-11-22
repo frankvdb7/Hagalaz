@@ -81,7 +81,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             // the origin stays at the first position the client was told about, not the latest one
             Assert.AreEqual(3200, renderInfo.UnpublishedMoveOrigin?.X);
 
-            viewport.DeferredMapDraw.Returns((DeferredMapDraw?)null);
+            viewport.DeferredMapDraw.Returns(_ => null);
             renderInfo.Reset();
 
             Assert.IsNull(renderInfo.UnpublishedMoveOrigin);

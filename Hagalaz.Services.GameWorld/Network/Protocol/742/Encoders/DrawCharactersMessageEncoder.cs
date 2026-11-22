@@ -380,7 +380,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
         /// <param name="toCheck">Character for which we are getting movement update type.</param>
         /// <returns>Returns 1 if 3 Bit's update type required, 2 if 4bits update required and 3 if other.</returns>
         private static ILocation GetMoveOrigin(ICharacter owner, ICharacter checkable) =>
-            owner == checkable && checkable.RenderInformation.UnpublishedMoveOrigin is { } origin
+            ReferenceEquals(owner, checkable) && checkable.RenderInformation.UnpublishedMoveOrigin is { } origin
                 ? origin
                 : checkable.RenderInformation.LastLocation;
 
@@ -438,7 +438,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
                 return -2;
             }
 
-            var isSelf = owner == checkable;
+            var isSelf = ReferenceEquals(owner, checkable);
             if (isSelf && owner.Viewport.DeferredMapDraw is not null)
             {
                 // The client has not received the map of the new view yet; moving it now would place it
