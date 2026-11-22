@@ -827,6 +827,32 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void ReplacingAScriptUnclippedObject_DoesNotKeepReferencingTheDestroyedOne()
+    {
+        var world = new TestWorld();
+        var region = world.CreateRegion(DestinationRegionX, DestinationRegionY);
+        var x = DestinationRegionX * 64 + 10;
+        var y = DestinationRegionY * 64 + 10;
+        var web = TestWorld.CreateGameObject(733, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        region.Add(web);
+        region.UnFlagCollision(web);
+        Assert.AreEqual(CollisionFlag.Walkable, region.GetCollision(10, 10, 0));
+
+        var replacement = TestWorld.CreateGameObject(900, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        region.Add(replacement);
+
+        Assert.AreSame(replacement, region.FindStandardGameObject(10, 10, 0));
+        Assert.IsTrue(region.GetCollision(10, 10, 0).HasFlag(CollisionFlag.ObjectBlock));
+        foreach (var field in new[] { "_unclippedObjects", "_objectsWithoutCollision" })
+        {
+            var set = (HashSet<IGameObject>)typeof(MapRegion)
+                .GetField(field, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .GetValue(region)!;
+            Assert.IsFalse(set.Contains(web), $"{field} still references the replaced object.");
+        }
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));

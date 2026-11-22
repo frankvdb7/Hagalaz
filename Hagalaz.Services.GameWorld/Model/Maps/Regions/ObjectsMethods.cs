@@ -95,8 +95,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
                 if (_objectsWithoutCollision.Contains(occupant))
                 {
-                    part.DiscardObjects([occupant]);
-                    _objectsWithoutCollision.Remove(occupant);
+                    DiscardObjects(part, [occupant]);
                 }
                 else
                 {
@@ -115,6 +114,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             part.Add(gameObject);
+            if (replaced is not null && !OwnsGameObject(replaced) && !IsDisabledStatic(replaced))
+            {
+                // The replaced object was destroyed, so no collision override may keep referencing it.
+                _unclippedObjects.Remove(replaced);
+                _objectsWithoutCollision.Remove(replaced);
+            }
+
             var removedBySpawn = !OwnsGameObject(gameObject);
             var unflagged = new List<IGameObject>(2);
             if (replaced is not null)
