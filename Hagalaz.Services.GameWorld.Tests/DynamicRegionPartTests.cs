@@ -941,6 +941,12 @@ public sealed class DynamicRegionPartTests
         region.Remove(huge);
         CollectionAssert.AreEquivalent(new[] { wide, near }, region.FindGameObjectsOverlapping(baseX + 14, baseY + 14, baseX + 14, baseY + 14, 0).ToList());
         Assert.AreEqual(0, region.FindGameObjectsOverlapping(baseX + 1000, baseY + 1000, baseX + 1000, baseY + 1000, 0).Count());
+
+        var (firstX, firstY, lastX, lastY) = region.GetCandidateParts(baseX + 14, baseY + 14, baseX + 14, baseY + 14);
+        Assert.IsTrue((lastX - firstX + 1) * (lastY - firstY + 1) <= 64, "Never more than the region's own 8x8 parts are probed.");
+        Assert.IsTrue(firstX >= DestinationRegionX * 8 && lastX <= DestinationRegionX * 8 + 7);
+        var (outsideFirstX, _, outsideLastX, _) = region.GetCandidateParts(baseX + 1000, baseY + 1000, baseX + 1000, baseY + 1000);
+        Assert.IsTrue(outsideLastX < outsideFirstX, "An area outside the region probes nothing.");
     }
 
     [TestMethod]

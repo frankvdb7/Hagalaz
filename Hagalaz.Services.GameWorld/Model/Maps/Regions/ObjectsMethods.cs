@@ -20,17 +20,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         private int _maxObjectExtent = 1;
 
+        /// <summary>
+        /// The absolute part range that can hold an object overlapping the area. Only the 8x8 parts this
+        /// region owns can hold objects, however far an object can reach; the range is empty
+        /// (last before first) when the area is outside them.
+        /// </summary>
+        internal (int FirstPartX, int FirstPartY, int LastPartX, int LastPartY) GetCandidateParts(int minX, int minY, int maxX, int maxY)
+        {
+            var ownedX = BaseLocation.RegionX * 8;
+            var ownedY = BaseLocation.RegionY * 8;
+            return (
+                Math.Max(ownedX, (minX - _maxObjectExtent) >> 3),
+                Math.Max(ownedY, (minY - _maxObjectExtent) >> 3),
+                Math.Min(ownedX + 7, (maxX + 1) >> 3),
+                Math.Min(ownedY + 7, (maxY + 1) >> 3));
+        }
+
         public IEnumerable<IGameObject> FindGameObjectsOverlapping(int minX, int minY, int maxX, int maxY, int z)
         {
             var objects = new List<IGameObject>();
-            // Only the 8x8 parts this region owns can hold objects, however far an object can reach.
-            var firstPartX = BaseLocation.RegionX * 8;
-            var firstPartY = BaseLocation.RegionY * 8;
-            var lastPartX = Math.Min((maxX + 1) >> 3, firstPartX + 7);
-            var lastPartY = Math.Min((maxY + 1) >> 3, firstPartY + 7);
-            for (var partX = Math.Max(firstPartX, (minX - _maxObjectExtent) >> 3); partX <= lastPartX; partX++)
+            var (firstPartX, firstPartY, lastPartX, lastPartY) = GetCandidateParts(minX, minY, maxX, maxY);
+            for (var partX = firstPartX; partX <= lastPartX; partX++)
             {
-                for (var partY = Math.Max(firstPartY, (minY - _maxObjectExtent) >> 3); partY <= lastPartY; partY++)
+                for (var partY = firstPartY; partY <= lastPartY; partY++)
                 {
                     if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(partX, partY, z), out var part))
                     {
