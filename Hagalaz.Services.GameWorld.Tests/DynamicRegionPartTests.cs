@@ -1052,6 +1052,25 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void RemovingAnObject_ReflagsAWideSurvivorRootedTwoRegionsAway()
+    {
+        var world = new TestWorld();
+        var regionA = world.CreateRegion(40, 40);
+        world.CreateRegion(41, 40);
+        var regionC = world.CreateRegion(42, 40);
+        var wide = TestWorld.CreateGameObject(1, 40 * 64 + 63, 40 * 64 + 5, 0, 0, 0, ShapeType.GroundDefault, Definition(130, 1), isStatic: false);
+        regionA.Add(wide);
+        var small = TestWorld.CreateGameObject(2, 42 * 64 + 10, 40 * 64 + 5, 0, 0, 0, ShapeType.GroundDefault, Definition(2, 1), isStatic: false);
+        regionC.Add(small);
+        Assert.IsTrue(regionC.GetCollision(11, 5, 0).HasFlag(CollisionFlag.ObjectBlock), "The wide object clips region C.");
+
+        // Replacing the 2x1 with a 1x1 clears the shared bits of the tile it no longer covers.
+        regionC.Add(TestWorld.CreateGameObject(3, 42 * 64 + 10, 40 * 64 + 5, 0, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false));
+
+        Assert.IsTrue(regionC.GetCollision(11, 5, 0).HasFlag(CollisionFlag.ObjectBlock), "The surviving wide object still blocks the tile.");
+    }
+
+    [TestMethod]
     public void FindGameObjectsOverlapping_LooksOnlyAtPartsThatCanHoldAnOverlappingObject()
     {
         var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);

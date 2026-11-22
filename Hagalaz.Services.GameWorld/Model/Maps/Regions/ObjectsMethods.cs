@@ -21,6 +21,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private int _maxObjectExtent = 1;
 
         /// <summary>
+        /// Object definitions read their size as an unsigned byte.
+        /// </summary>
+        private const int MaxSupportedObjectSize = 255;
+
+        /// <summary>
         /// The absolute part range that can hold an object overlapping the area. Only the 8x8 parts this
         /// region owns can hold objects, however far an object can reach; the range is empty
         /// (last before first) when the area is outside them.
@@ -242,15 +247,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         /// <summary>
         /// This region plus resident regions whose objects can overlap the area: those
-        /// covering it, and those one region west or south, since a survivor can be rooted
-        /// up to its size before the area. Lookups never create or resume a region.
+        /// covering it, and those west or south of it, since a survivor can be rooted up to
+        /// the largest supported object size before the area. Lookups never create or resume a region.
         /// </summary>
         private IEnumerable<IMapRegion> FindRegionsThatCanOverlap((int MinX, int MinY, int MaxX, int MaxY) area)
         {
             yield return this;
-            for (var regionX = (area.MinX >> 6) - 1; regionX <= area.MaxX >> 6; regionX++)
+            var firstRegionX = Math.Max(0, (area.MinX - MaxSupportedObjectSize) >> 6);
+            var firstRegionY = Math.Max(0, (area.MinY - MaxSupportedObjectSize) >> 6);
+            for (var regionX = firstRegionX; regionX <= area.MaxX >> 6; regionX++)
             {
-                for (var regionY = (area.MinY >> 6) - 1; regionY <= area.MaxY >> 6; regionY++)
+                for (var regionY = firstRegionY; regionY <= area.MaxY >> 6; regionY++)
                 {
                     var regionId = (regionX << 8) | regionY;
                     if (regionX < 0 || regionY < 0 || regionId == Id)
