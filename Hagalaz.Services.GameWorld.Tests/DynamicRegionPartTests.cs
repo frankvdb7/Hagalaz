@@ -682,6 +682,63 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void BridgeDependencyRebuild_KeepsARemovedConfiguredSpawnRemoved()
+    {
+        var (destination, planeZero, staticObject, spawnX, spawnY, templates) = CreateBridgeDependencyScenario(isStatic: false);
+        var spawn = destination.FindStandardGameObject(spawnX, spawnY, 0)!;
+        destination.Remove(spawn);
+
+        ChangeBridgeAwayFromTheObjects(destination, templates);
+
+        Assert.IsNull(destination.FindStandardGameObject(spawnX, spawnY, 0));
+        Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(spawnX, spawnY, 0));
+        Assert.AreSame(staticObject, planeZero.FindAllGameObjects().Single(obj => obj.Id == 70));
+    }
+
+    [TestMethod]
+    public void BridgeDependencyRebuild_KeepsAnObjectChangedInPlace()
+    {
+        var (destination, _, staticObject, spawnX, spawnY, templates) = CreateBridgeDependencyScenario(isStatic: true);
+        var changed = (GameObject)destination.FindStandardGameObject(spawnX, spawnY, 0)!;
+        changed.Id = 734;
+
+        ChangeBridgeAwayFromTheObjects(destination, templates);
+
+        Assert.AreSame(changed, destination.FindStandardGameObject(spawnX, spawnY, 0));
+        Assert.AreEqual(734, changed.Id);
+        Assert.IsTrue(destination.GetCollision(spawnX, spawnY, 0).HasFlag(CollisionFlag.ObjectBlock));
+        Assert.AreSame(staticObject, destination.FindAllGameObjects().Single(obj => obj.Id == 70));
+    }
+
+    // Plane 0 and plane 1 map the same bridge-free chunk. Plane 0 holds a static object U (id 70) and
+    // a second object at (3, 3) that is configured (not static) or a static cache object.
+    private static (MapRegion Destination, IMapRegionPart PlaneZero, IGameObject StaticObject, int SpawnX, int SpawnY, IReadOnlyDictionary<int, MapRegionTemplate> Templates) CreateBridgeDependencyScenario(bool isStatic)
+    {
+        var flags = new sbyte[4, 64, 64];
+        flags[1, SourceMinX + 8 + 6, SourceMinY + 6] = 0x2;
+        var template = new MapRegionTemplate(SourceRegionId, [],
+            [],
+            [
+                new MapRegionTemplateObject(70, SourceMinX + 1, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true),
+                new MapRegionTemplateObject(733, SourceMinX + 3, SourceMinY + 3, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, isStatic)
+            ], flags);
+        var templates = Templates(template);
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], templates);
+        var planeZero = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        var staticObject = planeZero.FindAllGameObjects().Single(obj => obj.Id == 70);
+        return (destination, planeZero, staticObject, DestinationMinX + 3, DestinationMinY + 3, templates);
+    }
+
+    // Maps plane 1 to the neighbouring chunk, whose bridge flag at (6, 6) differs, away from the objects.
+    private static void ChangeBridgeAwayFromTheObjects(MapRegion destination, IReadOnlyDictionary<int, MapRegionTemplate> templates) =>
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));

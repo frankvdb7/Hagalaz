@@ -26,6 +26,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly Dictionary<IGameObject, int> _objectOwners = new(ReferenceEqualityComparer.Instance);
 
         /// <summary>
+        /// What each built object was created from. Runtime scripts can change a live object in place
+        /// (id, rotation), so rebuilds compare against this, not against the object's current state.
+        /// </summary>
+        private readonly Dictionary<IGameObject, (int Id, int Rotation, ShapeType Shape, bool IsStatic, bool HasCollision)> _objectOrigins = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// Live objects of parts that are rebuilt only because something they depend on changed. A
+        /// rebuilt object that matches one of them keeps that object, with its runtime state.
+        /// </summary>
+        private readonly Dictionary<int, List<IGameObject>> _reusePool = new();
+
+        /// <summary>
         /// Objects other parts' objects displaced during the current rebuild; their collision is
         /// unflagged and overlapping survivors are re-flagged once, after everything is placed.
         /// </summary>
@@ -151,17 +163,31 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <param name="replacedParts">Parts whose chunk was replaced: objects added to them at runtime are removed too.</param>
         private void RebuildParts(IReadOnlyCollection<int> parts, IReadOnlyCollection<int> editedParts, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
         {
-            // A part rebuilt only because something it depends on changed has the same descriptor,
-            // so objects removed at runtime stay removed.
-            var carried = parts
-                .Where(key => !editedParts.Contains(key))
+            // A part rebuilt only because something it depends on changed has the same descriptor, so
+            // its live objects keep their runtime state (removed, transformed in place) when the
+            // rebuild produces them again, and objects removed at runtime stay removed.
+            var dependentParts = parts.Where(key => !editedParts.Contains(key)).ToList();
+            var carried = dependentParts
                 .Select(key => (Key: key, Tombstones: CollectTombstones(key)))
                 .Where(entry => entry.Tombstones.Count > 0)
                 .ToDictionary(entry => entry.Key, entry => entry.Tombstones);
+            _reusePool.Clear();
+            foreach (var key in dependentParts.Where(_partContent.ContainsKey))
+            {
+                _reusePool[key] = _partContent[key].Objects.Where(obj => OwnsGameObject(obj) || IsDisabledStatic(obj)).ToList();
+            }
+
             var removed = DiscardRuntimeObjects(replacedParts);
             foreach (var key in parts)
             {
-                removed.AddRange(DiscardPart(key));
+                removed.AddRange(DiscardPart(key, _reusePool.GetValueOrDefault(key)));
+            }
+
+            // Content exists for every rebuilt part before any is built, so a part that loses a slot
+            // can record itself on a winner that is built later.
+            foreach (var key in parts)
+            {
+                _partContent[key] = new PartContent();
             }
 
             foreach (var key in parts.OrderBy(GetBuildRank))
@@ -169,6 +195,15 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 MaterializePart(key, templates, carried.GetValueOrDefault(key));
             }
 
+            foreach (var leftover in _reusePool.Values.SelectMany(pool => pool).GroupBy(obj => obj.Location.GetRegionPartHash()))
+            {
+                if (_parts[leftover.Key] is { } storage)
+                {
+                    removed.AddRange(DiscardObjects(storage, leftover.ToList()));
+                }
+            }
+
+            _reusePool.Clear();
             removed.AddRange(_overwrittenObjects);
             _overwrittenObjects.Clear();
 
@@ -179,8 +214,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         /// <summary>
-        /// The slots of a part's objects that were removed at runtime (disabled statics), plus the
-        /// removals it already carries from being beaten for a slot.
+        /// The objects of a part that were removed at runtime and destroyed (configured spawns), plus
+        /// the removals it already carries from being beaten for a slot. Disabled statics are not
+        /// listed: they stay registered and are reused.
         /// </summary>
         private HashSet<(int X, int Y, int Z, LayerType Layer, int Id)> CollectTombstones(int key)
         {
@@ -191,7 +227,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             tombstones.UnionWith(content.Tombstones);
-            foreach (var gameObject in content.Objects.Where(IsDisabledStatic))
+            foreach (var gameObject in content.Objects.Where(obj => !OwnsGameObject(obj) && !IsDisabledStatic(obj)))
             {
                 tombstones.Add(GetTombstone(gameObject));
             }
@@ -203,8 +239,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _parts[gameObject.Location.GetRegionPartHash()] is { } part
             && part.FindAllDisabledStaticGameObjects().Any(disabled => ReferenceEquals(disabled, gameObject));
 
-        private static (int X, int Y, int Z, LayerType Layer, int Id) GetTombstone(IGameObject gameObject) =>
-            (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, gameObject.ShapeType.GetLayerType(), gameObject.Id);
+        private (int X, int Y, int Z, LayerType Layer, int Id) GetTombstone(IGameObject gameObject) =>
+            _objectOrigins.TryGetValue(gameObject, out var origin)
+                ? (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, origin.Shape.GetLayerType(), origin.Id)
+                : (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, gameObject.ShapeType.GetLayerType(), gameObject.Id);
 
         /// <summary>
         /// Removes objects stored in replaced parts that no part built (added at runtime,
@@ -241,6 +279,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             foreach (var gameObject in objects)
             {
                 _objectOwners.Remove(gameObject);
+                _objectOrigins.Remove(gameObject);
             }
 
             return enabled;
@@ -251,8 +290,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// without recording runtime removals. A part never built here (a region loaded as standard)
         /// gives up everything stored in it that no other part built, and every floor block on its plane.
         /// </summary>
+        /// <param name="key">The part.</param>
+        /// <param name="keep">Live objects of the part to leave registered, for reuse by the rebuild.</param>
         /// <returns>The removed objects whose collision was unflagged.</returns>
-        private List<IGameObject> DiscardPart(int key)
+        private List<IGameObject> DiscardPart(int key, IReadOnlyCollection<IGameObject>? keep = null)
         {
             var column = key / Planes;
             var localPartX = column / PartsPerRegionAxis;
@@ -277,6 +318,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 floorTiles = from x in Enumerable.Range(localPartX * 8, 8)
                     from y in Enumerable.Range(localPartY * 8, 8)
                     select (x, y, z);
+            }
+
+            if (keep is { Count: > 0 })
+            {
+                objects = objects.Where(obj => !keep.Contains(obj, ReferenceEqualityComparer.Instance)).ToList();
             }
 
             var enabled = new List<IGameObject>();
@@ -305,8 +351,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         private void MaterializePart(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlySet<(int X, int Y, int Z, LayerType Layer, int Id)>? tombstones)
         {
-            var content = new PartContent();
-            _partContent[key] = content;
+            if (!_partContent.TryGetValue(key, out var content))
+            {
+                content = new PartContent();
+                _partContent[key] = content;
+            }
+
             var column = key / Planes;
             var localPartX = column / PartsPerRegionAxis;
             var localPartY = column % PartsPerRegionAxis;
@@ -371,6 +421,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     continue;
                 }
 
+                var rotation = (entry.Rotation + source.Rotation) & 0x3;
+                if (_reusePool.TryGetValue(key, out var pool) && TakeReusable(pool, localX, localY, plane, entry, rotation, hasCollision) is { } reused)
+                {
+                    content.Objects.Add(reused);
+                    continue;
+                }
+
                 if (!ClaimSlot(key, content, localX, localY, plane, entry.Shape.GetLayerType(), hasCollision))
                 {
                     continue;
@@ -385,7 +442,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     .WithId(entry.Id)
                     .WithLocation(location)
                     .WithDefinition(entry.Definition)
-                    .WithRotation((entry.Rotation + source.Rotation) & 0x3)
+                    .WithRotation(rotation)
                     .WithShape(entry.Shape);
                 if (entry.IsStatic)
                 {
@@ -397,8 +454,28 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     content.Objects.Add(gameObject);
                     _objectOwners[gameObject] = key;
+                    _objectOrigins[gameObject] = (entry.Id, rotation, entry.Shape, entry.IsStatic, hasCollision);
                 }
             }
+        }
+
+        /// <summary>
+        /// Takes the live object of a rebuilt part that was created from the same template entry and
+        /// still sits in the slot the entry now maps to.
+        /// </summary>
+        private IGameObject? TakeReusable(List<IGameObject> pool, int localX, int localY, int plane, MapRegionTemplateObject entry, int rotation, bool hasCollision)
+        {
+            var index = pool.FindIndex(candidate => _objectOrigins.TryGetValue(candidate, out var origin)
+                && origin == (entry.Id, rotation, entry.Shape, entry.IsStatic, hasCollision)
+                && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY && candidate.Location.Z == plane);
+            if (index < 0)
+            {
+                return null;
+            }
+
+            var reusable = pool[index];
+            pool.RemoveAt(index);
+            return reusable;
         }
 
         /// <summary>
@@ -444,6 +521,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             _overwrittenObjects.AddRange(DiscardObjects(storage!, [occupant]));
+            if (_partContent.TryGetValue(ownerKey, out var displaced))
+            {
+                displaced.Objects.Remove(occupant);
+            }
+
+            if (_reusePool.TryGetValue(ownerKey, out var ownerPool))
+            {
+                ownerPool.Remove(occupant);
+            }
+
             return true;
         }
 
