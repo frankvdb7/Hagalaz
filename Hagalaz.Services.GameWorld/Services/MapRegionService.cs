@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
@@ -17,6 +18,7 @@ using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +42,7 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly Dimension?[] _dimensions = new Dimension?[MaxDimensions];
         private readonly object _residencyGate = new();
         private readonly IServiceScope _serviceScope;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
@@ -61,6 +64,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             CreateDimension(0); // create global world dimension.
             _serviceScope = serviceProvider.CreateScope();
+            _serviceProvider = serviceProvider;
             _locationBuilder = locationBuilder;
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
@@ -513,6 +517,9 @@ namespace Hagalaz.Services.GameWorld.Services
                         throw new InvalidOperationException($"Source region {standardRegion.Id} was replaced or is not ready.");
                     }
 
+                    var sourceParts = ReadSourceParts(standardRegion);
+                    var templates = await LoadSourceTemplatesAsync(sourceParts, cancellationToken);
+
                     lock (_residencyGate)
                     {
                         var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
@@ -529,24 +536,25 @@ namespace Hagalaz.Services.GameWorld.Services
                             throw new InvalidOperationException($"Destination region {dynamicRegion.Id} was replaced before dynamic population.");
                         }
 
-                        standardRegion = currentSource;
                         dynamicRegion = currentDestination;
-                        standardRegion.MakeStandard();
                         dynamicRegion.MakeDynamic();
                     }
 
                     // Dynamic block population can invoke object scripts while loading
                     // copied objects. This operation is a game task, so it remains on
                     // the serialized GameWorker boundary.
-                    for (var z = 0; z < 4; z++)
+                    foreach (var part in sourceParts)
                     {
-                        for (var xIndex = 0; xIndex < 8; xIndex++)
+                        if (!part.IsPresent)
                         {
-                            for (var yIndex = 0; yIndex < 8; yIndex++)
-                            {
-                                var part = standardRegion.GetRegionPartData(xIndex, yIndex, z);
-                                dynamicRegion.WriteBlock(xIndex, yIndex, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.DrawRegionDimension);
-                            }
+                            continue;
+                        }
+
+                        var template = templates[part.SourceRegionId];
+                        dynamicRegion.WriteBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, template);
+                        if (part.Rotation != 0)
+                        {
+                            dynamicRegion.RotateBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.Rotation, template);
                         }
                     }
 
@@ -567,6 +575,42 @@ namespace Hagalaz.Services.GameWorld.Services
             });
             _taskScheduler.Schedule(task);
             return new RsTaskHandle(task);
+        }
+
+        private static List<SourcePart> ReadSourceParts(IMapRegion sourceRegion)
+        {
+            var parts = new List<SourcePart>(4 * 8 * 8);
+            for (var z = 0; z < 4; z++)
+            {
+                for (var localPartX = 0; localPartX < 8; localPartX++)
+                {
+                    for (var localPartY = 0; localPartY < 8; localPartY++)
+                    {
+                        var part = sourceRegion.GetRegionPartByLocalPart(localPartX, localPartY, z);
+                        parts.Add(new SourcePart(localPartX, localPartY, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation, part.HasDrawSource));
+                    }
+                }
+            }
+
+            return parts;
+        }
+
+        private async Task<Dictionary<int, MapRegionTemplate>> LoadSourceTemplatesAsync(IEnumerable<SourcePart> sourceParts, CancellationToken cancellationToken)
+        {
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var templateLoader = scope.ServiceProvider.GetRequiredService<IMapRegionTemplateLoader>();
+            var templates = new Dictionary<int, MapRegionTemplate>();
+            foreach (var regionId in sourceParts.Where(part => part.IsPresent).Select(part => part.SourceRegionId).Distinct())
+            {
+                templates.Add(regionId, await templateLoader.LoadAsync(regionId, GetXtea(regionId), cancellationToken));
+            }
+
+            return templates;
+        }
+
+        private readonly record struct SourcePart(int LocalPartX, int LocalPartY, int Z, int SourcePartX, int SourcePartY, int SourceZ, int Rotation, bool IsPresent)
+        {
+            public int SourceRegionId => Regions_MapRegion.GetSourceRegionId(SourcePartX, SourcePartY);
         }
 
         private void DiscardDynamicRegion(ILocation destination, IMapRegion dynamicRegion)

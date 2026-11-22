@@ -94,128 +94,99 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             FindGameObjects(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z)
                 .Any(existing => ReferenceEquals(existing, gameObject));
 
-        public void UnloadPartGameObjects(int partX, int partY, int partZ, int partRotation)
+        /// <summary>
+        /// Removes a part's objects, disabled static objects and floor blocks
+        /// without recording runtime removals.
+        /// </summary>
+        private void DiscardPartContent(IMapRegionPart part, int localPartX, int localPartY, int z)
         {
-            EnsureAcceptsMutation();
-            UnloadPartGameObjectsCore(partX, partY, partZ, partRotation);
-        }
-
-        private void UnloadPartGameObjectsCore(int partX, int partY, int partZ, int partRotation)
-        {
-            var minLocalX = (partX & 0x7) * 8;
-            var maxLocalX = minLocalX + 7;
-            var minLocalY = (partY & 0x7) * 8;
-            var maxLocalY = minLocalY + 7;
-
-            for (var localX = minLocalX; localX <= maxLocalX; localX++)
+            foreach (var gameObject in part.FindAllGameObjects().ToList())
             {
-                for (var localY = minLocalY; localY <= maxLocalY; localY++)
-                {
-                    var rotatedLocalX = minLocalX + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, false);
-                    var rotatedLocalY = minLocalY + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, true);
-                    if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
-                    foreach (var obj in FindGameObjects(rotatedLocalX, rotatedLocalY, partZ)) Remove(obj);
-                    SetCollision(rotatedLocalX, rotatedLocalY, partZ, CollisionFlag.Walkable);
-                }
+                UnFlagCollisionCore(gameObject);
             }
 
-            var min = Location.Create(partX + minLocalX, partY + minLocalY, partZ, BaseLocation.Dimension);
-            var max = Location.Create(partX + maxLocalX, partY + maxLocalY, partZ, BaseLocation.Dimension);
-            // TODO: Dynamic regions
-            // foreach (var obj in _disabledStaticObjects.Where(obj =>
-            //              obj.Location.X >= min.X && obj.Location.X <= max.X && obj.Location.Y >= min.Y && obj.Location.Y <= max.Y && obj.Location.Z == partZ))
-            // {
-            //     _disabledStaticObjects.Remove(obj);
-            // }
+            part.DiscardContent();
+            var minLocalX = localPartX * 8;
+            var minLocalY = localPartY * 8;
+            for (var localX = minLocalX; localX < minLocalX + 8; localX++)
+            {
+                for (var localY = minLocalY; localY < minLocalY + 8; localY++)
+                {
+                    UnFlagCollision(localX, localY, z, CollisionFlag.FloorBlock);
+                }
+            }
         }
 
         /// <summary>
-        /// Reload's mapregion part.
-        /// TODO - Load the original mapregion with object data, npc data etc. 
-        /// The original mapregion can be used to cache objects which will then 
-        /// be rotated and loaded accordinally here in this dynamic region.
+        /// Builds a present part's objects and floor blocks from the source
+        /// template's 8x8 area on the source plane, rotated by the part rotation.
         /// </summary>
-        /// <param name="partX">X of the part.</param>
-        /// <param name="partY">Y of the part.</param>
-        /// <param name="partZ">Z of the part.</param>
-        /// <param name="partRotation">The rotation.</param>
-        public void LoadPartObjects(int partX, int partY, int partZ, int partRotation)
+        private void MaterializePart(IMapRegionPart part, int localPartX, int localPartY, int z, MapRegionTemplate sourceTemplate)
         {
-            EnsureAcceptsMutation();
-            LoadPartObjectsCore(partX, partY, partZ, partRotation);
-        }
-
-        private void LoadPartObjectsCore(int partX, int partY, int partZ, int partRotation)
-        {
-            var minX = (partX & 0x7) * 8;
-            var maxX = minX + 7;
-            var minY = (partY & 0x7) * 8;
-            var maxY = minY + 7;
-
-            var data = GetDynamicRegionPartData(partX, partY, partZ);
-            if (!data.HasDrawSource)
+            if (!part.HasDrawSource)
             {
                 return;
             }
 
-            var regionID = ((data.DrawRegionPartX / 8) << 8) | (data.DrawRegionPartY / 8);
-            var region = _regionService.GetOrCreateMapRegion(regionID, data.DrawRegionDimension);
-            for (var localX = minX; localX <= maxX; localX++)
+            var sourceMinX = (part.DrawRegionPartX & 0x7) * 8;
+            var sourceMinY = (part.DrawRegionPartY & 0x7) * 8;
+            var sourceZ = part.DrawRegionZ;
+            var rotation = part.Rotation & 0x3;
+            var minLocalX = localPartX * 8;
+            var minLocalY = localPartY * 8;
+
+            bool IsInSourcePart(int localX, int localY, int plane) =>
+                plane == sourceZ
+                && localX >= sourceMinX && localX < sourceMinX + 8
+                && localY >= sourceMinY && localY < sourceMinY + 8;
+
+            foreach (var tile in sourceTemplate.BlockedTiles)
             {
-                for (var localY = minY; localY <= maxY; localY++)
+                if (!IsInSourcePart(tile.LocalX, tile.LocalY, tile.Z))
                 {
-                    AddPartObjects(region, minX, minY, localX, localY, partZ, partRotation);
-
-                    var rotatedLocalX = minX + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, false);
-                    var rotatedLocalY = minY + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, true);
-                    if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64)
-                    {
-                        continue;
-                    }
-
-                    SetCollision(rotatedLocalX, rotatedLocalY, partZ, region.GetCollision(localX, localY, partZ));
+                    continue;
                 }
+
+                FlagCollision(
+                    minLocalX + CalculateRotationDelta(tile.LocalX & 0x7, tile.LocalY & 0x7, rotation, false),
+                    minLocalY + CalculateRotationDelta(tile.LocalX & 0x7, tile.LocalY & 0x7, rotation, true),
+                    z,
+                    CollisionFlag.FloorBlock);
             }
-        }
 
-        private IMapRegionPart GetDynamicRegionPartData(int partX, int partY, int z)
-        {
-            EnsureAcceptsMutation();
-            var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            return _parts.GetOrAdd(partHash, hash =>
+            foreach (var entry in sourceTemplate.Objects)
             {
-                var part = CreateRegionPart(hash);
-                part.HasDrawSource = false;
-                return part;
-            });
-        }
-
-        public void AddPartObjects(IMapRegion region, int minLocalX, int minLocalY, int localX, int localY, int z, int partRotation)
-        {
-            foreach (var obj in region.FindGameObjects(localX, localY, z))
-            {
-                var rotatedLocalX = minLocalX + CalculateObjectRotationDelta(obj, localX & 0x7, localY & 0x7, partRotation, false);
-                var rotatedLocalY = minLocalY + CalculateObjectRotationDelta(obj, localX & 0x7, localY & 0x7, partRotation, true);
-
-                if (rotatedLocalX >= 0 && rotatedLocalX < Size.X && rotatedLocalY >= 0 && rotatedLocalY < Size.Y)
+                if (!IsInSourcePart(entry.LocalX, entry.LocalY, entry.Z))
                 {
-                    var location = Location.Create(rotatedLocalX + BaseLocation.RegionX * Size.X,
-                        rotatedLocalY + BaseLocation.RegionY * Size.Y,
-                        z,
-                        BaseLocation.Dimension);
-                    var builder = _gameObjectBuilder.Create()
-                        .WithId(obj.Id)
-                        .WithLocation(location)
-                        .WithRotation(obj.Rotation)
-                        .WithShape(obj.ShapeType);
-                    if (obj.IsStatic)
-                    {
-                        builder.AsStatic();
-                    }
-
-                    var gObject = builder.Build();
-                    Add(gObject);
+                    continue;
                 }
+
+                var sizeX = entry.Definition.SizeX;
+                var sizeY = entry.Definition.SizeY;
+                var localX = minLocalX + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, rotation, false);
+                var localY = minLocalY + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, rotation, true);
+                if (localX < 0 || localX >= Size.X || localY < 0 || localY >= Size.Y)
+                {
+                    continue;
+                }
+
+                var location = Location.Create(
+                    BaseLocation.RegionX * Size.X + localX,
+                    BaseLocation.RegionY * Size.Y + localY,
+                    z,
+                    BaseLocation.Dimension);
+                var builder = _gameObjectBuilder.Create()
+                    .WithId(entry.Id)
+                    .WithLocation(location)
+                    .WithDefinition(entry.Definition)
+                    .WithRotation((entry.Rotation + rotation) & 0x3)
+                    .WithShape(entry.Shape);
+                if (entry.IsStatic)
+                {
+                    builder = builder.AsStatic();
+                }
+
+                Add(builder.Build());
             }
         }
 
@@ -228,20 +199,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return calculateRotationY ? partLocalX : 7 - partLocalY;
         }
 
-        public static int CalculateObjectRotationDelta(IGameObject obj, int partLocalX, int partLocalY, int partRotation, bool calculateRotationY)
+        public static int CalculateObjectRotationDelta(int definitionSizeX, int definitionSizeY, int objectRotation, int partLocalX, int partLocalY, int partRotation, bool calculateRotationY)
         {
-            int sizeX;
-            int sizeY;
-            if ((obj.Rotation & 0x1) == 1)
-            {
-                sizeX = obj.SizeY;
-                sizeY = obj.SizeX;
-            }
-            else
-            {
-                sizeX = obj.SizeX;
-                sizeY = obj.SizeY;
-            }
+            var (sizeX, sizeY) = (objectRotation & 0x1) == 1
+                ? (definitionSizeY, definitionSizeX)
+                : (definitionSizeX, definitionSizeY);
 
             partRotation &= 0x3;
             if (partRotation == 0)

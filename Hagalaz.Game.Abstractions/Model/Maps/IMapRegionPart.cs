@@ -27,11 +27,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         int DrawRegionZ { get; set; }
 
         /// <summary>
-        /// Gets or sets the dimension of the source region part.
-        /// </summary>
-        int DrawRegionDimension { get; set; }
-
-        /// <summary>
         /// Gets whether this part has a source mapping to load.
         /// </summary>
         bool HasDrawSource { get; set; }
@@ -136,5 +131,11 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// Erases all dynamic data from this region part, resetting it to its base state.
         /// </summary>
         void Erase();
+
+        /// <summary>
+        /// Destroys and unregisters every object of this part, including disabled
+        /// static objects, without recording them as runtime removals.
+        /// </summary>
+        void DiscardContent();
     }
 }

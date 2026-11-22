@@ -392,8 +392,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 DrawRegionPartX = partHash & 0x3ff,
                 DrawRegionPartY = (partHash >> 10) & 0x7ff,
                 DrawRegionZ = (partHash >> 21) & 0x3,
-                DrawRegionDimension = BaseLocation.Dimension,
-                HasDrawSource = true,
+                HasDrawSource = !IsDynamic,
             };
 
     }

@@ -11,7 +11,9 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Services.GameWorld.Builders;
+using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Logic.Pathfinding;
 using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
@@ -669,24 +671,24 @@ public sealed class MapRegionServiceTests
         objectLocationBuilder.WithLocation(Arg.Any<ILocation>()).Returns(objectOptionalBuilder);
         objectLocationBuilder.When(builder => builder.WithLocation(Arg.Any<ILocation>()))
             .Do(callInfo => copiedLocation = callInfo.Arg<ILocation>());
+        objectOptionalBuilder.WithDefinition(Arg.Any<IGameObjectDefinition>()).Returns(objectOptionalBuilder);
         objectOptionalBuilder.WithRotation(Arg.Any<int>()).Returns(objectOptionalBuilder);
         objectOptionalBuilder.WithShape(Arg.Any<ShapeType>()).Returns(objectOptionalBuilder);
+        objectOptionalBuilder.AsStatic().Returns(objectOptionalBuilder);
         objectOptionalBuilder.Build().Returns(_ =>
         {
             copiedObject = CreateGameObject(copiedLocation!);
             cancellation.Cancel();
             return copiedObject;
         });
-        using var provider = CreateProvider(loadRequests);
-        var service = CreateService(provider, new LocationBuilder(), gameObjectBuilder);
         var source = Location.Create(64, 64, 0, 0);
         var destination = Location.Create(128, 64, 0, 0);
+        var templateLoader = CreateTemplateLoader(regionId => new MapRegionTemplate(regionId,
+            [new MapRegionTemplateObject(42, 0, 0, 0, 0, ShapeType.GroundDefault, CreateGameObject(source).Definition, true)], []));
+        using var provider = CreateProvider(loadRequests, templateLoader);
+        var service = CreateService(provider, new LocationBuilder(), gameObjectBuilder);
         var sourceRegion = service.GetOrCreateMapRegion(source.RegionId, source.Dimension);
-        sourceRegion.GetRegionPartData(0, 0, 0);
-        sourceRegion.MakeStandard();
         sourceRegion.MarkReady();
-        var sourceObject = CreateGameObject(Location.Create(64, 64, 0, 0));
-        sourceRegion.Add(sourceObject);
 
         service.CreateDynamicRegion(source, destination);
         var taskService = provider.GetRequiredService<IRsTaskService>();
@@ -697,6 +699,86 @@ public sealed class MapRegionServiceTests
         Assert.IsNotNull(destinationRegion);
         Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
         Assert.IsTrue(destinationRegion.IsDynamic);
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_MapsEveryPartFromTheAbsoluteSourcePart()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var templateLoader = CreateTemplateLoader();
+        using var provider = CreateProvider(loadRequests, templateLoader);
+        var service = CreateService(provider);
+        var source = Location.Create(3200, 3264, 0, 0);
+        var destination = Location.Create(640, 640, 0, 0);
+        service.GetOrCreateMapRegion(source.RegionId, source.Dimension).MarkReady();
+
+        service.CreateDynamicRegion(source, destination);
+        provider.GetRequiredService<IRsTaskService>().Tick();
+
+        var dynamicRegion = service.FindMapRegion(destination.RegionId, destination.Dimension)!;
+        Assert.AreEqual(MapRegionState.Ready, dynamicRegion.State);
+        for (var z = 0; z < 4; z++)
+        {
+            for (var x = 0; x < 8; x++)
+            {
+                for (var y = 0; y < 8; y++)
+                {
+                    var part = dynamicRegion.GetRegionPartByLocalPart(x, y, z);
+                    Assert.IsTrue(part.HasDrawSource);
+                    Assert.AreEqual(50 * 8 + x, part.DrawRegionPartX);
+                    Assert.AreEqual(51 * 8 + y, part.DrawRegionPartY);
+                    Assert.AreEqual(z, part.DrawRegionZ);
+                    Assert.AreEqual(0, part.Rotation);
+                }
+            }
+        }
+
+        templateLoader.Received(1).LoadAsync(source.RegionId, Arg.Any<int[]>(), Arg.Any<CancellationToken>());
+        templateLoader.ReceivedWithAnyArgs(1).LoadAsync(default, default!, default);
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_ContentComesFromTheTemplateNotTheLiveSource()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var definition = CreateSolidDefinition();
+        var templateLoader = CreateTemplateLoader(regionId => new MapRegionTemplate(regionId,
+            [new MapRegionTemplateObject(42, 3, 4, 0, 0, ShapeType.GroundDefault, definition, true)],
+            [new BlockedTerrainTile(5, 5, 0)]));
+        using var provider = CreateProvider(loadRequests, templateLoader);
+        var service = CreateService(provider, new LocationBuilder(), CreateGameObjectBuilder());
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var source = Location.Create(64, 64, 0, 0);
+        var mutatedSource = service.GetOrCreateMapRegion(source.RegionId, source.Dimension);
+        mutatedSource.MarkReady();
+        mutatedSource.Add(new GameObject(77, Location.Create(64 + 6, 64 + 6, 0, 0), 0, ShapeType.GroundDefault, false, definition, Substitute.For<IGameObjectScript>()));
+        mutatedSource.FlagCollision(1, 1, 0, CollisionFlag.WallNorth);
+        var firstDestination = Location.Create(128, 64, 0, 0);
+        var secondDestination = Location.Create(128, 64, 0, dimension!.Id);
+
+        service.CreateDynamicRegion(source, firstDestination);
+        provider.GetRequiredService<IRsTaskService>().Tick();
+        Assert.IsTrue(service.TryRemoveMapRegion(source.RegionId, source.Dimension, mutatedSource));
+        service.GetOrCreateMapRegion(source.RegionId, source.Dimension).MarkReady();
+        service.CreateDynamicRegion(source, secondDestination);
+        provider.GetRequiredService<IRsTaskService>().Tick();
+
+        var first = service.FindMapRegion(firstDestination.RegionId, firstDestination.Dimension)!;
+        var second = service.FindMapRegion(secondDestination.RegionId, secondDestination.Dimension)!;
+        string Snapshot(IMapRegion region) => string.Join(";", region.FindAllGameObjects()
+            .Select(obj => $"{obj.Id}:{obj.Location.RegionLocalX},{obj.Location.RegionLocalY},{obj.Location.Z}:{obj.Rotation}:{obj.IsStatic}")
+            .OrderBy(value => value));
+        CollisionFlag[] Collision(IMapRegion region) => Enumerable.Range(0, 4 * 4096)
+            .Select(index => region.GetCollision((index / 64) % 64, index % 64, index / 4096)).ToArray();
+        Assert.AreEqual("42:3,4,0:0:True", Snapshot(first));
+        Assert.AreEqual(Snapshot(first), Snapshot(second));
+        CollectionAssert.AreEqual(Collision(first), Collision(second));
+        Assert.AreEqual(CollisionFlag.FloorBlock, first.GetCollision(5, 5, 0));
+        Assert.AreEqual(CollisionFlag.Walkable, first.GetCollision(1, 1, 0));
     }
 
     [TestMethod]
@@ -970,12 +1052,45 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(pathFinder.Find(from, 1, to, 1, 1, 0, 0, 0, true).Successful);
     }
 
-    private static ServiceProvider CreateProvider(IMapRegionLoadScheduler? loadRequests = null) => new ServiceCollection()
+    private static ServiceProvider CreateProvider(
+        IMapRegionLoadScheduler? loadRequests = null,
+        IMapRegionTemplateLoader? templateLoader = null) => new ServiceCollection()
         .AddSingleton(Substitute.For<INpcService>())
         .AddSingleton<IEntityStore, EntityStore>()
         .AddSingleton(loadRequests ?? Substitute.For<IMapRegionLoadScheduler>())
         .AddSingleton<IRsTaskService>(_ => new RsTaskService(Substitute.For<ILogger<RsTaskService>>()))
+        .AddSingleton(templateLoader ?? CreateTemplateLoader())
         .BuildServiceProvider();
+
+    private static IMapRegionTemplateLoader CreateTemplateLoader(Func<int, MapRegionTemplate>? templates = null)
+    {
+        var loader = Substitute.For<IMapRegionTemplateLoader>();
+        loader.LoadAsync(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var regionId = callInfo.ArgAt<int>(0);
+                return Task.FromResult(templates?.Invoke(regionId) ?? new MapRegionTemplate(regionId, [], []));
+            });
+        return loader;
+    }
+
+    private static GameObjectBuilder CreateGameObjectBuilder()
+    {
+        var scriptProvider = Substitute.For<Hagalaz.Game.Abstractions.Providers.IGameObjectScriptProvider>();
+        scriptProvider.GetGameObjectScriptTypeById(Arg.Any<int>()).Returns(typeof(IGameObjectScript));
+        var services = new ServiceCollection().AddSingleton(_ => Substitute.For<IGameObjectScript>()).BuildServiceProvider();
+        return new GameObjectBuilder(services, scriptProvider);
+    }
+
+    private static IGameObjectDefinition CreateSolidDefinition()
+    {
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.SizeX.Returns(1);
+        definition.SizeY.Returns(1);
+        definition.ClipType.Returns(1);
+        definition.Solid.Returns(true);
+        return definition;
+    }
 
     private static MapRegionService CreateService(IServiceProvider provider) => CreateService(provider, new LocationBuilder());
 

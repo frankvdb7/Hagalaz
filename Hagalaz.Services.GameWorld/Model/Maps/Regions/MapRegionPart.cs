@@ -62,8 +62,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         public int DrawRegionZ { get; set; }
 
-        public int DrawRegionDimension { get; set; }
-
         public bool HasDrawSource { get; set; }
 
         /// <summary>
@@ -420,9 +418,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             DrawRegionPartX = 0;
             DrawRegionPartY = 0;
             DrawRegionZ = 0;
-            DrawRegionDimension = 0;
             HasDrawSource = false;
             Rotation = 0;
+        }
+
+        public void DiscardContent()
+        {
+            var objects = _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).ToList();
+            _gameObjects.Clear();
+            _disabledStaticGameObjects.Clear();
+            foreach (var gameObject in objects)
+            {
+                DestroyAndUnregister(gameObject);
+            }
         }
 
         public override int GetHashCode() =>
