@@ -101,9 +101,8 @@ namespace Hagalaz.Services.GameWorld.Services
                         DynamicMapChunk chunk;
                         if (region.IsDynamic)
                         {
-                            // Only a dynamic region has descriptors worth reading.
-                            var part = region.GetRegionPartByLocalPart(partX % PartsPerRegionAxis, partY % PartsPerRegionAxis, z);
-                            chunk = part.HasDrawSource
+                            // Only a dynamic region has descriptors worth reading; a part that was never created is absent.
+                            chunk = region.FindRegionPartByLocalPart(partX % PartsPerRegionAxis, partY % PartsPerRegionAxis, z) is { HasDrawSource: true } part
                                 ? DynamicMapChunk.Present(part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation)
                                 : DynamicMapChunk.Absent;
                         }

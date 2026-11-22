@@ -1035,6 +1035,21 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void FindRegionPartByLocalPart_DoesNotCreateMissingParts()
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var region = service.GetOrCreateMapRegion(Location.Create(64, 64, 0, 0).RegionId, 0);
+        region.MakeDynamic();
+
+        Assert.IsNull(region.FindRegionPartByLocalPart(1, 2, 0));
+
+        var created = region.GetRegionPartByLocalPart(1, 2, 0);
+        Assert.AreSame(created, region.FindRegionPartByLocalPart(1, 2, 0));
+        Assert.IsNull(region.FindRegionPartByLocalPart(3, 2, 0), "Reading a part must not create its neighbours.");
+    }
+
+    [TestMethod]
     public void CreateDynamicRegion_FailedTemplateLoadNeverExposesAPartialDestination()
     {
         var templateLoader = Substitute.For<IMapRegionTemplateLoader>();

@@ -267,6 +267,15 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IMapRegionPart GetRegionPartByLocalPart(int localPartX, int localPartY, int z);
 
         /// <summary>
+        /// Finds the 8x8 part at a local part index of this region without creating it.
+        /// </summary>
+        /// <param name="localPartX">The local part X index (0-7).</param>
+        /// <param name="localPartY">The local part Y index (0-7).</param>
+        /// <param name="z">The plane (height level).</param>
+        /// <returns>The part, or <c>null</c> when it was never created.</returns>
+        IMapRegionPart? FindRegionPartByLocalPart(int localPartX, int localPartY, int z);
+
+        /// <summary>
         /// Maps a local part of this dynamic region to a source part and rebuilds the
         /// affected objects and floor collision from the source templates.
         /// </summary>

@@ -190,6 +190,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                 .Single();
             var standard = scenario.Regions[0];
             standard.DidNotReceiveWithAnyArgs().GetRegionPartByLocalPart(default, default, default);
+            standard.DidNotReceiveWithAnyArgs().FindRegionPartByLocalPart(default, default, default);
             // part (6, 6) of the 104-tile view around part (12, 12) is the first slot and belongs to standard region (0, 0)
             Assert.AreEqual(DynamicMapChunk.Present(6, 6, 0, 0), message.Chunks[0]);
         }
@@ -210,7 +211,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             part.DrawRegionPartY.Returns(sourcePartY);
             part.DrawRegionZ.Returns(sourceZ);
             part.Rotation.Returns(rotation);
-            region.GetRegionPartByLocalPart(localPartX, localPartY, z).Returns(part);
+            region.FindRegionPartByLocalPart(localPartX, localPartY, z).Returns(part);
         }
 
         private static Scenario CreateScenario(MapRegionState state, bool isDynamic)
