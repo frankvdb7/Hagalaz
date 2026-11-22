@@ -343,9 +343,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             // The target plane's part may never have been materialized (unmapped plane): create it first.
             var target = Location.Create(gameObject.Location.X, gameObject.Location.Y, plane, gameObject.Location.Dimension);
             var targetPart = _parts.GetOrAdd(target.GetRegionPartHash(), CreateRegionPart);
-            _parts[gameObject.Location.GetRegionPartHash()]!.DetachDisabledStatic(gameObject);
+            ((MapRegionPart)_parts[gameObject.Location.GetRegionPartHash()]!).DetachDisabledStatic(gameObject);
             ((GameObject)gameObject).Relocate(target);
-            targetPart.AttachDisabledStatic(gameObject);
+            ((MapRegionPart)targetPart).AttachDisabledStatic(gameObject);
         }
 
         private bool IsDisabledStatic(IGameObject gameObject) =>
@@ -387,7 +387,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 UnFlagCollisionCore(gameObject);
             }
 
-            part.DiscardObjects(objects);
+            ((MapRegionPart)part).DiscardObjects(objects);
             _objectsWithoutCollision.ExceptWith(objects);
             _unclippedObjects.ExceptWith(objects);
             foreach (var gameObject in objects)

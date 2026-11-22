@@ -963,6 +963,29 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void PartStorageMutation_IsNotPartOfThePublicPartContract_AndRegionRemovalKeepsStateConsistent()
+    {
+        var publicMembers = typeof(IMapRegionPart).GetMethods().Select(method => method.Name).ToList();
+        CollectionAssert.DoesNotContain(publicMembers, "DiscardObjects");
+        CollectionAssert.DoesNotContain(publicMembers, "DetachDisabledStatic");
+        CollectionAssert.DoesNotContain(publicMembers, "AttachDisabledStatic");
+
+        var world = new TestWorld();
+        var region = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var x = DestinationRegionX * 64 + DestinationMinX;
+        var y = DestinationRegionY * 64 + DestinationMinY;
+        var removed = (GameObject)TestWorld.CreateGameObject(90, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1);
+        region.Add(removed);
+        Assert.IsTrue(Collision(region).Any(flag => flag != CollisionFlag.Walkable));
+
+        region.Remove(removed);
+        region.Remove(removed);
+
+        Assert.IsTrue(Collision(region).All(flag => flag == CollisionFlag.Walkable), "Region removal clears collision.");
+        Assert.AreSame(removed, region.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0).FindAllDisabledStaticGameObjects().Single());
+    }
+
+    [TestMethod]
     public void FindDisabledStaticGameObject_ReturnsTheRemovedStaticOfExactlyThatSlot()
     {
         var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);

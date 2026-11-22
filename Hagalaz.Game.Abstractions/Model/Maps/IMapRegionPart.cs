@@ -65,16 +65,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IGameObject? FindDisabledStaticGameObject(LayerType layer, int localX, int localY, int z);
 
         /// <summary>
-        /// Stops storing a removed (disabled) static object without destroying it.
-        /// </summary>
-        void DetachDisabledStatic(IGameObject gameObject);
-
-        /// <summary>
-        /// Stores a removed (disabled) static object at its current location and tells clients to hide it.
-        /// </summary>
-        void AttachDisabledStatic(IGameObject gameObject);
-
-        /// <summary>
         /// Finds all ground items in this region part.
         /// </summary>
         /// <returns>An enumerable collection of ground items.</returns>
@@ -141,12 +131,5 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// prepared updates.
         /// </summary>
         void CompleteUpdateTick();
-
-        /// <summary>
-        /// Destroys and unregisters the given objects that this part holds, enabled or
-        /// disabled, without recording runtime removals, and drops their queued updates.
-        /// </summary>
-        /// <param name="gameObjects">The objects to discard; objects this part does not hold are ignored.</param>
-        void DiscardObjects(IReadOnlyCollection<IGameObject> gameObjects);
     }
 }
