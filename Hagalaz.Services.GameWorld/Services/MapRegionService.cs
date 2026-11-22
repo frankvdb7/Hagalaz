@@ -582,8 +582,11 @@ namespace Hagalaz.Services.GameWorld.Services
                 dynamicRegion.MakeDynamic();
                 destinationDimension.ActiveRegions.Add(destination.RegionId, dynamicRegion);
                 destinationDimension.PendingDynamicRegions.Remove(destination.RegionId);
+                // Anything that finds the region (for example sign-in) waits for this population instead of loading it.
+                _loadScheduler.BeginDynamicPopulation(dynamicRegion);
             }
 
+            var populated = false;
             try
             {
                 // Dynamic block population can invoke object scripts while loading copied objects.
@@ -596,11 +599,16 @@ namespace Hagalaz.Services.GameWorld.Services
                         .ToList(),
                     templates);
                 dynamicRegion.MarkReady();
+                populated = true;
             }
             catch
             {
                 DiscardDynamicRegion(destination, dynamicRegion);
                 throw;
+            }
+            finally
+            {
+                _loadScheduler.CompleteDynamicPopulation(dynamicRegion, populated);
             }
         }
 

@@ -21,6 +21,7 @@ namespace Hagalaz.Services.GameWorld.Services
     {
         private readonly object _stateLock = new();
         private readonly Dictionary<IMapRegion, TaskCompletionSource> _inFlight = new();
+        private readonly Dictionary<IMapRegion, TaskCompletionSource<bool>> _dynamicPopulations = new(ReferenceEqualityComparer.Instance);
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<MapRegionLoadScheduler> _logger;
         private readonly TimeProvider _timeProvider;
@@ -118,10 +119,12 @@ namespace Hagalaz.Services.GameWorld.Services
                 }
                 if (region.IsDynamic)
                 {
-                    // A dynamic region is published ready by its creator, never loaded by the normal loader.
+                    // A dynamic region is populated by its creator, never by the normal loader.
+                    if (_dynamicPopulations.TryGetValue(region, out var population))
+                        return AwaitPopulationAsync(region, population.Task, CancellationToken.None);
                     if (tolerateInvalidState)
                         return null;
-                    throw new InvalidOperationException($"Dynamic region {region.Id} is populated by its creator and cannot be loaded.");
+                    throw new InvalidOperationException($"Dynamic region {region.Id} is not being populated and cannot be loaded.");
                 }
 
                 if (_inFlight.TryGetValue(region, out var completion))
@@ -140,6 +143,35 @@ namespace Hagalaz.Services.GameWorld.Services
                 completion.TrySetException(new InvalidOperationException($"Unable to schedule loading for region {region.Id}."));
                 throw new InvalidOperationException($"Unable to schedule loading for region {region.Id}.");
             }
+        }
+
+        public void BeginDynamicPopulation(IMapRegion region)
+        {
+            ArgumentNullException.ThrowIfNull(region);
+            lock (_stateLock)
+                _dynamicPopulations[region] = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public void CompleteDynamicPopulation(IMapRegion region, bool succeeded)
+        {
+            TaskCompletionSource<bool>? population;
+            lock (_stateLock)
+                _dynamicPopulations.Remove(region, out population);
+            population?.TrySetResult(succeeded);
+        }
+
+        public Task WaitForDynamicPopulationAsync(IMapRegion region, CancellationToken cancellationToken = default)
+        {
+            TaskCompletionSource<bool>? population;
+            lock (_stateLock)
+                _dynamicPopulations.TryGetValue(region, out population);
+            return population is null ? Task.CompletedTask : AwaitPopulationAsync(region, population.Task, cancellationToken);
+        }
+
+        private static async Task AwaitPopulationAsync(IMapRegion region, Task<bool> population, CancellationToken cancellationToken)
+        {
+            if (!await population.WaitAsync(cancellationToken))
+                throw new InvalidOperationException($"Dynamic region {region.Id} failed to populate.");
         }
 
         private void Complete(IMapRegion region, bool cancellation, Exception? exception)
@@ -162,9 +194,12 @@ namespace Hagalaz.Services.GameWorld.Services
         public override async Task StopAsync(CancellationToken stoppingToken)
         {
             List<TaskCompletionSource> completions;
+            List<TaskCompletionSource<bool>> populations;
             lock (_stateLock)
             {
                 _stopping = true;
+                populations = _dynamicPopulations.Values.ToList();
+                _dynamicPopulations.Clear();
                 completions = _inFlight.Values.ToList();
                 GameWorldMetrics.RegionLoadsFinished(_inFlight.Count);
                 _inFlight.Clear();
@@ -173,6 +208,8 @@ namespace Hagalaz.Services.GameWorld.Services
             _requests.Writer.TryComplete();
             foreach (var completion in completions)
                 completion.TrySetCanceled();
+            foreach (var population in populations)
+                population.TrySetCanceled();
 
             await base.StopAsync(stoppingToken);
         }

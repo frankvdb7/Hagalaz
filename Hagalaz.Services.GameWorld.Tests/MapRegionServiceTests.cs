@@ -690,7 +690,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public async Task CreateDynamicRegion_PopulationDoesNotHoldTheResidencyGateAndOtherThreadsOnlySeeAnInitializingRegion()
+    public async Task CreateDynamicRegion_PopulationDoesNotHoldTheResidencyGateAndSignInWaitsForIt()
     {
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -702,7 +702,8 @@ public sealed class MapRegionServiceTests
         });
         var templateLoader = CreateTemplateLoader(regionId => new MapRegionTemplate(regionId,
             [new MapRegionTemplateObject(42, 3, 4, 0, 0, ShapeType.GroundDefault, CreateSolidDefinition(), true)], []));
-        using var provider = CreateProvider(templateLoader: templateLoader);
+        using var loadScheduler = new MapRegionLoadScheduler(Substitute.For<IServiceScopeFactory>(), Substitute.For<ILogger<MapRegionLoadScheduler>>());
+        using var provider = CreateProvider(loadScheduler, templateLoader);
         var service = CreateService(provider, new LocationBuilder(), CreateGameObjectBuilder(script));
         var destination = Location.Create(640, 640, 0, 0);
         var unrelated = Location.Create(64, 64, 0, 0);
@@ -720,8 +721,14 @@ public sealed class MapRegionServiceTests
         Assert.AreEqual(MapRegionState.Initializing, observed.Result.Destination?.State);
         Assert.IsNotNull(observed.Result.Unrelated);
 
+        // sign-in waits for the population instead of failing on the initializing dynamic region
+        var signIn = loadScheduler.EnsureLoadedAsync([observed.Result.Destination!]);
+        await Task.Delay(50);
+        Assert.IsFalse(signIn.IsCompleted, "Sign-in must wait for the dynamic population.");
+
         release.Set();
         await population;
+        await signIn.WaitAsync(TimeSpan.FromSeconds(2));
         var published = service.FindMapRegion(destination.RegionId, destination.Dimension);
         Assert.AreEqual(MapRegionState.Ready, published!.State);
         Assert.IsTrue(published.IsDynamic);
