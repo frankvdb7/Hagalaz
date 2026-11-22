@@ -31,7 +31,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
         /// <summary>
         /// Contains location of this object.
         /// </summary>
-        public ILocation Location { get; }
+        public ILocation Location { get; private set; }
+
+        /// <inheritdoc />
+        public void Relocate(ILocation location) => Location = location;
 
         /// <summary>
         /// Contains definition of this object.

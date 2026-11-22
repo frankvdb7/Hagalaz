@@ -429,6 +429,28 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             Rotation = 0;
         }
 
+        public void DetachDisabledStatic(IGameObject gameObject)
+        {
+            if (!_disabledStaticGameObjects.TryGetValue(gameObject.GetRegionLocalHash(), out var disabled) || !ReferenceEquals(disabled, gameObject))
+            {
+                return;
+            }
+
+            _disabledStaticGameObjects.Remove(gameObject.GetRegionLocalHash());
+            lock (_updatesLock)
+            {
+                bool IsStale(IRegionPartUpdate update) => ReferenceEquals(GetGameObject(update), gameObject);
+                _pendingUpdates.RemoveAll(IsStale);
+                _preparedUpdates = _preparedUpdates.Where(update => !IsStale(update)).ToList();
+            }
+        }
+
+        public void AttachDisabledStatic(IGameObject gameObject)
+        {
+            _disabledStaticGameObjects[gameObject.GetRegionLocalHash()] = gameObject;
+            QueueUpdate(new RemoveGameObjectUpdate(gameObject));
+        }
+
         public void DiscardObjects(IReadOnlyCollection<IGameObject> gameObjects)
         {
             var objects = new HashSet<IGameObject>();

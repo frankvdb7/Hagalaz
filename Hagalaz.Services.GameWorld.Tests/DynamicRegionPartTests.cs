@@ -868,21 +868,28 @@ public sealed class DynamicRegionPartTests
         var removed = destination.FindStandardGameObject(47, 55, 0)!;
         Assert.AreEqual(51, removed.Id);
         destination.Remove(removed);
-        var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        var planeZero = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        var planeOne = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 1);
 
-        // Bridge off, back on, off: the removal survives every transition and keeps the same object.
-        foreach (var bridgeChunkX in new[] { SourcePartX, SourcePartX + 1, SourcePartX })
+        // Bridge off, back on, off: the removed object is the same one each time and sits on the plane
+        // it currently belongs to (the part storing its removal for clients), freeing or taking plane 0.
+        foreach (var bridgeOff in new[] { true, false, true })
         {
-            destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, bridgeChunkX, SourcePartY, SourceZ, templates);
+            destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, bridgeOff ? SourcePartX : SourcePartX + 1, SourcePartY, SourceZ, templates);
 
             Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
             Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 1)?.Id);
-            Assert.AreSame(removed, part.FindAllDisabledStaticGameObjects().Single(), "The client keeps hiding the base-map object.");
+            Assert.AreEqual(bridgeOff ? 50 : 0, destination.FindStandardGameObject(47, 55, 0)?.Id ?? 0, "The spawn B displaced returns while B is on plane 1.");
+            Assert.AreSame(removed, (bridgeOff ? planeOne : planeZero).FindAllDisabledStaticGameObjects().Single());
+            Assert.IsFalse((bridgeOff ? planeZero : planeOne).FindAllDisabledStaticGameObjects().Any(obj => obj.Id == 51));
         }
 
-        // The scheduled respawn re-adds the original object.
+        // The scheduled respawn re-adds the original object on the plane it now belongs to.
+        Assert.AreEqual(1, removed.Location.Z);
         destination.Add(removed);
-        Assert.AreSame(removed, destination.FindStandardGameObject(47, 55, 0));
+        Assert.AreSame(removed, destination.FindStandardGameObject(47, 55, 1));
+        Assert.AreEqual(50, destination.FindStandardGameObject(47, 55, 0)?.Id);
+        Assert.IsTrue(destination.GetCollision(47, 55, 0).HasFlag(CollisionFlag.ObjectBlock));
     }
 
     [TestMethod]

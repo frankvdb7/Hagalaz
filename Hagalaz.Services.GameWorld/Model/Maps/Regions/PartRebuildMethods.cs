@@ -231,11 +231,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     if (finalPlane != gameObject.Location.Z)
                     {
                         // A static removed at runtime keeps its identity (a scheduled respawn re-adds this
-                        // very object, and clients hide the base-map object by its entry), so it stays where
-                        // it is and is reused on the new plane; it cannot be moved, and a rebuild after it
-                        // respawns places it on the right plane.
-                        if (IsDisabledStatic(gameObject))
+                        // very object, and clients hide the base-map object by its entry), so it moves to
+                        // the plane it now belongs on, freeing its old slot, unless something else holds the new one.
+                        if (IsDisabledStatic(gameObject)
+                            && ClaimSlot(key, _partContent[key], gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, finalPlane, built.Shape.GetLayerType(), finalCollision, pass))
                         {
+                            RelocateDisabledStatic(gameObject, finalPlane);
+                            if (built.HasCollision != finalCollision)
+                            {
+                                SetCollision(gameObject, finalCollision, pass);
+                            }
+
                             continue;
                         }
 
@@ -295,6 +301,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             return tombstones;
+        }
+
+        /// <summary>
+        /// Moves a removed static, still registered and disabled, to another plane of its column.
+        /// </summary>
+        private void RelocateDisabledStatic(IGameObject gameObject, int plane)
+        {
+            var from = _parts[gameObject.Location.GetRegionPartHash()]!;
+            from.DetachDisabledStatic(gameObject);
+            gameObject.Relocate(Location.Create(gameObject.Location.X, gameObject.Location.Y, plane, gameObject.Location.Dimension));
+            _parts[gameObject.Location.GetRegionPartHash()]!.AttachDisabledStatic(gameObject);
         }
 
         private bool IsDisabledStatic(IGameObject gameObject) =>
@@ -571,8 +588,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var index = pool.FindIndex(candidate => _builtObjects.TryGetValue(candidate, out var built)
                 && built.Id == entry.Id && built.Rotation == rotation && built.Shape == entry.Shape
                 && built.IsStatic == entry.IsStatic
-                && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY
-                && (candidate.Location.Z == plane || (entry.IsStatic && IsDisabledStatic(candidate))));
+                && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY && candidate.Location.Z == plane);
             if (index < 0)
             {
                 return null;

@@ -11,6 +11,11 @@ namespace Hagalaz.Game.Abstractions.Model.GameObjects
         int Id { get; }
 
         /// <summary>
+        /// Moves this object to another location, keeping its identity. Only for removed static objects the map rebuilds onto another plane.
+        /// </summary>
+        void Relocate(ILocation location);
+
+        /// <summary>
         /// Gets a value indicating whether this object is static (part of the map) or dynamic (spawned).
         /// </summary>
         bool IsStatic { get; }
