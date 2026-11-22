@@ -1,22 +1,12 @@
 ﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Model;
-using Raido.Common.Protocol;
 
 namespace Hagalaz.Game.Messages.Protocol
 {
     /// <summary>
     /// Draws a viewport that contains dynamic (instanced) region parts.
     /// </summary>
-    public class DrawDynamicMapMessage : RaidoMessage
+    public class DrawDynamicMapMessage : DrawMapMessage
     {
-        public required bool RenderViewport { get; init; }
-        public required bool ForceUpdate { get; init; }
-        public required int CharacterIndex { get; init; }
-        public required ILocation CharacterLocation { get; init; } = default!;
-        public required int MapSizeIndex { get; init; }
-        public required int RegionPartX { get; init; }
-        public required int RegionPartY { get; init; }
-
         /// <summary>
         /// Gets the viewport's 8x8 chunk slots in client order: plane, then viewport part X, then viewport part Y.
         /// </summary>
