@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Protocol;
@@ -10,6 +12,16 @@ namespace Hagalaz.Services.GameWorld.Services
     /// </summary>
     public sealed class MapUpdateService : IMapUpdateService
     {
+        private const int PartsPerRegionAxis = 8;
+        private const int Planes = 4;
+
+        private readonly IMapRegionService _mapRegionService;
+
+        public MapUpdateService(IMapRegionService mapRegionService)
+        {
+            _mapRegionService = mapRegionService;
+        }
+
         public void UpdateMap(ICharacter character, bool forceUpdate, bool renderViewPort = false)
         {
             var viewport = character.Viewport;
@@ -23,7 +35,19 @@ namespace Hagalaz.Services.GameWorld.Services
 
             if (viewport.NeedsDynamicDraw())
             {
-                character.Session.SendMessage(new DrawDynamicMapMessage());
+                var (chunks, sourceRegionXteaKeys) = BuildDynamicChunks(viewport);
+                character.Session.SendMessage(new DrawDynamicMapMessage
+                {
+                    MapSizeIndex = viewport.MapSize.Type,
+                    RenderViewport = renderViewPort,
+                    ForceUpdate = forceUpdate,
+                    CharacterIndex = character.Index,
+                    CharacterLocation = character.Location,
+                    RegionPartX = viewport.ViewLocation.RegionPartX,
+                    RegionPartY = viewport.ViewLocation.RegionPartY,
+                    Chunks = chunks,
+                    SourceRegionXteaKeys = sourceRegionXteaKeys
+                });
             }
             else
             {
@@ -41,6 +65,69 @@ namespace Hagalaz.Services.GameWorld.Services
             }
 
             viewport.BeginMapRegionSynchronization();
+        }
+
+        /// <summary>
+        /// Reads the viewport's chunk slots in client order (plane, part X, part Y) and collects
+        /// the XTEA keys of each distinct referenced source region in first-seen order.
+        /// </summary>
+        private (IReadOnlyList<DynamicMapChunk> Chunks, IReadOnlyList<int[]> SourceRegionXteaKeys) BuildDynamicChunks(IViewport viewport)
+        {
+            var partsPerAxis = viewport.MapSize.Size >> 3;
+            var basePartX = viewport.ViewLocation.RegionPartX - (viewport.MapSize.Size >> 4);
+            var basePartY = viewport.ViewLocation.RegionPartY - (viewport.MapSize.Size >> 4);
+            var regions = viewport.VisibleRegions.ToDictionary(region => region.Id);
+            var chunks = new List<DynamicMapChunk>(Planes * partsPerAxis * partsPerAxis);
+            var sourceRegionIds = new HashSet<int>();
+            var sourceRegionXteaKeys = new List<int[]>();
+
+            for (var z = 0; z < Planes; z++)
+            {
+                for (var viewPartX = 0; viewPartX < partsPerAxis; viewPartX++)
+                {
+                    for (var viewPartY = 0; viewPartY < partsPerAxis; viewPartY++)
+                    {
+                        var partX = basePartX + viewPartX;
+                        var partY = basePartY + viewPartY;
+                        if (partX < 0 || partY < 0)
+                        {
+                            // Outside the world: there is no region to draw.
+                            chunks.Add(DynamicMapChunk.Absent);
+                            continue;
+                        }
+
+                        // The viewport's regions cover the client's whole chunk grid; a missing one is a bug, not a deleted chunk.
+                        var region = regions[((partX / PartsPerRegionAxis) << 8) | (partY / PartsPerRegionAxis)];
+                        DynamicMapChunk chunk;
+                        if (region.IsDynamic)
+                        {
+                            // Only a dynamic region has descriptors worth reading; a part that was never created is absent.
+                            chunk = region.FindRegionPartByLocalPart(partX % PartsPerRegionAxis, partY % PartsPerRegionAxis, z) is { HasDrawSource: true } part
+                                ? DynamicMapChunk.Present(part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation)
+                                : DynamicMapChunk.Absent;
+                        }
+                        else
+                        {
+                            // A standard region draws every part from itself, unrotated; reading its parts would allocate them.
+                            chunk = DynamicMapChunk.Present(partX, partY, z, 0);
+                        }
+
+                        chunks.Add(chunk);
+                        if (!chunk.IsPresent)
+                        {
+                            continue;
+                        }
+
+                        var sourceRegionId = ((chunk.SourcePartX / PartsPerRegionAxis) << 8) | (chunk.SourcePartY / PartsPerRegionAxis);
+                        if (sourceRegionIds.Add(sourceRegionId))
+                        {
+                            sourceRegionXteaKeys.Add(_mapRegionService.GetXtea(sourceRegionId));
+                        }
+                    }
+                }
+            }
+
+            return (chunks, sourceRegionXteaKeys);
         }
     }
 }

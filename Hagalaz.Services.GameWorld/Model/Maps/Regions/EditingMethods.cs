@@ -84,6 +84,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             GetRegionPartByAbsolutePart(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z);
 
         /// <summary>
+        /// Finds the part at a local part index of this region without creating it.
+        /// </summary>
+        public IMapRegionPart? FindRegionPartByLocalPart(int localPartX, int localPartY, int z) =>
+            _parts.GetOrDefault(LocationHelper.GetRegionPartHash(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z));
+
+        /// <summary>
         /// Maps a local part of this dynamic region to a source part and rebuilds the affected
         /// content from the source templates.
         /// </summary>
