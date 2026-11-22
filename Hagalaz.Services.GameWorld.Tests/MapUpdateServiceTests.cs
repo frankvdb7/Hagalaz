@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -199,9 +200,22 @@ namespace Hagalaz.Services.GameWorld.Tests
             region.State.Returns(state);
             region.IsDynamic.Returns(isDynamic);
             region.XteaKeys.Returns(new[] { 1, 2, 3, 4 });
-            regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize)
-                .Returns(new[] { region });
-            regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(region);
+            // A 104-tile view around part (12, 12) spans regions 0..2 on both axes.
+            var regions = new List<IMapRegion>();
+            for (var regionX = 0; regionX <= 2; regionX++)
+            {
+                for (var regionY = 0; regionY <= 2; regionY++)
+                {
+                    var id = regionY + (regionX << 8);
+                    var current = id == location.RegionId ? region : CreateRegion(regionX, regionY);
+                    current.State.Returns(state);
+                    current.IsDynamic.Returns(isDynamic);
+                    regionService.GetOrCreateMapRegion(id, location.Dimension).Returns(current);
+                    regions.Add(current);
+                }
+            }
+
+            regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize).Returns(regions);
 
             return new Scenario(character, session, region);
         }

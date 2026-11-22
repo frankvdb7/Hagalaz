@@ -89,13 +89,15 @@ namespace Hagalaz.Services.GameWorld.Services
                     {
                         var partX = basePartX + viewPartX;
                         var partY = basePartY + viewPartY;
-                        if (partX < 0 || partY < 0
-                            || !regions.TryGetValue(((partX / PartsPerRegionAxis) << 8) | (partY / PartsPerRegionAxis), out var region))
+                        if (partX < 0 || partY < 0)
                         {
+                            // Outside the world: there is no region to draw.
                             chunks.Add(DynamicMapChunk.Absent);
                             continue;
                         }
 
+                        // The viewport's regions cover the client's whole chunk grid; a missing one is a bug, not a deleted chunk.
+                        var region = regions[((partX / PartsPerRegionAxis) << 8) | (partY / PartsPerRegionAxis)];
                         var part = region.GetRegionPartByLocalPart(partX % PartsPerRegionAxis, partY % PartsPerRegionAxis, z);
                         if (!part.HasDrawSource)
                         {

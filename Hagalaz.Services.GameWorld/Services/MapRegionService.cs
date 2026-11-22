@@ -884,8 +884,9 @@ namespace Hagalaz.Services.GameWorld.Services
         public IEnumerable<IMapRegion> GetMapRegionsWithinRange(ILocation location, IMapSize mapSize)
         {
             var boundsSize = mapSize.Size >> 4;
-            var partX = location.RegionX * 8 + 4; // middle of region
-            var partY = location.RegionY * 8 + 4; // middle of region
+            // The client derives its regions from the view's own part coordinates, so must the server.
+            var partX = location.RegionPartX;
+            var partY = location.RegionPartY;
 
             for (var regionX = (partX - boundsSize) / 8; regionX <= (partX + boundsSize) / 8; regionX++)
             {

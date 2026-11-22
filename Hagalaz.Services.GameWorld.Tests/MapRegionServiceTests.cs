@@ -29,6 +29,45 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MapRegionServiceTests
 {
     [TestMethod]
+    [DataRow(72)]
+    [DataRow(104)]
+    [DataRow(168)]
+    public void GetMapRegionsWithinRange_CoversEveryRegionOfTheClientChunkGridAtRegionEdges(int mapSizeTiles)
+    {
+        using var provider = CreateProvider();
+        var service = CreateService(provider);
+        var mapSize = Substitute.For<IMapSize>();
+        mapSize.Size.Returns(mapSizeTiles);
+
+        // Parts 0 and 7 are the first and last part of a region, where the grid edge crosses a region border.
+        foreach (var (partX, partY) in new[] { (400, 400), (407, 407), (400, 407), (407, 400), (403, 404) })
+        {
+            var location = Location.Create(partX * 8, partY * 8, 0, 0);
+            var radius = mapSizeTiles >> 4;
+            var expected = new List<int>();
+            for (var regionX = (partX - radius) / 8; regionX <= (partX + radius) / 8; regionX++)
+            {
+                for (var regionY = (partY - radius) / 8; regionY <= (partY + radius) / 8; regionY++)
+                {
+                    expected.Add(regionY + (regionX << 8));
+                }
+            }
+
+            var actual = service.GetMapRegionsWithinRange(location, mapSize).Select(region => region.Id).ToList();
+
+            CollectionAssert.AreEqual(expected, actual, $"size {mapSizeTiles}, part ({partX}, {partY})");
+            // every part of the client's grid lies in one of the returned regions
+            for (var gridX = partX - radius; gridX < partX - radius + (mapSizeTiles >> 3); gridX++)
+            {
+                for (var gridY = partY - radius; gridY < partY - radius + (mapSizeTiles >> 3); gridY++)
+                {
+                    CollectionAssert.Contains(actual, (gridX / 8 << 8) | (gridY / 8));
+                }
+            }
+        }
+    }
+
+    [TestMethod]
     public void GetClippingFlag_ReturnsFloorBlockWhileRegionIsNotReady()
     {
         using var provider = CreateProvider();
