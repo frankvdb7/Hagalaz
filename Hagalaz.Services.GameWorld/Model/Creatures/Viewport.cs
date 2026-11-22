@@ -166,6 +166,14 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// </summary>
         public void UpdateTick()
         {
+            if (DeferredMapDraw is not null)
+            {
+                // The client has not received the map of the rebuilt view yet and still positions everything
+                // against its previous map base. Keep the visible creatures it knows and send no zone state
+                // until the map is drawn; the draw then synchronizes every ready region in full.
+                return;
+            }
+
             _visibleCreatures.Clear();
             _visibleCharacters.Clear();
             _visibleNpcs.Clear();

@@ -191,10 +191,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 try
                 {
-                    foreach (var part in _parts)
+                    if (character.Viewport.DeferredMapDraw is null)
                     {
-                        part.SendUpdates(character);
+                        foreach (var part in _parts)
+                        {
+                            part.SendUpdates(character);
+                        }
                     }
+
                     character.MajorClientUpdateTick(characters);
                 }
                 catch (ConnectionAbortedException)

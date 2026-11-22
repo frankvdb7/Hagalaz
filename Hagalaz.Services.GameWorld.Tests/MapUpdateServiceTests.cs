@@ -98,6 +98,35 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void UpdateMap_DeferredDynamicMap_SendsNoNewViewZoneStateAheadOfTheMap()
+        {
+            var scenario = CreateScenario(MapRegionState.Initializing, true);
+            var neighbour = scenario.Regions[0];
+            neighbour.State.Returns(MapRegionState.Ready);
+            neighbour.IsDynamic.Returns(false);
+            var service = new MapUpdateService(Substitute.For<IMapRegionService>());
+
+            service.UpdateMap(scenario.Character, true, true);
+            scenario.Character.Viewport.UpdateTick();
+
+            neighbour.DidNotReceive().SendFullPartUpdates(scenario.Character);
+            scenario.Session.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
+
+            foreach (var region in scenario.Regions)
+            {
+                region.State.Returns(MapRegionState.Ready);
+            }
+
+            service.UpdateMap(scenario.Character, false);
+
+            Received.InOrder(() =>
+            {
+                scenario.Session.SendMessage(Arg.Is<RaidoMessage>(message => message is DrawDynamicMapMessage));
+                neighbour.SendFullPartUpdates(scenario.Character);
+            });
+        }
+
+        [TestMethod]
         public void UpdateMap_BeginsViewportSynchronizationAfterSendingMapPacket()
         {
             var character = Substitute.For<ICharacter>();
