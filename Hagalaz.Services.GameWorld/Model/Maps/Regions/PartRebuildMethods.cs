@@ -352,6 +352,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _parts[gameObject.Location.GetRegionPartHash()] is { } part
             && ReferenceEquals(part.FindDisabledStaticGameObject(gameObject.ShapeType.GetLayerType(), gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z), gameObject);
 
+        /// <summary>
+        /// The tombstone of a template-owned, non-static object about to be destroyed by a runtime
+        /// removal; <c>null</c> for disabled-on-removal statics and objects no part built.
+        /// </summary>
+        private ((int X, int Y, int Z, LayerType Layer, int Id) Tombstone, int Owner)? TakeConfiguredSpawnTombstone(IGameObject gameObject) =>
+            _builtObjects.TryGetValue(gameObject, out var built) && !built.IsStatic
+                ? (GetTombstone(gameObject), built.Owner)
+                : null;
+
+        /// <summary>
+        /// Stores the removal as a value so the destroyed object is not kept alive by the region's bookkeeping.
+        /// </summary>
+        private void RecordConfiguredSpawnRemoval(int owner, IGameObject gameObject, (int X, int Y, int Z, LayerType Layer, int Id) tombstone)
+        {
+            if (_partContent.TryGetValue(owner, out var content))
+            {
+                content.Tombstones.Add(tombstone);
+                content.Objects.Remove(gameObject);
+            }
+
+            _builtObjects.Remove(gameObject);
+        }
+
         private (int X, int Y, int Z, LayerType Layer, int Id) GetTombstone(IGameObject gameObject) =>
             _builtObjects.TryGetValue(gameObject, out var built)
                 ? (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, built.Shape.GetLayerType(), built.Id)

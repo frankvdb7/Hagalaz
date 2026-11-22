@@ -1,3 +1,4 @@
+using System.Reflection;
 using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
@@ -693,6 +694,28 @@ public sealed class DynamicRegionPartTests
         Assert.IsNull(destination.FindStandardGameObject(spawnX, spawnY, 0));
         Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(spawnX, spawnY, 0));
         Assert.AreSame(staticObject, planeZero.FindAllGameObjects().Single(obj => obj.Id == 70));
+    }
+
+    [TestMethod]
+    public void RemovingAConfiguredSpawn_DoesNotKeepTheDestroyedObjectInRegionBookkeeping()
+    {
+        var (destination, _, _, spawnX, spawnY, templates) = CreateBridgeDependencyScenario(isStatic: false);
+        var spawn = destination.FindStandardGameObject(spawnX, spawnY, 0)!;
+
+        destination.Remove(spawn);
+
+        const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var built = (System.Collections.IDictionary)typeof(MapRegion).GetField("_builtObjects", Flags)!.GetValue(destination)!;
+        Assert.IsFalse(built.Contains(spawn), "The destroyed spawn is not a live bookkeeping key.");
+        var contents = (System.Collections.IDictionary)typeof(MapRegion).GetField("_partContent", Flags)!.GetValue(destination)!;
+        foreach (var content in contents.Values)
+        {
+            var objects = (System.Collections.IEnumerable)content!.GetType().GetProperty("Objects")!.GetValue(content)!;
+            Assert.IsFalse(objects.Cast<object>().Any(obj => ReferenceEquals(obj, spawn)), "The destroyed spawn is not retained by part content.");
+        }
+
+        ChangeBridgeAwayFromTheObjects(destination, templates);
+        Assert.IsNull(destination.FindStandardGameObject(spawnX, spawnY, 0), "The removal still survives a dependency rebuild.");
     }
 
     [TestMethod]

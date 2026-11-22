@@ -197,7 +197,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             UnFlagCollisionCore(gameObject);
             _unclippedObjects.Remove(gameObject);
+            var tombstone = TakeConfiguredSpawnTombstone(gameObject);
             part.Remove(gameObject);
+            if (tombstone is { } removedSpawn)
+            {
+                RecordConfiguredSpawnRemoval(removedSpawn.Owner, gameObject, removedSpawn.Tombstone);
+            }
         }
 
         private bool OwnsGameObject(IGameObject gameObject) =>
