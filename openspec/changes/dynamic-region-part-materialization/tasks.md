@@ -18,6 +18,8 @@
 - [x] 3.4 Implement `MakeStandard(own)` as a full restore; verify load, make dynamic, write/rotate/delete, make standard equals a fresh standard load (mappings, presence, objects, collision)
 
 - [x] 3.5 Address zone updates to the destination part instead of the draw source; verify full and incremental updates for a cross-part, cross-plane mapping use the destination base and plane
+- [x] 3.6 Drop pending and prepared updates of discarded objects while keeping other updates; verify both queues with `Rewrite_DropsQueuedUpdatesOfDiscardedObjectsButKeepsOtherUpdates`
+- [x] 3.7 Re-flag surviving objects that overlap discarded collision; verify with a cross-part overlapping-footprint regression
 
 ## 4. Dynamic creation
 

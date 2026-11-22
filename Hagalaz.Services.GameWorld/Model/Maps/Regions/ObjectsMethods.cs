@@ -100,7 +100,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         private void DiscardPartContent(IMapRegionPart part, int localPartX, int localPartY, int z)
         {
-            foreach (var gameObject in part.FindAllGameObjects().ToList())
+            var removed = part.FindAllGameObjects().ToList();
+            foreach (var gameObject in removed)
             {
                 UnFlagCollisionCore(gameObject);
             }
@@ -115,6 +116,43 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     UnFlagCollision(localX, localY, z, CollisionFlag.FloorBlock);
                 }
             }
+
+            ReflagOverlappingObjects(removed, z);
+        }
+
+        /// <summary>
+        /// Unflagging clears shared collision bits, so re-flag every surviving object
+        /// whose collision area overlaps the area the removed objects flagged.
+        /// </summary>
+        private void ReflagOverlappingObjects(IReadOnlyCollection<IGameObject> removed, int z)
+        {
+            if (removed.Count == 0)
+            {
+                return;
+            }
+
+            var affected = removed.Select(GetCollisionBounds).Aggregate((a, b) =>
+                (Math.Min(a.MinX, b.MinX), Math.Min(a.MinY, b.MinY), Math.Max(a.MaxX, b.MaxX), Math.Max(a.MaxY, b.MaxY)));
+            foreach (var survivor in FindAllGameObjects().Where(obj => obj.Location.Z == z).ToList())
+            {
+                var bounds = GetCollisionBounds(survivor);
+                if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)
+                {
+                    FlagCollisionCore(survivor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Absolute tiles an object's collision can touch: its footprint plus the
+        /// one-tile ring wall flagging writes to.
+        /// </summary>
+        private static (int MinX, int MinY, int MaxX, int MaxY) GetCollisionBounds(IGameObject gameObject)
+        {
+            var (sizeX, sizeY) = (gameObject.Rotation & 0x1) == 1
+                ? (gameObject.Definition.SizeY, gameObject.Definition.SizeX)
+                : (gameObject.Definition.SizeX, gameObject.Definition.SizeY);
+            return (gameObject.Location.X - 1, gameObject.Location.Y - 1, gameObject.Location.X + sizeX, gameObject.Location.Y + sizeY);
         }
 
         /// <summary>

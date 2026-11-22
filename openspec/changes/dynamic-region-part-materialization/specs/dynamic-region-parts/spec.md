@@ -94,6 +94,18 @@ Writing, rotating or deleting a part SHALL remove all objects of its previous co
 - **WHEN** the part is rewritten with another source part
 - **THEN** a full update of the part sends no removal for the old object, and the old object is destroyed and unregistered
 
+#### Scenario: Queued updates of old content are dropped
+
+- **GIVEN** an update for an old object is queued or prepared, alongside an unrelated update in the same part
+- **WHEN** the part is rewritten before the update is sent
+- **THEN** the old object's update is not sent and the unrelated update still is
+
+#### Scenario: Overlapping objects from other parts keep their collision
+
+- **GIVEN** an object rooted in one part whose footprint shares a tile with an object in a neighbouring part
+- **WHEN** the neighbouring part is deleted or rewritten
+- **THEN** the shared tile keeps the surviving object's collision
+
 ### Requirement: Zone updates address the destination part
 
 Zone updates for a part's runtime objects, disabled static objects and ground items SHALL be addressed to the destination part's coordinates and plane, never to its source part.

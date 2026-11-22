@@ -6,6 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Extensions;
@@ -289,24 +290,7 @@ public sealed class DynamicRegionPartTests
         destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
         var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
         destination.Remove(destination.FindAllGameObjects().Single(obj => obj.Id == 1));
-        var bases = new List<ILocation>();
-        var zoneMessages = new List<MapRegionPartUpdateMessage>();
-        var character = Substitute.For<ICharacter>();
-        var viewport = Substitute.For<IViewport>();
-        var session = Substitute.For<IGameSession>();
-        character.Viewport.Returns(viewport);
-        character.Session.Returns(session);
-        viewport.InBounds(Arg.Any<ILocation>()).Returns(true);
-        viewport.When(value => value.GetLocalPosition(Arg.Any<ILocation>(), ref Arg.Any<int>(), ref Arg.Any<int>()))
-            .Do(call => bases.Add(call.ArgAt<ILocation>(0)));
-        session.When(value => value.SendMessage(Arg.Any<RaidoMessage>()))
-            .Do(call =>
-            {
-                if (call.Arg<RaidoMessage>() is MapRegionPartUpdateMessage message)
-                {
-                    zoneMessages.Add(message);
-                }
-            });
+        var character = CreateObserver(out var bases, out var zoneMessages);
 
         part.SendFullUpdate(character);
         part.PrepareUpdatesForTick();
@@ -324,6 +308,64 @@ public sealed class DynamicRegionPartTests
         Assert.IsTrue(zoneMessages[0].FullUpdate);
         Assert.IsFalse(zoneMessages[1].FullUpdate);
         Assert.IsTrue(zoneMessages.All(message => message.Z == 0));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Rewrite_DropsQueuedUpdatesOfDiscardedObjectsButKeepsOtherUpdates(bool preparedBeforeRewrite)
+    {
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        var removed = destination.FindAllGameObjects().Single(obj => obj.Id == 1);
+        destination.Remove(removed);
+        var kept = Substitute.For<IRegionPartUpdate>();
+        kept.Location.Returns(Location.Create(DestinationRegionX * 64 + DestinationMinX + 3, DestinationRegionY * 64 + DestinationMinY + 3, 0, 0));
+        kept.CanUpdateFor(Arg.Any<ICharacter>()).Returns(true);
+        destination.QueueUpdate(kept);
+        if (preparedBeforeRewrite)
+        {
+            part.PrepareUpdatesForTick();
+        }
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX - 1, SourcePartY, SourceZ, new MapRegionTemplate(SourceRegionId, [], []));
+        if (!preparedBeforeRewrite)
+        {
+            part.PrepareUpdatesForTick();
+        }
+
+        var character = CreateObserver(out _, out var zoneMessages);
+        part.SendUpdates(character);
+
+        Assert.AreEqual(1, zoneMessages.Count);
+        kept.Received(1).OnUpdatedFor(character);
+        removed.Script.DidNotReceive().OnDeletedFor(character);
+    }
+
+    [TestMethod]
+    public void Delete_KeepsCollisionOfAnOverlappingObjectFromAnotherPart()
+    {
+        // A 2x3 object rooted at the east edge of part (5, 6) overlaps part (6, 6), where
+        // another solid object shares one of its tiles.
+        var template = new MapRegionTemplate(SourceRegionId,
+        [
+            new MapRegionTemplateObject(10, SourceMinX + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard2X3, true),
+            new MapRegionTemplateObject(11, SourceMinX + 8, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true)
+        ], []);
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
+        expected.MakeDynamic();
+        expected.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
+        destination.WriteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, template);
+
+        destination.DeleteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0);
+
+        Assert.IsTrue(destination.GetCollision(DestinationMinX + 8, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
+        CollectionAssert.AreEqual(Collision(expected), Collision(destination));
     }
 
     [TestMethod]
@@ -382,6 +424,29 @@ public sealed class DynamicRegionPartTests
         definition.Solid.Returns(true);
         definition.Gateway.Returns(false);
         return definition;
+    }
+
+    private static ICharacter CreateObserver(out List<ILocation> zoneBases, out List<MapRegionPartUpdateMessage> zoneMessages)
+    {
+        var bases = zoneBases = [];
+        var messages = zoneMessages = [];
+        var character = Substitute.For<ICharacter>();
+        var viewport = Substitute.For<IViewport>();
+        var session = Substitute.For<IGameSession>();
+        character.Viewport.Returns(viewport);
+        character.Session.Returns(session);
+        viewport.InBounds(Arg.Any<ILocation>()).Returns(true);
+        viewport.When(value => value.GetLocalPosition(Arg.Any<ILocation>(), ref Arg.Any<int>(), ref Arg.Any<int>()))
+            .Do(call => bases.Add(call.ArgAt<ILocation>(0)));
+        session.When(value => value.SendMessage(Arg.Any<RaidoMessage>()))
+            .Do(call =>
+            {
+                if (call.Arg<RaidoMessage>() is MapRegionPartUpdateMessage message)
+                {
+                    messages.Add(message);
+                }
+            });
+        return character;
     }
 
     private static (int, int) FootprintOf(IGameObject obj) =>

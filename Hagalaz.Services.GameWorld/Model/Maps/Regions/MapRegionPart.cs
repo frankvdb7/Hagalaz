@@ -431,14 +431,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public void DiscardContent()
         {
-            var objects = _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).ToList();
+            var objects = _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).ToHashSet();
             _gameObjects.Clear();
             _disabledStaticGameObjects.Clear();
+            lock (_updatesLock)
+            {
+                bool IsStale(IRegionPartUpdate update) => GetGameObject(update) is { } gameObject && objects.Contains(gameObject);
+                _pendingUpdates.RemoveAll(IsStale);
+                // SendUpdates may still enumerate the prepared list it read, so replace it instead of mutating it.
+                _preparedUpdates = _preparedUpdates.Where(update => !IsStale(update)).ToList();
+            }
+
             foreach (var gameObject in objects)
             {
                 DestroyAndUnregister(gameObject);
             }
         }
+
+        private static IGameObject? GetGameObject(IRegionPartUpdate update) => update switch
+        {
+            AddGameObjectUpdate addUpdate => addUpdate.GameObject,
+            RemoveGameObjectUpdate removeUpdate => removeUpdate.GameObject,
+            SetGameObjectAnimationUpdate animationUpdate => animationUpdate.GameObject,
+            _ => null
+        };
 
         public override int GetHashCode() =>
             ((Rotation & 0x3) << 1) | ((DrawRegionZ & 0x3) << 24) | ((DrawRegionPartX & 0x3ff) << 14) | ((DrawRegionPartY & 0x7ff) << 3);
