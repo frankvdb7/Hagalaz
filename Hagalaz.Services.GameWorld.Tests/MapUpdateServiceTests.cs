@@ -172,10 +172,33 @@ namespace Hagalaz.Services.GameWorld.Tests
             CollectionAssert.AreEqual(new[] { 3, 3, 3, 3 }, message.SourceRegionXteaKeys[2]);
         }
 
+        [TestMethod]
+        public void UpdateMap_StandardNeighbourOfADynamicRegion_DrawsItselfWithoutReadingItsParts()
+        {
+            var scenario = CreateScenario(MapRegionState.Ready, false);
+            var dynamicRegion = scenario.Regions[4];
+            dynamicRegion.IsDynamic.Returns(true);
+            scenario.Character.Viewport.RebuildView();
+            var regionService = Substitute.For<IMapRegionService>();
+            regionService.GetXtea(Arg.Any<int>()).Returns(call => new[] { call.Arg<int>(), 0, 0, 0 });
+
+            new MapUpdateService(regionService).UpdateMap(scenario.Character, false);
+
+            var message = scenario.Session.ReceivedCalls()
+                .Select(call => call.GetArguments()[0])
+                .OfType<DrawDynamicMapMessage>()
+                .Single();
+            var standard = scenario.Regions[0];
+            standard.DidNotReceiveWithAnyArgs().GetRegionPartByLocalPart(default, default, default);
+            // part (6, 6) of the 104-tile view around part (12, 12) is the first slot and belongs to standard region (0, 0)
+            Assert.AreEqual(DynamicMapChunk.Present(6, 6, 0, 0), message.Chunks[0]);
+        }
+
         private static IMapRegion CreateRegion(int regionX, int regionY)
         {
             var region = Substitute.For<IMapRegion>();
             region.Id.Returns(regionX << 8 | regionY);
+            region.IsDynamic.Returns(true);
             return region;
         }
 

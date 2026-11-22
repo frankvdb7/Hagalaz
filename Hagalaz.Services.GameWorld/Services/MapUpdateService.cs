@@ -98,15 +98,28 @@ namespace Hagalaz.Services.GameWorld.Services
 
                         // The viewport's regions cover the client's whole chunk grid; a missing one is a bug, not a deleted chunk.
                         var region = regions[((partX / PartsPerRegionAxis) << 8) | (partY / PartsPerRegionAxis)];
-                        var part = region.GetRegionPartByLocalPart(partX % PartsPerRegionAxis, partY % PartsPerRegionAxis, z);
-                        if (!part.HasDrawSource)
+                        DynamicMapChunk chunk;
+                        if (region.IsDynamic)
                         {
-                            chunks.Add(DynamicMapChunk.Absent);
+                            // Only a dynamic region has descriptors worth reading.
+                            var part = region.GetRegionPartByLocalPart(partX % PartsPerRegionAxis, partY % PartsPerRegionAxis, z);
+                            chunk = part.HasDrawSource
+                                ? DynamicMapChunk.Present(part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation)
+                                : DynamicMapChunk.Absent;
+                        }
+                        else
+                        {
+                            // A standard region draws every part from itself, unrotated; reading its parts would allocate them.
+                            chunk = DynamicMapChunk.Present(partX, partY, z, 0);
+                        }
+
+                        chunks.Add(chunk);
+                        if (!chunk.IsPresent)
+                        {
                             continue;
                         }
 
-                        chunks.Add(DynamicMapChunk.Present(part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation));
-                        var sourceRegionId = ((part.DrawRegionPartX / PartsPerRegionAxis) << 8) | (part.DrawRegionPartY / PartsPerRegionAxis);
+                        var sourceRegionId = ((chunk.SourcePartX / PartsPerRegionAxis) << 8) | (chunk.SourcePartY / PartsPerRegionAxis);
                         if (sourceRegionIds.Add(sourceRegionId))
                         {
                             sourceRegionXteaKeys.Add(_mapRegionService.GetXtea(sourceRegionId));
