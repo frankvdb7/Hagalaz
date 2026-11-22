@@ -974,7 +974,7 @@ public sealed class DynamicRegionPartTests
         var region = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
         var x = DestinationRegionX * 64 + DestinationMinX;
         var y = DestinationRegionY * 64 + DestinationMinY;
-        var removed = (GameObject)TestWorld.CreateGameObject(90, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1);
+        var removed = TestWorld.CreateGameObject(90, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1);
         region.Add(removed);
         Assert.IsTrue(Collision(region).Any(flag => flag != CollisionFlag.Walkable));
 
