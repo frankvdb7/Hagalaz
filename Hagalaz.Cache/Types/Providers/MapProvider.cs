@@ -17,8 +17,6 @@ namespace Hagalaz.Cache.Types.Providers
 {
     public class MapProvider : IMapProvider
     {
-        private const int BRIDGE_FLAG = 0x2;
-
         private readonly ICacheAPI _cache;
         private readonly IRegionMapArchive _maps;
         private readonly IMapCodec _codec;
@@ -73,11 +71,12 @@ namespace Hagalaz.Cache.Types.Providers
         public DecodedMapRegion DecodeRegion(int regionId, int[] xteaKeys, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var (terrainData, objects) = DecodeMapData(regionId, xteaKeys);
+            var (terrainData, rawObjects) = DecodeMapData(regionId, xteaKeys);
             var blockedTiles = DecodeGround(terrainData, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            return new DecodedMapRegion(objects, blockedTiles);
+            var objects = MapCodec.ToCollisionPlanes(rawObjects, terrainData);
+            return new DecodedMapRegion(objects, blockedTiles, rawObjects, terrainData);
         }
 
         private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)
@@ -95,7 +94,7 @@ namespace Hagalaz.Cache.Types.Providers
             var objects = new System.Collections.Generic.List<MapObject>();
             if (objectDataStream != null && objectDataStream.Length > 0)
             {
-                MapCodec.DecodeObjectData(objects, terrainData, objectDataStream);
+                MapCodec.DecodeRawObjectData(objects, objectDataStream);
             }
 
             return (terrainData, objects);
@@ -115,10 +114,9 @@ namespace Hagalaz.Cache.Types.Providers
                     cancellationToken.ThrowIfCancellationRequested();
                     for (var localY = 0; localY < 64; localY++)
                     {
-                        if ((terrainData[z, localX, localY] & 0x1) != 0)
+                        if (MapTerrain.IsBlocked(terrainData[z, localX, localY]))
                         {
-                            int height = z;
-                            if ((terrainData[1, localX, localY] & BRIDGE_FLAG) != 0) height--;
+                            var height = MapTerrain.GetCollisionPlane(z, MapTerrain.IsBridge(terrainData[1, localX, localY]));
                             if (height >= 0) yield return new BlockedTerrainTile(localX, localY, height);
                         }
                     }

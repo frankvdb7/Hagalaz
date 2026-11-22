@@ -95,32 +95,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 .Any(existing => ReferenceEquals(existing, gameObject));
 
         /// <summary>
-        /// Removes a part's objects, disabled static objects and floor blocks
-        /// without recording runtime removals.
-        /// </summary>
-        private void DiscardPartContent(IMapRegionPart part, int localPartX, int localPartY, int z)
-        {
-            var removed = part.FindAllGameObjects().ToList();
-            foreach (var gameObject in removed)
-            {
-                UnFlagCollisionCore(gameObject);
-            }
-
-            part.DiscardContent();
-            var minLocalX = localPartX * 8;
-            var minLocalY = localPartY * 8;
-            for (var localX = minLocalX; localX < minLocalX + 8; localX++)
-            {
-                for (var localY = minLocalY; localY < minLocalY + 8; localY++)
-                {
-                    UnFlagCollision(localX, localY, z, CollisionFlag.FloorBlock);
-                }
-            }
-
-            ReflagOverlappingObjects(removed, z);
-        }
-
-        /// <summary>
         /// Unflagging clears shared collision bits, so re-flag every surviving object
         /// whose collision area overlaps the area the removed objects flagged. Removed
         /// footprints can reach into adjacent regions, and survivors rooted there can
@@ -185,79 +159,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 ? (gameObject.Definition.SizeY, gameObject.Definition.SizeX)
                 : (gameObject.Definition.SizeX, gameObject.Definition.SizeY);
             return (gameObject.Location.X - 1, gameObject.Location.Y - 1, gameObject.Location.X + sizeX, gameObject.Location.Y + sizeY);
-        }
-
-        /// <summary>
-        /// Builds a present part's objects and floor blocks from the source
-        /// template's 8x8 area on the source plane, rotated by the part rotation.
-        /// </summary>
-        private void MaterializePart(IMapRegionPart part, int localPartX, int localPartY, int z, MapRegionTemplate sourceTemplate)
-        {
-            if (!part.HasDrawSource)
-            {
-                return;
-            }
-
-            var sourceMinX = (part.DrawRegionPartX & 0x7) * 8;
-            var sourceMinY = (part.DrawRegionPartY & 0x7) * 8;
-            var sourceZ = part.DrawRegionZ;
-            var rotation = part.Rotation & 0x3;
-            var minLocalX = localPartX * 8;
-            var minLocalY = localPartY * 8;
-
-            bool IsInSourcePart(int localX, int localY, int plane) =>
-                plane == sourceZ
-                && localX >= sourceMinX && localX < sourceMinX + 8
-                && localY >= sourceMinY && localY < sourceMinY + 8;
-
-            foreach (var tile in sourceTemplate.BlockedTiles)
-            {
-                if (!IsInSourcePart(tile.LocalX, tile.LocalY, tile.Z))
-                {
-                    continue;
-                }
-
-                FlagCollision(
-                    minLocalX + CalculateRotationDelta(tile.LocalX & 0x7, tile.LocalY & 0x7, rotation, false),
-                    minLocalY + CalculateRotationDelta(tile.LocalX & 0x7, tile.LocalY & 0x7, rotation, true),
-                    z,
-                    CollisionFlag.FloorBlock);
-            }
-
-            foreach (var entry in sourceTemplate.Objects)
-            {
-                if (!IsInSourcePart(entry.LocalX, entry.LocalY, entry.Z))
-                {
-                    continue;
-                }
-
-                var sizeX = entry.Definition.SizeX;
-                var sizeY = entry.Definition.SizeY;
-                var localX = minLocalX + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, rotation, false);
-                var localY = minLocalY + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, rotation, true);
-                if (localX < 0 || localX >= Size.X || localY < 0 || localY >= Size.Y)
-                {
-                    continue;
-                }
-
-                var location = Location.Create(
-                    BaseLocation.RegionX * Size.X + localX,
-                    BaseLocation.RegionY * Size.Y + localY,
-                    z,
-                    BaseLocation.Dimension);
-                var builder = _gameObjectBuilder.Create()
-                    .WithId(entry.Id)
-                    .WithLocation(location)
-                    .WithDefinition(entry.Definition)
-                    .WithRotation((entry.Rotation + rotation) & 0x3)
-                    .WithShape(entry.Shape);
-                if (entry.IsStatic)
-                {
-                    builder = builder.AsStatic();
-                }
-
-                Add(builder.Build());
-            }
         }
 
         public static int CalculateRotationDelta(int partLocalX, int partLocalY, int partRotation, bool calculateRotationY)

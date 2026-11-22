@@ -253,8 +253,8 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IMapRegionPart GetRegionPartByLocalPart(int localPartX, int localPartY, int z);
 
         /// <summary>
-        /// Maps a local part of this dynamic region to a source part and rebuilds its
-        /// objects and floor collision from the source region's template.
+        /// Maps a local part of this dynamic region to a source part and rebuilds the
+        /// affected objects and floor collision from the source templates.
         /// </summary>
         /// <param name="localPartX">The local part X index (0-7).</param>
         /// <param name="localPartY">The local part Y index (0-7).</param>
@@ -262,18 +262,18 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// <param name="sourcePartX">The absolute source part X-coordinate.</param>
         /// <param name="sourcePartY">The absolute source part Y-coordinate.</param>
         /// <param name="sourceZ">The source plane.</param>
-        /// <param name="sourceTemplate">The template of the source region.</param>
-        void WriteBlockByIndex(int localPartX, int localPartY, int z, int sourcePartX, int sourcePartY, int sourceZ, MapRegionTemplate sourceTemplate);
+        /// <param name="templates">Templates by region id, for every source region this region draws.</param>
+        void WriteBlockByIndex(int localPartX, int localPartY, int z, int sourcePartX, int sourcePartY, int sourceZ, IReadOnlyDictionary<int, MapRegionTemplate> templates);
 
         /// <summary>
-        /// Rotates a local part of this dynamic region and rebuilds it from its source region's template.
+        /// Rotates a local part of this dynamic region and rebuilds the affected content from the source templates.
         /// </summary>
         /// <param name="localPartX">The local part X index (0-7).</param>
         /// <param name="localPartY">The local part Y index (0-7).</param>
         /// <param name="z">The destination plane.</param>
         /// <param name="rotation">The part rotation (0-3).</param>
-        /// <param name="sourceTemplate">The template of the part's source region.</param>
-        void RotateBlockByIndex(int localPartX, int localPartY, int z, int rotation, MapRegionTemplate sourceTemplate);
+        /// <param name="templates">Templates by region id, for every source region this region draws.</param>
+        void RotateBlockByIndex(int localPartX, int localPartY, int z, int rotation, IReadOnlyDictionary<int, MapRegionTemplate> templates);
 
         /// <summary>
         /// Queues an update for a part of this map region.

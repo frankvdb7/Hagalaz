@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -48,7 +49,7 @@ namespace Hagalaz.Services.GameWorld.Data
             var decodedRegion = _mapProvider.DecodeRegion(regionId, xteaKeys, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var objectIds = decodedRegion.ObjectPlacements.Select(placement => placement.Id)
+            var objectIds = decodedRegion.RawObjectPlacements.Select(placement => placement.Id)
                 .Concat(objectSpawns.Select(spawn => (int)spawn.GameobjectId))
                 .Distinct()
                 .ToArray();
@@ -57,17 +58,17 @@ namespace Hagalaz.Services.GameWorld.Data
                 : await _gameObjectService.FindGameObjectDefinitionsByIdsAsync(objectIds, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var objects = decodedRegion.ObjectPlacements
-                .Select(placement => new MapRegionTemplateObject(
-                    placement.Id,
-                    placement.X,
-                    placement.Y,
-                    placement.Z,
-                    placement.Rotation,
-                    (ShapeType)placement.ShapeType,
-                    definitions[placement.Id],
-                    true))
-                .Concat(objectSpawns.Select(spawn => new MapRegionTemplateObject(
+            MapRegionTemplateObject FromPlacement(IMapObject placement) => new(
+                placement.Id,
+                placement.X,
+                placement.Y,
+                placement.Z,
+                placement.Rotation,
+                (ShapeType)placement.ShapeType,
+                definitions[placement.Id],
+                true);
+
+            var spawns = objectSpawns.Select(spawn => new MapRegionTemplateObject(
                     (int)spawn.GameobjectId,
                     spawn.CoordX - baseX,
                     spawn.CoordY - baseY,
@@ -75,9 +76,26 @@ namespace Hagalaz.Services.GameWorld.Data
                     spawn.Face,
                     (ShapeType)spawn.Type,
                     definitions[(int)spawn.GameobjectId],
-                    false)));
+                    false))
+                .ToArray();
+            var terrainFlags = new sbyte[MapTerrain.MapPlanes, MapTerrain.MapDimension, MapTerrain.MapDimension];
+            for (var plane = 0; plane < MapTerrain.MapPlanes; plane++)
+            {
+                for (var localX = 0; localX < MapTerrain.MapDimension; localX++)
+                {
+                    for (var localY = 0; localY < MapTerrain.MapDimension; localY++)
+                    {
+                        terrainFlags[plane, localX, localY] = decodedRegion.GetTerrainFlags(plane, localX, localY);
+                    }
+                }
+            }
 
-            return new MapRegionTemplate(regionId, objects, decodedRegion.BlockedTiles);
+            return new MapRegionTemplate(
+                regionId,
+                decodedRegion.ObjectPlacements.Select(FromPlacement).Concat(spawns),
+                decodedRegion.BlockedTiles,
+                decodedRegion.RawObjectPlacements.Select(FromPlacement).Concat(spawns),
+                terrainFlags);
         }
     }
 }

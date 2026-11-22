@@ -45,21 +45,29 @@ The `MakeStandard()` call on the live source region is removed: for a standard s
 
 `GetRegionPartData(partX, partY, z)` is renamed `GetRegionPartByAbsolutePart`; `GetRegionPartByLocalPart` moves to `IMapRegion` and is what the service uses. Absolute-coordinate wrappers `WriteBlock`, `RotateBlock`, `DeleteBlock` and the public `LoadPartObjects`/`UnloadPartGameObjects`/`AddPartObjects` are removed (no callers). Rotate/delete use `LocalPartYToPartY` for Y. `DrawRegionDimension` and the `drawPartDimension` overload are removed because templates are dimension-independent (D1).
 
-### D4. Materialization
+### D4. Materialization follows the client, bridges included
 
-For a present part with source (sx, sy, sz, r) and destination (dx, dy, dz):
+The client (`Map.readRegionPartLandscape`, `Class274.readGroundMapData`) selects a chunk's objects by their **raw** source plane and reads its terrain from the source plane, then drops objects and blocked tiles one plane where the **destination** tile's plane-1 terrain is a bridge. That flag comes from whichever chunk is drawn on destination plane 1 at that index.
 
-1. Source origin `((sx & 7) * 8, (sy & 7) * 8)` on plane `sz`; destination origin `((dx & 7) * 8, (dy & 7) * 8)` on plane `dz`.
-2. Floor blocks: each template blocked tile on `sz` inside the source 8x8 is flagged `FloorBlock` at the destination origin plus `CalculateRotationDelta(localX & 7, localY & 7, r)`.
-3. Objects: each template object on `sz` whose origin lies in the source 8x8 is built through `IGameObjectBuilder` with the template definition, at destination origin plus the existing `CalculateObjectRotationDelta` (footprint-aware, using the source rotation), rotation `(objectRotation + r) & 3`, same id and shape, static flag from the template, destination dimension, and added with `MapRegion.Add`, so collision comes from the existing wall/standard/floor-decoration flagging.
+So decoding keeps raw data next to the standard (bridge-adjusted) views: `DecodedMapRegion` and `MapRegionTemplate` carry raw object planes (`RawObjectPlacements` / `SourceObjects`) and raw terrain flags. The bridge rule lives once in `MapTerrain.GetCollisionPlane`; `MapCodec.ToCollisionPlanes` and the provider's blocked tiles use it for standard regions.
 
-Raw collision is never copied, so directional flags are produced by the rotated object, not transformed bit by bit. The formulas in step 2 and 3 are the existing helpers, matching the client's dynamic chunk decoding.
+For a present part on destination plane `z` with source (sx, sy, sz, r):
 
-### D5. Discarding old part content
+1. Floor: each source tile on `sz` with the blocked flag is rotated (`CalculateRotationDelta`) and flagged `FloorBlock` on `GetCollisionPlane(z, bridge(dest tile))`, skipped below plane 0.
+2. Objects: each source object on raw plane `sz` whose origin is in the source 8x8 is placed with `CalculateObjectRotationDelta`, rotation `(objectRotation + r) & 3`, on `GetCollisionPlane(z, bridge(dest tile))` for static cache objects and on `z` for configured spawns (they are not in the client map).
+3. `bridge(tile)` reads the plane-1 chunk at that tile's index through the inverse rotation; a missing part draws itself in a standard region and nothing in a dynamic one.
 
-Add `MapRegionPart.DiscardContent()` returning the removed objects: it clears enabled objects and disabled-static entries, destroys and unregisters them, and queues no update. `MapRegion` first unflags collision for each enabled object (existing `UnFlagCollision`), clears `FloorBlock` on the part's 64 tiles, then materializes. Runtime `Add`/`Remove` keep their disabled-static semantics. Ground items, NPCs and characters in the part are not touched.
+For a self-mapped region this equals the standard decoding, so `MakeStandard` matches `MapRegionLoader`.
 
-`MakeStandard(own)` sets every part to self-mapped, present, rotation 0, discards and rematerializes each with rotation 0 from `own`, then clears `IsDynamic`.
+### D5. Columns are rebuilt and track what they built
+
+Because bridge objects and blocks land one plane down, and large rotated objects can root in a neighbouring part, content is not owned by the part that stores it. The unit of rebuild is a **column** (the four planes of one local part index); `MapRegion` records each column's objects and floor tiles.
+
+Writing, rotating or deleting a part rebuilds its column; if the part is on plane 1, columns that placed objects inside it are rebuilt too, since those objects read its bridge flags. Discarding unflags the column's enabled objects, calls `MapRegionPart.DiscardObjects` on the parts storing them (removing them, including ones disabled since, dropping their queued updates, destroying them without runtime removal updates), and clears its floor tiles. A column never built this way (a region loaded as standard) gives up everything stored in its parts and every floor block it covers. Surviving objects overlapping the removed collision are re-flagged, in this and resident adjacent regions.
+
+Part operations take templates by region id for every source region the region draws (plane-1 chunks are read for bridges anywhere). They are validated before anything is discarded; a missing template restores the descriptor and throws.
+
+`MakeStandard(own)` maps every part to itself and rebuilds all 64 columns from `own`.
 
 ### D6. Presence
 
@@ -67,7 +75,7 @@ Add `MapRegionPart.DiscardContent()` returning the removed objects: it clears en
 
 ## Risks / Trade-offs
 
-- [Bridge tiles: the client draws dynamic chunks from the source plane's terrain, while decoded blocked tiles and objects are already bridge-adjusted] → match on the adjusted plane, as standard loads do; cover a bridge tile in tests only if a fixture exists, otherwise record as a known limitation.
+- [A plane-1 change can move objects that other columns placed in it] → those columns are rebuilt with it; columns are found from what they recorded.
 - [Unflagging overlapping collision can clear bits set by a neighbour object] → same behaviour as runtime removal today; footprints crossing part boundaries are re-flagged when that neighbour is rebuilt.
 - [Template reads hit the cache and database per dynamic creation] → acceptable for an admin-triggered, rare operation; revisit with a cache only if measured.
 - [Internal API break on `IMapRegion`/`IMapRegionPart`] → all callers are in this repository and updated in the same change.

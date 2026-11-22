@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
+using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Types;
 using System.Collections.Generic;
@@ -22,8 +23,6 @@ namespace Hagalaz.Cache.Logic.Codecs
 
         private const int OBJECT_SHAPE_SHIFT = 2;
         private const int OBJECT_ROTATION_MASK = 0x3;
-
-        private const int TERRAIN_FLAG_BRIDGE = 0x2;
 
         public IMapType Decode(int id, MemoryStream stream)
         {
@@ -109,7 +108,36 @@ namespace Hagalaz.Cache.Logic.Codecs
             }
         }
 
+        /// <summary>
+        /// Decodes objects onto their collision plane.
+        /// </summary>
         public static void DecodeObjectData(List<MapObject> objects, sbyte[,,] terrainData, MemoryStream stream)
+        {
+            var rawObjects = new List<MapObject>();
+            DecodeRawObjectData(rawObjects, stream);
+            objects.AddRange(ToCollisionPlanes(rawObjects, terrainData));
+        }
+
+        /// <summary>
+        /// Copies raw objects onto their collision plane: one lower on bridge tiles,
+        /// dropping objects that would fall below plane 0.
+        /// </summary>
+        public static IEnumerable<MapObject> ToCollisionPlanes(IEnumerable<MapObject> rawObjects, sbyte[,,] terrainData)
+        {
+            foreach (var rawObject in rawObjects)
+            {
+                var z = MapTerrain.GetCollisionPlane(rawObject.Z, MapTerrain.IsBridge(terrainData[1, rawObject.X, rawObject.Y]));
+                if (z >= 0)
+                {
+                    yield return new MapObject { Id = rawObject.Id, X = rawObject.X, Y = rawObject.Y, Z = z, ShapeType = rawObject.ShapeType, Rotation = rawObject.Rotation };
+                }
+            }
+        }
+
+        /// <summary>
+        /// Decodes objects on their raw landscape plane, without bridge adjustment.
+        /// </summary>
+        public static void DecodeRawObjectData(List<MapObject> objects, MemoryStream stream)
         {
             var objectId = -1;
             int idOffset;
@@ -129,7 +157,6 @@ namespace Hagalaz.Cache.Logic.Codecs
                     var rotation = flags & OBJECT_ROTATION_MASK;
 
                     if (x < 0 || x >= MAP_DIMENSION || y < 0 || y >= MAP_DIMENSION) continue;
-                    if ((terrainData[1, x, y] & TERRAIN_FLAG_BRIDGE) != 0) z--;
                     if (z < 0 || z >= MAP_PLANES) continue;
 
                     objects.Add(new MapObject { Id = objectId, X = x, Y = y, Z = z, ShapeType = type, Rotation = rotation });

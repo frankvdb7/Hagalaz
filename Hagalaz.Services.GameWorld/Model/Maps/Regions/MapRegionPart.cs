@@ -429,11 +429,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             Rotation = 0;
         }
 
-        public void DiscardContent()
+        public void DiscardObjects(IReadOnlyCollection<IGameObject> gameObjects)
         {
-            var objects = _gameObjects.Values.Concat(_disabledStaticGameObjects.Values).ToHashSet();
-            _gameObjects.Clear();
-            _disabledStaticGameObjects.Clear();
+            var objects = new HashSet<IGameObject>();
+            foreach (var gameObject in gameObjects)
+            {
+                var localHash = gameObject.GetRegionLocalHash();
+                if ((_gameObjects.TryGetValue(localHash, out var enabled) && ReferenceEquals(enabled, gameObject) && _gameObjects.Remove(localHash))
+                    || (_disabledStaticGameObjects.TryGetValue(localHash, out var disabled) && ReferenceEquals(disabled, gameObject) && _disabledStaticGameObjects.Remove(localHash)))
+                {
+                    objects.Add(gameObject);
+                }
+            }
+
             lock (_updatesLock)
             {
                 bool IsStale(IRegionPartUpdate update) => GetGameObject(update) is { } gameObject && objects.Contains(gameObject);

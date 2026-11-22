@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Utilities;
 
@@ -20,23 +21,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public void MakeStandard(MapRegionTemplate standardTemplate)
         {
             EnsureAcceptsMutation();
-            EnsureTemplate(standardTemplate, Id);
-            for (var z = 0; z < Planes; z++)
+            ArgumentNullException.ThrowIfNull(standardTemplate);
+            if (standardTemplate.RegionId != Id)
             {
-                for (var localPartX = 0; localPartX < PartsPerRegionAxis; localPartX++)
-                {
-                    for (var localPartY = 0; localPartY < PartsPerRegionAxis; localPartY++)
-                    {
-                        DiscardPartContent(GetRegionPartByLocalPart(localPartX, localPartY, z), localPartX, localPartY, z);
-                    }
-                }
+                throw new ArgumentException($"Template of region {standardTemplate.RegionId} is not the template of region {Id}.", nameof(standardTemplate));
             }
 
-            for (var z = 0; z < Planes; z++)
+            var columns = new List<int>(PartsPerRegionAxis * PartsPerRegionAxis);
+            for (var localPartX = 0; localPartX < PartsPerRegionAxis; localPartX++)
             {
-                for (var localPartX = 0; localPartX < PartsPerRegionAxis; localPartX++)
+                for (var localPartY = 0; localPartY < PartsPerRegionAxis; localPartY++)
                 {
-                    for (var localPartY = 0; localPartY < PartsPerRegionAxis; localPartY++)
+                    columns.Add(GetColumnKey(localPartX, localPartY));
+                    for (var z = 0; z < Planes; z++)
                     {
                         var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
                         part.DrawRegionPartX = LocalPartXToPartX(localPartX);
@@ -44,12 +41,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                         part.DrawRegionZ = z;
                         part.HasDrawSource = true;
                         part.Rotation = 0;
-                        MaterializePart(part, localPartX, localPartY, z, standardTemplate);
                     }
                 }
             }
 
             IsDynamic = false;
+            RebuildColumns(columns, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate });
         }
 
         /// <summary>
@@ -86,55 +83,45 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             GetRegionPartByAbsolutePart(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z);
 
         /// <summary>
-        /// Maps a local part of this dynamic region to a source part and rebuilds it from the source template.
+        /// Maps a local part of this dynamic region to a source part and rebuilds the affected
+        /// content from the source templates.
         /// </summary>
-        public void WriteBlockByIndex(int localPartX, int localPartY, int z, int sourcePartX, int sourcePartY, int sourceZ, MapRegionTemplate sourceTemplate)
+        public void WriteBlockByIndex(int localPartX, int localPartY, int z, int sourcePartX, int sourcePartY, int sourceZ, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Writing");
-            EnsureTemplate(sourceTemplate, GetSourceRegionId(sourcePartX, sourcePartY));
-            var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
-            DiscardPartContent(part, localPartX, localPartY, z);
-            part.DrawRegionPartX = sourcePartX;
-            part.DrawRegionPartY = sourcePartY;
-            part.DrawRegionZ = sourceZ;
-            part.HasDrawSource = true;
-            MaterializePart(part, localPartX, localPartY, z, sourceTemplate);
+            EditPart(localPartX, localPartY, z, templates, part =>
+            {
+                part.DrawRegionPartX = sourcePartX;
+                part.DrawRegionPartY = sourcePartY;
+                part.DrawRegionZ = sourceZ;
+                part.HasDrawSource = true;
+            });
         }
 
         /// <summary>
-        /// Rotates a local part of this dynamic region and rebuilds it from its source template.
+        /// Rotates a local part of this dynamic region and rebuilds the affected content from the source templates.
         /// </summary>
-        public void RotateBlockByIndex(int localPartX, int localPartY, int z, int rotation, MapRegionTemplate sourceTemplate)
+        public void RotateBlockByIndex(int localPartX, int localPartY, int z, int rotation, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Rotating");
-            var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
-            if (part.Rotation == rotation)
+            if (GetRegionPartByLocalPart(localPartX, localPartY, z).Rotation == rotation)
             {
                 return;
             }
 
-            if (part.HasDrawSource)
-            {
-                EnsureTemplate(sourceTemplate, GetSourceRegionId(part.DrawRegionPartX, part.DrawRegionPartY));
-            }
-
-            DiscardPartContent(part, localPartX, localPartY, z);
-            part.Rotation = rotation;
-            MaterializePart(part, localPartX, localPartY, z, sourceTemplate);
+            EditPart(localPartX, localPartY, z, templates, part => part.Rotation = rotation);
         }
 
         /// <summary>
-        /// Removes a local part's content and marks it absent.
+        /// Marks a local part absent and rebuilds the affected content from the source templates.
         /// </summary>
-        public void DeleteBlockByIndex(int localPartX, int localPartY, int z)
+        public void DeleteBlockByIndex(int localPartX, int localPartY, int z, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Deleting");
-            var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
-            DiscardPartContent(part, localPartX, localPartY, z);
-            part.Erase();
+            EditPart(localPartX, localPartY, z, templates, part => part.Erase());
         }
 
         internal static int GetSourceRegionId(int sourcePartX, int sourcePartY) =>
@@ -145,15 +132,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             if (!IsDynamic)
             {
                 throw new NotSupportedException($"{operation} blocks is not supported in non-dynamic regions!");
-            }
-        }
-
-        private static void EnsureTemplate(MapRegionTemplate template, int expectedRegionId)
-        {
-            ArgumentNullException.ThrowIfNull(template);
-            if (template.RegionId != expectedRegionId)
-            {
-                throw new ArgumentException($"Template of region {template.RegionId} does not match source region {expectedRegionId}.", nameof(template));
             }
         }
     }

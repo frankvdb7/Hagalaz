@@ -88,8 +88,8 @@ public sealed class DynamicRegionPartTests
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
 
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
-        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, rotation, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
+        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, rotation, Templates(CreateSourceTemplate()));
 
         var objects = destination.FindAllGameObjects().ToList();
         Assert.AreEqual(SourceObjects.Length, objects.Count);
@@ -134,8 +134,8 @@ public sealed class DynamicRegionPartTests
         var floor = ExpectedFloorBlock[rotation];
         expected.FlagCollision(DestinationMinX + floor.X, DestinationMinY + floor.Y, 0, CollisionFlag.FloorBlock);
 
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
-        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, rotation, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
+        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, rotation, Templates(CreateSourceTemplate()));
 
         var expectedCollision = Collision(expected);
         Assert.IsTrue(expectedCollision.Any(flag => flag.HasFlag(CollisionFlag.WallAllowRangeWest)
@@ -161,7 +161,7 @@ public sealed class DynamicRegionPartTests
         };
         var template = CreateSourceTemplate(distractors);
 
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
 
         var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
         Assert.IsTrue(part.HasDrawSource);
@@ -180,7 +180,7 @@ public sealed class DynamicRegionPartTests
         var destination = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
         destination.MakeDynamic();
 
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
 
         Assert.AreEqual(SourceObjects.Length, destination.FindAllGameObjects().Count());
         Assert.IsTrue(destination.FindAllGameObjects().All(obj => obj.Location.Dimension == 1));
@@ -193,10 +193,10 @@ public sealed class DynamicRegionPartTests
     {
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
 
         Assert.ThrowsExactly<ArgumentException>(() => destination.WriteBlockByIndex(
-            DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX + 8, SourcePartY, SourceZ, CreateSourceTemplate()));
+            DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX + 8, SourcePartY, SourceZ, Templates(CreateSourceTemplate())));
 
         Assert.AreEqual(SourcePartX, destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0).DrawRegionPartX);
         Assert.AreEqual(SourceObjects.Length, destination.FindAllGameObjects().Count());
@@ -207,10 +207,10 @@ public sealed class DynamicRegionPartTests
     {
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
-        destination.WriteBlockByIndex(DestinationLocalPartY, DestinationLocalPartX, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
+        destination.WriteBlockByIndex(DestinationLocalPartY, DestinationLocalPartX, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
 
-        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, 2, CreateSourceTemplate());
+        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, 2, Templates(CreateSourceTemplate()));
 
         var rotated = destination.GetRegionPartByAbsolutePart(DestinationRegionX * 8 + DestinationLocalPartX, DestinationRegionY * 8 + DestinationLocalPartY, 0);
         var mirrored = destination.GetRegionPartByAbsolutePart(DestinationRegionX * 8 + DestinationLocalPartY, DestinationRegionY * 8 + DestinationLocalPartX, 0);
@@ -218,7 +218,7 @@ public sealed class DynamicRegionPartTests
         Assert.AreEqual(0, mirrored.Rotation);
         Assert.AreEqual(SourceObjects.Length, rotated.FindAllGameObjects().Count());
 
-        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0);
+        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, Templates(CreateSourceTemplate()));
 
         Assert.IsFalse(rotated.HasDrawSource);
         Assert.IsFalse(rotated.FindAllGameObjects().Any());
@@ -231,10 +231,10 @@ public sealed class DynamicRegionPartTests
     {
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
         var registered = destination.FindAllGameObjects().ToList();
 
-        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0);
+        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, Templates(CreateSourceTemplate()));
 
         var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
         Assert.IsFalse(part.HasDrawSource);
@@ -252,7 +252,7 @@ public sealed class DynamicRegionPartTests
             [new MapRegionTemplateObject(7, 2, 2, 0, 0, ShapeType.GroundDefault, Standard1X1, true)],
             []);
 
-        destination.WriteBlockByIndex(0, 0, 0, 0, 0, 0, originTemplate);
+        destination.WriteBlockByIndex(0, 0, 0, 0, 0, 0, Templates(originTemplate));
 
         var part = destination.GetRegionPartByLocalPart(0, 0, 0);
         Assert.IsTrue(part.HasDrawSource);
@@ -265,7 +265,7 @@ public sealed class DynamicRegionPartTests
     {
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
         var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
         var removed = (GameObject)destination.FindAllGameObjects().Single(obj => obj.Id == 1);
 
@@ -274,7 +274,7 @@ public sealed class DynamicRegionPartTests
         Assert.AreSame(removed, part.FindAllDisabledStaticGameObjects().Single());
 
         var emptyTemplate = new MapRegionTemplate(SourceRegionId, [], []);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX - 1, SourcePartY, SourceZ, emptyTemplate);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX - 1, SourcePartY, SourceZ, Templates(emptyTemplate));
 
         Assert.IsFalse(part.FindAllDisabledStaticGameObjects().Any());
         Assert.IsFalse(part.FindAllGameObjects().Any());
@@ -287,7 +287,7 @@ public sealed class DynamicRegionPartTests
     {
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
         var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
         destination.Remove(destination.FindAllGameObjects().Single(obj => obj.Id == 1));
         var character = CreateObserver(out var bases, out var zoneMessages);
@@ -317,7 +317,7 @@ public sealed class DynamicRegionPartTests
     {
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
         var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
         var removed = destination.FindAllGameObjects().Single(obj => obj.Id == 1);
         destination.Remove(removed);
@@ -330,7 +330,7 @@ public sealed class DynamicRegionPartTests
             part.PrepareUpdatesForTick();
         }
 
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX - 1, SourcePartY, SourceZ, new MapRegionTemplate(SourceRegionId, [], []));
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX - 1, SourcePartY, SourceZ, Templates(new MapRegionTemplate(SourceRegionId, [], [])));
         if (!preparedBeforeRewrite)
         {
             part.PrepareUpdatesForTick();
@@ -354,11 +354,11 @@ public sealed class DynamicRegionPartTests
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
         var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
         expected.MakeDynamic();
-        expected.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
-        destination.WriteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, template);
+        expected.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        destination.WriteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, Templates(template));
 
-        destination.DeleteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0);
+        destination.DeleteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, Templates(CreateSourceTemplate()));
 
         Assert.IsTrue(destination.GetCollision(DestinationMinX + 8, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
         CollectionAssert.AreEqual(Collision(expected), Collision(destination));
@@ -375,13 +375,13 @@ public sealed class DynamicRegionPartTests
         var regionB = world.CreateDynamicRegion(DestinationRegionX + 1, DestinationRegionY);
         var expectedB = world.CreateRegion(DestinationRegionX + 1, DestinationRegionY, dimension: 1);
         expectedB.MakeDynamic();
-        expectedB.WriteBlockByIndex(0, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, template);
-        regionA.WriteBlockByIndex(7, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
-        regionB.WriteBlockByIndex(0, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, template);
+        expectedB.WriteBlockByIndex(0, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, Templates(template));
+        regionA.WriteBlockByIndex(7, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        regionB.WriteBlockByIndex(0, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, Templates(template));
         Assert.IsFalse(regionB.GetCollision(1, DestinationMinY, 0).HasFlag(CollisionFlag.ObjectBlock));
         Assert.IsTrue(regionB.GetCollision(0, DestinationMinY, 0).HasFlag(CollisionFlag.ObjectBlock), "A's footprint reaches region B.");
 
-        regionA.DeleteBlockByIndex(7, DestinationLocalPartY, 0);
+        regionA.DeleteBlockByIndex(7, DestinationLocalPartY, 0, Templates(CreateSourceTemplate()));
 
         Assert.IsTrue(regionB.GetCollision(0, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
         CollectionAssert.AreEqual(Collision(expectedB), Collision(regionB));
@@ -400,9 +400,9 @@ public sealed class DynamicRegionPartTests
         var region = world.CreateRegion(DestinationRegionX, DestinationRegionY);
         region.MakeStandard(ownTemplate);
         region.MakeDynamic();
-        region.WriteBlockByIndex(0, 0, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
-        region.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, 3, ownTemplate);
-        region.DeleteBlockByIndex(1, 1, 0);
+        region.WriteBlockByIndex(0, 0, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate(), ownTemplate));
+        region.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, 3, Templates(CreateSourceTemplate(), ownTemplate));
+        region.DeleteBlockByIndex(1, 1, 0, Templates(CreateSourceTemplate(), ownTemplate));
 
         region.MakeStandard(ownTemplate);
 
@@ -427,6 +427,9 @@ public sealed class DynamicRegionPartTests
         CollectionAssert.AreEquivalent(ObjectSnapshot(fresh), ObjectSnapshot(region));
         CollectionAssert.AreEqual(Collision(fresh), Collision(region));
     }
+
+    private static IReadOnlyDictionary<int, MapRegionTemplate> Templates(params MapRegionTemplate[] templates) =>
+        templates.ToDictionary(template => template.RegionId);
 
     private static MapRegionTemplate CreateSourceTemplate(params MapRegionTemplateObject[] extra) => new(
         SourceRegionId,

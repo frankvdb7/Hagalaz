@@ -554,10 +554,11 @@ public sealed class MapRegionLoaderTests
         var sourcePartX = region.LocalPartXToPartX(3);
         var sourcePartY = region.LocalPartYToPartY(3);
 
+        var templates = new Dictionary<int, MapRegionTemplate> { [template.RegionId] = template };
         region.MakeDynamic();
-        region.WriteBlockByIndex(0, 0, 0, sourcePartX, sourcePartY, 0, template);
-        region.RotateBlockByIndex(3, 3, 0, 1, template);
-        region.DeleteBlockByIndex(4, 4, 0);
+        region.WriteBlockByIndex(0, 0, 0, sourcePartX, sourcePartY, 0, templates);
+        region.RotateBlockByIndex(3, 3, 0, 1, templates);
+        region.DeleteBlockByIndex(4, 4, 0, templates);
         CollectionAssert.AreNotEquivalent(loadedObjects, Snapshot());
 
         region.MakeStandard(template);
@@ -565,6 +566,141 @@ public sealed class MapRegionLoaderTests
         Assert.IsFalse(region.IsDynamic);
         CollectionAssert.AreEquivalent(loadedObjects, Snapshot());
         AssertPinnedCollision12850(Collision12850(region));
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public async Task DynamicChunks_FollowClientBridgePlanesForRegion12850(int rotation)
+    {
+        var (_, template) = await LoadRegion12850Async();
+        var (chunkX, chunkY) = FindBridgeChunk12850(template);
+        const int localPartX = 2;
+        const int localPartY = 3;
+        // Destination plane 0 and 1 copy source plane 1 (plane 1 supplies the bridge flags);
+        // destination plane 2 copies source plane 0.
+        (int Z, int SourceZ)[] mappings = [(0, 1), (1, 1), (2, 0)];
+        var scriptProvider = Substitute.For<IGameObjectScriptProvider>();
+        scriptProvider.GetGameObjectScriptTypeById(Arg.Any<int>()).Returns(typeof(IGameObjectScript));
+        var services = new ServiceCollection().AddSingleton(Substitute.For<IGameObjectScript>()).BuildServiceProvider();
+        var regionService = Substitute.For<IMapRegionService>();
+        var destination = new MapRegion(Location.Create(100 * 64, 90 * 64, 0), [],
+            Substitute.For<INpcService>(), regionService, new GameObjectBuilder(services, scriptProvider), Substitute.For<IGroundItemBuilder>(),
+            Substitute.For<IMapper>(), new EntityStore());
+        regionService.When(service => service.FlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
+            .Do(call =>
+            {
+                var location = call.ArgAt<ILocation>(0)!;
+                if (location.RegionId == destination.Id)
+                    destination.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
+            });
+        destination.MakeDynamic();
+        var templates = new Dictionary<int, MapRegionTemplate> { [template.RegionId] = template };
+
+        foreach (var (z, sourceZ) in mappings)
+        {
+            destination.WriteBlockByIndex(localPartX, localPartY, z, 50 * 8 + chunkX, 50 * 8 + chunkY, sourceZ, templates);
+            destination.RotateBlockByIndex(localPartX, localPartY, z, rotation, templates);
+        }
+
+        var (expectedObjects, expectedFloor, shiftedObjects) = ClientDynamicChunkReference(template, chunkX, chunkY, mappings, rotation, localPartX * 8, localPartY * 8);
+        Assert.IsTrue(shiftedObjects > 0, "The chunk must place objects on bridge tiles.");
+        var actualObjects = destination.FindAllGameObjects()
+            .Select(obj => $"{obj.Id}:{obj.Location.RegionLocalX},{obj.Location.RegionLocalY},{obj.Location.Z}:{obj.Rotation}")
+            .ToArray();
+        CollectionAssert.AreEquivalent(expectedObjects, actualObjects);
+        var actualFloor = (from z in Enumerable.Range(0, 4)
+            from x in Enumerable.Range(0, 64)
+            from y in Enumerable.Range(0, 64)
+            where destination.GetCollision(x, y, z).HasFlag(CollisionFlag.FloorBlock)
+            select (x, y, z)).ToArray();
+        CollectionAssert.AreEquivalent(expectedFloor, actualFloor);
+    }
+
+    /// <summary>
+    /// The source chunk of region 12850 with the most plane-1 bridge tiles that also holds static
+    /// objects on plane 1.
+    /// </summary>
+    private static (int ChunkX, int ChunkY) FindBridgeChunk12850(MapRegionTemplate template)
+    {
+        var chunks = from chunkX in Enumerable.Range(0, 8)
+            from chunkY in Enumerable.Range(0, 8)
+            let bridges = (from x in Enumerable.Range(chunkX * 8, 8)
+                from y in Enumerable.Range(chunkY * 8, 8)
+                where (template.GetTerrainFlags(1, x, y) & 0x2) != 0
+                select (x, y)).Count()
+            let objects = template.SourceObjects.Count(obj => obj.IsStatic && obj.Z == 1 && obj.LocalX >> 3 == chunkX && obj.LocalY >> 3 == chunkY)
+            where bridges > 0 && objects > 0
+            orderby bridges descending
+            select (chunkX, chunkY);
+        var chunk = chunks.FirstOrDefault((-1, -1));
+        Assert.AreNotEqual((-1, -1), chunk, "Region 12850 fixture has no bridge chunk with plane-1 objects.");
+        return chunk;
+    }
+
+    /// <summary>
+    /// Reference of the client's dynamic chunk decoding (Map.readRegionPartLandscape and
+    /// Class274.readGroundMapData): objects are selected by raw source plane, and objects and
+    /// blocked tiles drop one plane where the destination tile's plane-1 terrain is a bridge.
+    /// </summary>
+    private static (string[] Objects, (int, int, int)[] Floor, int ShiftedObjects) ClientDynamicChunkReference(
+        MapRegionTemplate template, int chunkX, int chunkY, (int Z, int SourceZ)[] mappings, int rotation, int destinationMinX, int destinationMinY)
+    {
+        var sourceMinX = chunkX * 8;
+        var sourceMinY = chunkY * 8;
+        (int X, int Y) Rotate(int x, int y) => rotation switch
+        {
+            0 => (x, y),
+            1 => (y, 7 - x),
+            2 => (7 - x, 7 - y),
+            _ => (7 - y, x)
+        };
+        var plane1Source = mappings.Single(mapping => mapping.Z == 1).SourceZ;
+        var bridges = new HashSet<(int, int)>();
+        for (var x = 0; x < 8; x++)
+        for (var y = 0; y < 8; y++)
+        {
+            if ((template.GetTerrainFlags(plane1Source, sourceMinX + x, sourceMinY + y) & 0x2) != 0)
+            {
+                var (dx, dy) = Rotate(x, y);
+                bridges.Add((destinationMinX + dx, destinationMinY + dy));
+            }
+        }
+
+        int Height(int z, int x, int y) => bridges.Contains((x, y)) ? z - 1 : z;
+        var objects = new List<string>();
+        var floor = new List<(int, int, int)>();
+        var shifted = 0;
+        foreach (var (z, sourceZ) in mappings)
+        {
+            foreach (var entry in template.SourceObjects.Where(obj => obj.Z == sourceZ
+                         && obj.LocalX >= sourceMinX && obj.LocalX < sourceMinX + 8 && obj.LocalY >= sourceMinY && obj.LocalY < sourceMinY + 8))
+            {
+                var x = destinationMinX + MapRegion.CalculateObjectRotationDelta(entry.Definition.SizeX, entry.Definition.SizeY, entry.Rotation, entry.LocalX & 7, entry.LocalY & 7, rotation, false);
+                var y = destinationMinY + MapRegion.CalculateObjectRotationDelta(entry.Definition.SizeX, entry.Definition.SizeY, entry.Rotation, entry.LocalX & 7, entry.LocalY & 7, rotation, true);
+                var height = Height(z, x, y);
+                if (x < 0 || y < 0 || x >= 64 || y >= 64 || height < 0)
+                    continue;
+                if (height != z)
+                    shifted++;
+                objects.Add($"{entry.Id}:{x},{y},{height}:{(entry.Rotation + rotation) & 3}");
+            }
+
+            for (var x = 0; x < 8; x++)
+            for (var y = 0; y < 8; y++)
+            {
+                if ((template.GetTerrainFlags(sourceZ, sourceMinX + x, sourceMinY + y) & 0x1) == 0)
+                    continue;
+                var (dx, dy) = Rotate(x, y);
+                var height = Height(z, destinationMinX + dx, destinationMinY + dy);
+                if (height >= 0)
+                    floor.Add((destinationMinX + dx, destinationMinY + dy, height));
+            }
+        }
+
+        return (objects.ToArray(), floor.Distinct().ToArray(), shifted);
     }
 
     private static string Fixture12850(string name) => Path.Join(AppContext.BaseDirectory, "Fixtures", "maps", name);

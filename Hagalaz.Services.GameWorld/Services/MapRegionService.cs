@@ -550,11 +550,10 @@ namespace Hagalaz.Services.GameWorld.Services
                             continue;
                         }
 
-                        var template = templates[part.SourceRegionId];
-                        dynamicRegion.WriteBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, template);
+                        dynamicRegion.WriteBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, templates);
                         if (part.Rotation != 0)
                         {
-                            dynamicRegion.RotateBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.Rotation, template);
+                            dynamicRegion.RotateBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.Rotation, templates);
                         }
                     }
 

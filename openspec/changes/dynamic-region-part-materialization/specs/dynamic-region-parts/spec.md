@@ -65,6 +65,21 @@ A part SHALL read the 8x8 source tiles at the source part's local origin ((sourc
 - **WHEN** a destination part on plane 0 maps a source part on plane 2
 - **THEN** it receives the plane-2 source content on plane 0
 
+### Requirement: Bridge planes follow the client
+
+A dynamic part SHALL select static cache objects and blocked tiles by their raw source plane, and SHALL place them one plane lower where the destination tile is a bridge according to the chunk drawn on destination plane 1, skipping anything that falls below plane 0. A self-mapped region SHALL equal its standard decoding.
+
+#### Scenario: Copying a bridge chunk across planes
+
+- **GIVEN** a cache source chunk with plane-1 bridge tiles and objects on raw plane 1
+- **WHEN** destination planes 0 and 1 copy source plane 1 and plane 2 copies source plane 0, with rotation 0, 1, 2 and 3
+- **THEN** the objects and floor blocks equal the client's dynamic chunk decoding of the same mapping
+
+#### Scenario: Plane-1 chunk changes
+
+- **WHEN** the chunk drawn on plane 1 of a column is written, rotated or deleted
+- **THEN** objects and floor blocks of every plane in that column, and objects other columns placed in it, follow the new bridge flags
+
 ### Requirement: Objects follow the part rotation
 
 For part rotation r in `0..3`, each template object whose origin lies in the source part SHALL be placed at the rotated position for its footprint, with rotation `(object rotation + r) & 3`, keeping its id, shape and layer.

@@ -133,9 +133,10 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void Erase();
 
         /// <summary>
-        /// Destroys and unregisters every object of this part, including disabled
-        /// static objects, without recording them as runtime removals.
+        /// Destroys and unregisters the given objects that this part holds, enabled or
+        /// disabled, without recording runtime removals, and drops their queued updates.
         /// </summary>
-        void DiscardContent();
+        /// <param name="gameObjects">The objects to discard; objects this part does not hold are ignored.</param>
+        void DiscardObjects(IReadOnlyCollection<IGameObject> gameObjects);
     }
 }

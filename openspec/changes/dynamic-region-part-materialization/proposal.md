@@ -42,6 +42,7 @@ Stop conditions: pause and propose a follow-up if the work requires protocol cha
 ## Impact
 
 - `Hagalaz.Game.Abstractions`: `IMapRegion`, `IMapRegionPart`, new map template type.
+- `Hagalaz.Cache` / `Hagalaz.Cache.Abstractions`: `MapCodec`, `MapProvider` and `DecodedMapRegion` keep raw object planes and terrain flags next to the bridge-adjusted views (`MapTerrain` holds the bridge rule).
 - `Hagalaz.Services.GameWorld`: `MapRegion` (editing, objects, collision), `MapRegionPart`, `MapRegionService.CreateDynamicRegion`, `MapRegionLoader` (template extraction).
 - Tests in `Hagalaz.Services.GameWorld.Tests` (`DynamicRegionDimensionTests`, `MapRegionServiceTests`, `MapRegionLoaderTests`) and new dynamic part tests.
 - Existing mechanisms reused: `IMapProvider.DecodeRegion`, `IGameObjectSpawnRepository`, `IGameObjectService` definition lookup, `IGameObjectBuilder`, `MapRegion` collision flagging, `MapRegionLoadScheduler` source readiness.

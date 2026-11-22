@@ -20,6 +20,7 @@
 - [x] 3.5 Address zone updates to the destination part instead of the draw source; verify full and incremental updates for a cross-part, cross-plane mapping use the destination base and plane
 - [x] 3.6 Drop pending and prepared updates of discarded objects while keeping other updates; verify both queues with `Rewrite_DropsQueuedUpdatesOfDiscardedObjectsButKeepsOtherUpdates`
 - [x] 3.7 Re-flag surviving objects that overlap discarded collision; including survivors in resident adjacent regions; verify with cross-part and two-region overlapping-footprint regressions
+- [x] 3.8 Keep raw object planes and terrain flags in the decoded map and template, rebuild whole columns with recorded content, and apply bridge planes at the destination; verify `DynamicChunks_FollowClientBridgePlanesForRegion12850` against a client-rule reference for all rotations, and the region 12850 standard and restore tests
 
 ## 4. Dynamic creation
 
