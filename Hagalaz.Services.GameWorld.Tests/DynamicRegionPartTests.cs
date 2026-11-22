@@ -869,6 +869,27 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void RemovedStaticMovingOffAPlane_StaysRemovedOnBothPlanes()
+    {
+        var templates = CreateSpawnAndRotatedStaticTemplates();
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
+        ], templates);
+        var removed = destination.FindStandardGameObject(47, 55, 0)!;
+        Assert.AreEqual(51, removed.Id);
+        destination.Remove(removed);
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, templates);
+
+        Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
+        Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 1)?.Id);
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));

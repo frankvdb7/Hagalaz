@@ -230,8 +230,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     var (finalPlane, finalCollision) = GetPlacement(built.IsStatic, key % Planes, isBridge);
                     if (finalPlane != gameObject.Location.Z)
                     {
-                        // The rebuild places it on another plane, so it no longer holds this slot.
+                        // The rebuild places it on another plane, so it no longer holds this slot. A static
+                        // removed at runtime stays removed on its new plane.
                         pool.Remove(gameObject);
+                        if (IsDisabledStatic(gameObject))
+                        {
+                            if (!carried.TryGetValue(key, out var movedTombstones))
+                            {
+                                carried[key] = movedTombstones = [];
+                            }
+
+                            movedTombstones.Add((gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, finalPlane, built.Shape.GetLayerType(), built.Id));
+                        }
+
                         removed.AddRange(DiscardObjects(_parts[gameObject.Location.GetRegionPartHash()]!, [gameObject]));
                         continue;
                     }

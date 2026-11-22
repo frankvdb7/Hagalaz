@@ -48,3 +48,4 @@
 ## 5. Integration
 
 - [x] 5.1 Run `dotnet build Hagalaz.sln` and `dotnet test Hagalaz.Services.GameWorld.Tests`; report new warnings and confirm no other callers of removed APIs remain
+- [x] 5.2 A static removed at runtime stays removed when a dependency rebuild moves it to another plane (bridge added/removed): its tombstone is carried to the final plane
