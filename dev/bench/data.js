@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795307010022,
+  "lastUpdate": 1795375357136,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -58560,6 +58560,546 @@ window.BENCHMARK_DATA = {
             "value": 1887.75,
             "unit": "ns",
             "range": "± 124.47322335881454"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53c2f1df4c3ca2d17a1efcac37a8080c87129c6d",
+          "message": "fix(maps): materialize dynamic region parts from the source template (#401) (#686)\n\n* fix(maps): materialize dynamic region parts from the source template (#401)\n\nDynamic 8x8 parts did not match what the client draws: creation read\nabsolute parts 0..7 instead of the source region, rotate/delete used the X\nconversion for Y, copied objects kept their source orientation and were read\nfrom the destination's tile range and plane, raw source collision overwrote\nobject collision, rebuilds leaked disabled statics, and MakeStandard only\nreset descriptors.\n\n- Extract MapRegionTemplateLoader (cache objects, DB object spawns, blocked\n  tiles, definitions) and use it for standard loads and dynamic parts.\n- Materialize a part from its source part X/Y and plane with rotated\n  positions, rotation (object + part) & 3, and collision from the existing\n  object and floor flagging.\n- Discard old part content without disabled-static entries or removal\n  updates; MakeStandard(template) fully restores the region.\n- CreateDynamicRegion maps parts by local index, loads source templates up\n  front, and no longer calls MakeStandard on the live source.\n- Remove DrawRegionDimension and the ambiguous absolute-coordinate wrappers.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: join map fixture paths with Path.Join (CodeQL)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): address zone updates to the destination part (#401)\n\nMapRegionPart built the zone base for full and incremental updates from\nDrawRegionPartX/Y/Z, which now hold the source mapping, so updates for\nruntime objects, disabled statics and ground items went to the source\ncoordinates and plane. Parts keep their own destination coordinates and\nuse them for zone updates.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): drop stale updates and keep shared collision on part rebuilds (#401)\n\n- DiscardContent removes pending and prepared object updates that refer to\n  discarded objects (prepared list is replaced, not mutated, since\n  SendUpdates may still enumerate it); other updates are kept.\n- After unflagging a discarded part's objects, re-flag surviving objects\n  whose collision area overlaps, so shared bits from objects rooted in other\n  parts are restored.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): restore shared collision with adjacent regions on part rebuilds (#401)\n\nRemoved objects at a region border unflag tiles in the neighbouring region,\nbut only this region's survivors were re-flagged. Also re-flag overlapping\nsurvivors in resident regions that can reach the affected area (covering it,\nor one region west/south), looked up without creating or resuming regions.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): follow the client's bridge planes in dynamic parts (#401)\n\nThe client selects a dynamic chunk's objects by their raw source plane and\ndrops objects and blocked tiles one plane where the destination tile's\nplane-1 terrain (from the chunk drawn on plane 1) is a bridge. Templates only\nhad bridge-adjusted data, so bridge chunks disagreed with the drawn map.\n\n- DecodedMapRegion and MapRegionTemplate keep raw object planes and terrain\n  flags next to the standard views; MapTerrain holds the bridge rule and\n  MapCodec/MapProvider derive the standard views from raw data.\n- Parts are rebuilt per column (four planes of a local part index), which\n  records the objects and floor tiles it built, since bridge content lands in\n  another plane's part. Plane-1 changes also rebuild columns that placed\n  objects in it. Part operations take templates by region id.\n- Configured spawns keep their plane; self-mapped regions equal the standard\n  decoding, so MakeStandard still matches MapRegionLoader.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): close column rebuild gaps from review (#401)\n\n- Replacing or deleting a part removes runtime objects stored in it\n  (enabled or disabled) and their collision, keeping objects other columns\n  placed there.\n- Objects whose collision plane falls below 0 under a bridge are kept on\n  their draw plane without collision, as Map.addToClip draws them; they yield\n  to objects with collision in the same slot. Standard templates mark them\n  HasCollision = false and the loader adds them without collision.\n- Columns record which plane-1 chunks they read bridge flags from; editing a\n  plane-1 chunk rebuilds every column that read it.\n- WriteBlocksByIndex applies all mappings and builds each column once;\n  dynamic creation uses it so spawn hooks run only for final objects.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(maps): share blocked-tile terrain helper and address CodeQL notes (#401)\n\n- Move the duplicated TerrainFromBlockedTiles helper from DecodedMapRegion\n  and MapRegionTemplate into MapTerrain.FromBlockedTiles (jscpd).\n- Filter stored parts explicitly before discarding column objects, and brace\n  nested loops in the bridge tests.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(maps): drop redundant cast in column build order (CodeQL) (#401)\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep collision consistent when objects are replaced or removed on spawn (#401)\n\n- Replacing an object with collision unflags the replaced object first and\n  re-flags overlapping objects, so a smaller replacement leaves no stale\n  footprint.\n- An added object's collision is flagged before its spawn hook runs, so a\n  hook that removes it unflags exactly what was flagged; overlaps are then\n  re-flagged and the object is not reported as added (columns only record\n  objects the region still holds).\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): restore objects displaced by another column's chunk (#401)\n\nA rotated chunk can root an object in another column's slot and replace that\ncolumn's object. Columns now record which columns' objects they displaced;\nrebuilding a column also rebuilds those (transitively), and columns build in\nascending order so overlapping claims resolve independently of edit order.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): rebuild only affected parts and arbitrate shared slots (#401)\n\n- Track built content per part instead of per column, so editing one plane\n  no longer resets runtime state (removed statics) on unchanged planes. A\n  plane-1 edit still rebuilds the parts that read its bridge flags.\n- Arbitrate object slots claimed by two parts: an object with collision\n  beats one without, otherwise the later part in the client's load order\n  (RegionManager.loadPartObjects: plane, x, y) wins, checked against enabled\n  and runtime-disabled objects. A rebuilt winner also rebuilds the parts it\n  beat; a rebuilt loser loses again to the unchanged winner.\n- Untracked (standard-loaded) parts no longer discard objects other parts\n  built into them.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep runtime removals through dependent rebuilds and trim rebuild cost (#401)\n\n- Bridge readers are rebuilt only when the edited plane-1 chunk's effective\n  64-tile bridge mask differs from the one they read, so a no-op plane-1\n  rewrite no longer respawns removed statics on other planes.\n- Parts rebuilt only as a dependency carry their runtime removals as\n  tombstones (slot, layer, id); a part beaten for a slot keeps a tombstone\n  for its own removed object, so it stays removed when the winner is deleted.\n- Template source objects are indexed per (plane, source part) once, instead\n  of filtering every placement for every part.\n- Slot-replacement re-flagging is collected during materialization and run\n  once per plane after all parts are placed.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): reuse live objects through dependency-only rebuilds (#401)\n\nA part rebuilt only because its bridge dependency changed has the same\ndescriptor, so its runtime state must survive:\n\n- Live objects stay registered during the rebuild and an object produced\n  again from the same template entry (rotation, shape, slot, collision)\n  reuses the existing instance, keeping removed statics and in-place\n  transformations such as UpdateGameObject. Objects remember what they were\n  built from because scripts change live objects in place.\n- Objects removed at runtime and destroyed (configured spawns) are carried as\n  per-part tombstones keyed by template id, so they are not recreated.\n- Objects discarded when another part wins a slot are dropped from their\n  owner's content, so they are not mistaken for runtime removals.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(maps): filter leftover reuse-pool groups with Where (CodeQL) (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): replace a part's own stale object and simplify rebuild state (#401)\n\n- When a rebuild produces a different object in the slot of the part's own\n  live object (for example the object loses its collision under a new\n  bridge), the old object is replaced instead of blocking the new one, so the\n  object stays present and drawn without collision.\n- Merge the owner and origin registries into one built-object registry.\n- Keep the reuse pool and displaced-object list local to one rebuild pass.\n- Model edits as complete part descriptors (source X/Y/Z, rotation, present),\n  validate them before applying, and apply them in one place; no mutating\n  callbacks and no rollback.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep removed and changed objects through collision transitions (#401)\n\nA reused object no longer has to match on collision. When a bridge appears\nor goes under an object whose template entry is unchanged, the live object\nmoves between having collision and not in place, so a runtime-removed\n(disabled) static stays removed and in-place changes survive, instead of\nbeing replaced by a fresh enabled object.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): resolve slot claims against final collision (#401)\n\nReusing an object whose collision changes skipped slot arbitration, so a\nwinning static that lost its collision under a new bridge kept a slot that a\ncollidable configured spawn should take. Live objects are now settled to\ntheir final collision under the new bridges before any part is rebuilt, so\nclaims are resolved against final collision (collidable beats\ncollision-less) and the reuse path needs no collision handling of its own.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep script-unclipped objects unclipped through rebuilds (#401)\n\nA script that clears an object's collision (the Wilderness web) is a runtime\noverride that is separate from bridge-derived collision. The region now\nrecords objects cleared through the public unflag call until the matching\nflag call restores them, and collision restoration, bridge changes and\noverlap re-flagging skip them, so a bridge appearing and going away no longer\nre-closes a cut web.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): drop collision overrides of an occupant that TryAdd replaces (#401)\n\nReplacing a live object through MapRegion.Add left the destroyed occupant\nreferenced by the script-unclip and bridge collision-less sets (and, for a\ncollision-less occupant, the built-object registry). A collision-less\noccupant is now discarded through the shared discard path, and a replaced\noccupant that is no longer held is removed from both sets.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): settle slot occupancy before claims when objects change plane (#401)\n\nA live static that the rebuild now places on another plane (its bridge went\naway) kept blocking its old slot while lower-ranked parts were rebuilt, so a\nlower-ranked configured spawn lost the slot and vanished. Live objects are\nnow settled to their final plane before any claim: one that belongs on a\ndifferent plane is discarded up front and frees its old slot, and the rest\nsettle to final collision as before.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(maps): single placement rule and cached bridge bits (#401)\n\n- GetPlacement(isStatic, drawPlane, isBridge) is the one rule for an\n  object's plane and collision, used when building an object and when\n  settling a live one, replacing GetFinalPlane, HasFinalCollision and the\n  inline rule in MaterializePart. The settle pass uses the object's origin\n  (built) static flag and looks up each tile's bridge once.\n- IsBridgeAt reads the tile's bit from the per-column mask the part already\n  stored instead of repeating the descriptor, rotation and template lookup.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): do not create, load or await a standard source for dynamic regions (#401)\n\nCreating a dynamic instance created and fully loaded its standard source\nregion (database queries, map decode, objects, NPCs, items) only to read 256\nidentity part descriptors, then decoded the same region again for its\ntemplate. A standard source now maps every part to itself, so its mappings are\nbuilt directly and only its template is read, once. The source is neither\ncreated nor requested for loading. A dynamic source is still awaited and its\ndescriptors read as before.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): await dynamic sources through their population and resume idle ones (#401)\n\nWaiting for a dynamic source went through the normal load scheduler, which\ndoes not tell dynamic regions apart and would queue the map loader against an\ninitializing dynamic region (loading its own region id over the dynamic copy).\nThe service now keeps a completion for each dynamic region being populated;\nanother creation awaits that, then resumes the source through the existing\nresume path if it was suspended and revalidates it as the canonical active\nReady region. A dynamic region is never given to the load scheduler.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep a runtime-removed static removed when a bridge change moves its plane (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(maps): share the bridge-moved static setup (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep a runtime-removed static's identity across bridge plane changes (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): relocate a runtime-removed static to the plane a bridge change moves it to (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): create the target plane's part before relocating a removed static (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): re-flag overlapping survivors from nearby parts instead of whole regions (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): clamp the overlap search to the region's own parts (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(maps): assert the overlap search probes only the region's own parts (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): look up disabled statics by slot instead of scanning the part (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): validate edit ranges up front and keep object relocation region-owned (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(maps): drop a redundant cast (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): sign-in waits for a dynamic copy instead of loading it; make part descriptors read-only (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(maps): keep part storage mutators internal to MapRegionPart (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(maps): drop a redundant cast (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): store a removed configured spawn as a tombstone at once; share unchanged template entries (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): build the adjusted decoded object view lazily; allocate part-content collections on first write (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(maps): drop redundant casts in part content (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep decoded-region snapshot semantics, tombstone any destroyed built object, avoid empty lists when discarding a part (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): tombstone a built object destroyed by replacement; allocate reflag list only when needed (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): search far enough west and south for wide surviving objects when reflagging collision (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): release a destroyed dynamic region's collision in neighbouring regions (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): reflag a same-id replacement's collision when destroying a stale dynamic region (#401)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-22T19:09:05Z",
+          "tree_id": "460ccc21bc001bd08133ad832d37349ac7da74df",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/53c2f1df4c3ca2d17a1efcac37a8080c87129c6d"
+        },
+        "date": 1795375355602,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.CacheArchiveSnapshotLruBenchmarks.ReconstructThreeArchives",
+            "value": 37912.24782307942,
+            "unit": "ns",
+            "range": "± 168.16471520910912"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheArchiveSnapshotLruBenchmarks.EvictAndReloadThreeArchives",
+            "value": 41597.14112141928,
+            "unit": "ns",
+            "range": "± 153.1511637312512"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.LegacyObjectDefinitionWorkload",
+            "value": 39372.21882105474,
+            "unit": "ns",
+            "range": "± 1125.5080587016823"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.ZeroRetentionObjectDefinitionWorkload",
+            "value": 41652.79259778635,
+            "unit": "ns",
+            "range": "± 330.9005592512665"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.WarmSnapshotObjectDefinitionWorkload",
+            "value": 534.8937215155006,
+            "unit": "ns",
+            "range": "± 24.08490044199873"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheReferenceTableMemoizationBenchmarks.DecodeReferenceTableWithoutMemoization",
+            "value": 3209817.64609375,
+            "unit": "ns",
+            "range": "± 11865.235527831928"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheReferenceTableMemoizationBenchmarks.ReadMemoizedReferenceTable",
+            "value": 18.822374838590623,
+            "unit": "ns",
+            "range": "± 0.05588833890217761"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentArchiveReconstruction",
+            "value": 4555611.5453125,
+            "unit": "ns",
+            "range": "± 247426.2323360577"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentColdSameArchiveRead",
+            "value": 550230.307421875,
+            "unit": "ns",
+            "range": "± 6570.48598956444"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentWarmSameArchiveRead",
+            "value": 2820.803534698486,
+            "unit": "ns",
+            "range": "± 36.82048139207446"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.ArchiveReconstructionBaseline",
+            "value": 38450.927954101564,
+            "unit": "ns",
+            "range": "± 457.57025753040426"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.ColdSingleMemberRead",
+            "value": 40945.59772949219,
+            "unit": "ns",
+            "range": "± 230.4256905509026"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.WarmSingleMemberRead",
+            "value": 90.89768543839455,
+            "unit": "ns",
+            "range": "± 0.4673824358396496"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 7.983161684125662,
+            "unit": "ns",
+            "range": "± 0.0034533645431705107"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.2017711237072946,
+            "unit": "ns",
+            "range": "± 0.037185522288616525"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 566.2949461936951,
+            "unit": "ns",
+            "range": "± 1.000445641772061"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 68.63153851032257,
+            "unit": "ns",
+            "range": "± 0.10712486168774854"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 930.4055830001831,
+            "unit": "ns",
+            "range": "± 7.766659246249912"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 113.04638493061066,
+            "unit": "ns",
+            "range": "± 0.5222422300471876"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 802.8598520755768,
+            "unit": "ns",
+            "range": "± 0.5089069584700653"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 119.3927595615387,
+            "unit": "ns",
+            "range": "± 1.1992185398768669"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 41.93534554541111,
+            "unit": "ns",
+            "range": "± 0.049973470634705384"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 100)",
+            "value": 1.2843984812498093,
+            "unit": "ns",
+            "range": "± 0.009647926124942915"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 100)",
+            "value": 1.6504526929929852,
+            "unit": "ns",
+            "range": "± 0.012300484369980736"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 100)",
+            "value": 2074.1074291992186,
+            "unit": "ns",
+            "range": "± 1.5596449326777604"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 100)",
+            "value": 20408.4449609375,
+            "unit": "ns",
+            "range": "± 20.6704233643375"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 100)",
+            "value": 390196.6787109375,
+            "unit": "ns",
+            "range": "± 3451.5777953487764"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 100)",
+            "value": 525147.2276562501,
+            "unit": "ns",
+            "range": "± 5870.1347848014675"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 623.5398309230804,
+            "unit": "ns",
+            "range": "± 6.266098920404346"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 52.319359198212624,
+            "unit": "ns",
+            "range": "± 0.3162700770955359"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1494.2796966552735,
+            "unit": "ns",
+            "range": "± 6.266549180810274"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 914.5983331680297,
+            "unit": "ns",
+            "range": "± 1.6079389253637955"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 2167.5521919250486,
+            "unit": "ns",
+            "range": "± 23.622401521515485"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1089.5274772644043,
+            "unit": "ns",
+            "range": "± 1.3402121634944364"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1287.6371984481812,
+            "unit": "ns",
+            "range": "± 5.198606308225828"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 132.10958638191224,
+            "unit": "ns",
+            "range": "± 2.403350027124394"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2188.44215965271,
+            "unit": "ns",
+            "range": "± 2.413873784942304"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 1018.0439273834229,
+            "unit": "ns",
+            "range": "± 1.4523142925610621"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 1012.6985652923584,
+            "unit": "ns",
+            "range": "± 6.21868559431659"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 597.7892290115357,
+            "unit": "ns",
+            "range": "± 20.1572259684614"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 3518.4299746093748,
+            "unit": "ns",
+            "range": "± 28.252415225672525"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.38951271846890445,
+            "unit": "ns",
+            "range": "± 0.0006035618607308804"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 58.24831844568253,
+            "unit": "ns",
+            "range": "± 0.0715451855027636"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.192106794565916,
+            "unit": "ns",
+            "range": "± 0.022135326977672943"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 5861.353556060791,
+            "unit": "ns",
+            "range": "± 30.01949681302027"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 629.4315986633301,
+            "unit": "ns",
+            "range": "± 1.3066641151601939"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 8994.014791870117,
+            "unit": "ns",
+            "range": "± 22.20216447129991"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 956.7901393890381,
+            "unit": "ns",
+            "range": "± 1.585670396569006"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 7706.5723876953125,
+            "unit": "ns",
+            "range": "± 21.88411298942976"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 1012.1782836914062,
+            "unit": "ns",
+            "range": "± 9.654084060516585"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 220.50452814102172,
+            "unit": "ns",
+            "range": "± 11.229611086409191"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 1000)",
+            "value": 1.2841831535100936,
+            "unit": "ns",
+            "range": "± 0.002990213855695554"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 1000)",
+            "value": 1.618944089859724,
+            "unit": "ns",
+            "range": "± 0.025325038977065922"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 1000)",
+            "value": 2124.586839355469,
+            "unit": "ns",
+            "range": "± 10.603279727386237"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 1000)",
+            "value": 20738.326687499997,
+            "unit": "ns",
+            "range": "± 187.83260164638287"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 1000)",
+            "value": 433566.21140625,
+            "unit": "ns",
+            "range": "± 19680.4007865501"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 1000)",
+            "value": 533987.9990625001,
+            "unit": "ns",
+            "range": "± 8110.9228540220565"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 615.4708837509155,
+            "unit": "ns",
+            "range": "± 1.7326081279722336"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 192.35974471569062,
+            "unit": "ns",
+            "range": "± 2.451352799230103"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 14535.3434715271,
+            "unit": "ns",
+            "range": "± 35.6346600311287"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 9311.685848999023,
+            "unit": "ns",
+            "range": "± 43.10810187763265"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 21602.248764038086,
+            "unit": "ns",
+            "range": "± 11.819601214600377"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 11460.02220916748,
+            "unit": "ns",
+            "range": "± 61.58143175967433"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 13359.851629638672,
+            "unit": "ns",
+            "range": "± 111.74699087255384"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 1209.2054538726807,
+            "unit": "ns",
+            "range": "± 9.322910744342954"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 9480.177005004884,
+            "unit": "ns",
+            "range": "± 69.40724265157279"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 986.451931476593,
+            "unit": "ns",
+            "range": "± 0.9225378940389579"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 8184.476955413818,
+            "unit": "ns",
+            "range": "± 24.401809335920323"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 4808.541973876953,
+            "unit": "ns",
+            "range": "± 30.14615346589142"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 28543.41428125,
+            "unit": "ns",
+            "range": "± 142.49889769099687"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.38869551390409474,
+            "unit": "ns",
+            "range": "± 0.0024939135296248517"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 10)",
+            "value": 94.97207310795784,
+            "unit": "ns",
+            "range": "± 0.17164711724713685"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 100)",
+            "value": 801.8027824401855,
+            "unit": "ns",
+            "range": "± 4.287538385866425"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 500)",
+            "value": 4709.965992736817,
+            "unit": "ns",
+            "range": "± 33.60194244330707"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapAppearanceRequestBenchmarks.IndividualRequests32",
+            "value": 278547.6398925781,
+            "unit": "ns",
+            "range": "± 305.64692612002546"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapAppearanceRequestBenchmarks.BatchRequest32",
+            "value": 219515.50546875,
+            "unit": "ns",
+            "range": "± 11845.398169282213"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapTerrainDecodeBenchmarks.DecodeTerrain",
+            "value": 116482.00421142578,
+            "unit": "ns",
+            "range": "± 591.4277105519509"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapTerrainDecodeBenchmarks.DecodeLandscape",
+            "value": 69980.47848510742,
+            "unit": "ns",
+            "range": "± 655.7230934290636"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 0)",
+            "value": 2627.6,
+            "unit": "ns",
+            "range": "± 76.33675392627067"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 0)",
+            "value": 130,
+            "unit": "ns",
+            "range": "± 0"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 1)",
+            "value": 3538.75,
+            "unit": "ns",
+            "range": "± 82.32203026326954"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 1)",
+            "value": 2534.5,
+            "unit": "ns",
+            "range": "± 45.46060565661952"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 5)",
+            "value": 3797.8,
+            "unit": "ns",
+            "range": "± 176.4106005885134"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 5)",
+            "value": 2598.4,
+            "unit": "ns",
+            "range": "± 241.37377653755183"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 20)",
+            "value": 4057.2,
+            "unit": "ns",
+            "range": "± 418.6182031398061"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 20)",
+            "value": 2454,
+            "unit": "ns",
+            "range": "± 14.142135623730951"
           }
         ]
       }
