@@ -116,6 +116,18 @@ Writing, rotating or deleting a part SHALL remove all objects of its previous co
 - **WHEN** the part is deleted or rewritten
 - **THEN** the runtime objects are removed with their collision, and the other column's object stays
 
+#### Scenario: Shared slots do not depend on edit order
+
+- **GIVEN** two parts whose objects claim the same slot
+- **WHEN** they are written in either order, or the losing part is rewritten alone
+- **THEN** the part later in the client's load order keeps the slot, and collision equals building both together
+
+#### Scenario: Editing one plane keeps other planes' runtime state
+
+- **GIVEN** a static object removed at runtime on plane 1 of a column without bridges
+- **WHEN** only plane 0 of that column is rewritten or rotated
+- **THEN** the plane-1 object stays removed, with no new add update or collision
+
 #### Scenario: A displaced object returns when its slot frees
 
 - **GIVEN** a column whose object was replaced in its slot by an object another column placed there

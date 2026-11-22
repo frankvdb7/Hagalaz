@@ -28,14 +28,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw new ArgumentException($"Template of region {standardTemplate.RegionId} is not the template of region {Id}.", nameof(standardTemplate));
             }
 
-            var columns = new List<int>(PartsPerRegionAxis * PartsPerRegionAxis);
+            var parts = new List<int>(PartsPerRegionAxis * PartsPerRegionAxis * Planes);
             for (var localPartX = 0; localPartX < PartsPerRegionAxis; localPartX++)
             {
                 for (var localPartY = 0; localPartY < PartsPerRegionAxis; localPartY++)
                 {
-                    columns.Add(GetColumnKey(localPartX, localPartY));
                     for (var z = 0; z < Planes; z++)
                     {
+                        parts.Add(GetPartKey(localPartX, localPartY, z));
                         var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
                         part.DrawRegionPartX = LocalPartXToPartX(localPartX);
                         part.DrawRegionPartY = LocalPartYToPartY(localPartY);
@@ -47,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             IsDynamic = false;
-            RebuildColumns(columns, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate }, _parts.ToList());
+            RebuildParts(parts, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate }, _parts.ToList());
         }
 
         /// <summary>

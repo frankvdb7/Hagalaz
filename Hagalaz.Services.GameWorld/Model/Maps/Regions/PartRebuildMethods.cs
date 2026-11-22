@@ -11,27 +11,33 @@ using Hagalaz.Game.Utilities;
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
     /// <summary>
-    /// Rebuilds the objects and floor collision of 8x8 part columns from their source templates.
+    /// Rebuilds the objects and floor collision of 8x8 parts from their source templates.
     /// </summary>
     /// <remarks>
-    /// A column is the four planes of one local part index. It is the unit of rebuilding because
-    /// the client takes the bridge flag of every tile from the chunk drawn on plane 1, and objects
-    /// and floor blocks on bridge tiles move one plane down into another part of the column.
+    /// Each part records what it built, because its objects and floor blocks need not land in the
+    /// part itself: on bridge tiles they move one plane down, and large rotated objects can root in
+    /// a neighbouring column. A part also records the columns whose plane-1 chunk it read bridge
+    /// flags from, and the parts it beat for an object slot, so an edit rebuilds the parts whose
+    /// content can change and leaves runtime state in the other parts alone.
     /// </remarks>
     public partial class MapRegion
     {
-        private readonly Dictionary<int, ColumnContent> _columnContent = new();
-
-        /// <summary>
-        /// Plane 0 is built last: its objects under a bridge have no collision and yield to the
-        /// bridge's own objects, which plane 1 places on collision plane 0.
-        /// </summary>
-        private static readonly int[] ColumnBuildOrder = [1, 2, 3, 0];
+        private readonly Dictionary<int, PartContent> _partContent = new();
+        private readonly Dictionary<IGameObject, int> _objectOwners = new(ReferenceEqualityComparer.Instance);
 
         private static int GetColumnKey(int localPartX, int localPartY) => localPartX * PartsPerRegionAxis + localPartY;
 
+        private static int GetPartKey(int localPartX, int localPartY, int z) => GetColumnKey(localPartX, localPartY) * Planes + z;
+
         /// <summary>
-        /// Applies descriptor changes to parts, then rebuilds every affected column once.
+        /// The order the client loads chunk objects in (<c>RegionManager.loadPartObjects</c>): plane,
+        /// then x, then y, all ascending. The server holds one object per slot, so when two parts
+        /// claim a slot the later one in this order keeps it, whatever order the edits came in.
+        /// </summary>
+        private static int GetBuildRank(int partKey) => partKey % Planes * PartsPerRegionAxis * PartsPerRegionAxis + partKey / Planes;
+
+        /// <summary>
+        /// Applies descriptor changes to parts, then rebuilds every affected part once.
         /// </summary>
         private void EditParts(IReadOnlyList<(int LocalPartX, int LocalPartY, int Z, Action<IMapRegionPart> Change)> edits, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
@@ -43,10 +49,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 edits[index].Change(edited[index]);
             }
 
-            var columns = GetColumnsToRebuild(edits);
+            var parts = GetPartsToRebuild(edits.Select(edit => GetPartKey(edit.LocalPartX, edit.LocalPartY, edit.Z)));
             try
             {
-                EnsureTemplates(columns, templates);
+                EnsureTemplates(parts, templates);
             }
             catch
             {
@@ -58,49 +64,42 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw;
             }
 
-            RebuildColumns(columns, templates, edited.Distinct().ToList());
+            RebuildParts(parts, templates, edited.Distinct().ToList());
         }
 
         /// <summary>
-        /// The edited columns, plus, for every edited plane-1 chunk, the columns that read its
-        /// bridge flags when they were built, plus (transitively) the columns whose objects any of
-        /// these displaced from a shared slot, so a displaced object comes back once its slot frees.
+        /// The edited parts; for an edited plane-1 chunk, every part that read its bridge flags;
+        /// and, transitively, every part these beat for an object slot, which may get the slot back.
+        /// A part that lost a slot is rebuilt alone: it loses again to the unchanged winner. A column
+        /// never built here (a region loaded as standard) is rebuilt whole, since its content is not
+        /// recorded per part.
         /// </summary>
-        private List<int> GetColumnsToRebuild(IEnumerable<(int LocalPartX, int LocalPartY, int Z, Action<IMapRegionPart> Change)> edits)
+        private List<int> GetPartsToRebuild(IEnumerable<int> editedParts)
         {
-            var columns = new HashSet<int>();
-            var bridgeColumns = new HashSet<int>();
-            foreach (var (localPartX, localPartY, z, _) in edits)
-            {
-                var key = GetColumnKey(localPartX, localPartY);
-                columns.Add(key);
-                if (z == 1)
-                {
-                    bridgeColumns.Add(key);
-                }
-            }
-
-            columns.UnionWith(_columnContent
+            var parts = new HashSet<int>(editedParts);
+            var bridgeColumns = parts.Where(key => key % Planes == 1).Select(key => key / Planes).ToHashSet();
+            parts.UnionWith(_partContent
                 .Where(entry => entry.Value.BridgeColumns.Overlaps(bridgeColumns))
                 .Select(entry => entry.Key));
-            var pending = new Queue<int>(columns);
+
+            var pending = new Queue<int>(parts);
             while (pending.TryDequeue(out var key))
             {
-                if (!_columnContent.TryGetValue(key, out var content))
+                var column = key / Planes;
+                var untrackedColumn = Enumerable.Range(0, Planes).All(z => !_partContent.ContainsKey(column * Planes + z));
+                var related = untrackedColumn
+                    ? Enumerable.Range(0, Planes).Select(z => column * Planes + z)
+                    : _partContent.TryGetValue(key, out var content) ? content.BeatenParts : [];
+                foreach (var part in related.Where(parts.Add))
                 {
-                    continue;
-                }
-
-                foreach (var displaced in content.DisplacedColumns.Where(columns.Add))
-                {
-                    pending.Enqueue(displaced);
+                    pending.Enqueue(part);
                 }
             }
 
-            return columns.Order().ToList();
+            return parts.OrderBy(GetBuildRank).ToList();
         }
 
-        private void EnsureTemplates(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private void EnsureTemplates(IReadOnlyCollection<int> parts, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             void Require(int localPartX, int localPartY, int z)
             {
@@ -116,12 +115,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
-            foreach (var key in columns)
+            foreach (var key in parts)
             {
-                for (var z = 0; z < Planes; z++)
-                {
-                    Require(key / PartsPerRegionAxis, key % PartsPerRegionAxis, z);
-                }
+                var column = key / Planes;
+                Require(column / PartsPerRegionAxis, column % PartsPerRegionAxis, key % Planes);
             }
 
             // Bridge flags of any tile can be read from any plane-1 chunk.
@@ -134,23 +131,20 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        /// <param name="columns">The columns to rebuild.</param>
+        /// <param name="parts">The parts to rebuild.</param>
         /// <param name="templates">Templates by region id.</param>
         /// <param name="replacedParts">Parts whose chunk was replaced: objects added to them at runtime are removed too.</param>
-        private void RebuildColumns(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
+        private void RebuildParts(IReadOnlyCollection<int> parts, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
         {
-            // Columns build in ascending order, so when two mappings claim one slot the result
-            // does not depend on the order edits were made in.
-            var ordered = columns.Order().ToList();
             var removed = DiscardRuntimeObjects(replacedParts);
-            foreach (var key in ordered)
+            foreach (var key in parts)
             {
-                removed.AddRange(DiscardColumn(key));
+                removed.AddRange(DiscardPart(key));
             }
 
-            foreach (var key in ordered)
+            foreach (var key in parts.OrderBy(GetBuildRank))
             {
-                MaterializeColumn(key, templates);
+                MaterializePart(key, templates);
             }
 
             foreach (var plane in removed.GroupBy(obj => obj.Location.Z))
@@ -160,18 +154,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         /// <summary>
-        /// Removes objects stored in replaced parts that no column built (added at runtime,
-        /// enabled or disabled), leaving objects other columns placed there.
+        /// Removes objects stored in replaced parts that no part built (added at runtime,
+        /// enabled or disabled), leaving objects other parts placed there.
         /// </summary>
         /// <returns>The removed objects whose collision was unflagged.</returns>
         private List<IGameObject> DiscardRuntimeObjects(IReadOnlyCollection<IMapRegionPart> replacedParts)
         {
-            var built = _columnContent.Values.SelectMany(content => content.Objects).ToHashSet(ReferenceEqualityComparer.Instance);
             var removed = new List<IGameObject>();
             foreach (var part in replacedParts)
             {
                 var runtimeObjects = part.FindAllGameObjects().Concat(part.FindAllDisabledStaticGameObjects())
-                    .Where(obj => !built.Contains(obj))
+                    .Where(obj => !_objectOwners.ContainsKey(obj))
                     .ToList();
                 removed.AddRange(DiscardObjects(part, runtimeObjects));
             }
@@ -192,22 +185,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             part.DiscardObjects(objects);
             _objectsWithoutCollision.ExceptWith(objects);
+            foreach (var gameObject in objects)
+            {
+                _objectOwners.Remove(gameObject);
+            }
+
             return enabled;
         }
 
         /// <summary>
-        /// Removes what a column built: its objects (including ones disabled since) and floor
-        /// blocks, without recording runtime removals. A column never built here (a region loaded
-        /// as standard) gives up everything stored in its parts and every floor block it covers.
+        /// Removes what a part built: its objects (including ones disabled since) and floor blocks,
+        /// without recording runtime removals. A part never built here (a region loaded as standard)
+        /// gives up everything stored in it that no other part built, and every floor block on its plane.
         /// </summary>
         /// <returns>The removed objects whose collision was unflagged.</returns>
-        private List<IGameObject> DiscardColumn(int key)
+        private List<IGameObject> DiscardPart(int key)
         {
-            var localPartX = key / PartsPerRegionAxis;
-            var localPartY = key % PartsPerRegionAxis;
+            var column = key / Planes;
+            var localPartX = column / PartsPerRegionAxis;
+            var localPartY = column % PartsPerRegionAxis;
+            var z = key % Planes;
             List<IGameObject> objects;
             IEnumerable<(int X, int Y, int Z)> floorTiles;
-            if (_columnContent.Remove(key, out var content))
+            if (_partContent.Remove(key, out var content))
             {
                 objects = content.Objects;
                 floorTiles = content.FloorTiles;
@@ -215,17 +215,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             else
             {
                 objects = [];
-                for (var z = 0; z < Planes; z++)
+                if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z), out var stored))
                 {
-                    if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z), out var part))
-                    {
-                        objects.AddRange(part.FindAllGameObjects());
-                        objects.AddRange(part.FindAllDisabledStaticGameObjects());
-                    }
+                    objects.AddRange(stored.FindAllGameObjects().Concat(stored.FindAllDisabledStaticGameObjects())
+                        .Where(obj => !_objectOwners.ContainsKey(obj)));
                 }
 
-                floorTiles = from z in Enumerable.Range(0, Planes)
-                    from x in Enumerable.Range(localPartX * 8, 8)
+                floorTiles = from x in Enumerable.Range(localPartX * 8, 8)
                     from y in Enumerable.Range(localPartY * 8, 8)
                     select (x, y, z);
             }
@@ -233,138 +229,175 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var enabled = new List<IGameObject>();
             var storedByPart = objects
                 .GroupBy(obj => obj.Location.GetRegionPartHash())
-                .Select(stored => (Part: _parts[stored.Key], Objects: stored.ToList()))
-                .Where(stored => stored.Part is not null);
-            foreach (var (part, stored) in storedByPart)
+                .Select(group => (Part: _parts[group.Key], Objects: group.ToList()))
+                .Where(group => group.Part is not null);
+            foreach (var (part, group) in storedByPart)
             {
-                enabled.AddRange(DiscardObjects(part!, stored));
+                enabled.AddRange(DiscardObjects(part!, group));
             }
 
-            foreach (var (x, y, z) in floorTiles)
+            foreach (var (x, y, plane) in floorTiles)
             {
-                UnFlagCollision(x, y, z, CollisionFlag.FloorBlock);
+                UnFlagCollision(x, y, plane, CollisionFlag.FloorBlock);
             }
 
             return enabled;
         }
 
         /// <summary>
-        /// Builds a column as the client draws it: each present chunk reads its source 8x8 on its
-        /// source plane, rotated; static objects and floor blocks land one plane lower where the
-        /// destination tile is a bridge, and objects that would fall below plane 0 stay on their
-        /// draw plane without collision.
+        /// Builds a part as the client draws it: the chunk reads its source 8x8 on its source plane,
+        /// rotated; static objects and floor blocks land one plane lower where the destination tile
+        /// is a bridge, and objects that would fall below plane 0 stay on their draw plane without
+        /// collision.
         /// </summary>
-        private void MaterializeColumn(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private void MaterializePart(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
-            var content = new ColumnContent();
-            _columnContent[key] = content;
-            var localPartX = key / PartsPerRegionAxis;
-            var localPartY = key % PartsPerRegionAxis;
+            var content = new PartContent();
+            _partContent[key] = content;
+            var column = key / Planes;
+            var localPartX = column / PartsPerRegionAxis;
+            var localPartY = column % PartsPerRegionAxis;
+            var z = key % Planes;
+            if (!TryGetPartSource(localPartX, localPartY, z, out var source))
+            {
+                return;
+            }
+
             var minLocalX = localPartX * 8;
             var minLocalY = localPartY * 8;
-            foreach (var z in ColumnBuildOrder)
+            var template = templates[GetSourceRegionId(source.PartX, source.PartY)];
+            var sourceMinX = (source.PartX & 0x7) * 8;
+            var sourceMinY = (source.PartY & 0x7) * 8;
+            for (var sourceX = 0; sourceX < 8; sourceX++)
             {
-                if (!TryGetPartSource(localPartX, localPartY, z, out var source))
+                for (var sourceY = 0; sourceY < 8; sourceY++)
+                {
+                    if (!MapTerrain.IsBlocked(template.GetTerrainFlags(source.Z, sourceMinX + sourceX, sourceMinY + sourceY)))
+                    {
+                        continue;
+                    }
+
+                    var localX = minLocalX + CalculateRotationDelta(sourceX, sourceY, source.Rotation, false);
+                    var localY = minLocalY + CalculateRotationDelta(sourceX, sourceY, source.Rotation, true);
+                    var plane = MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content));
+                    if (plane < 0)
+                    {
+                        continue;
+                    }
+
+                    FlagCollision(localX, localY, plane, CollisionFlag.FloorBlock);
+                    content.FloorTiles.Add((localX, localY, plane));
+                }
+            }
+
+            foreach (var entry in template.SourceObjects)
+            {
+                if (entry.Z != source.Z
+                    || entry.LocalX < sourceMinX || entry.LocalX >= sourceMinX + 8
+                    || entry.LocalY < sourceMinY || entry.LocalY >= sourceMinY + 8)
                 {
                     continue;
                 }
 
-                var template = templates[GetSourceRegionId(source.PartX, source.PartY)];
-                var sourceMinX = (source.PartX & 0x7) * 8;
-                var sourceMinY = (source.PartY & 0x7) * 8;
-                for (var sourceX = 0; sourceX < 8; sourceX++)
+                var sizeX = entry.Definition.SizeX;
+                var sizeY = entry.Definition.SizeY;
+                var localX = minLocalX + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, source.Rotation, false);
+                var localY = minLocalY + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, source.Rotation, true);
+                if (localX < 0 || localX >= Size.X || localY < 0 || localY >= Size.Y)
                 {
-                    for (var sourceY = 0; sourceY < 8; sourceY++)
-                    {
-                        if (!MapTerrain.IsBlocked(template.GetTerrainFlags(source.Z, sourceMinX + sourceX, sourceMinY + sourceY)))
-                        {
-                            continue;
-                        }
-
-                        var localX = minLocalX + CalculateRotationDelta(sourceX, sourceY, source.Rotation, false);
-                        var localY = minLocalY + CalculateRotationDelta(sourceX, sourceY, source.Rotation, true);
-                        var plane = MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content));
-                        if (plane < 0)
-                        {
-                            continue;
-                        }
-
-                        FlagCollision(localX, localY, plane, CollisionFlag.FloorBlock);
-                        content.FloorTiles.Add((localX, localY, plane));
-                    }
+                    continue;
                 }
 
-                foreach (var entry in template.SourceObjects)
+                // Configured spawns are not part of the client's map, so no bridge applies to them.
+                // Where the collision plane falls below plane 0 the client still draws the object
+                // on its draw plane, only without clipping it.
+                var plane = entry.IsStatic ? MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content)) : z;
+                var hasCollision = plane >= 0;
+                if (!hasCollision)
                 {
-                    if (entry.Z != source.Z
-                        || entry.LocalX < sourceMinX || entry.LocalX >= sourceMinX + 8
-                        || entry.LocalY < sourceMinY || entry.LocalY >= sourceMinY + 8)
-                    {
-                        continue;
-                    }
+                    plane = z;
+                }
 
-                    var sizeX = entry.Definition.SizeX;
-                    var sizeY = entry.Definition.SizeY;
-                    var localX = minLocalX + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, source.Rotation, false);
-                    var localY = minLocalY + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, source.Rotation, true);
-                    if (localX < 0 || localX >= Size.X || localY < 0 || localY >= Size.Y)
-                    {
-                        continue;
-                    }
+                if (!ClaimSlot(key, content, localX, localY, plane, entry.Shape.GetLayerType(), hasCollision))
+                {
+                    continue;
+                }
 
-                    // Configured spawns are not part of the client's map, so no bridge applies to them.
-                    // Where the collision plane falls below plane 0 the client still draws the object
-                    // on its draw plane, only without clipping it.
-                    var plane = entry.IsStatic ? MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content)) : z;
-                    var hasCollision = plane >= 0;
-                    if (!hasCollision)
-                    {
-                        plane = z;
-                    }
+                var location = Location.Create(
+                    BaseLocation.RegionX * Size.X + localX,
+                    BaseLocation.RegionY * Size.Y + localY,
+                    plane,
+                    BaseLocation.Dimension);
+                var builder = _gameObjectBuilder.Create()
+                    .WithId(entry.Id)
+                    .WithLocation(location)
+                    .WithDefinition(entry.Definition)
+                    .WithRotation((entry.Rotation + source.Rotation) & 0x3)
+                    .WithShape(entry.Shape);
+                if (entry.IsStatic)
+                {
+                    builder = builder.AsStatic();
+                }
 
-                    var location = Location.Create(
-                        BaseLocation.RegionX * Size.X + localX,
-                        BaseLocation.RegionY * Size.Y + localY,
-                        plane,
-                        BaseLocation.Dimension);
-                    var builder = _gameObjectBuilder.Create()
-                        .WithId(entry.Id)
-                        .WithLocation(location)
-                        .WithDefinition(entry.Definition)
-                        .WithRotation((entry.Rotation + source.Rotation) & 0x3)
-                        .WithShape(entry.Shape);
-                    if (entry.IsStatic)
-                    {
-                        builder = builder.AsStatic();
-                    }
-
-                    if (!hasCollision && FindGameObjects(localX, localY, plane).Any(existing => existing.ShapeType.GetLayerType() == entry.Shape.GetLayerType()))
-                    {
-                        continue;
-                    }
-
-                    var gameObject = builder.Build();
-                    if (TryAdd(gameObject, hasCollision, out var displaced))
-                    {
-                        content.Objects.Add(gameObject);
-                    }
-
-                    if (displaced is not null)
-                    {
-                        foreach (var owner in _columnContent.Where(entry => entry.Key != key && entry.Value.Objects.Contains(displaced)))
-                        {
-                            content.DisplacedColumns.Add(owner.Key);
-                        }
-                    }
+                var gameObject = builder.Build();
+                if (TryAdd(gameObject, hasCollision))
+                {
+                    content.Objects.Add(gameObject);
+                    _objectOwners[gameObject] = key;
                 }
             }
+        }
+
+        /// <summary>
+        /// Decides whether a part may place an object in a slot that another part's object holds,
+        /// enabled or disabled at runtime. An object with collision beats one without; otherwise
+        /// the higher build rank wins. The winner records the loser, so the loser is rebuilt (and may
+        /// take the slot) when the winner is. A beaten object another part built is removed silently,
+        /// since the client never drew it. Slots held by runtime objects follow <see cref="TryAdd"/>.
+        /// </summary>
+        private bool ClaimSlot(int key, PartContent content, int localX, int localY, int plane, LayerType layer, bool hasCollision)
+        {
+            bool InSlot(IGameObject existing) => existing.ShapeType.GetLayerType() == layer
+                && existing.Location.RegionLocalX == localX && existing.Location.RegionLocalY == localY && existing.Location.Z == plane;
+
+            var storage = _parts[LocationHelper.GetRegionPartHash(LocalXToPart(localX), LocalYToPart(localY), plane)];
+            var occupant = FindGameObjects(localX, localY, plane).FirstOrDefault(InSlot)
+                           ?? storage?.FindAllDisabledStaticGameObjects().FirstOrDefault(InSlot);
+            if (occupant is null || !_objectOwners.TryGetValue(occupant, out var ownerKey) || ownerKey == key)
+            {
+                return occupant is null || hasCollision;
+            }
+
+            var occupantHasCollision = !_objectsWithoutCollision.Contains(occupant);
+            var wins = hasCollision == occupantHasCollision
+                ? GetBuildRank(ownerKey) < GetBuildRank(key)
+                : hasCollision;
+            if (!wins)
+            {
+                if (_partContent.TryGetValue(ownerKey, out var owner))
+                {
+                    owner.BeatenParts.Add(key);
+                }
+
+                return false;
+            }
+
+            content.BeatenParts.Add(ownerKey);
+
+            var unflagged = DiscardObjects(storage!, [occupant]);
+            if (unflagged.Count > 0)
+            {
+                ReflagOverlappingObjects(unflagged, plane);
+            }
+
+            return true;
         }
 
         /// <summary>
         /// Whether a region-local tile is a bridge: the plane-1 flag of the source tile that the
         /// chunk drawn on plane 1 places there.
         /// </summary>
-        private bool IsBridgeAt(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates, ColumnContent reader)
+        private bool IsBridgeAt(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates, PartContent reader)
         {
             reader.BridgeColumns.Add(GetColumnKey(localX >> 3, localY >> 3));
             if (!TryGetPartSource(localX >> 3, localY >> 3, 1, out var source))
@@ -396,21 +429,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return !IsDynamic;
         }
 
-        private sealed class ColumnContent
+        private sealed class PartContent
         {
             public List<IGameObject> Objects { get; } = [];
 
             public List<(int X, int Y, int Z)> FloorTiles { get; } = [];
 
             /// <summary>
-            /// Columns whose plane-1 chunk this column read bridge flags from.
+            /// Columns whose plane-1 chunk this part read bridge flags from.
             /// </summary>
             public HashSet<int> BridgeColumns { get; } = [];
 
             /// <summary>
-            /// Columns whose object this column replaced in a shared slot.
+            /// Parts whose claim on an object slot this part beat.
             /// </summary>
-            public HashSet<int> DisplacedColumns { get; } = [];
+            public HashSet<int> BeatenParts { get; } = [];
         }
     }
 }

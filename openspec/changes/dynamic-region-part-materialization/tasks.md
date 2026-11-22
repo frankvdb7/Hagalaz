@@ -26,6 +26,7 @@
 - [x] 3.11 Rebuild columns that read an edited plane-1 chunk's bridge flags; verify `ChangingABridgeChunk_RebuildsColumnsThatReadIt`
 - [x] 3.12 Unflag a replaced object's collision and re-flag overlaps; flag an added object before its spawn hook and drop collision of objects the hook removes; verify `ReplacingAnObject_ClearsTheReplacedFootprintUntilTheChunkIsDeleted` and `SpawnHookThatRemovesTheObject_LeavesNoCollisionAndKeepsOverlaps`
 - [x] 3.13 Rebuild columns whose objects an edited column displaced from a shared slot, building columns in ascending order; verify `DeletingAChunkThatDisplacedAnObject_RestoresTheDisplacedObject`
+- [x] 3.14 Track content per part and rebuild only affected parts, arbitrating shared slots by client load order; verify `RewritingTheLosingChunk_KeepsTheWinnersObjectWhateverTheEditOrder`, `RewritingTheLosingChunk_KeepsARuntimeRemovedWinnerRemoved` and `EditingPlaneZero_LeavesARuntimeRemovalOnPlaneOneAlone`
 
 ## 4. Dynamic creation
 

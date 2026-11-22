@@ -59,15 +59,20 @@ For a present part on destination plane `z` with source (sx, sy, sz, r):
 
 For a self-mapped region this equals the standard decoding, so `MakeStandard` matches `MapRegionLoader`.
 
-### D5. Columns are rebuilt and track what they built
+### D5. Parts track what they built
 
-Because bridge objects and blocks land one plane down, and large rotated objects can root in a neighbouring part, content is not owned by the part that stores it. The unit of rebuild is a **column** (the four planes of one local part index); `MapRegion` records each column's objects and floor tiles.
+Bridge objects and blocks land one plane down, and large rotated objects can root in a neighbouring column, so content is not owned by the part that stores it. Each part records the objects and floor tiles it built (`_partContent`, with `_objectOwners` mapping objects back), the columns whose plane-1 chunk it read bridge flags from, and the parts it beat for an object slot.
 
-Writing, rotating or deleting a part rebuilds its column; if the part is on plane 1, every column that read its bridge flags (recorded while building) is rebuilt too. Runtime objects stored in a replaced part (not built by any column) are removed with it; objects other columns placed there stay. `WriteBlocksByIndex` applies many mappings and builds each affected column once; dynamic creation uses it so spawn hooks run only for final objects. Discarding unflags the column's enabled objects, calls `MapRegionPart.DiscardObjects` on the parts storing them (removing them, including ones disabled since, dropping their queued updates, destroying them without runtime removal updates), and clears its floor tiles. A column never built this way (a region loaded as standard) gives up everything stored in its parts and every floor block it covers. Surviving objects overlapping the removed collision are re-flagged, in this and resident adjacent regions.
+An edit rebuilds only:
+- the edited parts;
+- for an edited plane-1 chunk, every part that read its bridge flags (in practice the other planes of that column and neighbours whose objects land in it);
+- transitively, the parts those beat for a slot, which may get it back.
 
-Part operations take templates by region id for every source region the region draws (plane-1 chunks are read for bridges anywhere). They are validated before anything is discarded; a missing template restores the descriptor and throws.
+Other parts keep their runtime state (removed statics, spawned objects). Discarding unflags a part's enabled objects, calls `MapRegionPart.DiscardObjects` on the parts storing them (no runtime removal updates) and clears its floor tiles. Runtime objects stored in a replaced part are removed with it. A column never built this way (a region loaded as standard) is rebuilt whole, giving up what its parts store that no part built. Surviving objects overlapping removed collision are re-flagged, in this and resident adjacent regions.
 
-`MakeStandard(own)` maps every part to itself and rebuilds all 64 columns from `own`.
+When two parts claim one object slot (tile, layer, plane), checked against enabled and runtime-disabled objects: an object with collision beats one without; otherwise the later part in the client's load order wins. `RegionManager.loadPartObjects` loops plane, then x, then y. Whether the client's scene keeps the later object in that slot was not confirmed (the scene code is obfuscated); the server holds one object per slot. A beaten object another part built is removed silently. A losing part rebuilt alone loses again to the unchanged winner, including one removed at runtime.
+
+`WriteBlocksByIndex` applies many mappings and rebuilds each affected part once; dynamic creation uses it so spawn hooks run only for final objects. Part operations take templates by region id for every source region the region draws, validated before anything is discarded. `MakeStandard(own)` maps every part to itself and rebuilds all 256 parts from `own`.
 
 ### D6. Presence
 

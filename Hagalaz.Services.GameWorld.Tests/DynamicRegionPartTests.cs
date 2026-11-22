@@ -571,6 +571,97 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void RewritingTheLosingChunk_KeepsTheWinnersObjectWhateverTheEditOrder()
+    {
+        var template = CreateSharedSlotTemplate();
+        var world = new TestWorld();
+        var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
+        expected.MakeDynamic();
+        expected.WriteBlocksByIndex(SharedSlotMappings(), Templates(template));
+        var losingFirst = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var winningFirst = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 2);
+        winningFirst.MakeDynamic();
+
+        losingFirst.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        losingFirst.WriteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, Templates(template));
+        losingFirst.RotateBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, 2, Templates(template));
+        losingFirst.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        winningFirst.WriteBlocksByIndex([SharedSlotMappings()[1]], Templates(template));
+        winningFirst.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+
+        Assert.AreEqual(51, losingFirst.FindStandardGameObject(47, 55, 0)?.Id);
+        Assert.AreEqual(51, winningFirst.FindStandardGameObject(47, 55, 0)?.Id);
+        CollectionAssert.AreEqual(Collision(expected), Collision(losingFirst));
+        CollectionAssert.AreEqual(Collision(expected), Collision(winningFirst));
+    }
+
+    [TestMethod]
+    public void RewritingTheLosingChunk_KeepsARuntimeRemovedWinnerRemoved()
+    {
+        var template = CreateSharedSlotTemplate();
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(SharedSlotMappings(), Templates(template));
+        var winner = destination.FindStandardGameObject(47, 55, 0)!;
+        Assert.AreEqual(51, winner.Id);
+        destination.Remove(winner);
+        var winnerPart = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+
+        Assert.IsNull(destination.FindStandardGameObject(47, 55, 0));
+        Assert.AreSame(winner, winnerPart.FindAllDisabledStaticGameObjects().Single());
+        Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(47, 55, 0));
+    }
+
+    [TestMethod]
+    public void EditingPlaneZero_LeavesARuntimeRemovalOnPlaneOneAlone()
+    {
+        var template = CreateSourceTemplate();
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], Templates(template));
+        var (x, y) = ExpectedObjectPositions[0][0];
+        var removed = destination.FindStandardGameObject(DestinationMinX + x, DestinationMinY + y, 1)!;
+        destination.Remove(removed);
+        var planeOne = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 1);
+        planeOne.PrepareUpdatesForTick();
+        planeOne.CompleteUpdateTick();
+        var planeOneObjects = planeOne.FindAllGameObjects().ToList();
+        var planeOneCollision = Collision(destination).Skip(4096).Take(4096).ToArray();
+
+        destination.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, 1, Templates(template));
+
+        Assert.AreSame(removed, planeOne.FindAllDisabledStaticGameObjects().Single());
+        Assert.IsNull(destination.FindStandardGameObject(DestinationMinX + x, DestinationMinY + y, 1));
+        CollectionAssert.AreEqual(planeOneObjects, planeOne.FindAllGameObjects().ToList());
+        CollectionAssert.AreEqual(planeOneCollision, Collision(destination).Skip(4096).Take(4096).ToArray());
+        var character = CreateObserver(out _, out var zoneMessages);
+        planeOne.PrepareUpdatesForTick();
+        planeOne.SendUpdates(character);
+        Assert.AreEqual(0, zoneMessages.Count);
+    }
+
+    // A: column (5, 6) maps source chunk (2, 3), whose 1x1 object at chunk (7, 7) lands on (47, 55).
+    // B: column (6, 6) maps source chunk (3, 3) rotated by 2, whose 2x1 object at chunk (7, 0)
+    // roots on the same slot. B loads later in the client's order, so it keeps the slot.
+    private static MapRegionTemplate CreateSharedSlotTemplate() => new(SourceRegionId,
+    [
+        new MapRegionTemplateObject(50, SourceMinX + 7, SourceMinY + 7, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true),
+        new MapRegionTemplateObject(51, SourceMinX + 8 + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Definition(2, 1), true)
+    ], []);
+
+    private static MapRegionPartMapping[] SharedSlotMappings() =>
+    [
+        new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+        new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, 2)
+    ];
+
+    [TestMethod]
     public void MakeStandard_RestoresMappingsObjectsAndCollision()
     {
         var world = new TestWorld();

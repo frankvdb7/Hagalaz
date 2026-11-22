@@ -80,15 +80,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// replaces the object unflags exactly what was flagged.
         /// </remarks>
         /// <returns>Whether the region still holds the object (enabled or disabled) after its spawn hook.</returns>
-        private bool TryAdd(IGameObject gameObject, bool flagCollision) => TryAdd(gameObject, flagCollision, out _);
-
-        /// <param name="gameObject">The object to add.</param>
-        /// <param name="flagCollision">Whether the object contributes collision.</param>
-        /// <param name="displaced">The object it replaced in its slot, if any.</param>
-        private bool TryAdd(IGameObject gameObject, bool flagCollision, out IGameObject? displaced)
+        private bool TryAdd(IGameObject gameObject, bool flagCollision)
         {
             EnsureAcceptsMutation();
-            displaced = null;
             var part = _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart);
             var occupant = part.FindGameObject(gameObject.ShapeType.GetLayerType(), gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z);
             IGameObject? replaced = null;
@@ -99,7 +93,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     return false;
                 }
 
-                displaced = occupant;
                 if (_objectsWithoutCollision.Contains(occupant))
                 {
                     part.DiscardObjects([occupant]);
