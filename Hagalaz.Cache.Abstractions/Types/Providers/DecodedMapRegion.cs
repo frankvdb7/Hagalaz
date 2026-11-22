@@ -11,6 +11,7 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
     public sealed class DecodedMapRegion
     {
         private readonly sbyte[,,] _terrainFlags;
+        private readonly Lazy<IReadOnlyList<IMapObject>> _objectPlacements;
 
         public static DecodedMapRegion Empty { get; } = new([], []);
 
@@ -40,13 +41,14 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
             IEnumerable<IMapObject> rawObjectPlacements,
             sbyte[,,] terrainFlags)
         {
-            ObjectPlacements = Array.AsReadOnly(objectPlacements.ToArray());
+            // The bridge-adjusted view is only built when a consumer asks for it.
+            _objectPlacements = new Lazy<IReadOnlyList<IMapObject>>(() => Array.AsReadOnly(objectPlacements.ToArray()));
             BlockedTiles = Array.AsReadOnly(blockedTiles.ToArray());
             RawObjectPlacements = Array.AsReadOnly(rawObjectPlacements.ToArray());
             _terrainFlags = (sbyte[,,])terrainFlags.Clone();
         }
 
-        public IReadOnlyList<IMapObject> ObjectPlacements { get; }
+        public IReadOnlyList<IMapObject> ObjectPlacements => _objectPlacements.Value;
 
         public IReadOnlyList<BlockedTerrainTile> BlockedTiles { get; }
 

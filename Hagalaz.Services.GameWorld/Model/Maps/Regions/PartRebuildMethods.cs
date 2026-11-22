@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Model;
@@ -164,7 +165,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 .Distinct()
                 .ToDictionary(column => column, column => GetBridgeMask(column, templates, targets));
             parts.UnionWith(_partContent
-                .Where(entry => entry.Value.BridgeReads.Any(read => bridgeMasks.TryGetValue(read.Key, out var mask) && mask != read.Value))
+                .Where(entry => entry.Value.BridgeReadsOrEmpty.Any(read => bridgeMasks.TryGetValue(read.Key, out var mask) && mask != read.Value))
                 .Select(entry => entry.Key));
 
             var pending = new Queue<int>(parts);
@@ -174,7 +175,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 var untrackedColumn = Enumerable.Range(0, Planes).All(z => !_partContent.ContainsKey(column * Planes + z));
                 var related = untrackedColumn
                     ? Enumerable.Range(0, Planes).Select(z => column * Planes + z)
-                    : _partContent.TryGetValue(key, out var content) ? content.BeatenParts : [];
+                    : _partContent.TryGetValue(key, out var content) ? content.BeatenPartsOrEmpty : [];
                 foreach (var part in related.Where(parts.Add))
                 {
                     pending.Enqueue(part);
@@ -233,7 +234,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var pass = new RebuildPass();
             foreach (var key in dependentParts.Where(_partContent.ContainsKey))
             {
-                pass.ReusePool[key] = _partContent[key].Objects.Where(obj => OwnsGameObject(obj) || IsDisabledStatic(obj)).ToList();
+                pass.ReusePool[key] = _partContent[key].ObjectsOrEmpty.Where(obj => OwnsGameObject(obj) || IsDisabledStatic(obj)).ToList();
             }
 
             var removed = DiscardRuntimeObjects(replacedParts);
@@ -326,8 +327,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return tombstones;
             }
 
-            tombstones.UnionWith(content.Tombstones);
-            foreach (var gameObject in content.Objects.Where(obj => !OwnsGameObject(obj) && !IsDisabledStatic(obj)))
+            tombstones.UnionWith(content.TombstonesOrEmpty);
+            foreach (var gameObject in content.ObjectsOrEmpty.Where(obj => !OwnsGameObject(obj) && !IsDisabledStatic(obj)))
             {
                 tombstones.Add(GetTombstone(gameObject));
             }
@@ -808,24 +809,39 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private sealed class PartContent
         {
-            public List<IGameObject> Objects { get; } = [];
+            // The collections are created on first write: most parts leave most of them empty.
+            private List<IGameObject>? _objects;
+            private List<(int X, int Y, int Z)>? _floorTiles;
+            private Dictionary<int, ulong>? _bridgeReads;
+            private HashSet<(int X, int Y, int Z, LayerType Layer, int Id)>? _tombstones;
+            private HashSet<int>? _beatenParts;
 
-            public List<(int X, int Y, int Z)> FloorTiles { get; } = [];
+            public List<IGameObject> Objects => _objects ??= [];
+
+            public IReadOnlyList<IGameObject> ObjectsOrEmpty => _objects ?? (IReadOnlyList<IGameObject>)[];
+
+            public List<(int X, int Y, int Z)> FloorTiles => _floorTiles ??= [];
 
             /// <summary>
             /// The bridge flags of each column's plane-1 chunk, as this part read them when built.
             /// </summary>
-            public Dictionary<int, ulong> BridgeReads { get; } = [];
+            public Dictionary<int, ulong> BridgeReads => _bridgeReads ??= [];
+
+            public IReadOnlyDictionary<int, ulong> BridgeReadsOrEmpty => _bridgeReads ?? (IReadOnlyDictionary<int, ulong>)ReadOnlyDictionary<int, ulong>.Empty;
 
             /// <summary>
             /// Objects of this part that stay removed (removed at runtime) when it is rebuilt unchanged.
             /// </summary>
-            public HashSet<(int X, int Y, int Z, LayerType Layer, int Id)> Tombstones { get; } = [];
+            public HashSet<(int X, int Y, int Z, LayerType Layer, int Id)> Tombstones => _tombstones ??= [];
+
+            public IReadOnlyCollection<(int X, int Y, int Z, LayerType Layer, int Id)> TombstonesOrEmpty => _tombstones ?? (IReadOnlyCollection<(int X, int Y, int Z, LayerType Layer, int Id)>)[];
 
             /// <summary>
             /// Parts whose claim on an object slot this part beat.
             /// </summary>
-            public HashSet<int> BeatenParts { get; } = [];
+            public HashSet<int> BeatenParts => _beatenParts ??= [];
+
+            public IReadOnlyCollection<int> BeatenPartsOrEmpty => _beatenParts ?? (IReadOnlyCollection<int>)[];
         }
     }
 }

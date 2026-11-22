@@ -105,6 +105,26 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void DecodedMapRegion_BuildsTheAdjustedObjectViewOnlyWhenRequested()
+        {
+            var enumerations = 0;
+            System.Collections.Generic.IEnumerable<Hagalaz.Cache.Abstractions.Types.IMapObject> Adjusted()
+            {
+                enumerations++;
+                yield break;
+            }
+
+            var region = new DecodedMapRegion(Adjusted(), [], [], new sbyte[4, 64, 64]);
+
+            Assert.Empty(region.RawObjectPlacements);
+            Assert.Empty(region.BlockedTiles);
+            Assert.Equal(0, enumerations);
+            Assert.Empty(region.ObjectPlacements);
+            Assert.Empty(region.ObjectPlacements);
+            Assert.Equal(1, enumerations);
+        }
+
+        [Fact]
         public void DecodeRegion_WhenMapArchivesAreAbsent_UsesEmptyMapData()
         {
             _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);
