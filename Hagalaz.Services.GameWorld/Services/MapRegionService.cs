@@ -151,11 +151,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 {
                     return ResumeIdleRegion(dim, id, idleRegion);
                 }
-
-                if (dim.ReservedDynamicRegions.Contains(id))
-                {
-                    throw new InvalidOperationException($"Region {id} is reserved for a dynamic region that is still being prepared.");
-                }
             }
 
             var newRegion = CreateMapRegion(id, dimension);
@@ -174,11 +169,6 @@ namespace Hagalaz.Services.GameWorld.Services
                 if (dim.IdleRegionStore.TryGetValue(id, out var idleRegion))
                 {
                     return ResumeIdleRegion(dim, id, idleRegion);
-                }
-
-                if (dim.ReservedDynamicRegions.Contains(id))
-                {
-                    throw new InvalidOperationException($"Region {id} is reserved for a dynamic region that is still being prepared.");
                 }
 
                 dim.ActiveRegions.Add(id, newRegion);
@@ -488,8 +478,9 @@ namespace Hagalaz.Services.GameWorld.Services
         /// Creates the dynamic region.
         /// </summary>
         /// <remarks>
-        /// The destination is only reserved while its source mappings and templates load, so no incomplete
-        /// region is ever visible. It is then registered, populated and marked ready without an await in between.
+        /// The destination only exists as a pending entry while its source mappings and templates load, so no incomplete
+        /// region is ever visible. It is then registered, populated and marked ready under the residency gate, so no
+        /// other thread can obtain it before it is ready.
         /// </remarks>
         /// <param name="source">The source.</param>
         /// <param name="destination">The destination.</param>
@@ -498,7 +489,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             var task = new RsAsyncTask(async cancellationToken =>
             {
-                var destinationDimension = ReserveDynamicDestination(destination);
+                var destinationDimension = AddPendingDynamicDestination(source, destination);
                 try
                 {
                     // Only a dynamic source has part mappings worth reading. A standard source maps every part to
@@ -507,32 +498,13 @@ namespace Hagalaz.Services.GameWorld.Services
                     var sourceParts = dynamicSource is not null ? ReadSourceParts(dynamicSource) : CreateIdentityParts(source);
                     var templates = await LoadSourceTemplatesAsync(sourceParts, cancellationToken);
 
-                    // No await from here on: the destination becomes visible and ready within this game task.
-                    var dynamicRegion = PublishDynamicRegion(source, destination, destinationDimension, dynamicSource);
-                    try
-                    {
-                        // Dynamic block population can invoke object scripts while loading copied objects.
-                        // All mappings are applied first and each column is built once, so object
-                        // spawn hooks only run for the final content.
-                        dynamicRegion.WriteBlocksByIndex(
-                            sourceParts
-                                .Where(part => part.IsPresent)
-                                .Select(part => new MapRegionPartMapping(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, part.Rotation))
-                                .ToList(),
-                            templates);
-                        dynamicRegion.MarkReady();
-                    }
-                    catch
-                    {
-                        DiscardDynamicRegion(destination, dynamicRegion);
-                        throw;
-                    }
+                    PublishPopulatedDynamicRegion(source, destination, destinationDimension, dynamicSource, sourceParts, templates);
                 }
                 finally
                 {
                     lock (_residencyGate)
                     {
-                        destinationDimension.ReservedDynamicRegions.Remove(destination.RegionId);
+                        destinationDimension.PendingDynamicRegions.Remove(destination.RegionId);
                     }
                 }
             });
@@ -541,16 +513,23 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         /// <summary>
-        /// Claims the destination id so no standard region can be created in its place while the dynamic one is prepared.
+        /// Records the pending destination. A dynamic source that is itself still pending is rejected: it has no
+        /// part mappings yet and must never be mistaken for a standard source.
         /// </summary>
-        private Dimension ReserveDynamicDestination(ILocation destination)
+        private Dimension AddPendingDynamicDestination(ILocation source, ILocation destination)
         {
             lock (_residencyGate)
             {
+                var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
+                if (sourceDimension.PendingDynamicRegions.Contains(source.RegionId))
+                {
+                    throw new InvalidOperationException($"Source region {source.RegionId} is a dynamic region that is still being prepared.");
+                }
+
                 var dimension = _dimensions[destination.Dimension] ?? throw new InvalidOperationException($"Dimension[{destination.Dimension}] no longer exists.");
                 if (dimension.ActiveRegions.ContainsKey(destination.RegionId)
                     || dimension.IdleRegionStore.ContainsKey(destination.RegionId)
-                    || !dimension.ReservedDynamicRegions.Add(destination.RegionId))
+                    || !dimension.PendingDynamicRegions.Add(destination.RegionId))
                 {
                     throw new InvalidOperationException($"Region {destination.RegionId} already exists and cannot be used as a dynamic destination.");
                 }
@@ -560,15 +539,30 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         /// <summary>
-        /// Registers a new dynamic destination after re-checking that its dimension and dynamic source are still current.
+        /// Registers, populates and readies the destination while holding the residency gate, after re-checking that
+        /// its dimension, an ordinary region under its id and a dynamic source are still as expected. The gate is
+        /// re-entrant for the creating thread, which flags collision through the service while populating; every other
+        /// thread waits and then sees a ready region.
         /// </summary>
-        private IMapRegion PublishDynamicRegion(ILocation source, ILocation destination, Dimension destinationDimension, IMapRegion? dynamicSource)
+        private void PublishPopulatedDynamicRegion(
+            ILocation source,
+            ILocation destination,
+            Dimension destinationDimension,
+            IMapRegion? dynamicSource,
+            IReadOnlyList<SourcePart> sourceParts,
+            IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             lock (_residencyGate)
             {
                 if (!ReferenceEquals(_dimensions[destination.Dimension], destinationDimension))
                 {
                     throw new InvalidOperationException($"Dimension[{destination.Dimension}] no longer exists.");
+                }
+
+                if (destinationDimension.ActiveRegions.ContainsKey(destination.RegionId)
+                    || destinationDimension.IdleRegionStore.ContainsKey(destination.RegionId))
+                {
+                    throw new InvalidOperationException($"Region {destination.RegionId} was created while the dynamic region was being prepared; the existing region is left untouched.");
                 }
 
                 if (dynamicSource is not null)
@@ -584,7 +578,25 @@ namespace Hagalaz.Services.GameWorld.Services
                 var dynamicRegion = CreateMapRegion(destination.RegionId, destination.Dimension);
                 dynamicRegion.MakeDynamic();
                 destinationDimension.ActiveRegions.Add(destination.RegionId, dynamicRegion);
-                return dynamicRegion;
+                destinationDimension.PendingDynamicRegions.Remove(destination.RegionId);
+                try
+                {
+                    // Dynamic block population can invoke object scripts while loading copied objects.
+                    // All mappings are applied first and each column is built once, so object
+                    // spawn hooks only run for the final content.
+                    dynamicRegion.WriteBlocksByIndex(
+                        sourceParts
+                            .Where(part => part.IsPresent)
+                            .Select(part => new MapRegionPartMapping(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, part.Rotation))
+                            .ToList(),
+                        templates);
+                    dynamicRegion.MarkReady();
+                }
+                catch
+                {
+                    DiscardDynamicRegion(destination, dynamicRegion);
+                    throw;
+                }
             }
         }
 
@@ -840,7 +852,8 @@ namespace Hagalaz.Services.GameWorld.Services
             {
                 if (!ReferenceEquals(_dimensions[dimension.Id], dimension)
                     || dimension.ActiveRegions.Count != 0
-                    || dimension.IdleRegionStore.Count != 0)
+                    || dimension.IdleRegionStore.Count != 0
+                    || dimension.PendingDynamicRegions.Count != 0)
                 {
                     return false;
                 }

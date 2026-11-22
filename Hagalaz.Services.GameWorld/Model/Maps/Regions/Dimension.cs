@@ -20,9 +20,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         internal Dictionary<int, IMapRegion> ActiveRegions => _regions;
 
         /// <summary>
-        /// Region ids claimed by a dynamic region that is still being prepared; no region exists under them yet.
+        /// Region ids of dynamic regions whose creation is still pending; no region exists under them yet. They keep the
+        /// dimension alive and mark a dynamic source as not yet usable, but never affect ordinary region lookups.
         /// </summary>
-        internal HashSet<int> ReservedDynamicRegions { get; } = new();
+        internal HashSet<int> PendingDynamicRegions { get; } = new();
 
         internal Dictionary<int, IMapRegion> IdleRegionStore => _idleRegions;
 
