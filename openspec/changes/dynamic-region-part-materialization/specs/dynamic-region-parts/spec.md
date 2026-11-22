@@ -116,6 +116,12 @@ Writing, rotating or deleting a part SHALL remove all objects of its previous co
 - **WHEN** the part is deleted or rewritten
 - **THEN** the runtime objects are removed with their collision, and the other column's object stays
 
+#### Scenario: A displaced object returns when its slot frees
+
+- **GIVEN** a column whose object was replaced in its slot by an object another column placed there
+- **WHEN** that other column is deleted or rewritten
+- **THEN** the displaced object and its collision are restored
+
 #### Scenario: Old static removal does not leak
 
 - **GIVEN** a part in which a static object was removed at runtime

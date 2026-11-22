@@ -543,6 +543,34 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void DeletingAChunkThatDisplacedAnObject_RestoresTheDisplacedObject()
+    {
+        // A: column (5, 6) maps source chunk (2, 3), whose 1x1 object at chunk (7, 7) lands on (47, 55).
+        // B: column (6, 6) maps source chunk (3, 3) rotated by 2, whose 2x1 object at chunk (7, 0)
+        // also roots at (47, 55) and replaces A's object in that slot.
+        var template = new MapRegionTemplate(SourceRegionId,
+        [
+            new MapRegionTemplateObject(50, SourceMinX + 7, SourceMinY + 7, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true),
+            new MapRegionTemplateObject(51, SourceMinX + 8 + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Definition(2, 1), true)
+        ], []);
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
+        expected.MakeDynamic();
+        expected.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        destination.WriteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, Templates(template));
+        destination.RotateBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, 2, Templates(template));
+        Assert.AreEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
+
+        destination.DeleteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, Templates(template));
+
+        Assert.AreEqual(50, destination.FindStandardGameObject(47, 55, 0)?.Id);
+        CollectionAssert.AreEqual(Collision(expected), Collision(destination));
+    }
+
+    [TestMethod]
     public void MakeStandard_RestoresMappingsObjectsAndCollision()
     {
         var world = new TestWorld();

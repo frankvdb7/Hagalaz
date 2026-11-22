@@ -63,7 +63,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         /// <summary>
         /// The edited columns, plus, for every edited plane-1 chunk, the columns that read its
-        /// bridge flags when they were built.
+        /// bridge flags when they were built, plus (transitively) the columns whose objects any of
+        /// these displaced from a shared slot, so a displaced object comes back once its slot frees.
         /// </summary>
         private List<int> GetColumnsToRebuild(IEnumerable<(int LocalPartX, int LocalPartY, int Z, Action<IMapRegionPart> Change)> edits)
         {
@@ -82,7 +83,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             columns.UnionWith(_columnContent
                 .Where(entry => entry.Value.BridgeColumns.Overlaps(bridgeColumns))
                 .Select(entry => entry.Key));
-            return columns.ToList();
+            var pending = new Queue<int>(columns);
+            while (pending.TryDequeue(out var key))
+            {
+                if (!_columnContent.TryGetValue(key, out var content))
+                {
+                    continue;
+                }
+
+                foreach (var displaced in content.DisplacedColumns.Where(columns.Add))
+                {
+                    pending.Enqueue(displaced);
+                }
+            }
+
+            return columns.Order().ToList();
         }
 
         private void EnsureTemplates(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates)
@@ -124,13 +139,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <param name="replacedParts">Parts whose chunk was replaced: objects added to them at runtime are removed too.</param>
         private void RebuildColumns(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
         {
+            // Columns build in ascending order, so when two mappings claim one slot the result
+            // does not depend on the order edits were made in.
+            var ordered = columns.Order().ToList();
             var removed = DiscardRuntimeObjects(replacedParts);
-            foreach (var key in columns)
+            foreach (var key in ordered)
             {
                 removed.AddRange(DiscardColumn(key));
             }
 
-            foreach (var key in columns)
+            foreach (var key in ordered)
             {
                 MaterializeColumn(key, templates);
             }
@@ -326,9 +344,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     }
 
                     var gameObject = builder.Build();
-                    if (TryAdd(gameObject, hasCollision))
+                    if (TryAdd(gameObject, hasCollision, out var displaced))
                     {
                         content.Objects.Add(gameObject);
+                    }
+
+                    if (displaced is not null)
+                    {
+                        foreach (var owner in _columnContent.Where(entry => entry.Key != key && entry.Value.Objects.Contains(displaced)))
+                        {
+                            content.DisplacedColumns.Add(owner.Key);
+                        }
                     }
                 }
             }
@@ -380,6 +406,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             /// Columns whose plane-1 chunk this column read bridge flags from.
             /// </summary>
             public HashSet<int> BridgeColumns { get; } = [];
+
+            /// <summary>
+            /// Columns whose object this column replaced in a shared slot.
+            /// </summary>
+            public HashSet<int> DisplacedColumns { get; } = [];
         }
     }
 }
