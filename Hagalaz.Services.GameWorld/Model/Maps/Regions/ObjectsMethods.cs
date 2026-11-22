@@ -122,7 +122,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         /// <summary>
         /// Unflagging clears shared collision bits, so re-flag every surviving object
-        /// whose collision area overlaps the area the removed objects flagged.
+        /// whose collision area overlaps the area the removed objects flagged. Removed
+        /// footprints can reach into adjacent regions, and survivors rooted there can
+        /// overlap them, so resident regions around the affected area are included.
         /// </summary>
         private void ReflagOverlappingObjects(IReadOnlyCollection<IGameObject> removed, int z)
         {
@@ -133,12 +135,42 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             var affected = removed.Select(GetCollisionBounds).Aggregate((a, b) =>
                 (Math.Min(a.MinX, b.MinX), Math.Min(a.MinY, b.MinY), Math.Max(a.MaxX, b.MaxX), Math.Max(a.MaxY, b.MaxY)));
-            foreach (var survivor in FindAllGameObjects().Where(obj => obj.Location.Z == z).ToList())
+            foreach (var region in FindRegionsThatCanOverlap(affected))
             {
-                var bounds = GetCollisionBounds(survivor);
-                if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)
+                foreach (var survivor in region.FindAllGameObjects().Where(obj => obj.Location.Z == z).ToList())
                 {
-                    FlagCollisionCore(survivor);
+                    var bounds = GetCollisionBounds(survivor);
+                    if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)
+                    {
+                        region.FlagCollision(survivor);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// This region plus resident regions whose objects can overlap the area: those
+        /// covering it, and those one region west or south, since a survivor can be rooted
+        /// up to its size before the area. Lookups never create or resume a region.
+        /// </summary>
+        private IEnumerable<IMapRegion> FindRegionsThatCanOverlap((int MinX, int MinY, int MaxX, int MaxY) area)
+        {
+            yield return this;
+            for (var regionX = (area.MinX >> 6) - 1; regionX <= area.MaxX >> 6; regionX++)
+            {
+                for (var regionY = (area.MinY >> 6) - 1; regionY <= area.MaxY >> 6; regionY++)
+                {
+                    var regionId = (regionX << 8) | regionY;
+                    if (regionX < 0 || regionY < 0 || regionId == Id)
+                    {
+                        continue;
+                    }
+
+                    var region = _regionService.FindMapRegion(regionId, BaseLocation.Dimension);
+                    if (region is not null && region.State != MapRegionState.Discarded)
+                    {
+                        yield return region;
+                    }
                 }
             }
         }

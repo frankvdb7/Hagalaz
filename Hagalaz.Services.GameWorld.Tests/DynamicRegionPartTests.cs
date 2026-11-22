@@ -349,11 +349,7 @@ public sealed class DynamicRegionPartTests
     {
         // A 2x3 object rooted at the east edge of part (5, 6) overlaps part (6, 6), where
         // another solid object shares one of its tiles.
-        var template = new MapRegionTemplate(SourceRegionId,
-        [
-            new MapRegionTemplateObject(10, SourceMinX + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard2X3, true),
-            new MapRegionTemplateObject(11, SourceMinX + 8, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true)
-        ], []);
+        var template = CreateOverlapTemplate();
         var world = new TestWorld();
         var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
         var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
@@ -366,6 +362,29 @@ public sealed class DynamicRegionPartTests
 
         Assert.IsTrue(destination.GetCollision(DestinationMinX + 8, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
         CollectionAssert.AreEqual(Collision(expected), Collision(destination));
+    }
+
+    [TestMethod]
+    public void Delete_KeepsCollisionOfAnOverlappingObjectFromAnAdjacentRegion()
+    {
+        // The 2x3 object is rooted at region A local X 63 and overlaps region B local X 0,
+        // where a solid object rooted in B shares a tile with it.
+        var template = CreateOverlapTemplate();
+        var world = new TestWorld();
+        var regionA = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var regionB = world.CreateDynamicRegion(DestinationRegionX + 1, DestinationRegionY);
+        var expectedB = world.CreateRegion(DestinationRegionX + 1, DestinationRegionY, dimension: 1);
+        expectedB.MakeDynamic();
+        expectedB.WriteBlockByIndex(0, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, template);
+        regionA.WriteBlockByIndex(7, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, template);
+        regionB.WriteBlockByIndex(0, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, template);
+        Assert.IsFalse(regionB.GetCollision(1, DestinationMinY, 0).HasFlag(CollisionFlag.ObjectBlock));
+        Assert.IsTrue(regionB.GetCollision(0, DestinationMinY, 0).HasFlag(CollisionFlag.ObjectBlock), "A's footprint reaches region B.");
+
+        regionA.DeleteBlockByIndex(7, DestinationLocalPartY, 0);
+
+        Assert.IsTrue(regionB.GetCollision(0, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
+        CollectionAssert.AreEqual(Collision(expectedB), Collision(regionB));
     }
 
     [TestMethod]
@@ -426,6 +445,14 @@ public sealed class DynamicRegionPartTests
         return definition;
     }
 
+    // A 2x3 object at the east edge of source part (2, 3) and a 1x1 object in source part (3, 3)
+    // on a tile the 2x3 footprint covers once both parts are placed side by side.
+    private static MapRegionTemplate CreateOverlapTemplate() => new(SourceRegionId,
+    [
+        new MapRegionTemplateObject(10, SourceMinX + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard2X3, true),
+        new MapRegionTemplateObject(11, SourceMinX + 8, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true)
+    ], []);
+
     private static ICharacter CreateObserver(out List<ILocation> zoneBases, out List<MapRegionPartUpdateMessage> zoneMessages)
     {
         var bases = zoneBases = [];
@@ -476,6 +503,8 @@ public sealed class DynamicRegionPartTests
             _builder = new GameObjectBuilder(services, scriptProvider);
             _regionService.When(service => service.FlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
                 .Do(call => Route(call.Arg<ILocation>()!, call.Arg<CollisionFlag>(), (region, x, y, z, flag) => region.FlagCollision(x, y, z, flag)));
+            _regionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>())
+                .Returns(call => _regions.GetValueOrDefault((call.ArgAt<int>(0), call.ArgAt<int>(1))));
             _regionService.When(service => service.UnFlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
                 .Do(call => Route(call.Arg<ILocation>()!, call.Arg<CollisionFlag>(), (region, x, y, z, flag) => region.UnFlagCollision(x, y, z, flag)));
         }

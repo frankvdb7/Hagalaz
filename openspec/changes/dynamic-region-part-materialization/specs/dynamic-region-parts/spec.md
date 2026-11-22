@@ -102,7 +102,7 @@ Writing, rotating or deleting a part SHALL remove all objects of its previous co
 
 #### Scenario: Overlapping objects from other parts keep their collision
 
-- **GIVEN** an object rooted in one part whose footprint shares a tile with an object in a neighbouring part
+- **GIVEN** an object rooted in one part whose footprint shares a tile with an object in a neighbouring part, in the same or an adjacent region
 - **WHEN** the neighbouring part is deleted or rewritten
 - **THEN** the shared tile keeps the surviving object's collision
 
