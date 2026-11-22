@@ -41,12 +41,41 @@ namespace Hagalaz.Cache.Abstractions.Types.Providers
             IEnumerable<IMapObject> rawObjectPlacements,
             sbyte[,,] terrainFlags)
         {
-            // The bridge-adjusted view is only built when a consumer asks for it.
-            _objectPlacements = new Lazy<IReadOnlyList<IMapObject>>(() => Array.AsReadOnly(objectPlacements.ToArray()));
+            var adjusted = Array.AsReadOnly(objectPlacements.ToArray());
+            _objectPlacements = new Lazy<IReadOnlyList<IMapObject>>(adjusted);
             BlockedTiles = Array.AsReadOnly(blockedTiles.ToArray());
             RawObjectPlacements = Array.AsReadOnly(rawObjectPlacements.ToArray());
             _terrainFlags = (sbyte[,,])terrainFlags.Clone();
         }
+
+        private DecodedMapRegion(
+            IEnumerable<IMapObject> rawObjectPlacements,
+            IEnumerable<BlockedTerrainTile> blockedTiles,
+            sbyte[,,] terrainFlags,
+            Func<IReadOnlyList<IMapObject>, sbyte[,,], IEnumerable<IMapObject>> toCollisionPlanes)
+        {
+            BlockedTiles = Array.AsReadOnly(blockedTiles.ToArray());
+            RawObjectPlacements = Array.AsReadOnly(rawObjectPlacements.ToArray());
+            _terrainFlags = (sbyte[,,])terrainFlags.Clone();
+            // Computed from the snapshots this region owns, and only when a consumer asks for it.
+            _objectPlacements = new Lazy<IReadOnlyList<IMapObject>>(
+                () => Array.AsReadOnly(toCollisionPlanes(RawObjectPlacements, _terrainFlags).ToArray()));
+        }
+
+        /// <summary>
+        /// Creates a region whose bridge-adjusted <see cref="ObjectPlacements"/> are derived on first access
+        /// from the raw placements and terrain this region owns.
+        /// </summary>
+        /// <param name="rawObjectPlacements">Objects on their raw landscape plane.</param>
+        /// <param name="blockedTiles">Blocked tiles on their collision plane.</param>
+        /// <param name="terrainFlags">Raw terrain flags indexed [plane, x, y].</param>
+        /// <param name="toCollisionPlanes">Maps the owned raw placements and terrain to the bridge-adjusted objects.</param>
+        public static DecodedMapRegion CreateWithDerivedObjectPlacements(
+            IEnumerable<IMapObject> rawObjectPlacements,
+            IEnumerable<BlockedTerrainTile> blockedTiles,
+            sbyte[,,] terrainFlags,
+            Func<IReadOnlyList<IMapObject>, sbyte[,,], IEnumerable<IMapObject>> toCollisionPlanes) =>
+            new(rawObjectPlacements, blockedTiles, terrainFlags, toCollisionPlanes);
 
         public IReadOnlyList<IMapObject> ObjectPlacements => _objectPlacements.Value;
 

@@ -75,8 +75,9 @@ namespace Hagalaz.Cache.Types.Providers
             var blockedTiles = DecodeGround(terrainData, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var objects = MapCodec.ToCollisionPlanes(rawObjects, terrainData);
-            return new DecodedMapRegion(objects, blockedTiles, rawObjects, terrainData);
+            return DecodedMapRegion.CreateWithDerivedObjectPlacements(
+                rawObjects, blockedTiles, terrainData,
+                (raw, terrain) => MapCodec.ToCollisionPlanes(System.Linq.Enumerable.Cast<MapObject>(raw), terrain));
         }
 
         private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)

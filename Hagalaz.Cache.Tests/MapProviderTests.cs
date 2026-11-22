@@ -105,23 +105,34 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
-        public void DecodedMapRegion_BuildsTheAdjustedObjectViewOnlyWhenRequested()
+        public void DecodedMapRegion_ConstructorSnapshotsItsInputs()
         {
-            var enumerations = 0;
-            System.Collections.Generic.IEnumerable<Hagalaz.Cache.Abstractions.Types.IMapObject> Adjusted()
+            var adjusted = new System.Collections.Generic.List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
+            var region = new DecodedMapRegion(adjusted, [], [], new sbyte[4, 64, 64]);
+
+            adjusted.Clear();
+
+            Assert.Single(region.ObjectPlacements);
+        }
+
+        [Fact]
+        public void DecodedMapRegion_DerivesTheAdjustedViewOnceFromItsOwnedSnapshots()
+        {
+            var raw = new System.Collections.Generic.List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
+            var terrain = new sbyte[4, 64, 64];
+            var derivations = 0;
+            var region = DecodedMapRegion.CreateWithDerivedObjectPlacements(raw, [], terrain, (owned, _) =>
             {
-                enumerations++;
-                yield break;
-            }
+                derivations++;
+                return owned;
+            });
 
-            var region = new DecodedMapRegion(Adjusted(), [], [], new sbyte[4, 64, 64]);
-
-            Assert.Empty(region.RawObjectPlacements);
-            Assert.Empty(region.BlockedTiles);
-            Assert.Equal(0, enumerations);
-            Assert.Empty(region.ObjectPlacements);
-            Assert.Empty(region.ObjectPlacements);
-            Assert.Equal(1, enumerations);
+            raw.Clear();
+            Assert.Equal(0, derivations);
+            Assert.Single(region.ObjectPlacements);
+            Assert.Single(region.ObjectPlacements);
+            Assert.Equal(1, derivations);
+            Assert.Single(region.RawObjectPlacements);
         }
 
         [Fact]

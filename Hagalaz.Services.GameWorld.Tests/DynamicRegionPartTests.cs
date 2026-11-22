@@ -697,21 +697,28 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
-    public void RemovingAConfiguredSpawn_DoesNotKeepTheDestroyedObjectInRegionBookkeeping()
+    [DataRow(false, DisplayName = "Configured spawn")]
+    [DataRow(true, DisplayName = "Static transformed by gameplay")]
+    public void RemovingADestroyedObject_DoesNotKeepItInRegionBookkeeping(bool transformedStatic)
     {
-        var (destination, _, _, spawnX, spawnY, templates) = CreateBridgeDependencyScenario(isStatic: false);
-        var spawn = destination.FindStandardGameObject(spawnX, spawnY, 0)!;
+        var (destination, _, _, spawnX, spawnY, templates) = CreateBridgeDependencyScenario(isStatic: transformedStatic);
+        var spawn = (GameObject)destination.FindStandardGameObject(spawnX, spawnY, 0)!;
+        if (transformedStatic)
+        {
+            // Scripts that change an object's id also make it non-static, so removal destroys it.
+            spawn.IsStatic = false;
+        }
 
         destination.Remove(spawn);
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var built = (System.Collections.IDictionary)typeof(MapRegion).GetField("_builtObjects", Flags)!.GetValue(destination)!;
-        Assert.IsFalse(built.Contains(spawn), "The destroyed spawn is not a live bookkeeping key.");
+        Assert.IsFalse(built.Contains(spawn), "The destroyed object is not a live bookkeeping key.");
         var contents = (System.Collections.IDictionary)typeof(MapRegion).GetField("_partContent", Flags)!.GetValue(destination)!;
         foreach (var content in contents.Values)
         {
-            var objects = (System.Collections.IEnumerable)content!.GetType().GetProperty("Objects")!.GetValue(content)!;
-            Assert.IsFalse(objects.Cast<object>().Any(obj => ReferenceEquals(obj, spawn)), "The destroyed spawn is not retained by part content.");
+            var objects = (System.Collections.IEnumerable)content!.GetType().GetProperty("ObjectsOrEmpty")!.GetValue(content)!;
+            Assert.IsFalse(objects.Cast<object>().Any(obj => ReferenceEquals(obj, spawn)), "The destroyed object is not retained by part content.");
         }
 
         ChangeBridgeAwayFromTheObjects(destination, templates);

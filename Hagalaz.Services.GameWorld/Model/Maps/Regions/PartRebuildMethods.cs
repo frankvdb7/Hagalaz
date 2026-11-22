@@ -358,7 +358,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// removal; <c>null</c> for disabled-on-removal statics and objects no part built.
         /// </summary>
         private ((int X, int Y, int Z, LayerType Layer, int Id) Tombstone, int Owner)? TakeConfiguredSpawnTombstone(IGameObject gameObject) =>
-            _builtObjects.TryGetValue(gameObject, out var built) && !built.IsStatic
+            _builtObjects.TryGetValue(gameObject, out var built) && !gameObject.IsStatic
                 ? (GetTombstone(gameObject), built.Owner)
                 : null;
 
@@ -436,21 +436,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var localPartX = column / PartsPerRegionAxis;
             var localPartY = column % PartsPerRegionAxis;
             var z = key % Planes;
-            List<IGameObject> objects;
+            IEnumerable<IGameObject> objects;
             IEnumerable<(int X, int Y, int Z)> floorTiles;
             if (_partContent.Remove(key, out var content))
             {
-                objects = content.Objects;
-                floorTiles = content.FloorTiles;
+                objects = content.ObjectsOrEmpty;
+                floorTiles = content.FloorTilesOrEmpty;
             }
             else
             {
-                objects = [];
-                if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z), out var stored))
-                {
-                    objects.AddRange(stored.FindAllGameObjects().Concat(stored.FindAllDisabledStaticGameObjects())
-                        .Where(obj => !_builtObjects.ContainsKey(obj)));
-                }
+                objects = _parts.TryGetValue(LocationHelper.GetRegionPartHash(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z), out var stored)
+                    ? stored.FindAllGameObjects().Concat(stored.FindAllDisabledStaticGameObjects()).Where(obj => !_builtObjects.ContainsKey(obj)).ToList()
+                    : [];
 
                 floorTiles = from x in Enumerable.Range(localPartX * 8, 8)
                     from y in Enumerable.Range(localPartY * 8, 8)
@@ -821,6 +818,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             public IReadOnlyList<IGameObject> ObjectsOrEmpty => _objects ?? [];
 
             public List<(int X, int Y, int Z)> FloorTiles => _floorTiles ??= [];
+
+            public IReadOnlyList<(int X, int Y, int Z)> FloorTilesOrEmpty => _floorTiles ?? [];
 
             /// <summary>
             /// The bridge flags of each column's plane-1 chunk, as this part read them when built.
