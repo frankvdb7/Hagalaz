@@ -818,7 +818,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             public List<IGameObject> Objects => _objects ??= [];
 
-            public IReadOnlyList<IGameObject> ObjectsOrEmpty => _objects ?? (IReadOnlyList<IGameObject>)[];
+            public IReadOnlyList<IGameObject> ObjectsOrEmpty => _objects ?? [];
 
             public List<(int X, int Y, int Z)> FloorTiles => _floorTiles ??= [];
 
@@ -834,14 +834,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             /// </summary>
             public HashSet<(int X, int Y, int Z, LayerType Layer, int Id)> Tombstones => _tombstones ??= [];
 
-            public IReadOnlyCollection<(int X, int Y, int Z, LayerType Layer, int Id)> TombstonesOrEmpty => _tombstones ?? (IReadOnlyCollection<(int X, int Y, int Z, LayerType Layer, int Id)>)[];
+            public IReadOnlyCollection<(int X, int Y, int Z, LayerType Layer, int Id)> TombstonesOrEmpty => _tombstones ?? [];
 
             /// <summary>
             /// Parts whose claim on an object slot this part beat.
             /// </summary>
             public HashSet<int> BeatenParts => _beatenParts ??= [];
 
-            public IReadOnlyCollection<int> BeatenPartsOrEmpty => _beatenParts ?? (IReadOnlyCollection<int>)[];
+            public IReadOnlyCollection<int> BeatenPartsOrEmpty => _beatenParts ?? [];
         }
     }
 }
