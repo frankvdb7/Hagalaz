@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795375357136,
+  "lastUpdate": 1795390637133,
   "repoUrl": "https://github.com/frankvdb7/Hagalaz",
   "entries": {
     "Hagalaz Performance Benchmarks": [
@@ -59100,6 +59100,546 @@ window.BENCHMARK_DATA = {
             "value": 2454,
             "unit": "ns",
             "range": "± 14.142135623730951"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5363672+frankvdb7@users.noreply.github.com",
+            "name": "Frank",
+            "username": "frankvdb7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "58219c7b070e711c6c6aa9a589fa6dde64c03949",
+          "message": "feat(protocol): encode revision 742 dynamic map packet (opcode 153) (#688)\n\n* feat(protocol): encode revision 742 dynamic map packet (opcode 153) (#400)\n\nDrawDynamicMapMessage now carries explicit chunk presence/source data and\nordered source-region XTEAs; MapUpdateService populates it from the viewport\nand a new encoder writes opcode 153 with dynamic region type 2.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(protocol): share map message header between standard and dynamic draws\n\nFixes the new jscpd clone between DrawStandardMapMessage and DrawDynamicMapMessage.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): select viewport regions from the client's real chunk grid (#400)\n\nGetMapRegionsWithinRange centered on the middle of the region instead of the\nview's part coordinates, omitting edge regions for map sizes 72 and 168 (and\nmismatching the client's XTEA order). The dynamic map now fails loudly on a\nmissing region instead of serializing it as an absent chunk.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): defer the dynamic map draw until its regions finish population (#400)\n\nA dynamic region published while still Initializing has no part sources, so its\nchunks were serialized as absent and never resent. UpdateMap now keeps the\nrequested force/render flags on the viewport and draws on the first client\nupdate after population.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): hold new-view zone and actor sync while the dynamic map is deferred (#400)\n\nWhile a map draw is deferred the client still uses its previous map base, so\nthe viewport tick no longer synchronizes ready regions or refreshes visible\ncreatures, and regions skip incremental part updates for that character. The\neventual draw synchronizes every ready region in full.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): hold the local character's relocation while the dynamic map is deferred (#400)\n\nOpcode 90 no longer moves the local character while its map draw is deferred.\nRenderInformation records where the client last saw it and the held move is\nresent as one relocation from that origin after the map draw, across Reset\nadvancing LastLocation.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* chore(maps): address CodeQL notes on the deferred map tests and encoder (#400)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* refactor(maps): publish dynamic regions only once populated and drop the deferred map draw (#400)\n\nCreateDynamicRegion now reserves the destination id while source mappings and\ntemplates load, then registers, populates and marks the region Ready in one game\ntask without an await. A viewport can therefore never see an unpopulated dynamic\nregion, so DeferredMapDraw, UnpublishedMoveOrigin, the scheduler's dynamic\npopulation tracking and the render/zone special cases are removed.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(maps): trim the dynamic publication test to remove a duplicated setup block (#400)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): publish dynamic regions atomically and keep pending creations visible to teardown and chaining (#400)\n\nThe destination stays a pending entry while templates load and is registered,\npopulated and readied under the residency gate so no thread observes it early.\nPending entries no longer affect ordinary lookups (viewport rebuilds keep\nworking); an ordinary region taking the id fails the creation explicitly, a\npending dynamic source is rejected instead of copied as a standard source, and\na dimension with a pending creation is not removed.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* test(maps): share the pending dynamic creation setup between the regression tests (#400)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): populate dynamic regions privately instead of under the residency gate (#400)\n\nThe destination is built unregistered, flagging its own collision directly, and\nonly the final registration takes the gate, so object spawn scripts no longer run\nunder the world-wide lock and no other thread can see the region before it is\nready.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* revert(maps): populate dynamic regions under the residency gate again (#400)\n\nDynamic region creation is rare, so brief lock contention is accepted in\nexchange for keeping existing spawn-script and collision behavior and not adding\nan unpublished-region lifecycle. Reverts 0661fa87.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): take the residency gate only to register a dynamic region (#400)\n\nPopulation and MarkReady now run after registration without the world-wide\nlock, so object spawn scripts keep their existing behavior (own-region lookups\nresolve normally) while unrelated lookups are not blocked. No game tick can see\nthe region before it is Ready; other threads see an ordinary Initializing region.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): keep sign-in waiting for a dynamic region that is still populating (#400)\n\nRestores the scheduler's dynamic population tracking: the region registers a\npopulation when it becomes visible and completes it when ready or failed, so\nEnsureLoadedAsync waits instead of throwing on an Initializing dynamic region.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): draw standard regions as identity chunks without reading their parts (#400)\n\nReading a part through GetRegionPartByLocalPart allocates it on first access, which\na 168-tile viewport did up to 1,764 times per redraw. Only dynamic regions have\ndescriptors worth reading.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): never publish a dynamic region whose creation was canceled (#400)\n\nA template loader can finish without observing cancellation. Check the token right\nbefore publication so a canceled creation publishes nothing; cancellation after\npopulation has begun still keeps the created region.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* fix(maps): let cancellation release a pending dynamic destination even if a loader hangs (#400)\n\nWait on the template load with the creation's token so the pending entry is\nremoved when the creation is canceled, regardless of whether the loader returns.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n* perf(maps): look dynamic chunk parts up without creating them (#400)\n\nAdds IMapRegion.FindRegionPartByLocalPart, a non-creating lookup, so serializing a\nsparse dynamic region does not allocate parts for its absent chunks.\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-22T23:23:51Z",
+          "tree_id": "87a0bc1eddfaf9b51eff44e49ae573cfd0e742f0",
+          "url": "https://github.com/frankvdb7/Hagalaz/commit/58219c7b070e711c6c6aa9a589fa6dde64c03949"
+        },
+        "date": 1795390635225,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Hagalaz.Benchmarks.CacheArchiveSnapshotLruBenchmarks.ReconstructThreeArchives",
+            "value": 38615.54302571614,
+            "unit": "ns",
+            "range": "± 184.95339985212945"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheArchiveSnapshotLruBenchmarks.EvictAndReloadThreeArchives",
+            "value": 42454.8841430664,
+            "unit": "ns",
+            "range": "± 1165.5430894390481"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.LegacyObjectDefinitionWorkload",
+            "value": 39990.099163619976,
+            "unit": "ns",
+            "range": "± 205.18386047253026"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.ZeroRetentionObjectDefinitionWorkload",
+            "value": 42771.85737717233,
+            "unit": "ns",
+            "range": "± 184.52512065513747"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheObjectDefinitionWorkloadBenchmarks.WarmSnapshotObjectDefinitionWorkload",
+            "value": 561.5377607427255,
+            "unit": "ns",
+            "range": "± 13.220276441928615"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheReferenceTableMemoizationBenchmarks.DecodeReferenceTableWithoutMemoization",
+            "value": 3304175.348828125,
+            "unit": "ns",
+            "range": "± 27511.199488445716"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheReferenceTableMemoizationBenchmarks.ReadMemoizedReferenceTable",
+            "value": 18.87467594742775,
+            "unit": "ns",
+            "range": "± 0.1640727666594298"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentArchiveReconstruction",
+            "value": 4340563.087890625,
+            "unit": "ns",
+            "range": "± 204377.9048966813"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentColdSameArchiveRead",
+            "value": 534578.8546875,
+            "unit": "ns",
+            "range": "± 11314.23151559819"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotConcurrentReadBenchmarks.ConcurrentWarmSameArchiveRead",
+            "value": 2955.859942626953,
+            "unit": "ns",
+            "range": "± 67.82453527627868"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.ArchiveReconstructionBaseline",
+            "value": 40247.346643066405,
+            "unit": "ns",
+            "range": "± 392.796819035288"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.ColdSingleMemberRead",
+            "value": 43369.060302734375,
+            "unit": "ns",
+            "range": "± 342.84257191144934"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.CacheSnapshotMemberReadBenchmarks.WarmSingleMemberRead",
+            "value": 89.84376640319825,
+            "unit": "ns",
+            "range": "± 0.9828512855124788"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 100)",
+            "value": 7.9748741567134855,
+            "unit": "ns",
+            "range": "± 0.009555981033722205"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 100)",
+            "value": 3.189145214855671,
+            "unit": "ns",
+            "range": "± 0.0402043165287026"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 100)",
+            "value": 567.9846574783326,
+            "unit": "ns",
+            "range": "± 2.551494994278853"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 100)",
+            "value": 68.29765489697456,
+            "unit": "ns",
+            "range": "± 0.535729097005762"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 100)",
+            "value": 952.8268733978272,
+            "unit": "ns",
+            "range": "± 7.693204868371542"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 100)",
+            "value": 114.15375486016273,
+            "unit": "ns",
+            "range": "± 0.21925309400361281"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 100)",
+            "value": 823.5467071533203,
+            "unit": "ns",
+            "range": "± 3.0041184862081574"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 100)",
+            "value": 132.16333570480347,
+            "unit": "ns",
+            "range": "± 1.624948284196833"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 100)",
+            "value": 45.3490193605423,
+            "unit": "ns",
+            "range": "± 0.9190039059842551"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 100)",
+            "value": 1.2638504855334758,
+            "unit": "ns",
+            "range": "± 0.008238819605396533"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 100)",
+            "value": 1.604934942908585,
+            "unit": "ns",
+            "range": "± 0.0031407914019986145"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 100)",
+            "value": 2108.070942382813,
+            "unit": "ns",
+            "range": "± 11.203006912699825"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 100)",
+            "value": 20414.520478515624,
+            "unit": "ns",
+            "range": "± 9.524422150385528"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 100)",
+            "value": 439307.57593750005,
+            "unit": "ns",
+            "range": "± 21955.301919299378"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 100)",
+            "value": 555113.6809375,
+            "unit": "ns",
+            "range": "± 11526.99913754288"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 100)",
+            "value": 618.7208273410797,
+            "unit": "ns",
+            "range": "± 0.7302479962041728"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 100)",
+            "value": 55.99273512363434,
+            "unit": "ns",
+            "range": "± 1.298644473727529"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 100)",
+            "value": 1525.544427871704,
+            "unit": "ns",
+            "range": "± 3.832684268383477"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 100)",
+            "value": 916.1876134872437,
+            "unit": "ns",
+            "range": "± 0.9008815572924047"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 100)",
+            "value": 2242.918765258789,
+            "unit": "ns",
+            "range": "± 17.268377332513122"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 100)",
+            "value": 1123.3168201446533,
+            "unit": "ns",
+            "range": "± 1.911715831607484"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 100)",
+            "value": 1298.199716949463,
+            "unit": "ns",
+            "range": "± 1.4858473401147614"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 100)",
+            "value": 142.72238290309906,
+            "unit": "ns",
+            "range": "± 0.7052535247120436"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 100)",
+            "value": 2190.5709564208983,
+            "unit": "ns",
+            "range": "± 28.707225838656747"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 100)",
+            "value": 1023.0679230690002,
+            "unit": "ns",
+            "range": "± 5.697771018547931"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 100)",
+            "value": 1129.9156956672668,
+            "unit": "ns",
+            "range": "± 7.220335537926797"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 100)",
+            "value": 629.4257518768311,
+            "unit": "ns",
+            "range": "± 17.81949899731508"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 100)",
+            "value": 3605.7656875000002,
+            "unit": "ns",
+            "range": "± 32.576384109404316"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 100)",
+            "value": 0.38822380334138873,
+            "unit": "ns",
+            "range": "± 0.0010864101988604913"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListContains(N: 1000)",
+            "value": 55.3284206867218,
+            "unit": "ns",
+            "range": "± 0.33910177802896846"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetContains(N: 1000)",
+            "value": 3.1501567270606756,
+            "unit": "ns",
+            "range": "± 0.0025596387836846067"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ConcurrentStoreIteration(N: 1000)",
+            "value": 5839.932200622558,
+            "unit": "ns",
+            "range": "± 9.57297561947223"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ListHashSetIteration(N: 1000)",
+            "value": 628.5038297176361,
+            "unit": "ns",
+            "range": "± 0.5778658162090299"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ToListHashSet_Benchmark(N: 1000)",
+            "value": 9402.492266845704,
+            "unit": "ns",
+            "range": "± 79.83328163717452"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableIndexOf(N: 1000)",
+            "value": 981.5470912933349,
+            "unit": "ns",
+            "range": "± 22.699442889403706"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.HashSetAddRange(N: 1000)",
+            "value": 7917.9400085449215,
+            "unit": "ns",
+            "range": "± 27.797631358763372"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EnumerableForEach(N: 1000)",
+            "value": 1018.311312866211,
+            "unit": "ns",
+            "range": "± 15.273207464548992"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ArrayUtilities_MakeArray(N: 1000)",
+            "value": 238.87981948852538,
+            "unit": "ns",
+            "range": "± 11.805319696661991"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_1x1_WorstCase_v2(N: 1000)",
+            "value": 1.2847044952213764,
+            "unit": "ns",
+            "range": "± 0.0016928903537438017"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.CreatureWithinRange_3x3_WorstCase_v2(N: 1000)",
+            "value": 1.5960026621818542,
+            "unit": "ns",
+            "range": "± 0.003651008376298564"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Small_v4(N: 1000)",
+            "value": 2041.7055029296876,
+            "unit": "ns",
+            "range": "± 7.414868683770744"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Read_Large_v4(N: 1000)",
+            "value": 20725.2716484375,
+            "unit": "ns",
+            "range": "± 137.51586171048592"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Small_v4(N: 1000)",
+            "value": 402732.24328125,
+            "unit": "ns",
+            "range": "± 4495.584088168128"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.FileStore_Write_Large_v4(N: 1000)",
+            "value": 540630.22078125,
+            "unit": "ns",
+            "range": "± 6030.518879780013"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ComputeHash_Benchmark(N: 1000)",
+            "value": 631.8894172668457,
+            "unit": "ns",
+            "range": "± 9.541286494279422"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.GetStringInBetween(N: 1000)",
+            "value": 198.0040277004242,
+            "unit": "ns",
+            "range": "± 8.463338985285805"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.SelectIntFromString(N: 1000)",
+            "value": 14742.625433349609,
+            "unit": "ns",
+            "range": "± 47.98517388594901"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeBoolValues(N: 1000)",
+            "value": 9289.372247314453,
+            "unit": "ns",
+            "range": "± 17.261886972380196"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_StringDelegate(N: 1000)",
+            "value": 22624.37353820801,
+            "unit": "ns",
+            "range": "± 45.99104243370553"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.DecodeIntValues_SpanDelegate(N: 1000)",
+            "value": 11457.110510253906,
+            "unit": "ns",
+            "range": "± 27.085009103513077"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeIntValues(N: 1000)",
+            "value": 13525.867794036865,
+            "unit": "ns",
+            "range": "± 40.20951698319358"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.EncodeBoolValues(N: 1000)",
+            "value": 1580.8164028167726,
+            "unit": "ns",
+            "range": "± 5.350953578114815"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_Old_List(N: 1000)",
+            "value": 10252.34753036499,
+            "unit": "ns",
+            "range": "± 396.85148006827285"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.Viewport_New_ListHashSet(N: 1000)",
+            "value": 988.1415351867676,
+            "unit": "ns",
+            "range": "± 0.670405092197137"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Linq(N: 1000)",
+            "value": 9031.68897705078,
+            "unit": "ns",
+            "range": "± 175.0762456994857"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportUpdateTick_Manual(N: 1000)",
+            "value": 5150.575968933105,
+            "unit": "ns",
+            "range": "± 89.39844089089547"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Cast_Baseline(N: 1000)",
+            "value": 29405.021937499998,
+            "unit": "ns",
+            "range": "± 522.8864321093884"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HagalazBenchmarks.ViewportTypedAccess_Direct_Optimized(N: 1000)",
+            "value": 0.39075594246387485,
+            "unit": "ns",
+            "range": "± 0.0002067799780463594"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 10)",
+            "value": 98.9153132200241,
+            "unit": "ns",
+            "range": "± 1.5388513549187064"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 100)",
+            "value": 1005.9736236572265,
+            "unit": "ns",
+            "range": "± 56.72771670660077"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.HuffmanBenchmark.Decode(Length: 500)",
+            "value": 4738.669691467285,
+            "unit": "ns",
+            "range": "± 48.56526261878233"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapAppearanceRequestBenchmarks.IndividualRequests32",
+            "value": 298755.96015625,
+            "unit": "ns",
+            "range": "± 16068.64935621246"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapAppearanceRequestBenchmarks.BatchRequest32",
+            "value": 221257.982421875,
+            "unit": "ns",
+            "range": "± 7653.955182870926"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapTerrainDecodeBenchmarks.DecodeTerrain",
+            "value": 118586.51931152344,
+            "unit": "ns",
+            "range": "± 1502.1913618411738"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.MapTerrainDecodeBenchmarks.DecodeLandscape",
+            "value": 71554.56625366211,
+            "unit": "ns",
+            "range": "± 246.14346400544136"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 0)",
+            "value": 2666.8,
+            "unit": "ns",
+            "range": "± 39.06660978380387"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 0)",
+            "value": 152.8,
+            "unit": "ns",
+            "range": "± 19.524343778985248"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 1)",
+            "value": 3888.1,
+            "unit": "ns",
+            "range": "± 365.6457301815515"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 1)",
+            "value": 3260.5,
+            "unit": "ns",
+            "range": "± 37.063009411901064"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 5)",
+            "value": 3609.75,
+            "unit": "ns",
+            "range": "± 78.08275524510304"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 5)",
+            "value": 2592,
+            "unit": "ns",
+            "range": "± 203.2732151563506"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.Old_ProcessStates(StateCount: 20)",
+            "value": 3654.2,
+            "unit": "ns",
+            "range": "± 72.39613249338669"
+          },
+          {
+            "name": "Hagalaz.Benchmarks.ProcessStatesBenchmark.New_ProcessStates_Manual_ArrayPool(StateCount: 20)",
+            "value": 2753.25,
+            "unit": "ns",
+            "range": "± 89.46274829968803"
           }
         ]
       }
