@@ -683,12 +683,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
+        /// <summary>
+        /// Gives a game object its collision back; a script that cleared it calls this to restore it.
+        /// </summary>
         public void FlagCollision(IGameObject gameObject)
-            => FlagCollisionCore(gameObject);
+        {
+            _unclippedObjects.Remove(gameObject);
+            FlagCollisionCore(gameObject);
+        }
 
         private void FlagCollisionCore(IGameObject gameObject)
         {
-            if (_objectsWithoutCollision.Contains(gameObject))
+            if (_objectsWithoutCollision.Contains(gameObject) || _unclippedObjects.Contains(gameObject))
             {
                 return;
             }
@@ -702,12 +708,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 FlagFloorDecorationCollision(gameObject);
         }
 
+        /// <summary>
+        /// Clears a game object's collision, as a script does while it is open (a cut web). The object
+        /// stays unclipped, through rebuilds too, until <see cref="FlagCollision(IGameObject)"/> restores it.
+        /// </summary>
         public void UnFlagCollision(IGameObject gameObject)
-            => UnFlagCollisionCore(gameObject);
+        {
+            UnFlagCollisionCore(gameObject);
+            _unclippedObjects.Add(gameObject);
+        }
 
         private void UnFlagCollisionCore(IGameObject gameObject)
         {
-            if (_objectsWithoutCollision.Contains(gameObject))
+            if (_objectsWithoutCollision.Contains(gameObject) || _unclippedObjects.Contains(gameObject))
             {
                 return;
             }

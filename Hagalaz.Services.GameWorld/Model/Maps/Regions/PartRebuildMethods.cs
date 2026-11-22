@@ -318,6 +318,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             part.DiscardObjects(objects);
             _objectsWithoutCollision.ExceptWith(objects);
+            _unclippedObjects.ExceptWith(objects);
             foreach (var gameObject in objects)
             {
                 _builtObjects.Remove(gameObject);

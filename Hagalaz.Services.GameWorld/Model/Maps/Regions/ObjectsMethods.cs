@@ -149,6 +149,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             UnFlagCollisionCore(gameObject);
+            _unclippedObjects.Remove(gameObject);
             part.Remove(gameObject);
         }
 
@@ -178,7 +179,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     var bounds = GetCollisionBounds(survivor);
                     if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)
                     {
-                        region.FlagCollision(survivor);
+                        if (region is MapRegion mapRegion)
+                        {
+                            mapRegion.FlagCollisionCore(survivor);
+                        }
+                        else
+                        {
+                            region.FlagCollision(survivor);
+                        }
                     }
                 }
             }

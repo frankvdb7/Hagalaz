@@ -803,6 +803,30 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void BridgeRoundTrip_KeepsAScriptUnclippedObjectUnclippedUntilTheScriptRestoresIt()
+    {
+        // The Web script cuts a web: it changes the id in place and unflags its collision, then restores
+        // both after 100 ticks. A bridge appearing and going away in between must not re-close it.
+        var (destination, templates) = CreateBridgeFreeObjectRegion();
+        var web = (GameObject)destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0)!;
+        web.Id = 734;
+        destination.UnFlagCollision(web);
+        Assert.IsTrue(Collision(destination).Take(4096).All(flag => flag == CollisionFlag.Walkable), "Plane 0 is walkable.");
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, templates);
+
+        Assert.AreSame(web, destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0));
+        Assert.AreEqual(734, web.Id);
+        Assert.IsTrue(Collision(destination).Take(4096).All(flag => flag == CollisionFlag.Walkable), "Plane 0 is walkable.");
+
+        web.Id = 733;
+        destination.FlagCollision(web);
+
+        Assert.IsTrue(destination.GetCollision(DestinationMinX + 1, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));

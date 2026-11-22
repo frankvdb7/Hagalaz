@@ -32,6 +32,7 @@
 - [x] 3.17 Replace a part's own stale object when its rebuild produces a different one in the slot, merge the owner/origin registries into one, keep rebuild scratch state local, and express edits as part descriptors validated before applying; verify `NewBridgeUnderAnObject_KeepsItDrawnWithoutCollision` and the existing rebuild regressions
 - [x] 3.18 Reuse objects across collision transitions instead of replacing them, keeping runtime removals and in-place changes; verify `NewBridgeUnderARemovedObject_KeepsItRemoved` and `NewBridgeUnderAnObject_KeepsItDrawnWithoutCollision`
 - [x] 3.19 Settle live objects to their final collision before slot claims during a rebuild; verify `BridgeUnderTheWinningStatic_LetsTheCollidableConfiguredSpawnTakeTheSlot`
+- [x] 3.20 Keep script-unclipped objects unclipped through bridge changes and collision restoration; verify `BridgeRoundTrip_KeepsAScriptUnclippedObjectUnclippedUntilTheScriptRestoresIt`
 
 ## 4. Dynamic creation
 

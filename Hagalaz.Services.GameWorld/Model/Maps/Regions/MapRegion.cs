@@ -31,6 +31,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly HashSet<int> _nonSuspendableNpcIndexes = [];
         private readonly ConcurrentStore<int, IMapRegionPart> _parts = new();
         private readonly HashSet<IGameObject> _objectsWithoutCollision = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// Objects a script has explicitly unclipped (a cut web). This runtime override is kept apart
+        /// from <see cref="_objectsWithoutCollision"/>, which is derived from bridges, so neither
+        /// collision restoration nor a bridge going away re-closes them.
+        /// </summary>
+        private readonly HashSet<IGameObject> _unclippedObjects = new(ReferenceEqualityComparer.Instance);
         private readonly CollisionFlag[,,] _collision;
         private DateTime _idleTime = DateTime.MinValue;
         private readonly INpcService _npcService;
