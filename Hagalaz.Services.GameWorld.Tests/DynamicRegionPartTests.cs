@@ -950,7 +950,7 @@ public sealed class DynamicRegionPartTests
         var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
         var x = DestinationRegionX * 64 + DestinationMinX;
         var y = DestinationRegionY * 64 + DestinationMinY;
-        var enabled = (GameObject)TestWorld.CreateGameObject(90, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1);
+        var enabled = TestWorld.CreateGameObject(90, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1);
         region.Add(enabled);
 
         Assert.ThrowsExactly<InvalidOperationException>(() => enabled.Relocate(Location.Create(x, y, 1, 0)), "An enabled object cannot move.");
