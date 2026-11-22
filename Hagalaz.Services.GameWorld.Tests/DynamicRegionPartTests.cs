@@ -779,14 +779,7 @@ public sealed class DynamicRegionPartTests
     {
         // A (column (5, 6)) is a configured spawn at (47, 55). B (column (6, 6), rotated by 2, so it loads
         // later) is a static whose 2x1 object roots on the same slot and wins it while both have collision.
-        var flags = new sbyte[4, 64, 64];
-        flags[1, SourceMinX + 8 + 7, SourceMinY + 7] = 0x2;
-        var template = new MapRegionTemplate(SourceRegionId, [], [],
-        [
-            new MapRegionTemplateObject(50, SourceMinX + 7, SourceMinY + 7, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, false),
-            new MapRegionTemplateObject(51, SourceMinX + 8 + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Definition(2, 1), true)
-        ], flags);
-        var templates = Templates(template);
+        var templates = CreateSpawnAndRotatedStaticTemplates();
         var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
         destination.WriteBlocksByIndex(
         [
@@ -853,6 +846,29 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void StaticMovingOffAPlane_FreesItsOldSlotForALowerRankedSpawn()
+    {
+        // A: configured spawn from column (5, 6) plane 0, at (47, 55). B: plane-1 chunk of column (6, 6),
+        // rotated by 2, whose static 2x1 object roots on that tile in column (5, 6). While column (5, 6)
+        // has a bridge on plane 1 there, B is placed on plane 0 and beats A; without it B sits on plane 1.
+        var templates = CreateSpawnAndRotatedStaticTemplates();
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
+        ], templates);
+        Assert.AreEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, templates);
+
+        Assert.AreEqual(50, destination.FindStandardGameObject(47, 55, 0)?.Id);
+        Assert.AreEqual(51, destination.FindStandardGameObject(47, 55, 1)?.Id);
+        Assert.IsTrue(destination.GetCollision(47, 55, 0).HasFlag(CollisionFlag.ObjectBlock));
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));
@@ -880,6 +896,20 @@ public sealed class DynamicRegionPartTests
             new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
         ], templates);
         return (destination, templates);
+    }
+
+    // A configured spawn (id 50) at chunk tile (7, 7) of source chunk (2, 3), and a static 2x1 object (id 51)
+    // at chunk tile (7, 0) of source chunk (3, 3). Rotated by 2 in column (6, 6), the static roots on the
+    // spawn's destination tile (47, 55). Source chunk (3, 3) has a bridge bit on plane 1 at its tile (7, 7).
+    private static IReadOnlyDictionary<int, MapRegionTemplate> CreateSpawnAndRotatedStaticTemplates()
+    {
+        var flags = new sbyte[4, 64, 64];
+        flags[1, SourceMinX + 8 + 7, SourceMinY + 7] = 0x2;
+        return Templates(new MapRegionTemplate(SourceRegionId, [], [],
+        [
+            new MapRegionTemplateObject(50, SourceMinX + 7, SourceMinY + 7, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, false),
+            new MapRegionTemplateObject(51, SourceMinX + 8 + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Definition(2, 1), true)
+        ], flags));
     }
 
     // The same column on planes 0 and 1, both mapped from the same bridge-free source chunk.

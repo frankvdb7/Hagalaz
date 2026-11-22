@@ -34,6 +34,7 @@
 - [x] 3.19 Settle live objects to their final collision before slot claims during a rebuild; verify `BridgeUnderTheWinningStatic_LetsTheCollidableConfiguredSpawnTakeTheSlot`
 - [x] 3.20 Keep script-unclipped objects unclipped through bridge changes and collision restoration; verify `BridgeRoundTrip_KeepsAScriptUnclippedObjectUnclippedUntilTheScriptRestoresIt`
 - [x] 3.21 Clear collision overrides for an occupant that `TryAdd` supersedes, through the shared discard path; verify `ReplacingAScriptUnclippedObject_DoesNotKeepReferencingTheDestroyedOne`
+- [x] 3.22 Free the old slot of a live object that the rebuild moves to another plane before lower-ranked claims; verify `StaticMovingOffAPlane_FreesItsOldSlotForALowerRankedSpawn`
 
 ## 4. Dynamic creation
 

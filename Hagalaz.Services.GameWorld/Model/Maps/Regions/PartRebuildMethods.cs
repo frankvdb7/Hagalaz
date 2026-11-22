@@ -217,13 +217,22 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 _partContent[key] = new PartContent();
             }
 
-            // Settle each live object's collision for the new bridges first, so slot claims during the
-            // rebuild are resolved against final collision (collidable beats collision-less), not
-            // against what the object had before.
+            // Settle each live object's slot and collision for the new bridges first, so claims during
+            // the rebuild are resolved against final occupancy and collision (an object that moves to
+            // another plane frees its old slot; collidable beats collision-less), not against what the
+            // object had before.
             foreach (var (key, pool) in pass.ReusePool)
             {
-                foreach (var gameObject in pool)
+                foreach (var gameObject in pool.ToList())
                 {
+                    if (GetFinalPlane(gameObject, key, templates) != gameObject.Location.Z)
+                    {
+                        // The rebuild places it on another plane, so it no longer holds this slot.
+                        pool.Remove(gameObject);
+                        removed.AddRange(DiscardObjects(_parts[gameObject.Location.GetRegionPartHash()]!, [gameObject]));
+                        continue;
+                    }
+
                     var finalCollision = HasFinalCollision(gameObject, key, templates);
                     if (_builtObjects[gameObject].HasCollision != finalCollision)
                     {
@@ -498,6 +507,22 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     _builtObjects[gameObject] = new BuiltObject(key, entry.Id, rotation, entry.Shape, entry.IsStatic, hasCollision);
                 }
             }
+        }
+
+        /// <summary>
+        /// The plane a part's live object belongs on under the current bridges: statics drop one plane
+        /// where the tile is a bridge, if a plane lies below; everything else stays on its draw plane.
+        /// </summary>
+        private int GetFinalPlane(IGameObject gameObject, int partKey, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        {
+            var drawPlane = partKey % Planes;
+            if (!_builtObjects[gameObject].IsStatic)
+            {
+                return drawPlane;
+            }
+
+            var plane = MapTerrain.GetCollisionPlane(drawPlane, IsBridgeTile(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, templates, null));
+            return plane >= 0 ? plane : drawPlane;
         }
 
         /// <summary>
