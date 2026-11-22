@@ -56,7 +56,10 @@ public sealed class CharacterLogoutServiceTests
     }
 
     [TestMethod]
-    public void CompleteLogout_ReleasesPersistenceStateForTheCompletedLifecycle()
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public async Task CompleteLogout_ReleasesPersistenceStateForTheCompletedLifecycle(bool notificationFaults, bool notificationHangs)
     {
         var character = CreateCharacter(42);
         var persistenceState = new CharacterPersistenceState();
@@ -64,6 +67,20 @@ public sealed class CharacterLogoutServiceTests
         var logoutState = new CharacterLogoutState();
         Assert.IsTrue(logoutState.TryBeginLogout(character, out _));
         var mediator = Substitute.For<IGameMediator>();
+        if (notificationFaults)
+        {
+            mediator.SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("consumer failed")));
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        if (notificationHangs)
+        {
+            // A consumer that only ends when its token is cancelled, as a disconnected broker publish does.
+            mediator.SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>())
+                .Returns(call => Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>()));
+            cancellation.CancelAfter(TimeSpan.FromMilliseconds(100));
+        }
+
         var service = new CharacterLogoutService(
             logoutState,
             Substitute.For<ICharacterService>(),
@@ -71,14 +88,15 @@ public sealed class CharacterLogoutServiceTests
             mediator,
             persistenceState);
 
-        service.CompleteLogout(character);
+        await service.CompleteLogoutAsync(character, cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5));
 
+        Assert.IsFalse(logoutState.IsPending(character));
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
-    public void CompleteLogout_DoesNotReleaseNewerPersistenceLifecycle()
+    public async Task CompleteLogout_DoesNotReleaseNewerPersistenceLifecycle()
     {
         var oldCharacter = CreateCharacter(42);
         var newCharacter = CreateCharacter(42);
@@ -97,15 +115,15 @@ public sealed class CharacterLogoutServiceTests
             mediator,
             persistenceState);
 
-        service.CompleteLogout(oldCharacter);
+        await service.CompleteLogoutAsync(oldCharacter);
 
         Assert.AreEqual(901L, persistenceState.NextRevision(42));
         Assert.IsTrue(state.TryBeginLogout(newCharacter, out _));
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
-    public void CompleteLogout_WhenPersistenceStateIsAlreadyAbsent_CompletesLogout()
+    public async Task CompleteLogout_WhenPersistenceStateIsAlreadyAbsent_CompletesLogout()
     {
         var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
@@ -118,14 +136,14 @@ public sealed class CharacterLogoutServiceTests
             mediator,
             new CharacterPersistenceState());
 
-        service.CompleteLogout(character);
+        await service.CompleteLogoutAsync(character);
 
         Assert.IsFalse(state.IsPending(character));
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
-    public void CompleteLogout_WhenPersistenceReleaseIsRefused_RetainsRecoverableLogout()
+    public async Task CompleteLogout_WhenPersistenceReleaseIsRefused_RetainsRecoverableLogout()
     {
         var character = CreateCharacter(42);
         var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 7);
@@ -143,11 +161,11 @@ public sealed class CharacterLogoutServiceTests
             mediator,
             persistenceState);
 
-        service.CompleteLogout(character);
+        await service.CompleteLogoutAsync(character);
 
         Assert.IsTrue(state.IsPending(character));
         Assert.AreEqual(1, state.FindRecoverablePendingLogouts().Count);
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.DidNotReceive().SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -248,7 +266,7 @@ public sealed class CharacterLogoutServiceTests
         await persistence.Received(1).WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>());
         await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
         Assert.IsFalse(state.IsPending(character));
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -360,7 +378,7 @@ public sealed class CharacterLogoutServiceTests
         await firstRecovery;
 
         await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
     }
 
@@ -518,7 +536,7 @@ public sealed class CharacterLogoutServiceTests
 
         await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
         await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
 
         releaseDestroy.TrySetResult(true);
@@ -610,7 +628,7 @@ public sealed class CharacterLogoutServiceTests
 
         await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
         await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
     }
 

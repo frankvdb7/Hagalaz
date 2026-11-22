@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
+using Hagalaz.Services.GameWorld.Mediator;
 using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ public interface ICharacterLogoutService
     bool IsPendingLogout(uint masterId);
     Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default);
     Task RecoverPendingLogoutsAsync(CancellationToken cancellationToken = default);
-    void CompleteLogout(ICharacter character);
+    Task CompleteLogoutAsync(ICharacter character, CancellationToken cancellationToken = default);
 }
 
 public sealed class CharacterLogoutState
@@ -542,7 +543,7 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             _logoutState.MarkSessionRemoved(pending.Character);
         }
 
-        return TryCompleteLogout(pending.Character);
+        return await TryCompleteLogoutAsync(pending.Character, cancellationToken);
     }
 
     public async Task<CharacterModel> DetachAsync(ICharacter character, CancellationToken cancellationToken = default)
@@ -623,9 +624,10 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
         }
     }
 
-    public void CompleteLogout(ICharacter character) => TryCompleteLogout(character);
+    public Task CompleteLogoutAsync(ICharacter character, CancellationToken cancellationToken = default) =>
+        TryCompleteLogoutAsync(character, cancellationToken);
 
-    private bool TryCompleteLogout(ICharacter character)
+    private async Task<bool> TryCompleteLogoutAsync(ICharacter character, CancellationToken cancellationToken)
     {
         if (!_logoutState.TryGetSessionGeneration(character, out var sessionGeneration))
         {
@@ -647,7 +649,23 @@ public sealed class CharacterLogoutService : ICharacterLogoutService
             return false;
         }
 
-        _mediator.Publish(command);
+        // Local logout is complete and irreversible here. A mediator send only reports the
+        // consumer's completion, not Contacts' processing, so a failure or timeout is logged and
+        // never rewinds the logout or retries persistence.
+        try
+        {
+            await LifecycleNotification.SendAsync(_mediator, command, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "World sign-out notification failed for character '{MasterId}', generation {SessionGeneration}, connection '{ConnectionId}'.",
+                command.MasterId,
+                command.SessionGeneration,
+                command.ConnectionId);
+        }
+
         return true;
     }
 }

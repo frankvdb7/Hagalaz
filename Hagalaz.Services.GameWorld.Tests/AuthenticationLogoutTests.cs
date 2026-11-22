@@ -137,7 +137,7 @@ public sealed class AuthenticationLogoutTests
 
         Assert.IsFalse(logoutState.IsPending(42));
         Assert.AreSame(replacement, await gameSessionService.FindByMasterId(42));
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
         terminator.Received(1).Abort(session);
     }
@@ -197,14 +197,14 @@ public sealed class AuthenticationLogoutTests
         characterStore.Received(1).Remove(character);
         character.Received(1).Destroy();
         await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.DidNotReceive().SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
 
         await logout.RecoverPendingLogoutsAsync();
 
         Assert.IsFalse(logoutState.IsPending(42));
         await persistence.Received(2).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
     }
 
@@ -277,7 +277,7 @@ public sealed class AuthenticationLogoutTests
 
         Assert.AreEqual(2, persistCalls);
         await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
     }
 
@@ -318,7 +318,7 @@ public sealed class AuthenticationLogoutTests
 
         Assert.IsTrue(state.IsPending(42));
         await gameSessionService.Received(1).RemoveSession(oldSession, CancellationToken.None);
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.DidNotReceive().SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.AreEqual(1L, persistenceState.NextRevision(42));
     }
 
@@ -395,7 +395,7 @@ public sealed class AuthenticationLogoutTests
         await recovery;
 
         await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
     }
 
@@ -449,7 +449,7 @@ public sealed class AuthenticationLogoutTests
         characterLogoutService.Received(1).SetPendingLogoutPersistence(character, receipt);
         await gameSessionService.Received(1).RemoveSession(session);
         await characterLogoutService.Received(1).DetachAsync(character, Arg.Any<CancellationToken>());
-        mediator.DidNotReceive().Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.DidNotReceive().SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -510,7 +510,7 @@ public sealed class AuthenticationLogoutTests
         await persistenceService.Received(1).WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>());
         await gameSessionService.Received(1).RemoveSession(session);
         Assert.IsFalse(state.IsPending(42));
-        mediator.Received(1).Publish(Arg.Any<WorldSignOutCommand>());
+        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -797,7 +797,9 @@ public sealed class AuthenticationLogoutTests
     }
 
     [TestMethod]
-    public async Task SignOutAsync_WithOwnedLobbySession_PublishesLobbySignOut()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SignOutAsync_WithOwnedLobbySession_SendsLobbySignOutAndRevokes(bool notificationFaults)
     {
         var session = Substitute.For<IGameSession>();
         session.MasterId.Returns(42u);
@@ -806,6 +808,12 @@ public sealed class AuthenticationLogoutTests
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.RemoveSession(session).Returns(Task.FromResult(true));
         var mediator = Substitute.For<IGameMediator>();
+        if (notificationFaults)
+        {
+            mediator.SendAsync(Arg.Any<LobbySignOutCommand>(), Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("consumer failed")));
+        }
+
+        var revokeClient = CreateSuccessfulRevokeClient();
         var service = CreateAuthenticationService(
             Substitute.For<ICharacterService>(),
             Substitute.For<ICharacterPersistenceService>(),
@@ -820,61 +828,25 @@ public sealed class AuthenticationLogoutTests
                     Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
                 }),
             mediator: mediator,
-            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
+            revokeTokenRequestClient: revokeClient);
 
         await service.SignOutAsync();
 
-        mediator.Received(1).Publish(Arg.Is<LobbySignOutCommand>(message => message.MasterId == 42 && message.SessionGeneration == 3L && message.ConnectionId == "lobby-a"));
+        _ = mediator.Received(1).SendAsync(Arg.Is<LobbySignOutCommand>(message => message.MasterId == 42 && message.SessionGeneration == 3L && message.ConnectionId == "lobby-a"), Arg.Any<CancellationToken>());
+        await revokeClient.Received(1).GetResponse<RevokeTokenResponseMessage>(
+            Arg.Any<RevokeTokenRequestMessage>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>());
     }
 
     [TestMethod]
     public async Task SignOutAsync_WhenFailedLobbySignInRetainsAuthenticationWithoutSession_DoesNotPublishLobbySignOut()
     {
-        var mediator = Substitute.For<IGameMediator>();
-        var service = CreateAuthenticationService(
-            Substitute.For<ICharacterService>(),
-            Substitute.For<ICharacterPersistenceService>(),
-            Substitute.For<IGameSessionService>(),
-            CreateContextAccessor(
-                character: null,
-                session: null,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
-                {
-                    ClientId = "lobby-client",
-                    AuthorizationId = "authorization-id",
-                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
-                }),
-            mediator: mediator,
-            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
-
-        await service.SignOutAsync();
-
-        mediator.DidNotReceive().Publish(Arg.Any<LobbySignOutCommand>());
+        await AssertNoLobbySignOutAsync("lobby-client", Substitute.For<IGameSessionService>());
     }
 
     [TestMethod]
     public async Task SignOutAsync_WhenFailedWorldSignInRetainsAuthenticationWithoutSession_DoesNotPublishLobbySignOut()
     {
-        var mediator = Substitute.For<IGameMediator>();
-        var service = CreateAuthenticationService(
-            Substitute.For<ICharacterService>(),
-            Substitute.For<ICharacterPersistenceService>(),
-            Substitute.For<IGameSessionService>(),
-            CreateContextAccessor(
-                character: null,
-                session: null,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
-                {
-                    ClientId = "world-client",
-                    AuthorizationId = "authorization-id",
-                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
-                }),
-            mediator: mediator,
-            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
-
-        await service.SignOutAsync();
-
-        mediator.DidNotReceive().Publish(Arg.Any<LobbySignOutCommand>());
+        await AssertNoLobbySignOutAsync("world-client", Substitute.For<IGameSessionService>());
     }
 
     [TestMethod]
@@ -884,26 +856,7 @@ public sealed class AuthenticationLogoutTests
         existingLobbySession.MasterId.Returns(42u);
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.FindByMasterId(42u).Returns(existingLobbySession);
-        var mediator = Substitute.For<IGameMediator>();
-        var service = CreateAuthenticationService(
-            Substitute.For<ICharacterService>(),
-            Substitute.For<ICharacterPersistenceService>(),
-            gameSessionService,
-            CreateContextAccessor(
-                character: null,
-                session: null,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
-                {
-                    ClientId = "world-client",
-                    AuthorizationId = "authorization-id",
-                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
-                }),
-            mediator: mediator,
-            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
-
-        await service.SignOutAsync();
-
-        mediator.DidNotReceive().Publish(Arg.Any<LobbySignOutCommand>());
+        await AssertNoLobbySignOutAsync("world-client", gameSessionService);
     }
 
     [TestMethod]
@@ -1058,6 +1011,30 @@ public sealed class AuthenticationLogoutTests
 
         context.Features.Returns(features);
         return context;
+    }
+
+    private static async Task AssertNoLobbySignOutAsync(string clientId, IGameSessionService gameSessionService)
+    {
+        var mediator = Substitute.For<IGameMediator>();
+        var service = CreateAuthenticationService(
+            Substitute.For<ICharacterService>(),
+            Substitute.For<ICharacterPersistenceService>(),
+            gameSessionService,
+            CreateContextAccessor(
+                character: null,
+                session: null,
+                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                {
+                    ClientId = clientId,
+                    AuthorizationId = "authorization-id",
+                    Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
+                }),
+            mediator: mediator,
+            revokeTokenRequestClient: CreateSuccessfulRevokeClient());
+
+        await service.SignOutAsync();
+
+        _ = mediator.DidNotReceive().SendAsync(Arg.Any<LobbySignOutCommand>(), Arg.Any<CancellationToken>());
     }
 
     private static IRequestClient<RevokeTokenRequestMessage> CreateSuccessfulRevokeClient()
