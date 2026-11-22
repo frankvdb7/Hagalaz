@@ -37,7 +37,7 @@ Stop conditions: pause and propose a follow-up if the work requires protocol cha
 
 ### Modified Capabilities
 
-- `map-region-load-readiness`: the "Dynamic regions preserve source and destination dimensions" requirement changes from reading a live source region in the source dimension to materializing from the dimension-independent source template.
+- `map-region-load-readiness`: the "Dynamic destinations have a separate readiness path" requirement changes so a standard source is no longer created, loaded or awaited (only its template is read, once); and the "Dynamic regions preserve source and destination dimensions" requirement changes from reading a live source region in the source dimension to materializing from the dimension-independent source template.
 
 ## Impact
 

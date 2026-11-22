@@ -542,7 +542,31 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void CreateDynamicRegion_WaitsForSourceAndDoesNotScheduleDestinationWithNormalLoader()
+    public void CreateDynamicRegion_DoesNotCreateOrLoadAStandardSourceAndNeverLoadsTheDestination()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        var templateLoader = CreateTemplateLoader();
+        using var provider = CreateProvider(loadRequests, templateLoader);
+        var service = CreateService(provider);
+        var source = Location.Create(64, 64, 0, 0);
+        var destination = Location.Create(128, 64, 0, 0);
+
+        service.CreateDynamicRegion(source, destination);
+        provider.GetRequiredService<IRsTaskService>().Tick();
+
+        var destinationRegion = service.FindMapRegion(destination.RegionId, destination.Dimension);
+        Assert.IsNotNull(destinationRegion);
+        Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+        Assert.IsTrue(destinationRegion.IsDynamic);
+        Assert.IsNull(service.FindMapRegion(source.RegionId, source.Dimension));
+        loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
+        templateLoader.Received(1).LoadAsync(source.RegionId, Arg.Any<int[]>(), Arg.Any<CancellationToken>());
+        templateLoader.ReceivedWithAnyArgs(1).LoadAsync(default, default!, default);
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_WaitsForADynamicSourceAndCopiesItsMappings()
     {
         var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
@@ -550,43 +574,32 @@ public sealed class MapRegionServiceTests
             .Returns(sourceReady.Task);
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
-        var source = Location.Create(64, 64, 0, 0);
-        var destination = Location.Create(128, 64, 0, 0);
-
-        service.CreateDynamicRegion(source, destination);
+        var standard = Location.Create(3200, 3264, 0, 0);
+        var firstDynamic = Location.Create(640, 640, 0, 0);
+        var secondDynamic = Location.Create(1280, 640, 0, 0);
         var taskService = provider.GetRequiredService<IRsTaskService>();
+        service.CreateDynamicRegion(standard, firstDynamic);
         taskService.Tick();
 
-        var sourceRegion = service.FindMapRegion(source.RegionId, source.Dimension);
-        var destinationRegion = service.FindMapRegion(destination.RegionId, destination.Dimension);
-        Assert.IsNotNull(sourceRegion);
-        Assert.IsNotNull(destinationRegion);
-        Assert.AreEqual(MapRegionState.Initializing, sourceRegion.State);
-        Assert.AreEqual(MapRegionState.Initializing, destinationRegion.State);
-        Assert.IsTrue(destinationRegion.IsDynamic);
-        loadRequests.Received(1).RequestLoad(sourceRegion);
-        loadRequests.DidNotReceive().RequestLoad(destinationRegion);
+        service.CreateDynamicRegion(firstDynamic, secondDynamic);
+        taskService.Tick();
 
-        sourceRegion.MarkReady();
+        var second = service.FindMapRegion(secondDynamic.RegionId, secondDynamic.Dimension)!;
+        Assert.AreEqual(MapRegionState.Initializing, second.State, "A dynamic source is awaited before its mappings are read.");
         sourceReady.SetResult();
         taskService.Tick();
 
-        Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
+        Assert.AreEqual(MapRegionState.Ready, second.State);
+        var part = second.GetRegionPartByLocalPart(3, 4, 2);
+        Assert.AreEqual(50 * 8 + 3, part.DrawRegionPartX);
+        Assert.AreEqual(51 * 8 + 4, part.DrawRegionPartY);
+        Assert.AreEqual(2, part.DrawRegionZ);
     }
 
     [TestMethod]
     public void CreateDynamicRegion_CancellationDiscardsExactDestinationOnGameWorker()
     {
-        var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
-        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
-            .Returns(callInfo =>
-            {
-                var cancellationToken = callInfo.Arg<CancellationToken>();
-                cancellationToken.Register(() => sourceReady.TrySetCanceled(cancellationToken));
-                return sourceReady.Task;
-            });
-        using var provider = CreateProvider(loadRequests);
+        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)));
         var service = CreateService(provider);
         var source = Location.Create(64, 64, 0, 0);
         var destination = Location.Create(128, 64, 0, 0);
@@ -805,13 +818,10 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void CreateDynamicRegion_FailedStaleDestinationCannotRemoveReplacement()
+    public async Task CreateDynamicRegion_FailedStaleDestinationCannotRemoveReplacement()
     {
-        var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
-        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
-            .Returns(sourceReady.Task);
-        using var provider = CreateProvider(loadRequests);
+        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(templatesReady));
         var service = CreateService(provider);
         var source = Location.Create(64, 64, 0, 0);
         var destination = Location.Create(128, 64, 0, 0);
@@ -821,14 +831,15 @@ public sealed class MapRegionServiceTests
         taskService.Tick();
         var failedDestination = service.FindMapRegion(destination.RegionId, destination.Dimension);
         Assert.IsNotNull(failedDestination);
-        var sourceRegion = service.FindMapRegion(source.RegionId, source.Dimension);
-        Assert.IsNotNull(sourceRegion);
 
         Assert.IsTrue(service.TryRemoveMapRegion(destination.RegionId, destination.Dimension, failedDestination));
         var replacement = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
-        sourceRegion.MarkReady();
-        sourceReady.SetResult();
-        taskService.Tick();
+        templatesReady.SetResult();
+        for (var attempt = 0; attempt < 200 && failedDestination.State != MapRegionState.Discarded; attempt++)
+        {
+            taskService.Tick();
+            await Task.Delay(10);
+        }
 
         Assert.AreSame(replacement, service.FindMapRegion(destination.RegionId, destination.Dimension));
         Assert.AreEqual(MapRegionState.Initializing, replacement.State);
@@ -1093,6 +1104,21 @@ public sealed class MapRegionServiceTests
             {
                 var regionId = callInfo.ArgAt<int>(0);
                 return Task.FromResult(templates?.Invoke(regionId) ?? new MapRegionTemplate(regionId, [], []));
+            });
+        return loader;
+    }
+
+    /// <summary>
+    ///     A template loader that returns empty templates once <paramref name="gate"/> is released.
+    /// </summary>
+    private static IMapRegionTemplateLoader CreateGatedTemplateLoader(TaskCompletionSource gate)
+    {
+        var loader = Substitute.For<IMapRegionTemplateLoader>();
+        loader.LoadAsync(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(async callInfo =>
+            {
+                await gate.Task.WaitAsync(callInfo.Arg<CancellationToken>());
+                return new MapRegionTemplate(callInfo.ArgAt<int>(0), [], []);
             });
         return loader;
     }

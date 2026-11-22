@@ -40,6 +40,7 @@
 ## 4. Dynamic creation
 
 - [x] 4.1 Update `MapRegionService.CreateDynamicRegion` to read source descriptors by local index, load each distinct source template, write parts by local index, and stop calling `MakeStandard()` on the source; verify a source with region X != region Y away from origin maps all 4x8x8 parts correctly, and existing `MapRegionServiceTests` readiness/cancellation tests pass
+- [x] 4.4 Build identity mappings for a standard source without creating, loading or awaiting it, keeping the descriptor path for a dynamic source; verify `CreateDynamicRegion_DoesNotCreateOrLoadAStandardSourceAndNeverLoadsTheDestination` and `CreateDynamicRegion_WaitsForADynamicSourceAndCopiesItsMappings`
 - [x] 4.3 Apply all mappings first and build each column once during creation; verify `CreateDynamicRegion_BuildsEachObjectOnlyForItsFinalPlacement`
 - [x] 4.2 Verify determinism: creation with the source resident and not resident produces the same objects and collision, and runtime objects, ground items and NPCs in the source are not copied; replace `DynamicRegionDimensionTests` with template-based coverage in `DynamicRegionPartTests`
 
