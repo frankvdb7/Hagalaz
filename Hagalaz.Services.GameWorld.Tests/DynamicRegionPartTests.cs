@@ -1052,6 +1052,23 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void DestroyingADynamicRegion_ReleasesCollisionItFlaggedInANeighbour()
+    {
+        var world = new TestWorld();
+        var neighbour = world.CreateRegion(DestinationRegionX + 1, DestinationRegionY);
+        var survivor = TestWorld.CreateGameObject(5, (DestinationRegionX + 1) * 64 + 1, DestinationRegionY * 64 + 5, 0, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        neighbour.Add(survivor);
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.Add(TestWorld.CreateGameObject(6, DestinationRegionX * 64 + 63, DestinationRegionY * 64 + 5, 0, 0, 0, ShapeType.GroundDefault, Definition(3, 1), isStatic: false));
+        Assert.IsTrue(neighbour.GetCollision(0, 5, 0).HasFlag(CollisionFlag.ObjectBlock), "The dynamic object spills into the neighbour.");
+
+        destination.Destroy();
+
+        Assert.AreEqual(CollisionFlag.Walkable, neighbour.GetCollision(0, 5, 0), "The orphaned spill is cleared.");
+        Assert.IsTrue(neighbour.GetCollision(1, 5, 0).HasFlag(CollisionFlag.ObjectBlock), "The neighbour's own object still blocks its tile.");
+    }
+
+    [TestMethod]
     public void RemovingAnObject_ReflagsAWideSurvivorRootedTwoRegionsAway()
     {
         var world = new TestWorld();

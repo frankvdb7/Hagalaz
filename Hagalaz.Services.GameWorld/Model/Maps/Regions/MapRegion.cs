@@ -315,6 +315,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var objects = FindAllGameObjects().ToArray();
             var disabledStaticObjects = _parts.SelectMany(part => part.FindAllDisabledStaticGameObjects()).ToArray();
 
+            if (IsDynamic)
+            {
+                try
+                {
+                    ReleaseCollisionInNeighbours(objects);
+                }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
+            }
+
             foreach (var npc in npcs)
             {
                 try
@@ -362,6 +374,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             if (exceptions is { Count: > 0 })
             {
                 throw new AggregateException("One or more map region resources failed to be destroyed.", exceptions).Flatten();
+            }
+        }
+
+        /// <summary>
+        /// A dynamic region's objects can flag collision in neighbouring regions (edge-of-region or large
+        /// objects). Those flags have no owner once the region is gone, so clear them and re-flag the
+        /// neighbours' own objects that overlap. The region's own collision disappears with it.
+        /// </summary>
+        private void ReleaseCollisionInNeighbours(IEnumerable<IGameObject> objects)
+        {
+            var minX = BaseLocation.X;
+            var minY = BaseLocation.Y;
+            foreach (var plane in objects
+                         .Where(obj =>
+                         {
+                             var bounds = GetCollisionBounds(obj);
+                             return bounds.MinX < minX || bounds.MinY < minY || bounds.MaxX >= minX + Hagalaz.Cache.Abstractions.Types.Providers.MapTerrain.MapDimension || bounds.MaxY >= minY + Hagalaz.Cache.Abstractions.Types.Providers.MapTerrain.MapDimension;
+                         })
+                         .GroupBy(obj => obj.Location.Z))
+            {
+                var crossing = plane.ToList();
+                crossing.ForEach(UnFlagCollisionCore);
+                ReflagOverlappingObjects(crossing, plane.Key, includeThisRegion: false);
             }
         }
 

@@ -216,7 +216,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// footprints can reach into adjacent regions, and survivors rooted there can
         /// overlap them, so resident regions around the affected area are included.
         /// </summary>
-        private void ReflagOverlappingObjects(IReadOnlyCollection<IGameObject> removed, int z)
+        private void ReflagOverlappingObjects(IReadOnlyCollection<IGameObject> removed, int z, bool includeThisRegion = true)
         {
             if (removed.Count == 0)
             {
@@ -225,7 +225,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             var affected = removed.Select(GetCollisionBounds).Aggregate((a, b) =>
                 (Math.Min(a.MinX, b.MinX), Math.Min(a.MinY, b.MinY), Math.Max(a.MaxX, b.MaxX), Math.Max(a.MaxY, b.MaxY)));
-            foreach (var region in FindRegionsThatCanOverlap(affected))
+            foreach (var region in FindRegionsThatCanOverlap(affected, includeThisRegion))
             {
                 foreach (var survivor in region.FindGameObjectsOverlapping(affected.MinX, affected.MinY, affected.MaxX, affected.MaxY, z))
                 {
@@ -250,9 +250,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// covering it, and those west or south of it, since a survivor can be rooted up to
         /// the largest supported object size before the area. Lookups never create or resume a region.
         /// </summary>
-        private IEnumerable<IMapRegion> FindRegionsThatCanOverlap((int MinX, int MinY, int MaxX, int MaxY) area)
+        private IEnumerable<IMapRegion> FindRegionsThatCanOverlap((int MinX, int MinY, int MaxX, int MaxY) area, bool includeThisRegion)
         {
-            yield return this;
+            if (includeThisRegion)
+            {
+                yield return this;
+            }
+
             var firstRegionX = Math.Max(0, (area.MinX - MaxSupportedObjectSize) >> 6);
             var firstRegionY = Math.Max(0, (area.MinY - MaxSupportedObjectSize) >> 6);
             for (var regionX = firstRegionX; regionX <= area.MaxX >> 6; regionX++)
