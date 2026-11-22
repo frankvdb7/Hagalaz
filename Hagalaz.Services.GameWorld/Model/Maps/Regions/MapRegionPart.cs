@@ -33,12 +33,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private List<IRegionPartUpdate> _pendingUpdates = [];
         private List<IRegionPartUpdate> _preparedUpdates = [];
         private readonly object _updatesLock = new();
+        private readonly int _partX;
+        private readonly int _partY;
+        private readonly int _z;
 
-        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, IEntityStore entityStore)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, IEntityStore entityStore, int partX, int partY, int z)
         {
             _mapper = mapper;
             _groundItemBuilder = groundItemBuilder;
             _entityStore = entityStore;
+            _partX = partX;
+            _partY = partY;
+            _z = z;
         }
 
         /// <summary>
@@ -46,35 +52,36 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// If this part data is not modified this is same
         /// as the PartX of this data.
         /// </summary>
-        public int DrawRegionPartX { get; set; }
+        public int DrawRegionPartX { get; internal set; }
 
         /// <summary>
         /// Contains real (drawed) part Y
         /// If this part data is not modified this is same
         /// as the PartY of this data.
         /// </summary>
-        public int DrawRegionPartY { get; set; }
+        public int DrawRegionPartY { get; internal set; }
 
         /// <summary>
         /// Contains real (drawed) Z
         /// If this part data is not modified this is same
         /// as the Z of this data.
         /// </summary>
-        public int DrawRegionZ { get; set; }
+        public int DrawRegionZ { get; internal set; }
 
-        public int DrawRegionDimension { get; set; }
-
-        public bool HasDrawSource { get; set; }
+        public bool HasDrawSource { get; internal set; }
 
         /// <summary>
         /// Contains rotation of this sector,
         /// It is 0 by default if not modified.
         /// </summary>
-        public int Rotation { get; set; }
+        public int Rotation { get; internal set; }
 
         public IEnumerable<IGameObject> FindAllGameObjects() => _gameObjects.Values;
 
         public IEnumerable<IGameObject> FindAllDisabledStaticGameObjects() => _disabledStaticGameObjects.Values;
+
+        public IGameObject? FindDisabledStaticGameObject(LayerType layer, int localX, int localY, int z) =>
+            _disabledStaticGameObjects.TryGetValue(GameObjectHelper.GetRegionLocalHash(localX, localY, z, (int)layer), out var gameObject) ? gameObject : null;
 
         public IGameObject? FindGameObject(LayerType layer, int localX, int localY, int z)
         {
@@ -365,13 +372,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            var baseLocation = new Location(DrawRegionPartX << 3, DrawRegionPartY << 3, DrawRegionZ, 0);
+            // Zone updates address the destination part the client sees, not its draw source.
+            var baseLocation = new Location(_partX << 3, _partY << 3, _z, 0);
             int localX = -1;
             int localY = -1;
             character.Viewport.GetLocalPosition(baseLocation, ref localX, ref localY);
             character.Session.SendMessage(new MapRegionPartUpdateMessage
             {
-                LocalX = localX, LocalY = localY, Z = DrawRegionZ, FullUpdate = fullUpdate
+                LocalX = localX, LocalY = localY, Z = _z, FullUpdate = fullUpdate
             });
             foreach (var update in updateables)
             {
@@ -415,15 +423,71 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void Erase()
+        internal void Erase()
         {
             DrawRegionPartX = 0;
             DrawRegionPartY = 0;
             DrawRegionZ = 0;
-            DrawRegionDimension = 0;
             HasDrawSource = false;
             Rotation = 0;
         }
+
+        internal void DetachDisabledStatic(IGameObject gameObject)
+        {
+            if (!_disabledStaticGameObjects.TryGetValue(gameObject.GetRegionLocalHash(), out var disabled) || !ReferenceEquals(disabled, gameObject))
+            {
+                return;
+            }
+
+            _disabledStaticGameObjects.Remove(gameObject.GetRegionLocalHash());
+            lock (_updatesLock)
+            {
+                bool IsStale(IRegionPartUpdate update) => ReferenceEquals(GetGameObject(update), gameObject);
+                _pendingUpdates.RemoveAll(IsStale);
+                _preparedUpdates = _preparedUpdates.Where(update => !IsStale(update)).ToList();
+            }
+        }
+
+        internal void AttachDisabledStatic(IGameObject gameObject)
+        {
+            _disabledStaticGameObjects[gameObject.GetRegionLocalHash()] = gameObject;
+            QueueUpdate(new RemoveGameObjectUpdate(gameObject));
+        }
+
+        internal void DiscardObjects(IReadOnlyCollection<IGameObject> gameObjects)
+        {
+            var objects = new HashSet<IGameObject>();
+            foreach (var gameObject in gameObjects)
+            {
+                var localHash = gameObject.GetRegionLocalHash();
+                if ((_gameObjects.TryGetValue(localHash, out var enabled) && ReferenceEquals(enabled, gameObject) && _gameObjects.Remove(localHash))
+                    || (_disabledStaticGameObjects.TryGetValue(localHash, out var disabled) && ReferenceEquals(disabled, gameObject) && _disabledStaticGameObjects.Remove(localHash)))
+                {
+                    objects.Add(gameObject);
+                }
+            }
+
+            lock (_updatesLock)
+            {
+                bool IsStale(IRegionPartUpdate update) => GetGameObject(update) is { } gameObject && objects.Contains(gameObject);
+                _pendingUpdates.RemoveAll(IsStale);
+                // SendUpdates may still enumerate the prepared list it read, so replace it instead of mutating it.
+                _preparedUpdates = _preparedUpdates.Where(update => !IsStale(update)).ToList();
+            }
+
+            foreach (var gameObject in objects)
+            {
+                DestroyAndUnregister(gameObject);
+            }
+        }
+
+        private static IGameObject? GetGameObject(IRegionPartUpdate update) => update switch
+        {
+            AddGameObjectUpdate addUpdate => addUpdate.GameObject,
+            RemoveGameObjectUpdate removeUpdate => removeUpdate.GameObject,
+            SetGameObjectAnimationUpdate animationUpdate => animationUpdate.GameObject,
+            _ => null
+        };
 
         public override int GetHashCode() =>
             ((Rotation & 0x3) << 1) | ((DrawRegionZ & 0x3) << 24) | ((DrawRegionPartX & 0x3ff) << 14) | ((DrawRegionPartY & 0x7ff) << 3);

@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Utilities;
@@ -14,6 +13,51 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     public partial class MapRegion
     {
         public IEnumerable<IGameObject> FindAllGameObjects() => _parts.SelectMany(part => part.FindAllGameObjects());
+
+        /// <summary>
+        /// The largest side, in tiles, of any object added to this region. A survivor is rooted at most
+        /// this far before an area it overlaps.
+        /// </summary>
+        private int _maxObjectExtent = 1;
+
+        /// <summary>
+        /// Object definitions read their size as an unsigned byte.
+        /// </summary>
+        private const int MaxSupportedObjectSize = 255;
+
+        /// <summary>
+        /// The absolute part range that can hold an object overlapping the area. Only the 8x8 parts this
+        /// region owns can hold objects, however far an object can reach; the range is empty
+        /// (last before first) when the area is outside them.
+        /// </summary>
+        internal (int FirstPartX, int FirstPartY, int LastPartX, int LastPartY) GetCandidateParts(int minX, int minY, int maxX, int maxY)
+        {
+            var ownedX = BaseLocation.RegionX * 8;
+            var ownedY = BaseLocation.RegionY * 8;
+            return (
+                Math.Max(ownedX, (minX - _maxObjectExtent) >> 3),
+                Math.Max(ownedY, (minY - _maxObjectExtent) >> 3),
+                Math.Min(ownedX + 7, (maxX + 1) >> 3),
+                Math.Min(ownedY + 7, (maxY + 1) >> 3));
+        }
+
+        public IEnumerable<IGameObject> FindGameObjectsOverlapping(int minX, int minY, int maxX, int maxY, int z)
+        {
+            var objects = new List<IGameObject>();
+            var (firstPartX, firstPartY, lastPartX, lastPartY) = GetCandidateParts(minX, minY, maxX, maxY);
+            for (var partX = firstPartX; partX <= lastPartX; partX++)
+            {
+                for (var partY = firstPartY; partY <= lastPartY; partY++)
+                {
+                    if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(partX, partY, z), out var part))
+                    {
+                        objects.AddRange(part.FindAllGameObjects());
+                    }
+                }
+            }
+
+            return objects;
+        }
 
         public IEnumerable<IGameObject> FindGameObjects(int localX, int localY, int z)
         {
@@ -66,11 +110,77 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return _parts.TryGetValue(partHash, out var part) ? part.FindGameObject(LayerType.FloorDecorations, localX, localY, z) : null;
         }
 
-        public void Add(IGameObject gameObject)
+        public void Add(IGameObject gameObject) => Add(gameObject, true);
+
+        public void Add(IGameObject gameObject, bool flagCollision) => TryAdd(gameObject, flagCollision);
+
+        /// <summary>
+        /// Adds an object. An object without collision (drawn under a bridge, unreachable) never
+        /// displaces an object in its slot and is skipped instead; an object with collision silently
+        /// replaces one without, so the reachable object wins regardless of order. A replaced object
+        /// with collision gives its collision up first, and overlapping objects are re-flagged.
+        /// </summary>
+        /// <remarks>
+        /// The object's collision is in place before its spawn hook runs, so a hook that removes or
+        /// replaces the object unflags exactly what was flagged.
+        /// </remarks>
+        /// <returns>Whether the region still holds the object (enabled or disabled) after its spawn hook.</returns>
+        private bool TryAdd(IGameObject gameObject, bool flagCollision)
         {
             EnsureAcceptsMutation();
-            _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart).Add(gameObject);
-            FlagCollision(gameObject);
+            var part = _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart);
+            var occupant = part.FindGameObject(gameObject.ShapeType.GetLayerType(), gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z);
+            IGameObject? replaced = null;
+            if (occupant is not null && !ReferenceEquals(occupant, gameObject))
+            {
+                if (!flagCollision)
+                {
+                    return false;
+                }
+
+                if (_objectsWithoutCollision.Contains(occupant))
+                {
+                    DiscardObjects(part, [occupant]);
+                }
+                else
+                {
+                    UnFlagCollisionCore(occupant);
+                    replaced = occupant;
+                }
+            }
+
+            if (flagCollision)
+            {
+                FlagCollisionCore(gameObject);
+            }
+            else
+            {
+                _objectsWithoutCollision.Add(gameObject);
+            }
+
+            _maxObjectExtent = Math.Max(_maxObjectExtent, Math.Max(gameObject.Definition.SizeX, gameObject.Definition.SizeY));
+            var replacedTombstone = replaced is null ? null : TakeConfiguredSpawnTombstone(replaced);
+            part.Add(gameObject);
+            if (replaced is not null && !OwnsGameObject(replaced) && !IsDisabledStatic(replaced))
+            {
+                // The replaced object was destroyed, so no collision override or build record may keep referencing it.
+                _unclippedObjects.Remove(replaced);
+                _objectsWithoutCollision.Remove(replaced);
+                if (replacedTombstone is { } destroyed)
+                {
+                    RecordConfiguredSpawnRemoval(destroyed.Owner, replaced, destroyed.Tombstone);
+                }
+            }
+
+            var removedBySpawn = !OwnsGameObject(gameObject);
+            var reflagSelf = removedBySpawn && flagCollision;
+            if (replaced is not null || reflagSelf)
+            {
+                IGameObject[] unflagged = replaced is null ? [gameObject] : reflagSelf ? [replaced, gameObject] : [replaced];
+                ReflagOverlappingObjects(unflagged, gameObject.Location.Z);
+            }
+
+            return !removedBySpawn || part.FindAllDisabledStaticGameObjects().Any(disabled => ReferenceEquals(disabled, gameObject));
         }
 
         public void Remove(IGameObject gameObject)
@@ -87,136 +197,98 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             UnFlagCollisionCore(gameObject);
+            _unclippedObjects.Remove(gameObject);
+            var tombstone = TakeConfiguredSpawnTombstone(gameObject);
             part.Remove(gameObject);
+            if (tombstone is { } removedSpawn)
+            {
+                RecordConfiguredSpawnRemoval(removedSpawn.Owner, gameObject, removedSpawn.Tombstone);
+            }
         }
 
         private bool OwnsGameObject(IGameObject gameObject) =>
             FindGameObjects(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z)
                 .Any(existing => ReferenceEquals(existing, gameObject));
 
-        public void UnloadPartGameObjects(int partX, int partY, int partZ, int partRotation)
-        {
-            EnsureAcceptsMutation();
-            UnloadPartGameObjectsCore(partX, partY, partZ, partRotation);
-        }
-
-        private void UnloadPartGameObjectsCore(int partX, int partY, int partZ, int partRotation)
-        {
-            var minLocalX = (partX & 0x7) * 8;
-            var maxLocalX = minLocalX + 7;
-            var minLocalY = (partY & 0x7) * 8;
-            var maxLocalY = minLocalY + 7;
-
-            for (var localX = minLocalX; localX <= maxLocalX; localX++)
-            {
-                for (var localY = minLocalY; localY <= maxLocalY; localY++)
-                {
-                    var rotatedLocalX = minLocalX + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, false);
-                    var rotatedLocalY = minLocalY + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, true);
-                    if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64) continue;
-                    foreach (var obj in FindGameObjects(rotatedLocalX, rotatedLocalY, partZ)) Remove(obj);
-                    SetCollision(rotatedLocalX, rotatedLocalY, partZ, CollisionFlag.Walkable);
-                }
-            }
-
-            var min = Location.Create(partX + minLocalX, partY + minLocalY, partZ, BaseLocation.Dimension);
-            var max = Location.Create(partX + maxLocalX, partY + maxLocalY, partZ, BaseLocation.Dimension);
-            // TODO: Dynamic regions
-            // foreach (var obj in _disabledStaticObjects.Where(obj =>
-            //              obj.Location.X >= min.X && obj.Location.X <= max.X && obj.Location.Y >= min.Y && obj.Location.Y <= max.Y && obj.Location.Z == partZ))
-            // {
-            //     _disabledStaticObjects.Remove(obj);
-            // }
-        }
-
         /// <summary>
-        /// Reload's mapregion part.
-        /// TODO - Load the original mapregion with object data, npc data etc. 
-        /// The original mapregion can be used to cache objects which will then 
-        /// be rotated and loaded accordinally here in this dynamic region.
+        /// Unflagging clears shared collision bits, so re-flag every surviving object
+        /// whose collision area overlaps the area the removed objects flagged. Removed
+        /// footprints can reach into adjacent regions, and survivors rooted there can
+        /// overlap them, so resident regions around the affected area are included.
         /// </summary>
-        /// <param name="partX">X of the part.</param>
-        /// <param name="partY">Y of the part.</param>
-        /// <param name="partZ">Z of the part.</param>
-        /// <param name="partRotation">The rotation.</param>
-        public void LoadPartObjects(int partX, int partY, int partZ, int partRotation)
+        private void ReflagOverlappingObjects(IReadOnlyCollection<IGameObject> removed, int z, bool includeThisRegion = true)
         {
-            EnsureAcceptsMutation();
-            LoadPartObjectsCore(partX, partY, partZ, partRotation);
-        }
-
-        private void LoadPartObjectsCore(int partX, int partY, int partZ, int partRotation)
-        {
-            var minX = (partX & 0x7) * 8;
-            var maxX = minX + 7;
-            var minY = (partY & 0x7) * 8;
-            var maxY = minY + 7;
-
-            var data = GetDynamicRegionPartData(partX, partY, partZ);
-            if (!data.HasDrawSource)
+            if (removed.Count == 0)
             {
                 return;
             }
 
-            var regionID = ((data.DrawRegionPartX / 8) << 8) | (data.DrawRegionPartY / 8);
-            var region = _regionService.GetOrCreateMapRegion(regionID, data.DrawRegionDimension);
-            for (var localX = minX; localX <= maxX; localX++)
+            var affected = removed.Select(GetCollisionBounds).Aggregate((a, b) =>
+                (Math.Min(a.MinX, b.MinX), Math.Min(a.MinY, b.MinY), Math.Max(a.MaxX, b.MaxX), Math.Max(a.MaxY, b.MaxY)));
+            foreach (var region in FindRegionsThatCanOverlap(affected, includeThisRegion))
             {
-                for (var localY = minY; localY <= maxY; localY++)
+                foreach (var survivor in region.FindGameObjectsOverlapping(affected.MinX, affected.MinY, affected.MaxX, affected.MaxY, z))
                 {
-                    AddPartObjects(region, minX, minY, localX, localY, partZ, partRotation);
+                    var bounds = GetCollisionBounds(survivor);
+                    if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)
+                    {
+                        if (region is MapRegion mapRegion)
+                        {
+                            mapRegion.FlagCollisionCore(survivor);
+                        }
+                        else
+                        {
+                            region.FlagCollision(survivor);
+                        }
+                    }
+                }
+            }
+        }
 
-                    var rotatedLocalX = minX + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, false);
-                    var rotatedLocalY = minY + CalculateRotationDelta(localX & 0x7, localY & 0x7, partRotation, true);
-                    if (rotatedLocalX < 0 || rotatedLocalX >= 64 || rotatedLocalY < 0 || rotatedLocalY >= 64)
+        /// <summary>
+        /// This region plus resident regions whose objects can overlap the area: those
+        /// covering it, and those west or south of it, since a survivor can be rooted up to
+        /// the largest supported object size before the area. Lookups never create or resume a region.
+        /// </summary>
+        private IEnumerable<IMapRegion> FindRegionsThatCanOverlap((int MinX, int MinY, int MaxX, int MaxY) area, bool includeThisRegion)
+        {
+            if (includeThisRegion)
+            {
+                yield return this;
+            }
+
+            var firstRegionX = Math.Max(0, (area.MinX - MaxSupportedObjectSize) >> 6);
+            var firstRegionY = Math.Max(0, (area.MinY - MaxSupportedObjectSize) >> 6);
+            for (var regionX = firstRegionX; regionX <= area.MaxX >> 6; regionX++)
+            {
+                for (var regionY = firstRegionY; regionY <= area.MaxY >> 6; regionY++)
+                {
+                    var regionId = (regionX << 8) | regionY;
+                    if (regionX < 0 || regionY < 0)
                     {
                         continue;
                     }
 
-                    SetCollision(rotatedLocalX, rotatedLocalY, partZ, region.GetCollision(localX, localY, partZ));
-                }
-            }
-        }
-
-        private IMapRegionPart GetDynamicRegionPartData(int partX, int partY, int z)
-        {
-            EnsureAcceptsMutation();
-            var partHash = LocationHelper.GetRegionPartHash(partX, partY, z);
-            return _parts.GetOrAdd(partHash, hash =>
-            {
-                var part = CreateRegionPart(hash);
-                part.HasDrawSource = false;
-                return part;
-            });
-        }
-
-        public void AddPartObjects(IMapRegion region, int minLocalX, int minLocalY, int localX, int localY, int z, int partRotation)
-        {
-            foreach (var obj in region.FindGameObjects(localX, localY, z))
-            {
-                var rotatedLocalX = minLocalX + CalculateObjectRotationDelta(obj, localX & 0x7, localY & 0x7, partRotation, false);
-                var rotatedLocalY = minLocalY + CalculateObjectRotationDelta(obj, localX & 0x7, localY & 0x7, partRotation, true);
-
-                if (rotatedLocalX >= 0 && rotatedLocalX < Size.X && rotatedLocalY >= 0 && rotatedLocalY < Size.Y)
-                {
-                    var location = Location.Create(rotatedLocalX + BaseLocation.RegionX * Size.X,
-                        rotatedLocalY + BaseLocation.RegionY * Size.Y,
-                        z,
-                        BaseLocation.Dimension);
-                    var builder = _gameObjectBuilder.Create()
-                        .WithId(obj.Id)
-                        .WithLocation(location)
-                        .WithRotation(obj.Rotation)
-                        .WithShape(obj.ShapeType);
-                    if (obj.IsStatic)
+                    // A region id is not an instance identity: a newer region may now hold this region's id.
+                    var region = _regionService.FindMapRegion(regionId, BaseLocation.Dimension);
+                    if (region is not null && !ReferenceEquals(region, this) && region.State != MapRegionState.Discarded)
                     {
-                        builder.AsStatic();
+                        yield return region;
                     }
-
-                    var gObject = builder.Build();
-                    Add(gObject);
                 }
             }
+        }
+
+        /// <summary>
+        /// Absolute tiles an object's collision can touch: its footprint plus the
+        /// one-tile ring wall flagging writes to.
+        /// </summary>
+        private static (int MinX, int MinY, int MaxX, int MaxY) GetCollisionBounds(IGameObject gameObject)
+        {
+            var (sizeX, sizeY) = (gameObject.Rotation & 0x1) == 1
+                ? (gameObject.Definition.SizeY, gameObject.Definition.SizeX)
+                : (gameObject.Definition.SizeX, gameObject.Definition.SizeY);
+            return (gameObject.Location.X - 1, gameObject.Location.Y - 1, gameObject.Location.X + sizeX, gameObject.Location.Y + sizeY);
         }
 
         public static int CalculateRotationDelta(int partLocalX, int partLocalY, int partRotation, bool calculateRotationY)
@@ -228,20 +300,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return calculateRotationY ? partLocalX : 7 - partLocalY;
         }
 
-        public static int CalculateObjectRotationDelta(IGameObject obj, int partLocalX, int partLocalY, int partRotation, bool calculateRotationY)
+        public static int CalculateObjectRotationDelta(int definitionSizeX, int definitionSizeY, int objectRotation, int partLocalX, int partLocalY, int partRotation, bool calculateRotationY)
         {
-            int sizeX;
-            int sizeY;
-            if ((obj.Rotation & 0x1) == 1)
-            {
-                sizeX = obj.SizeY;
-                sizeY = obj.SizeX;
-            }
-            else
-            {
-                sizeX = obj.SizeX;
-                sizeY = obj.SizeY;
-            }
+            var (sizeX, sizeY) = (objectRotation & 0x1) == 1
+                ? (definitionSizeY, definitionSizeX)
+                : (definitionSizeX, definitionSizeY);
 
             partRotation &= 0x3;
             if (partRotation == 0)

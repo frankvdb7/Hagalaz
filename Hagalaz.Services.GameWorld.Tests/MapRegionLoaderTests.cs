@@ -23,6 +23,7 @@ using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -254,6 +255,54 @@ public sealed class MapRegionLoaderTests
         optionalBuilder.Received(2).WithDefinition(definitions[100]);
         optionalBuilder.Received(1).WithDefinition(definitions[101]);
         optionalBuilder.Received(1).WithDefinition(definitions[200]);
+    }
+
+    [TestMethod]
+    public async Task TemplateLoader_ReturnsCacheObjectsDatabaseSpawnsAndBlockedTilesInRegionLocalCoordinates()
+    {
+        const int regionId = (50 << 8) | 51;
+        var mapProvider = CreateMapProvider(new DecodedMapRegion(
+            [CreateMapObject(100, 10, 3, 5, 6, 1)],
+            [new BlockedTerrainTile(7, 8, 2)]));
+        var objectRepository = Substitute.For<IGameObjectSpawnRepository>();
+        objectRepository.FindByBounds(3200, 3264, 3263, 3327)
+            .Returns(new TestAsyncEnumerable<GameobjectSpawn>(
+                [new GameobjectSpawn { GameobjectId = 200, CoordX = 3210, CoordY = 3270, CoordZ = 2, Face = 1, Type = 22 }]));
+        var definitions = new Dictionary<int, IGameObjectDefinition>
+        {
+            [100] = Substitute.For<IGameObjectDefinition>(),
+            [200] = Substitute.For<IGameObjectDefinition>()
+        };
+        var gameObjectService = Substitute.For<IGameObjectService>();
+        gameObjectService.FindGameObjectDefinitionsByIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(definitions));
+        var xtea = new[] { 1, 2, 3, 4 };
+
+        var template = await new MapRegionTemplateLoader(objectRepository, gameObjectService, mapProvider).LoadAsync(regionId, xtea);
+
+        mapProvider.Received(1).DecodeRegion(regionId, xtea, Arg.Any<CancellationToken>());
+        Assert.AreEqual(regionId, template.RegionId);
+        CollectionAssert.AreEqual(new[] { new BlockedTerrainTile(7, 8, 2) }, template.BlockedTiles.ToArray());
+        Assert.AreEqual(2, template.Objects.Count);
+        Assert.AreEqual(new MapRegionTemplateObject(100, 5, 6, 1, 3, (ShapeType)10, definitions[100], true), template.Objects[0]);
+        Assert.AreEqual(new MapRegionTemplateObject(200, 10, 6, 2, 1, (ShapeType)22, definitions[200], false), template.Objects[1]);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_AddsPlaneZeroObjectUnderABridgeWithoutCollision()
+    {
+        var region = CreateRegion();
+        var gameObject = Substitute.For<IGameObject>();
+        var terrain = new sbyte[4, 64, 64];
+        terrain[1, 3, 3] = 0x2;
+        var rawObject = CreateMapObject(100, 10, 0, 3, 3, 0);
+        var mapProvider = CreateMapProvider(new DecodedMapRegion([], [], [rawObject], terrain));
+        var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: ConfigureStaticGameObjectBuilder(gameObject));
+
+        await fixture.Loader.LoadAsync(region);
+
+        region.Received(1).Add(gameObject, false);
+        region.DidNotReceive().Add(gameObject);
     }
 
     [TestMethod]
@@ -503,7 +552,208 @@ public sealed class MapRegionLoaderTests
     [TestMethod]
     public async Task LoadAsync_Region12850MatchesPinnedStaticCollision()
     {
-        static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", name);
+        var (region, _) = await LoadRegion12850Async();
+
+        var actual = Collision12850(region);
+        var allFlags = actual.SelectMany(plane => plane).Aggregate(0, (all, tile) => all | tile);
+        Assert.IsTrue(((CollisionFlag)allFlags).HasFlag(CollisionFlag.FloorBlock | CollisionFlag.FloorDecorationBlock | CollisionFlag.ObjectTile |
+            CollisionFlag.WallWest | CollisionFlag.ObjectBlock | CollisionFlag.BlockedWest));
+        AssertPinnedCollision12850(actual);
+    }
+
+    [TestMethod]
+    public async Task MakeStandard_AfterDynamicEditsRestoresRegion12850()
+    {
+        var (region, template) = await LoadRegion12850Async();
+        string[] Snapshot() => region.FindAllGameObjects()
+            .Select(obj => $"{obj.Id}:{obj.Location.X},{obj.Location.Y},{obj.Location.Z}:{obj.Rotation}:{obj.ShapeType}:{obj.IsStatic}")
+            .ToArray();
+        var loadedObjects = Snapshot();
+        var sourcePartX = region.LocalPartXToPartX(3);
+        var sourcePartY = region.LocalPartYToPartY(3);
+
+        var templates = new Dictionary<int, MapRegionTemplate> { [template.RegionId] = template };
+        region.MakeDynamic();
+        region.WriteBlockByIndex(0, 0, 0, sourcePartX, sourcePartY, 0, templates);
+        region.RotateBlockByIndex(3, 3, 0, 1, templates);
+        region.DeleteBlockByIndex(4, 4, 0, templates);
+        CollectionAssert.AreNotEquivalent(loadedObjects, Snapshot());
+
+        region.MakeStandard(template);
+
+        Assert.IsFalse(region.IsDynamic);
+        CollectionAssert.AreEquivalent(loadedObjects, Snapshot());
+        AssertPinnedCollision12850(Collision12850(region));
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public async Task DynamicChunks_FollowClientBridgePlanesForRegion12850(int rotation)
+    {
+        var (_, template) = await LoadRegion12850Async();
+        var (chunkX, chunkY) = FindBridgeChunk12850(template);
+        const int localPartX = 2;
+        const int localPartY = 3;
+        // Destination plane 0 and 1 copy source plane 1 (plane 1 supplies the bridge flags);
+        // destination plane 2 copies source plane 0.
+        (int Z, int SourceZ)[] mappings = [(0, 1), (1, 1), (2, 0)];
+        var scriptProvider = Substitute.For<IGameObjectScriptProvider>();
+        scriptProvider.GetGameObjectScriptTypeById(Arg.Any<int>()).Returns(typeof(IGameObjectScript));
+        var services = new ServiceCollection().AddSingleton(Substitute.For<IGameObjectScript>()).BuildServiceProvider();
+        var regionService = Substitute.For<IMapRegionService>();
+        var destination = new MapRegion(Location.Create(100 * 64, 90 * 64, 0), [],
+            Substitute.For<INpcService>(), regionService, new GameObjectBuilder(services, scriptProvider), Substitute.For<IGroundItemBuilder>(),
+            Substitute.For<IMapper>(), new EntityStore());
+        regionService.When(service => service.FlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
+            .Do(call =>
+            {
+                var location = call.ArgAt<ILocation>(0)!;
+                if (location.RegionId == destination.Id)
+                    destination.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
+            });
+        destination.MakeDynamic();
+        var templates = new Dictionary<int, MapRegionTemplate> { [template.RegionId] = template };
+
+        foreach (var (z, sourceZ) in mappings)
+        {
+            destination.WriteBlockByIndex(localPartX, localPartY, z, 50 * 8 + chunkX, 50 * 8 + chunkY, sourceZ, templates);
+            destination.RotateBlockByIndex(localPartX, localPartY, z, rotation, templates);
+        }
+
+        var (expectedObjects, expectedFloor, shiftedObjects) = ClientDynamicChunkReference(template, chunkX, chunkY, mappings, rotation, localPartX * 8, localPartY * 8);
+        Assert.IsTrue(shiftedObjects > 0, "The chunk must place objects on bridge tiles.");
+        var actualObjects = destination.FindAllGameObjects()
+            .Select(obj => $"{obj.Id}:{obj.Location.RegionLocalX},{obj.Location.RegionLocalY},{obj.Location.Z}:{obj.Rotation}")
+            .ToArray();
+        CollectionAssert.AreEquivalent(expectedObjects, actualObjects);
+        var actualFloor = (from z in Enumerable.Range(0, 4)
+            from x in Enumerable.Range(0, 64)
+            from y in Enumerable.Range(0, 64)
+            where destination.GetCollision(x, y, z).HasFlag(CollisionFlag.FloorBlock)
+            select (x, y, z)).ToArray();
+        CollectionAssert.AreEquivalent(expectedFloor, actualFloor);
+    }
+
+    /// <summary>
+    /// The source chunk of region 12850 with the most plane-1 bridge tiles that also holds static
+    /// objects on plane 1.
+    /// </summary>
+    private static (int ChunkX, int ChunkY) FindBridgeChunk12850(MapRegionTemplate template)
+    {
+        var chunks = from chunkX in Enumerable.Range(0, 8)
+            from chunkY in Enumerable.Range(0, 8)
+            let bridges = (from x in Enumerable.Range(chunkX * 8, 8)
+                from y in Enumerable.Range(chunkY * 8, 8)
+                where (template.GetTerrainFlags(1, x, y) & 0x2) != 0
+                select (x, y)).Count()
+            let objects = template.SourceObjects.Count(obj => obj.IsStatic && obj.Z == 1 && obj.LocalX >> 3 == chunkX && obj.LocalY >> 3 == chunkY)
+            where bridges > 0 && objects > 0
+            orderby bridges descending
+            select (chunkX, chunkY);
+        var chunk = chunks.FirstOrDefault((-1, -1));
+        Assert.AreNotEqual((-1, -1), chunk, "Region 12850 fixture has no bridge chunk with plane-1 objects.");
+        return chunk;
+    }
+
+    /// <summary>
+    /// Reference of the client's dynamic chunk decoding (Map.readRegionPartLandscape and
+    /// Class274.readGroundMapData): objects are selected by raw source plane, and objects and
+    /// blocked tiles drop one plane where the destination tile's plane-1 terrain is a bridge.
+    /// </summary>
+    private static (string[] Objects, (int, int, int)[] Floor, int ShiftedObjects) ClientDynamicChunkReference(
+        MapRegionTemplate template, int chunkX, int chunkY, (int Z, int SourceZ)[] mappings, int rotation, int destinationMinX, int destinationMinY)
+    {
+        var sourceMinX = chunkX * 8;
+        var sourceMinY = chunkY * 8;
+        (int X, int Y) Rotate(int x, int y) => rotation switch
+        {
+            0 => (x, y),
+            1 => (y, 7 - x),
+            2 => (7 - x, 7 - y),
+            _ => (7 - y, x)
+        };
+        var plane1Source = mappings.Single(mapping => mapping.Z == 1).SourceZ;
+        var bridges = new HashSet<(int, int)>();
+        for (var x = 0; x < 8; x++)
+        {
+            for (var y = 0; y < 8; y++)
+            {
+                if ((template.GetTerrainFlags(plane1Source, sourceMinX + x, sourceMinY + y) & 0x2) != 0)
+                {
+                    var (dx, dy) = Rotate(x, y);
+                    bridges.Add((destinationMinX + dx, destinationMinY + dy));
+                }
+            }
+        }
+
+        int Height(int z, int x, int y) => bridges.Contains((x, y)) ? z - 1 : z;
+        var objects = new List<string>();
+        var withoutCollision = new List<(string Key, int X, int Y, int Z, LayerType Layer)>();
+        var occupied = new HashSet<(int, int, int, LayerType)>();
+        var floor = new List<(int, int, int)>();
+        var shifted = 0;
+        foreach (var (z, sourceZ) in mappings)
+        {
+            foreach (var entry in template.SourceObjects.Where(obj => obj.Z == sourceZ
+                         && obj.LocalX >= sourceMinX && obj.LocalX < sourceMinX + 8 && obj.LocalY >= sourceMinY && obj.LocalY < sourceMinY + 8))
+            {
+                var x = destinationMinX + MapRegion.CalculateObjectRotationDelta(entry.Definition.SizeX, entry.Definition.SizeY, entry.Rotation, entry.LocalX & 7, entry.LocalY & 7, rotation, false);
+                var y = destinationMinY + MapRegion.CalculateObjectRotationDelta(entry.Definition.SizeX, entry.Definition.SizeY, entry.Rotation, entry.LocalX & 7, entry.LocalY & 7, rotation, true);
+                var height = Height(z, x, y);
+                if (x < 0 || y < 0 || x >= 64 || y >= 64)
+                    continue;
+                var key = $"{entry.Id}:{x},{y},{(height < 0 ? z : height)}:{(entry.Rotation + rotation) & 3}";
+                if (height < 0)
+                {
+                    // Map.addToClip still builds the object when there is no collision plane. The server
+                    // keeps it on its draw plane unless a reachable object holds that slot.
+                    withoutCollision.Add((key, x, y, z, entry.Shape.GetLayerType()));
+                    continue;
+                }
+
+                if (height != z)
+                    shifted++;
+                objects.Add(key);
+                occupied.Add((x, y, height, entry.Shape.GetLayerType()));
+            }
+
+            for (var x = 0; x < 8; x++)
+            {
+                for (var y = 0; y < 8; y++)
+                {
+                    if ((template.GetTerrainFlags(sourceZ, sourceMinX + x, sourceMinY + y) & 0x1) == 0)
+                        continue;
+                    var (dx, dy) = Rotate(x, y);
+                    var height = Height(z, destinationMinX + dx, destinationMinY + dy);
+                    if (height >= 0)
+                        floor.Add((destinationMinX + dx, destinationMinY + dy, height));
+                }
+            }
+        }
+
+        objects.AddRange(withoutCollision.Where(entry => !occupied.Contains((entry.X, entry.Y, entry.Z, entry.Layer))).Select(entry => entry.Key));
+        return (objects.ToArray(), floor.Distinct().ToArray(), shifted);
+    }
+
+    private static string Fixture12850(string name) => Path.Join(AppContext.BaseDirectory, "Fixtures", "maps", name);
+
+    private static int[][] Collision12850(IMapRegion region) => Enumerable.Range(0, 4).Select(plane => Enumerable.Range(0, 4096)
+        .Select(tile => (int)region.GetCollision(tile / 64, tile % 64, plane)).ToArray()).ToArray();
+
+    private static void AssertPinnedCollision12850(int[][] actual)
+    {
+        var expected = JsonSerializer.Deserialize<int[][]>(File.ReadAllText(Fixture12850("collision-12850.json")))!;
+        Assert.AreEqual(expected.Length, actual.Length);
+        for (var plane = 0; plane < actual.Length; plane++)
+            CollectionAssert.AreEqual(expected[plane], actual[plane], $"Collision differs on plane {plane}.");
+    }
+
+    private static async Task<(MapRegion Region, MapRegionTemplate Template)> LoadRegion12850Async()
+    {
+        static string Fixture(string name) => Fixture12850(name);
 
         var cache = Substitute.For<ICacheAPI>();
         cache.GetFileId(5, "m50_50").Returns(1);
@@ -529,7 +779,7 @@ public sealed class MapRegionLoaderTests
             .Returns(Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(definitions));
         var scriptProvider = Substitute.For<IGameObjectScriptProvider>();
         scriptProvider.GetGameObjectScriptTypeById(Arg.Any<int>()).Returns(typeof(IGameObjectScript));
-        using var services = new ServiceCollection().AddSingleton(Substitute.For<IGameObjectScript>()).BuildServiceProvider();
+        var services = new ServiceCollection().AddSingleton(Substitute.For<IGameObjectScript>()).BuildServiceProvider();
         var builder = new GameObjectBuilder(services, scriptProvider);
         var store = new EntityStore();
         var regionService = Substitute.For<IMapRegionService>();
@@ -544,20 +794,27 @@ public sealed class MapRegionLoaderTests
                     region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
             });
 
+        regionService.When(service => service.UnFlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
+            .Do(call =>
+            {
+                var location = call.ArgAt<ILocation>(0)!;
+                if (location.RegionId == region.Id)
+                    region.UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
+            });
+
         var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: builder, entityStore: store,
             regionService: regionService, gameObjectService: objectService);
         await fixture.Loader.LoadAsync(region);
+        var template = await new MapRegionTemplateLoader(EmptyObjectSpawnRepository(), objectService, mapProvider).LoadAsync(region.Id, []);
+        return (region, template);
+    }
 
-        var actual = Enumerable.Range(0, 4).Select(plane => Enumerable.Range(0, 4096)
-            .Select(tile => (int)region.GetCollision(tile / 64, tile % 64, plane)).ToArray()).ToArray();
-        var allFlags = actual.SelectMany(plane => plane).Aggregate(0, (all, tile) => all | tile);
-        Assert.IsTrue(((CollisionFlag)allFlags).HasFlag(CollisionFlag.FloorBlock | CollisionFlag.FloorDecorationBlock | CollisionFlag.ObjectTile |
-            CollisionFlag.WallWest | CollisionFlag.ObjectBlock | CollisionFlag.BlockedWest));
-
-        var expected = JsonSerializer.Deserialize<int[][]>(File.ReadAllText(Fixture("collision-12850.json")))!;
-        Assert.AreEqual(expected.Length, actual.Length);
-        for (var plane = 0; plane < actual.Length; plane++)
-            CollectionAssert.AreEqual(expected[plane], actual[plane], $"Collision differs on plane {plane}.");
+    private static IGameObjectSpawnRepository EmptyObjectSpawnRepository()
+    {
+        var repository = Substitute.For<IGameObjectSpawnRepository>();
+        repository.FindByBounds(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>())
+            .Returns(_ => new TestAsyncEnumerable<GameobjectSpawn>([]));
+        return repository;
     }
 
     private sealed record CollisionDefinition(int Id, int SizeX, int SizeY, int ClipType, bool Solid, bool Gateway);
@@ -781,9 +1038,7 @@ public sealed class MapRegionLoaderTests
             regionService,
             npcRepository,
             itemRepository,
-            objectRepository,
-            gameObjectService,
-            mapProvider ?? CreateMapProvider(),
+            new MapRegionTemplateLoader(objectRepository, gameObjectService, mapProvider ?? CreateMapProvider()),
             new LocationBuilder(),
             groundItemBuilder ?? Substitute.For<IGroundItemBuilder>(),
             gameObjectBuilder ?? Substitute.For<IGameObjectBuilder>(),

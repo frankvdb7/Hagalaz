@@ -105,6 +105,37 @@ namespace Hagalaz.Cache.Tests
         }
 
         [Fact]
+        public void DecodedMapRegion_ConstructorSnapshotsItsInputs()
+        {
+            var adjusted = new System.Collections.Generic.List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
+            var region = new DecodedMapRegion(adjusted, [], [], new sbyte[4, 64, 64]);
+
+            adjusted.Clear();
+
+            Assert.Single(region.ObjectPlacements);
+        }
+
+        [Fact]
+        public void DecodedMapRegion_DerivesTheAdjustedViewOnceFromItsOwnedSnapshots()
+        {
+            var raw = new System.Collections.Generic.List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
+            var terrain = new sbyte[4, 64, 64];
+            var derivations = 0;
+            var region = DecodedMapRegion.CreateWithDerivedObjectPlacements(raw, [], terrain, (owned, _) =>
+            {
+                derivations++;
+                return owned;
+            });
+
+            raw.Clear();
+            Assert.Equal(0, derivations);
+            Assert.Single(region.ObjectPlacements);
+            Assert.Single(region.ObjectPlacements);
+            Assert.Equal(1, derivations);
+            Assert.Single(region.RawObjectPlacements);
+        }
+
+        [Fact]
         public void DecodeRegion_WhenMapArchivesAreAbsent_UsesEmptyMapData()
         {
             _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);

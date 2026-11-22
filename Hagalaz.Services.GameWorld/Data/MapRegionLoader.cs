@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Location;
@@ -32,9 +31,7 @@ namespace Hagalaz.Services.GameWorld.Data
         private readonly IMapRegionService _regionService;
         private readonly INpcSpawnRepository _npcSpawnRepository;
         private readonly IGroundItemSpawnRepository _itemSpawnRepository;
-        private readonly IGameObjectSpawnRepository _objectSpawnRepository;
-        private readonly IGameObjectService _gameObjectService;
-        private readonly IMapProvider _mapProvider;
+        private readonly IMapRegionTemplateLoader _templateLoader;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
@@ -48,9 +45,7 @@ namespace Hagalaz.Services.GameWorld.Data
             IMapRegionService regionService,
             INpcSpawnRepository npcSpawnRepository,
             IGroundItemSpawnRepository itemSpawnRepository,
-            IGameObjectSpawnRepository objectSpawnRepository,
-            IGameObjectService gameObjectService,
-            IMapProvider mapProvider,
+            IMapRegionTemplateLoader templateLoader,
             ILocationBuilder locationBuilder,
             IGroundItemBuilder groundItemBuilder,
             IGameObjectBuilder gameObjectBuilder,
@@ -63,9 +58,7 @@ namespace Hagalaz.Services.GameWorld.Data
             _regionService = regionService;
             _npcSpawnRepository = npcSpawnRepository;
             _itemSpawnRepository = itemSpawnRepository;
-            _objectSpawnRepository = objectSpawnRepository;
-            _gameObjectService = gameObjectService;
-            _mapProvider = mapProvider;
+            _templateLoader = templateLoader;
             _locationBuilder = locationBuilder;
             _groundItemBuilder = groundItemBuilder;
             _gameObjectBuilder = gameObjectBuilder;
@@ -171,67 +164,46 @@ namespace Hagalaz.Services.GameWorld.Data
         {
             var npcSpawns = await _mapper.ProjectTo<NpcSpawnDto>(_npcSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
             var itemSpawns = await _mapper.ProjectTo<GroundItemSpawnDto>(_itemSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)).ToArrayAsync(cancellationToken);
-            var objectSpawns = await _objectSpawnRepository.FindByBounds(min.X, min.Y, max.X, max.Y)
-                .Select(spawn => new
-                {
-                    spawn.GameobjectId,
-                    spawn.CoordX,
-                    spawn.CoordY,
-                    spawn.CoordZ,
-                    spawn.Face,
-                    spawn.Type
-                })
-                .ToArrayAsync(cancellationToken);
-
-            var collisionTiles = new List<CollisionTile>();
+            var template = await _templateLoader.LoadAsync(region.Id, region.XteaKeys, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            var decodedRegion = _mapProvider.DecodeRegion(region.Id, region.XteaKeys, cancellationToken);
-            foreach (var blockedTile in decodedRegion.BlockedTiles)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                collisionTiles.Add(new CollisionTile(blockedTile.LocalX, blockedTile.LocalY, blockedTile.Z));
-            }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            var objectIds = decodedRegion.ObjectPlacements.Select(placement => placement.Id)
-                .Concat(objectSpawns.Select(spawn => (int)spawn.GameobjectId))
-                .Distinct()
-                .ToArray();
-            activity?.SetTag("map.region.static_gameobject_placement_count", decodedRegion.ObjectPlacements.Count);
-            activity?.SetTag("map.region.database_gameobject_spawn_count", objectSpawns.Length);
-            activity?.SetTag("map.region.gameobject_placement_count", decodedRegion.ObjectPlacements.Count + objectSpawns.Length);
-            activity?.SetTag("map.region.gameobject.definition_id_count", objectIds.Length);
+            var staticPlacementCount = template.Objects.Count(entry => entry.IsStatic);
+            activity?.SetTag("map.region.static_gameobject_placement_count", staticPlacementCount);
+            activity?.SetTag("map.region.database_gameobject_spawn_count", template.Objects.Count - staticPlacementCount);
+            activity?.SetTag("map.region.gameobject_placement_count", template.Objects.Count);
+            activity?.SetTag("map.region.gameobject.definition_id_count", template.Objects.Select(entry => entry.Id).Distinct().Count());
             activity?.SetTag("map.region.npc_spawn_count", npcSpawns.Length);
 
-            IReadOnlyDictionary<int, IGameObjectDefinition> definitions;
-            if (objectIds.Length == 0)
-            {
-                definitions = new Dictionary<int, IGameObjectDefinition>();
-            }
-            else
-            {
-                definitions = await _gameObjectService.FindGameObjectDefinitionsByIdsAsync(objectIds, cancellationToken);
-            }
-            cancellationToken.ThrowIfCancellationRequested();
-
-            foreach (var spawn in decodedRegion.ObjectPlacements)
+            var objectsWithoutCollision = new HashSet<IGameObject>(ReferenceEqualityComparer.Instance);
+            var collisionTiles = template.BlockedTiles
+                .Select(tile => new CollisionTile(tile.LocalX, tile.LocalY, tile.Z))
+                .ToList();
+            foreach (var entry in template.Objects)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var location = _locationBuilder.Create()
-                    .FromLocation(region.BaseLocation)
-                    .WithZ(spawn.Z)
-                    .ToRegionCoordinates(spawn.X, spawn.Y, region.Size.X, region.Size.Y)
-                    .Build();
-                var gameObject = _gameObjectBuilder
+                var location = Location.Create(
+                    region.BaseLocation.RegionX * region.Size.X + entry.LocalX,
+                    region.BaseLocation.RegionY * region.Size.Y + entry.LocalY,
+                    entry.Z,
+                    region.BaseLocation.Dimension);
+                var builder = _gameObjectBuilder
                     .Create()
-                    .WithId(spawn.Id)
+                    .WithId(entry.Id)
                     .WithLocation(location)
-                    .WithDefinition(definitions[spawn.Id])
-                    .WithRotation(spawn.Rotation)
-                    .WithShape((ShapeType)spawn.ShapeType)
-                    .AsStatic()
-                    .Build();
+                    .WithDefinition(entry.Definition)
+                    .WithRotation(entry.Rotation)
+                    .WithShape(entry.Shape);
+                if (entry.IsStatic)
+                {
+                    builder = builder.AsStatic();
+                }
+
+                var gameObject = builder.Build();
                 createdGameObjects.Add(gameObject);
+                if (!entry.HasCollision)
+                {
+                    objectsWithoutCollision.Add(gameObject);
+                }
             }
 
             foreach (var spawn in itemSpawns)
@@ -246,22 +218,7 @@ namespace Hagalaz.Services.GameWorld.Data
                 createdGroundItems.Add(groundItem);
             }
 
-            foreach (var spawn in objectSpawns)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var location = new Location(spawn.CoordX, spawn.CoordY, spawn.CoordZ, region.BaseLocation.Dimension);
-                var gameObject = _gameObjectBuilder
-                    .Create()
-                    .WithId((int)spawn.GameobjectId)
-                    .WithLocation(location)
-                    .WithDefinition(definitions[(int)spawn.GameobjectId])
-                    .WithRotation(spawn.Face)
-                    .WithShape((ShapeType)spawn.Type)
-                    .Build();
-                createdGameObjects.Add(gameObject);
-            }
-
-            return new PreparedRegion(npcSpawns, collisionTiles);
+            return new PreparedRegion(npcSpawns, collisionTiles, objectsWithoutCollision);
         }
 
         private static void ApplyPreparedRegion(
@@ -277,7 +234,14 @@ namespace Hagalaz.Services.GameWorld.Data
 
             foreach (var gameObject in gameObjects)
             {
-                region.Add(gameObject);
+                if (prepared.ObjectsWithoutCollision.Contains(gameObject))
+                {
+                    region.Add(gameObject, false);
+                }
+                else
+                {
+                    region.Add(gameObject);
+                }
             }
 
             foreach (var groundItem in groundItems)
@@ -368,7 +332,8 @@ namespace Hagalaz.Services.GameWorld.Data
 
         private sealed record PreparedRegion(
             NpcSpawnDto[] NpcSpawns,
-            List<CollisionTile> CollisionTiles);
+            List<CollisionTile> CollisionTiles,
+            IReadOnlySet<IGameObject> ObjectsWithoutCollision);
 
         private readonly record struct CollisionTile(int LocalX, int LocalY, int Z);
     }

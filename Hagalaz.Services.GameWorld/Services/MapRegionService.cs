@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.Location;
@@ -17,6 +18,7 @@ using Hagalaz.Game.Abstractions.Model.Maps.Updates;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Abstractions.Store;
+using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Metrics;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,7 +41,10 @@ namespace Hagalaz.Services.GameWorld.Services
         private readonly Dictionary<int, int[]> _xteaKeys = new();
         private readonly Dimension?[] _dimensions = new Dimension?[MaxDimensions];
         private readonly object _residencyGate = new();
+
+
         private readonly IServiceScope _serviceScope;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILocationBuilder _locationBuilder;
         private readonly IGameObjectBuilder _gameObjectBuilder;
         private readonly IGroundItemBuilder _groundItemBuilder;
@@ -61,6 +66,7 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             CreateDimension(0); // create global world dimension.
             _serviceScope = serviceProvider.CreateScope();
+            _serviceProvider = serviceProvider;
             _locationBuilder = locationBuilder;
             _gameObjectBuilder = gameObjectBuilder;
             _groundItemBuilder = groundItemBuilder;
@@ -478,7 +484,9 @@ namespace Hagalaz.Services.GameWorld.Services
         {
             var task = new RsAsyncTask(async cancellationToken =>
             {
-                var standardRegion = GetOrCreateMapRegion(source.RegionId, source.Dimension);
+                // Only a dynamic source has part mappings worth reading. A standard source maps every part to
+                // itself, so it is neither created nor loaded here: only its template is read, once.
+                var dynamicSource = FindMapRegion(source.RegionId, source.Dimension) is { IsDynamic: true } resident ? resident : null;
                 var dynamicRegion = GetOrCreateDynamicRegion(destination.RegionId, destination.Dimension);
                 var discardGate = new object();
                 var discardStarted = false;
@@ -506,49 +514,50 @@ namespace Hagalaz.Services.GameWorld.Services
 
                 try
                 {
-                    await _loadScheduler.EnsureLoadedAsync([standardRegion], cancellationToken);
-                    if (!IsCurrentMapRegion(source.RegionId, source.Dimension, standardRegion)
-                        || standardRegion.State != MapRegionState.Ready)
+                    if (dynamicSource is not null)
                     {
-                        throw new InvalidOperationException($"Source region {standardRegion.Id} was replaced or is not ready.");
+                        await WaitForDynamicSourceAsync(dynamicSource, cancellationToken);
+                        dynamicSource = ResumeDynamicSource(source, dynamicSource);
                     }
+
+                    var sourceParts = dynamicSource is not null ? ReadSourceParts(dynamicSource) : CreateIdentityParts(source);
+                    var templates = await LoadSourceTemplatesAsync(sourceParts, cancellationToken);
 
                     lock (_residencyGate)
                     {
-                        var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
                         var destinationDimension = _dimensions[destination.Dimension] ?? throw new InvalidOperationException($"Dimension[{destination.Dimension}] no longer exists.");
-                        var currentSource = GetActiveRegion(sourceDimension, standardRegion.Id);
                         var currentDestination = GetActiveRegion(destinationDimension, dynamicRegion.Id);
-                        if (!ReferenceEquals(currentSource, standardRegion)
-                            || currentSource.State != MapRegionState.Ready)
+                        if (dynamicSource is not null)
                         {
-                            throw new InvalidOperationException($"Source region {source.RegionId} is no longer ready and canonical.");
+                            var sourceDimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
+                            var currentSource = GetActiveRegion(sourceDimension, dynamicSource.Id);
+                            if (!ReferenceEquals(currentSource, dynamicSource)
+                                || currentSource.State != MapRegionState.Ready)
+                            {
+                                throw new InvalidOperationException($"Source region {source.RegionId} is no longer ready and canonical.");
+                            }
                         }
+
                         if (!ReferenceEquals(currentDestination, dynamicRegion))
                         {
                             throw new InvalidOperationException($"Destination region {dynamicRegion.Id} was replaced before dynamic population.");
                         }
 
-                        standardRegion = currentSource;
                         dynamicRegion = currentDestination;
-                        standardRegion.MakeStandard();
                         dynamicRegion.MakeDynamic();
                     }
 
                     // Dynamic block population can invoke object scripts while loading
                     // copied objects. This operation is a game task, so it remains on
                     // the serialized GameWorker boundary.
-                    for (var z = 0; z < 4; z++)
-                    {
-                        for (var xIndex = 0; xIndex < 8; xIndex++)
-                        {
-                            for (var yIndex = 0; yIndex < 8; yIndex++)
-                            {
-                                var part = standardRegion.GetRegionPartData(xIndex, yIndex, z);
-                                dynamicRegion.WriteBlock(xIndex, yIndex, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.DrawRegionDimension);
-                            }
-                        }
-                    }
+                    // All mappings are applied first and each column is built once, so object
+                    // spawn hooks only run for the final content.
+                    dynamicRegion.WriteBlocksByIndex(
+                        sourceParts
+                            .Where(part => part.IsPresent)
+                            .Select(part => new MapRegionPartMapping(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, part.Rotation))
+                            .ToList(),
+                        templates);
 
                     lock (discardGate)
                     {
@@ -563,10 +572,108 @@ namespace Hagalaz.Services.GameWorld.Services
                 finally
                 {
                     DiscardCreatedRegion();
+                    CompleteDynamicCreation(dynamicRegion, populationSucceeded);
                 }
             });
             _taskScheduler.Schedule(task);
             return new RsTaskHandle(task);
+        }
+
+        /// <summary>
+        /// Waits until a dynamic source's own population has finished, through the task that owns it.
+        /// </summary>
+        private async Task WaitForDynamicSourceAsync(IMapRegion dynamicSource, CancellationToken cancellationToken)
+        {
+            await _loadScheduler.WaitForDynamicPopulationAsync(dynamicSource, cancellationToken);
+
+            if (dynamicSource.State != MapRegionState.Ready)
+            {
+                throw new InvalidOperationException($"Source region {dynamicSource.Id} is not ready.");
+            }
+        }
+
+        /// <summary>
+        /// Makes the known dynamic source the exact active canonical region again, resuming it when it
+        /// was suspended, without creating or loading anything.
+        /// </summary>
+        private IMapRegion ResumeDynamicSource(ILocation source, IMapRegion dynamicSource)
+        {
+            lock (_residencyGate)
+            {
+                var dimension = _dimensions[source.Dimension] ?? throw new InvalidOperationException($"Dimension[{source.Dimension}] no longer exists.");
+                if (dimension.ActiveRegions.TryGetValue(dynamicSource.Id, out var active) && ReferenceEquals(active, dynamicSource))
+                {
+                    return active;
+                }
+
+                if (dimension.IdleRegionStore.TryGetValue(dynamicSource.Id, out var idle) && ReferenceEquals(idle, dynamicSource))
+                {
+                    return ResumeIdleRegion(dimension, dynamicSource.Id, idle);
+                }
+
+                throw new InvalidOperationException($"Source region {dynamicSource.Id} was replaced.");
+            }
+        }
+
+        private void CompleteDynamicCreation(IMapRegion dynamicRegion, bool populated)
+        {
+            _loadScheduler.CompleteDynamicPopulation(dynamicRegion, populated);
+        }
+
+        /// <summary>
+        /// The mappings of a standard source region: every part draws itself, unrotated.
+        /// </summary>
+        private static List<SourcePart> CreateIdentityParts(ILocation source)
+        {
+            var parts = new List<SourcePart>(4 * 8 * 8);
+            for (var z = 0; z < 4; z++)
+            {
+                for (var localPartX = 0; localPartX < 8; localPartX++)
+                {
+                    for (var localPartY = 0; localPartY < 8; localPartY++)
+                    {
+                        parts.Add(new SourcePart(localPartX, localPartY, z, source.RegionX * 8 + localPartX, source.RegionY * 8 + localPartY, z, 0, true));
+                    }
+                }
+            }
+
+            return parts;
+        }
+
+        private static List<SourcePart> ReadSourceParts(IMapRegion sourceRegion)
+        {
+            var parts = new List<SourcePart>(4 * 8 * 8);
+            for (var z = 0; z < 4; z++)
+            {
+                for (var localPartX = 0; localPartX < 8; localPartX++)
+                {
+                    for (var localPartY = 0; localPartY < 8; localPartY++)
+                    {
+                        var part = sourceRegion.GetRegionPartByLocalPart(localPartX, localPartY, z);
+                        parts.Add(new SourcePart(localPartX, localPartY, z, part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation, part.HasDrawSource));
+                    }
+                }
+            }
+
+            return parts;
+        }
+
+        private async Task<Dictionary<int, MapRegionTemplate>> LoadSourceTemplatesAsync(IEnumerable<SourcePart> sourceParts, CancellationToken cancellationToken)
+        {
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var templateLoader = scope.ServiceProvider.GetRequiredService<IMapRegionTemplateLoader>();
+            var templates = new Dictionary<int, MapRegionTemplate>();
+            foreach (var regionId in sourceParts.Where(part => part.IsPresent).Select(part => part.SourceRegionId).Distinct())
+            {
+                templates.Add(regionId, await templateLoader.LoadAsync(regionId, GetXtea(regionId), cancellationToken));
+            }
+
+            return templates;
+        }
+
+        private readonly record struct SourcePart(int LocalPartX, int LocalPartY, int Z, int SourcePartX, int SourcePartY, int SourceZ, int Rotation, bool IsPresent)
+        {
+            public int SourceRegionId => Regions_MapRegion.GetSourceRegionId(SourcePartX, SourcePartY);
         }
 
         private void DiscardDynamicRegion(ILocation destination, IMapRegion dynamicRegion)
@@ -604,6 +711,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 var dynamicRegion = CreateMapRegion(id, dimension);
                 dynamicRegion.MakeDynamic();
                 mapDimension.ActiveRegions.Add(id, dynamicRegion);
+                _loadScheduler.BeginDynamicPopulation(dynamicRegion);
                 return dynamicRegion;
             }
         }

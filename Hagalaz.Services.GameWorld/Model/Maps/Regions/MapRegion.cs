@@ -30,6 +30,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly ConcurrentStore<int, INpc> _npcs = new();
         private readonly HashSet<int> _nonSuspendableNpcIndexes = [];
         private readonly ConcurrentStore<int, IMapRegionPart> _parts = new();
+        private readonly HashSet<IGameObject> _objectsWithoutCollision = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// Objects a script has explicitly unclipped (a cut web). This runtime override is kept apart
+        /// from <see cref="_objectsWithoutCollision"/>, which is derived from bridges, so neither
+        /// collision restoration nor a bridge going away re-closes them.
+        /// </summary>
+        private readonly HashSet<IGameObject> _unclippedObjects = new(ReferenceEqualityComparer.Instance);
         private readonly CollisionFlag[,,] _collision;
         private DateTime _idleTime = DateTime.MinValue;
         private readonly INpcService _npcService;
@@ -307,6 +315,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var objects = FindAllGameObjects().ToArray();
             var disabledStaticObjects = _parts.SelectMany(part => part.FindAllDisabledStaticGameObjects()).ToArray();
 
+            if (IsDynamic)
+            {
+                try
+                {
+                    ReleaseCollisionInNeighbours(objects);
+                }
+                catch (Exception ex)
+                {
+                    (exceptions ??= []).Add(ex);
+                }
+            }
+
             foreach (var npc in npcs)
             {
                 try
@@ -357,6 +377,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
+        /// <summary>
+        /// A dynamic region's objects can flag collision in neighbouring regions (edge-of-region or large
+        /// objects). Those flags have no owner once the region is gone, so clear them and re-flag the
+        /// neighbours' own objects that overlap. The region's own collision disappears with it.
+        /// </summary>
+        private void ReleaseCollisionInNeighbours(IEnumerable<IGameObject> objects)
+        {
+            var minX = BaseLocation.X;
+            var minY = BaseLocation.Y;
+            foreach (var plane in objects
+                         .Where(obj =>
+                         {
+                             var bounds = GetCollisionBounds(obj);
+                             return bounds.MinX < minX || bounds.MinY < minY || bounds.MaxX >= minX + Hagalaz.Cache.Abstractions.Types.Providers.MapTerrain.MapDimension || bounds.MaxY >= minY + Hagalaz.Cache.Abstractions.Types.Providers.MapTerrain.MapDimension;
+                         })
+                         .GroupBy(obj => obj.Location.Z))
+            {
+                var crossing = plane.ToList();
+                crossing.ForEach(UnFlagCollisionCore);
+                ReflagOverlappingObjects(crossing, plane.Key, includeThisRegion: false);
+            }
+        }
+
         private void EnsureAcceptsMutation()
         {
             if (State == MapRegionState.Discarded)
@@ -386,15 +429,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return CreateRegionPartCore(partHash);
         }
 
-        private MapRegionPart CreateRegionPartCore(int partHash) =>
-            new MapRegionPart(_mapper, _groundItemBuilder, _entityStore)
+        private MapRegionPart CreateRegionPartCore(int partHash)
+        {
+            var partX = partHash & 0x3ff;
+            var partY = (partHash >> 10) & 0x7ff;
+            var z = (partHash >> 21) & 0x3;
+            return new MapRegionPart(_mapper, _groundItemBuilder, _entityStore, partX, partY, z)
             {
-                DrawRegionPartX = partHash & 0x3ff,
-                DrawRegionPartY = (partHash >> 10) & 0x7ff,
-                DrawRegionZ = (partHash >> 21) & 0x3,
-                DrawRegionDimension = BaseLocation.Dimension,
-                HasDrawSource = true,
+                DrawRegionPartX = partX,
+                DrawRegionPartY = partY,
+                DrawRegionZ = z,
+                HasDrawSource = !IsDynamic,
             };
+        }
 
     }
 }

@@ -110,9 +110,16 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IEnumerable<IGameObject> FindAllGameObjects();
 
         /// <summary>
-        /// Resets the region to its standard, unmodified state.
+        /// Finds the enabled game objects on a plane whose collision area can touch the given absolute
+        /// tile area, looking only at the parts that can hold such an object.
         /// </summary>
-        void MakeStandard();
+        IEnumerable<IGameObject> FindGameObjectsOverlapping(int minX, int minY, int maxX, int maxY, int z);
+
+        /// <summary>
+        /// Maps every part to itself and rebuilds objects and floor collision from the region's own template.
+        /// </summary>
+        /// <param name="standardTemplate">The template of this region.</param>
+        void MakeStandard(MapRegionTemplate standardTemplate);
 
         /// <summary>
         /// Marks this region as dynamic, indicating it has been modified.
@@ -150,6 +157,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// </summary>
         /// <param name="gameObj">The game object to add.</param>
         void Add(IGameObject gameObj);
+
+        /// <summary>
+        /// Adds a game object, optionally without collision. The client draws objects whose
+        /// collision plane falls below plane 0 (plane-0 objects under a bridge) without clipping them.
+        /// </summary>
+        /// <param name="gameObj">The game object to add.</param>
+        /// <param name="flagCollision">Whether the object contributes collision.</param>
+        void Add(IGameObject gameObj, bool flagCollision);
 
         /// <summary>
         /// Removes a character from the region.
@@ -234,36 +249,53 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void SendFullPartUpdates(ICharacter character);
 
         /// <summary>
-        /// Gets the data for a specific 8x8 part of the region.
+        /// Gets the 8x8 part at absolute part coordinates (absolute tile / 8).
         /// </summary>
-        /// <param name="partX">The X-coordinate of the region part.</param>
-        /// <param name="partY">The Y-coordinate of the region part.</param>
+        /// <param name="partX">The absolute part X-coordinate.</param>
+        /// <param name="partY">The absolute part Y-coordinate.</param>
         /// <param name="z">The plane (height level).</param>
         /// <returns>The map region part data.</returns>
-        IMapRegionPart GetRegionPartData(int partX, int partY, int z);
+        IMapRegionPart GetRegionPartByAbsolutePart(int partX, int partY, int z);
 
         /// <summary>
-        /// Writes the region's data to a client update block.
+        /// Gets the 8x8 part at a local part index of this region.
         /// </summary>
-        /// <param name="partX">The X-coordinate of the region part.</param>
-        /// <param name="partY">The Y-coordinate of the region part.</param>
+        /// <param name="localPartX">The local part X index (0-7).</param>
+        /// <param name="localPartY">The local part Y index (0-7).</param>
         /// <param name="z">The plane (height level).</param>
-        /// <param name="drawPartX">The X-coordinate of the drawing area.</param>
-        /// <param name="drawPartY">The Y-coordinate of the drawing area.</param>
-        /// <param name="drawPartZ">The plane of the drawing area.</param>
-        void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ);
+        /// <returns>The map region part data.</returns>
+        IMapRegionPart GetRegionPartByLocalPart(int localPartX, int localPartY, int z);
 
         /// <summary>
-        /// Writes a dynamic block while preserving the source part dimension.
+        /// Maps a local part of this dynamic region to a source part and rebuilds the
+        /// affected objects and floor collision from the source templates.
         /// </summary>
-        /// <param name="partX">The X-coordinate of the region part.</param>
-        /// <param name="partY">The Y-coordinate of the region part.</param>
-        /// <param name="z">The plane (height level).</param>
-        /// <param name="drawPartX">The X-coordinate of the drawing area.</param>
-        /// <param name="drawPartY">The Y-coordinate of the drawing area.</param>
-        /// <param name="drawPartZ">The plane of the drawing area.</param>
-        /// <param name="drawPartDimension">The dimension of the source drawing area.</param>
-        void WriteBlock(int partX, int partY, int z, int drawPartX, int drawPartY, int drawPartZ, int drawPartDimension);
+        /// <param name="localPartX">The local part X index (0-7).</param>
+        /// <param name="localPartY">The local part Y index (0-7).</param>
+        /// <param name="z">The destination plane.</param>
+        /// <param name="sourcePartX">The absolute source part X-coordinate.</param>
+        /// <param name="sourcePartY">The absolute source part Y-coordinate.</param>
+        /// <param name="sourceZ">The source plane.</param>
+        /// <param name="templates">Templates by region id, for every source region this region draws.</param>
+        void WriteBlockByIndex(int localPartX, int localPartY, int z, int sourcePartX, int sourcePartY, int sourceZ, IReadOnlyDictionary<int, MapRegionTemplate> templates);
+
+        /// <summary>
+        /// Maps several local parts of this dynamic region at once and rebuilds each affected
+        /// column a single time, so objects are built only for their final mapping.
+        /// </summary>
+        /// <param name="mappings">The part mappings.</param>
+        /// <param name="templates">Templates by region id, for every source region this region draws.</param>
+        void WriteBlocksByIndex(IReadOnlyCollection<MapRegionPartMapping> mappings, IReadOnlyDictionary<int, MapRegionTemplate> templates);
+
+        /// <summary>
+        /// Rotates a local part of this dynamic region and rebuilds the affected content from the source templates.
+        /// </summary>
+        /// <param name="localPartX">The local part X index (0-7).</param>
+        /// <param name="localPartY">The local part Y index (0-7).</param>
+        /// <param name="z">The destination plane.</param>
+        /// <param name="rotation">The part rotation (0-3).</param>
+        /// <param name="templates">Templates by region id, for every source region this region draws.</param>
+        void RotateBlockByIndex(int localPartX, int localPartY, int z, int rotation, IReadOnlyDictionary<int, MapRegionTemplate> templates);
 
         /// <summary>
         /// Queues an update for a part of this map region.

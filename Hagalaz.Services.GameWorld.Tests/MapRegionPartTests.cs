@@ -184,7 +184,7 @@ public sealed class MapRegionPartTests
     {
         mapper = Substitute.For<IMapper>();
         mapper.Map<RaidoMessage>(Arg.Any<object>()).Returns(Substitute.For<RaidoMessage>());
-        return new MapRegionPart(mapper, Substitute.For<Hagalaz.Game.Abstractions.Builders.GroundItem.IGroundItemBuilder>(), new EntityStore());
+        return new MapRegionPart(mapper, Substitute.For<Hagalaz.Game.Abstractions.Builders.GroundItem.IGroundItemBuilder>(), new EntityStore(), 0, 0, 0);
     }
 
     private static ICharacter CreateCharacter()
