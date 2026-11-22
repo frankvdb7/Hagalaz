@@ -1069,6 +1069,25 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void DestroyingAStaleDynamicRegion_KeepsCollisionOwnedByItsSameIdReplacement()
+    {
+        var world = new TestWorld();
+        var neighbour = world.CreateRegion(DestinationRegionX + 1, DestinationRegionY);
+        var stale = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var x = DestinationRegionX * 64 + 63;
+        var y = DestinationRegionY * 64 + 5;
+        stale.Add(TestWorld.CreateGameObject(6, x, y, 0, 0, 0, ShapeType.GroundDefault, Definition(2, 1), isStatic: false));
+        var replacement = world.CreateRegion(DestinationRegionX, DestinationRegionY, replaceExisting: true);
+        replacement.MakeDynamic();
+        replacement.Add(TestWorld.CreateGameObject(7, x, y, 0, 0, 0, ShapeType.GroundDefault, Definition(2, 1), isStatic: false));
+        Assert.IsTrue(neighbour.GetCollision(0, 5, 0).HasFlag(CollisionFlag.ObjectBlock));
+
+        stale.Destroy();
+
+        Assert.IsTrue(neighbour.GetCollision(0, 5, 0).HasFlag(CollisionFlag.ObjectBlock), "The replacement still owns the crossing tile.");
+    }
+
+    [TestMethod]
     public void RemovingAnObject_ReflagsAWideSurvivorRootedTwoRegionsAway()
     {
         var world = new TestWorld();
@@ -1341,12 +1360,20 @@ public sealed class DynamicRegionPartTests
 
         public EntityStore Store { get; } = new();
 
-        public MapRegion CreateRegion(int regionX, int regionY, int dimension = 0)
+        public MapRegion CreateRegion(int regionX, int regionY, int dimension = 0, bool replaceExisting = false)
         {
             var region = new MapRegion(Location.Create(regionX * 64, regionY * 64, 0, dimension), [0, 0, 0, 0],
                 Substitute.For<INpcService>(), _regionService, _builder, Substitute.For<IGroundItemBuilder>(),
                 Substitute.For<IMapper>(), Store);
-            _regions.Add((region.Id, dimension), region);
+            if (replaceExisting)
+            {
+                _regions[(region.Id, dimension)] = region;
+            }
+            else
+            {
+                _regions.Add((region.Id, dimension), region);
+            }
+
             return region;
         }
 

@@ -264,13 +264,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 for (var regionY = firstRegionY; regionY <= area.MaxY >> 6; regionY++)
                 {
                     var regionId = (regionX << 8) | regionY;
-                    if (regionX < 0 || regionY < 0 || regionId == Id)
+                    if (regionX < 0 || regionY < 0)
                     {
                         continue;
                     }
 
+                    // A region id is not an instance identity: a newer region may now hold this region's id.
                     var region = _regionService.FindMapRegion(regionId, BaseLocation.Dimension);
-                    if (region is not null && region.State != MapRegionState.Discarded)
+                    if (region is not null && !ReferenceEquals(region, this) && region.State != MapRegionState.Discarded)
                     {
                         yield return region;
                     }
