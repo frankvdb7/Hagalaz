@@ -893,6 +893,30 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void RemovedStaticMovingOntoAnUnmappedPlane_IsRelocatedAndCanRespawn()
+    {
+        // Only plane 1 is mapped: the rotated static chunk and the root column's bridge source (bridge off at first).
+        var templates = CreateSpawnAndRotatedStaticTemplates();
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], templates);
+        var removed = destination.FindStandardGameObject(47, 55, 1)!;
+        Assert.AreEqual(51, removed.Id);
+        destination.Remove(removed);
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
+
+        Assert.AreEqual(0, removed.Location.Z);
+        Assert.AreSame(removed, destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0).FindAllDisabledStaticGameObjects().Single());
+        Assert.IsFalse(destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 1).FindAllDisabledStaticGameObjects().Any());
+        destination.Add(removed);
+        Assert.AreSame(removed, destination.FindStandardGameObject(47, 55, 0));
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));

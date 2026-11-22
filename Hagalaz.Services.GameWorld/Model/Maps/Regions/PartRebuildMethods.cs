@@ -308,10 +308,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         private void RelocateDisabledStatic(IGameObject gameObject, int plane)
         {
-            var from = _parts[gameObject.Location.GetRegionPartHash()]!;
-            from.DetachDisabledStatic(gameObject);
-            gameObject.Relocate(Location.Create(gameObject.Location.X, gameObject.Location.Y, plane, gameObject.Location.Dimension));
-            _parts[gameObject.Location.GetRegionPartHash()]!.AttachDisabledStatic(gameObject);
+            // The target plane's part may never have been materialized (unmapped plane): create it first.
+            var target = Location.Create(gameObject.Location.X, gameObject.Location.Y, plane, gameObject.Location.Dimension);
+            var targetPart = _parts.GetOrAdd(target.GetRegionPartHash(), CreateRegionPart);
+            _parts[gameObject.Location.GetRegionPartHash()]!.DetachDisabledStatic(gameObject);
+            gameObject.Relocate(target);
+            targetPart.AttachDisabledStatic(gameObject);
         }
 
         private bool IsDisabledStatic(IGameObject gameObject) =>
