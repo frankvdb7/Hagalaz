@@ -27,14 +27,14 @@ codes MUST NOT determine whether a part has a source mapping.
 - **AND** loading that part MUST not perform template lookup or copy objects
 
 ### Requirement: Dynamic destinations have a separate readiness path
-Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. A dynamic destination is never visible while incomplete: its id is only recorded as pending while its source mappings and templates load, and it is registered, populated and marked `Ready` while holding the residency gate, so no thread can obtain it before it is ready. A pending id never changes ordinary region lookups. A standard source maps every part to itself, so it MUST NOT be created, loaded or awaited: only its map template is read, once. A dynamic source MUST NOT be given to the normal load scheduler: it is resumed if it was suspended and revalidated as the exact canonical active Ready instance before its part mappings are used.
+Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. A dynamic destination is never visible while incomplete: its id is only recorded as pending while its source mappings and templates load, and it is populated privately without holding the residency gate (its own collision is flagged directly) and registered only once it is `Ready`, so no thread can obtain it before it is ready. A pending id never changes ordinary region lookups. A standard source maps every part to itself, so it MUST NOT be created, loaded or awaited: only its map template is read, once. A dynamic source MUST NOT be given to the normal load scheduler: it is resumed if it was suspended and revalidated as the exact canonical active Ready instance before its part mappings are used.
 
 #### Scenario: A fresh dynamic destination is created
 
 - **WHEN** dynamic creation requests a destination with no existing region
 - **THEN** the service MUST record the destination id as pending and expose no region under it while templates load
 - **AND** it MUST NOT request normal loading for that destination
-- **AND** it MUST publish the destination as a `Ready` dynamic region only after every part is populated
+- **AND** it MUST register the destination as a `Ready` dynamic region only after every part is populated, holding the residency gate only for that registration
 
 #### Scenario: An ordinary region appears while the destination is pending
 

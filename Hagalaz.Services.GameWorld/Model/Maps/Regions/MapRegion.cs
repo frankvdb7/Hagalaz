@@ -50,6 +50,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public ILocation BaseLocation { get; }
         public IVector3 Size { get; }
         public bool IsDynamic { get; private set; }
+
+        /// <summary>
+        /// Gets a value indicating whether the region is still being prepared privately: it is not registered with
+        /// the region service, so no other thread can obtain it.
+        /// </summary>
+        internal bool IsUnpublished { get; private set; }
+
+        internal void BeginUnpublishedPreparation() => IsUnpublished = true;
+
+        internal void MarkPublished() => IsUnpublished = false;
         private int _state = (int)MapRegionState.Initializing;
         public MapRegionState State => (MapRegionState)Volatile.Read(ref _state);
         public bool HasNonSuspendableNpcs => _nonSuspendableNpcIndexes.Count > 0;

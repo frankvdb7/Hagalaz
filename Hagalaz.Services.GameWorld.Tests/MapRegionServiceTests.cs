@@ -690,7 +690,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public async Task CreateDynamicRegion_OtherThreadsCannotObserveTheRegionBeforeItIsReady()
+    public async Task CreateDynamicRegion_PopulatesPrivatelyWithoutBlockingOtherThreadsOrExposingTheRegion()
     {
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -710,15 +710,20 @@ public sealed class MapRegionServiceTests
 
         var population = Task.Run(() => taskService.Tick());
         Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)), "Population never reached the object spawn.");
-        var observer = Task.Run(() => service.FindMapRegion(destination.RegionId, destination.Dimension));
-
-        await Task.Delay(200);
-        Assert.IsFalse(observer.IsCompleted, "Another thread obtained the region while it was being populated.");
+        // while an object script runs, other threads neither see the region nor wait on the residency gate
+        var unrelated = Location.Create(64, 64, 0, 0);
+        var observed = Task.Run(() => (
+            Destination: service.FindMapRegion(destination.RegionId, destination.Dimension),
+            Unrelated: service.GetOrCreateMapRegion(unrelated.RegionId, unrelated.Dimension)));
+        Assert.IsTrue(observed.Wait(TimeSpan.FromSeconds(2)), "A lookup waited on the dynamic region's population.");
+        Assert.IsNull(observed.Result.Destination, "Another thread obtained the region while it was being populated.");
+        Assert.IsNotNull(observed.Result.Unrelated);
 
         release.Set();
         await population;
-        var observed = await observer;
-        Assert.AreEqual(MapRegionState.Ready, observed!.State);
+        var published = service.FindMapRegion(destination.RegionId, destination.Dimension);
+        Assert.AreEqual(MapRegionState.Ready, published!.State);
+        Assert.IsTrue(published.IsDynamic);
     }
 
     [TestMethod]
