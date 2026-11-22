@@ -195,12 +195,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 MaterializePart(key, templates, carried.GetValueOrDefault(key));
             }
 
-            foreach (var leftover in _reusePool.Values.SelectMany(pool => pool).GroupBy(obj => obj.Location.GetRegionPartHash()))
+            var leftovers = _reusePool.Values
+                .SelectMany(pool => pool)
+                .GroupBy(obj => obj.Location.GetRegionPartHash())
+                .Select(group => (Storage: _parts[group.Key], Objects: group.ToList()))
+                .Where(group => group.Storage is not null);
+            foreach (var (storage, objects) in leftovers)
             {
-                if (_parts[leftover.Key] is { } storage)
-                {
-                    removed.AddRange(DiscardObjects(storage, leftover.ToList()));
-                }
+                removed.AddRange(DiscardObjects(storage!, objects));
             }
 
             _reusePool.Clear();
