@@ -110,6 +110,12 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IEnumerable<IGameObject> FindAllGameObjects();
 
         /// <summary>
+        /// Finds the enabled game objects on a plane whose collision area can touch the given absolute
+        /// tile area, looking only at the parts that can hold such an object.
+        /// </summary>
+        IEnumerable<IGameObject> FindGameObjectsOverlapping(int minX, int minY, int maxX, int maxY, int z);
+
+        /// <summary>
         /// Maps every part to itself and rebuilds objects and floor collision from the region's own template.
         /// </summary>
         /// <param name="standardTemplate">The template of this region.</param>

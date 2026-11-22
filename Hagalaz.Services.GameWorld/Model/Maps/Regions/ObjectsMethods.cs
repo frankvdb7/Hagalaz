@@ -14,6 +14,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         public IEnumerable<IGameObject> FindAllGameObjects() => _parts.SelectMany(part => part.FindAllGameObjects());
 
+        /// <summary>
+        /// The largest side, in tiles, of any object added to this region. A survivor is rooted at most
+        /// this far before an area it overlaps.
+        /// </summary>
+        private int _maxObjectExtent = 1;
+
+        public IEnumerable<IGameObject> FindGameObjectsOverlapping(int minX, int minY, int maxX, int maxY, int z)
+        {
+            var objects = new List<IGameObject>();
+            for (var partX = Math.Max(0, (minX - _maxObjectExtent) >> 3); partX <= (maxX + 1) >> 3; partX++)
+            {
+                for (var partY = Math.Max(0, (minY - _maxObjectExtent) >> 3); partY <= (maxY + 1) >> 3; partY++)
+                {
+                    if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(partX, partY, z), out var part))
+                    {
+                        objects.AddRange(part.FindAllGameObjects());
+                    }
+                }
+            }
+
+            return objects;
+        }
+
         public IEnumerable<IGameObject> FindGameObjects(int localX, int localY, int z)
         {
             var standard = FindStandardGameObject(localX, localY, z);
@@ -113,6 +136,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 _objectsWithoutCollision.Add(gameObject);
             }
 
+            _maxObjectExtent = Math.Max(_maxObjectExtent, Math.Max(gameObject.Definition.SizeX, gameObject.Definition.SizeY));
             part.Add(gameObject);
             if (replaced is not null && !OwnsGameObject(replaced) && !IsDisabledStatic(replaced))
             {
@@ -180,7 +204,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 (Math.Min(a.MinX, b.MinX), Math.Min(a.MinY, b.MinY), Math.Max(a.MaxX, b.MaxX), Math.Max(a.MaxY, b.MaxY)));
             foreach (var region in FindRegionsThatCanOverlap(affected))
             {
-                foreach (var survivor in region.FindAllGameObjects().Where(obj => obj.Location.Z == z).ToList())
+                foreach (var survivor in region.FindGameObjectsOverlapping(affected.MinX, affected.MinY, affected.MaxX, affected.MaxY, z).ToList())
                 {
                     var bounds = GetCollisionBounds(survivor);
                     if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)

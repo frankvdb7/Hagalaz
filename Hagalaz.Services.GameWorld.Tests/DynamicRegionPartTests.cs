@@ -917,6 +917,26 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void FindGameObjectsOverlapping_LooksOnlyAtPartsThatCanHoldAnOverlappingObject()
+    {
+        var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var baseX = DestinationRegionX * 64;
+        var baseY = DestinationRegionY * 64;
+        var wide = TestWorld.CreateGameObject(1, baseX + 4, baseY + 14, 0, 0, 0, ShapeType.GroundDefault, Definition(12, 1), isStatic: false);
+        var near = TestWorld.CreateGameObject(2, baseX + 14, baseY + 15, 0, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        var unrelated = TestWorld.CreateGameObject(3, baseX + 40, baseY + 40, 0, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        var otherPlane = TestWorld.CreateGameObject(4, baseX + 14, baseY + 14, 1, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        foreach (var gameObject in new[] { wide, near, unrelated, otherPlane })
+        {
+            region.Add(gameObject);
+        }
+
+        var found = region.FindGameObjectsOverlapping(baseX + 14, baseY + 14, baseX + 14, baseY + 14, 0).ToList();
+
+        CollectionAssert.AreEquivalent(new[] { wide, near }, found, "A wide object rooted parts away is a candidate; unrelated parts and planes are not scanned.");
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));
