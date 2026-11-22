@@ -217,6 +217,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 _partContent[key] = new PartContent();
             }
 
+            // Settle each live object's collision for the new bridges first, so slot claims during the
+            // rebuild are resolved against final collision (collidable beats collision-less), not
+            // against what the object had before.
+            foreach (var (key, pool) in pass.ReusePool)
+            {
+                foreach (var gameObject in pool)
+                {
+                    var finalCollision = HasFinalCollision(gameObject, key, templates);
+                    if (_builtObjects[gameObject].HasCollision != finalCollision)
+                    {
+                        SetCollision(gameObject, finalCollision, pass);
+                    }
+                }
+            }
+
             foreach (var key in parts.OrderBy(GetBuildRank))
             {
                 MaterializePart(key, templates, carried.GetValueOrDefault(key), pass);
@@ -451,11 +466,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 if (pass.ReusePool.TryGetValue(key, out var pool) && TakeReusable(pool, localX, localY, plane, entry, rotation) is { } reused)
                 {
                     content.Objects.Add(reused);
-                    if (_builtObjects[reused].HasCollision != hasCollision)
-                    {
-                        SetCollision(reused, hasCollision, pass);
-                    }
-
                     continue;
                 }
 
@@ -488,6 +498,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
         }
+
+        /// <summary>
+        /// Whether a part's live object has collision under the current bridges: statics lose it where
+        /// the tile is a bridge and the draw plane has no plane below; configured spawns always have it.
+        /// </summary>
+        private bool HasFinalCollision(IGameObject gameObject, int partKey, IReadOnlyDictionary<int, MapRegionTemplate> templates) =>
+            !_builtObjects[gameObject].IsStatic
+            || MapTerrain.GetCollisionPlane(partKey % Planes, IsBridgeTile(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, templates, null)) >= 0;
 
         /// <summary>
         /// Moves a reused object between having collision and not (a bridge appeared or went) without

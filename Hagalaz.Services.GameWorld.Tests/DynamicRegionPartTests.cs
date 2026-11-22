@@ -775,6 +775,34 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void BridgeUnderTheWinningStatic_LetsTheCollidableConfiguredSpawnTakeTheSlot()
+    {
+        // A (column (5, 6)) is a configured spawn at (47, 55). B (column (6, 6), rotated by 2, so it loads
+        // later) is a static whose 2x1 object roots on the same slot and wins it while both have collision.
+        var flags = new sbyte[4, 64, 64];
+        flags[1, SourceMinX + 8 + 7, SourceMinY + 7] = 0x2;
+        var template = new MapRegionTemplate(SourceRegionId, [], [],
+        [
+            new MapRegionTemplateObject(50, SourceMinX + 7, SourceMinY + 7, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, false),
+            new MapRegionTemplateObject(51, SourceMinX + 8 + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Definition(2, 1), true)
+        ], flags);
+        var templates = Templates(template);
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX + 1, SourcePartY, SourceZ, 2),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], templates);
+        Assert.AreEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
+
+        Assert.AreEqual(50, destination.FindStandardGameObject(47, 55, 0)?.Id);
+        Assert.IsTrue(destination.GetCollision(47, 55, 0).HasFlag(CollisionFlag.ObjectBlock));
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));
