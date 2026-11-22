@@ -567,7 +567,7 @@ public sealed class MapRegionLoaderTests
         AssertPinnedCollision12850(Collision12850(region));
     }
 
-    private static string Fixture12850(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", "maps", name);
+    private static string Fixture12850(string name) => Path.Join(AppContext.BaseDirectory, "Fixtures", "maps", name);
 
     private static int[][] Collision12850(IMapRegion region) => Enumerable.Range(0, 4).Select(plane => Enumerable.Range(0, 4096)
         .Select(tile => (int)region.GetCollision(tile / 64, tile % 64, plane)).ToArray()).ToArray();
