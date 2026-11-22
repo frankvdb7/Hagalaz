@@ -91,6 +91,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Writing");
+            ValidateEdit(localPartX, localPartY, z, new PartDescriptor(sourcePartX, sourcePartY, sourceZ, true, 0));
             var current = PartDescriptor.Of(GetRegionPartByLocalPart(localPartX, localPartY, z));
             EditParts([(localPartX, localPartY, z, new PartDescriptor(sourcePartX, sourcePartY, sourceZ, true, current.Rotation))], templates);
         }
@@ -117,6 +118,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Rotating");
+            ValidateEdit(localPartX, localPartY, z, PartDescriptor.Absent with { Rotation = rotation });
             var current = PartDescriptor.Of(GetRegionPartByLocalPart(localPartX, localPartY, z));
             if (current.Rotation == rotation)
             {
@@ -133,6 +135,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Deleting");
+            ValidateEdit(localPartX, localPartY, z, PartDescriptor.Absent);
             EditParts([(localPartX, localPartY, z, PartDescriptor.Absent)], templates);
         }
 

@@ -917,6 +917,52 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void InvalidEdits_AreRejectedBeforeAnythingIsApplied()
+    {
+        var (region, template) = CreateTwoPlaneRegion();
+        var templates = Templates(template);
+        var part = region.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        var objects = region.FindAllGameObjects().ToList();
+        Assert.IsTrue(objects.Count > 0);
+        var descriptor = (part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation);
+        var collision = region.GetCollision(DestinationMinX + 1, DestinationMinY + 1, 0);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, 4, templates));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 4, SourcePartX, SourcePartY, 0, templates));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.WriteBlockByIndex(8, DestinationLocalPartY, 0, SourcePartX, SourcePartY, 0, templates));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, -1, SourcePartY, 0, templates));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.RotateBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, 4, templates));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.DeleteBlockByIndex(DestinationLocalPartX, -1, 0, templates));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => region.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, 0, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, 0, 5)
+        ], templates));
+
+        Assert.AreEqual(descriptor, (part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.Rotation));
+        CollectionAssert.AreEqual(objects, region.FindAllGameObjects().ToList());
+        Assert.AreEqual(collision, region.GetCollision(DestinationMinX + 1, DestinationMinY + 1, 0));
+    }
+
+    [TestMethod]
+    public void GameObjectRelocate_OnlyMovesARemovedStaticToAnotherPlaneOfItsTile()
+    {
+        var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var x = DestinationRegionX * 64 + DestinationMinX;
+        var y = DestinationRegionY * 64 + DestinationMinY;
+        var enabled = (GameObject)TestWorld.CreateGameObject(90, x, y, 0, 0, 0, ShapeType.GroundDefault, Standard1X1);
+        region.Add(enabled);
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => enabled.Relocate(Location.Create(x, y, 1, 0)), "An enabled object cannot move.");
+
+        region.Remove(enabled);
+        Assert.ThrowsExactly<InvalidOperationException>(() => enabled.Relocate(Location.Create(x + 1, y, 0, 0)), "Not to another tile.");
+        Assert.ThrowsExactly<InvalidOperationException>(() => enabled.Relocate(Location.Create(x, y, 0, 1)), "Not to another dimension.");
+        enabled.Relocate(Location.Create(x, y, 1, 0));
+        Assert.AreEqual(1, enabled.Location.Z);
+    }
+
+    [TestMethod]
     public void FindDisabledStaticGameObject_ReturnsTheRemovedStaticOfExactlyThatSlot()
     {
         var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);

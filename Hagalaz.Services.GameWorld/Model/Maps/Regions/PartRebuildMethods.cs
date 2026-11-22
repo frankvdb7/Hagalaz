@@ -7,6 +7,7 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Utilities;
+using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 {
@@ -74,11 +75,42 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private static int GetBuildRank(int partKey) => partKey % Planes * PartsPerRegionAxis * PartsPerRegionAxis + partKey / Planes;
 
         /// <summary>
+        /// Rejects an edit whose indices, planes, rotation or source part are out of range, before anything is applied.
+        /// </summary>
+        private static void ValidateEdit(int localPartX, int localPartY, int z, PartDescriptor target)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(localPartX);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(localPartX, PartsPerRegionAxis);
+            ArgumentOutOfRangeException.ThrowIfNegative(localPartY);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(localPartY, PartsPerRegionAxis);
+            ArgumentOutOfRangeException.ThrowIfNegative(z);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(z, Planes);
+            ArgumentOutOfRangeException.ThrowIfNegative(target.Rotation);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(target.Rotation, 3);
+            if (!target.HasSource)
+            {
+                return;
+            }
+
+            ArgumentOutOfRangeException.ThrowIfNegative(target.SourcePartX);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(target.SourcePartX, 0x3ff);
+            ArgumentOutOfRangeException.ThrowIfNegative(target.SourcePartY);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(target.SourcePartY, 0x7ff);
+            ArgumentOutOfRangeException.ThrowIfNegative(target.SourceZ);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(target.SourceZ, Planes);
+        }
+
+        /// <summary>
         /// Validates the target descriptors, applies them, then rebuilds every affected part once.
         /// </summary>
         private void EditParts(IReadOnlyList<(int LocalPartX, int LocalPartY, int Z, PartDescriptor Target)> edits, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             ArgumentNullException.ThrowIfNull(templates);
+            foreach (var (localPartX, localPartY, z, target) in edits)
+            {
+                ValidateEdit(localPartX, localPartY, z, target);
+            }
+
             var targets = new Dictionary<int, PartDescriptor>();
             foreach (var (localPartX, localPartY, z, target) in edits)
             {
@@ -233,7 +265,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                         // A static removed at runtime keeps its identity (a scheduled respawn re-adds this
                         // very object, and clients hide the base-map object by its entry), so it moves to
                         // the plane it now belongs on, freeing its old slot, unless something else holds the new one.
-                        if (IsDisabledStatic(gameObject)
+                        if (gameObject is GameObject && IsDisabledStatic(gameObject)
                             && ClaimSlot(key, _partContent[key], gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, finalPlane, built.Shape.GetLayerType(), finalCollision, pass))
                         {
                             RelocateDisabledStatic(gameObject, finalPlane);
@@ -312,7 +344,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var target = Location.Create(gameObject.Location.X, gameObject.Location.Y, plane, gameObject.Location.Dimension);
             var targetPart = _parts.GetOrAdd(target.GetRegionPartHash(), CreateRegionPart);
             _parts[gameObject.Location.GetRegionPartHash()]!.DetachDisabledStatic(gameObject);
-            gameObject.Relocate(target);
+            ((GameObject)gameObject).Relocate(target);
             targetPart.AttachDisabledStatic(gameObject);
         }
 

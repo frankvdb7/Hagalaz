@@ -33,8 +33,21 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.GameObjects
         /// </summary>
         public ILocation Location { get; private set; }
 
-        /// <inheritdoc />
-        public void Relocate(ILocation location) => Location = location;
+        /// <summary>
+        /// Moves a removed static object to another plane of its own tile, keeping its identity. Only
+        /// the owning map region may do this, together with re-registering the object in the part of
+        /// its new plane.
+        /// </summary>
+        internal void Relocate(ILocation location)
+        {
+            if (!IsStatic || !IsDisabled
+                || location.X != Location.X || location.Y != Location.Y || location.Dimension != Location.Dimension)
+            {
+                throw new InvalidOperationException("Only a removed static object can move, and only to another plane of its tile.");
+            }
+
+            Location = location;
+        }
 
         /// <summary>
         /// Contains definition of this object.
