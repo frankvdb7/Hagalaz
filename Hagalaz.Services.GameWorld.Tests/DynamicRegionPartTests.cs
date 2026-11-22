@@ -851,14 +851,7 @@ public sealed class DynamicRegionPartTests
         // A: configured spawn from column (5, 6) plane 0, at (47, 55). B: plane-1 chunk of column (6, 6),
         // rotated by 2, whose static 2x1 object roots on that tile in column (5, 6). While column (5, 6)
         // has a bridge on plane 1 there, B is placed on plane 0 and beats A; without it B sits on plane 1.
-        var templates = CreateSpawnAndRotatedStaticTemplates();
-        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlocksByIndex(
-        [
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
-            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
-        ], templates);
+        var (destination, templates) = CreateBridgeMovedStaticRegion();
         Assert.AreEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
 
         destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, templates);
@@ -871,14 +864,7 @@ public sealed class DynamicRegionPartTests
     [TestMethod]
     public void RemovedStaticMovingOffAPlane_StaysRemovedOnBothPlanes()
     {
-        var templates = CreateSpawnAndRotatedStaticTemplates();
-        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlocksByIndex(
-        [
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
-            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
-        ], templates);
+        var (destination, templates) = CreateBridgeMovedStaticRegion();
         var removed = destination.FindStandardGameObject(47, 55, 0)!;
         Assert.AreEqual(51, removed.Id);
         destination.Remove(removed);
@@ -931,6 +917,21 @@ public sealed class DynamicRegionPartTests
             new MapRegionTemplateObject(50, SourceMinX + 7, SourceMinY + 7, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, false),
             new MapRegionTemplateObject(51, SourceMinX + 8 + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Definition(2, 1), true)
         ], flags));
+    }
+
+    // Column (5, 6) plane 0 holds the spawn, column (6, 6) plane 1 holds the rotated static, and plane 1 of
+    // column (5, 6) maps the bridge chunk, so the static sits on plane 0 at the spawn's tile.
+    private static (MapRegion Destination, IReadOnlyDictionary<int, MapRegionTemplate> Templates) CreateBridgeMovedStaticRegion()
+    {
+        var templates = CreateSpawnAndRotatedStaticTemplates();
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
+        ], templates);
+        return (destination, templates);
     }
 
     // The same column on planes 0 and 1, both mapped from the same bridge-free source chunk.
