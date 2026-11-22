@@ -27,7 +27,7 @@ The template loader is the single owner of "what a region's base map contains". 
 
 ### D2. Async preparation, synchronous materialization
 
-`MapRegionService.CreateDynamicRegion` records the destination id as pending (no region is visible) while templates load. It reads the source's part descriptors by local index, loads the template of each distinct referenced source region id with `IMapRegionTemplateLoader`, then registers the destination, performs the synchronous writes and marks it `Ready` while holding the residency gate, so no thread can see an unpopulated dynamic region. If an ordinary region took the id meanwhile, creation fails and leaves it untouched; a source whose own creation is still pending is rejected. Part operations on `IMapRegion` take the resolved source template as a parameter:
+`MapRegionService.CreateDynamicRegion` records the destination id as pending (no region is visible) while templates load. It reads the source's part descriptors by local index, loads the template of each distinct referenced source region id with `IMapRegionTemplateLoader`, then registers the destination under the residency gate and performs the synchronous writes and `MarkReady` outside it, so object spawn scripts never run under the world-wide lock and no game tick sees an unpopulated dynamic region; other threads see an ordinary `Initializing` region. If an ordinary region took the id meanwhile, creation fails and leaves it untouched; a source whose own creation is still pending is rejected. Part operations on `IMapRegion` take the resolved source template as a parameter:
 
 - `WriteBlockByIndex(localX, localY, z, sourcePartX, sourcePartY, sourceZ, MapRegionTemplate source)`
 - `RotateBlockByIndex(localX, localY, z, rotation, MapRegionTemplate source)`

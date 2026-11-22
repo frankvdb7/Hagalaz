@@ -479,8 +479,8 @@ namespace Hagalaz.Services.GameWorld.Services
         /// </summary>
         /// <remarks>
         /// The destination only exists as a pending entry while its source mappings and templates load, so no incomplete
-        /// region is ever visible. It is then registered, populated and marked ready under the residency gate, so no
-        /// other thread can obtain it before it is ready.
+        /// region is ever visible. It is then registered and populated within one game task without an await, taking the residency
+        /// gate only to register it.
         /// </remarks>
         /// <param name="source">The source.</param>
         /// <param name="destination">The destination.</param>
@@ -539,10 +539,12 @@ namespace Hagalaz.Services.GameWorld.Services
         }
 
         /// <summary>
-        /// Registers, populates and readies the destination while holding the residency gate, after re-checking that
-        /// its dimension, an ordinary region under its id and a dynamic source are still as expected. The gate is
-        /// re-entrant for the creating thread, which flags collision through the service while populating; every other
-        /// thread waits and then sees a ready region.
+        /// Registers the destination while holding the residency gate, after re-checking that its dimension, an
+        /// ordinary region under its id and a dynamic source are still as expected, then populates and readies it
+        /// without the gate, so object spawn scripts never run under the world-wide lock. Population is one game task
+        /// without an await, so no game tick observes the region before it is ready; any other thread that looks it up
+        /// meanwhile sees an ordinary <see cref="MapRegionState.Initializing"/> region, which every consumer treats as
+        /// not yet usable.
         /// </summary>
         private void PublishPopulatedDynamicRegion(
             ILocation source,
@@ -552,6 +554,7 @@ namespace Hagalaz.Services.GameWorld.Services
             IReadOnlyList<SourcePart> sourceParts,
             IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
+            IMapRegion dynamicRegion;
             lock (_residencyGate)
             {
                 if (!ReferenceEquals(_dimensions[destination.Dimension], destinationDimension))
@@ -575,28 +578,29 @@ namespace Hagalaz.Services.GameWorld.Services
                     }
                 }
 
-                var dynamicRegion = CreateMapRegion(destination.RegionId, destination.Dimension);
+                dynamicRegion = CreateMapRegion(destination.RegionId, destination.Dimension);
                 dynamicRegion.MakeDynamic();
                 destinationDimension.ActiveRegions.Add(destination.RegionId, dynamicRegion);
                 destinationDimension.PendingDynamicRegions.Remove(destination.RegionId);
-                try
-                {
-                    // Dynamic block population can invoke object scripts while loading copied objects.
-                    // All mappings are applied first and each column is built once, so object
-                    // spawn hooks only run for the final content.
-                    dynamicRegion.WriteBlocksByIndex(
-                        sourceParts
-                            .Where(part => part.IsPresent)
-                            .Select(part => new MapRegionPartMapping(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, part.Rotation))
-                            .ToList(),
-                        templates);
-                    dynamicRegion.MarkReady();
-                }
-                catch
-                {
-                    DiscardDynamicRegion(destination, dynamicRegion);
-                    throw;
-                }
+            }
+
+            try
+            {
+                // Dynamic block population can invoke object scripts while loading copied objects.
+                // All mappings are applied first and each column is built once, so object
+                // spawn hooks only run for the final content.
+                dynamicRegion.WriteBlocksByIndex(
+                    sourceParts
+                        .Where(part => part.IsPresent)
+                        .Select(part => new MapRegionPartMapping(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, part.Rotation))
+                        .ToList(),
+                    templates);
+                dynamicRegion.MarkReady();
+            }
+            catch
+            {
+                DiscardDynamicRegion(destination, dynamicRegion);
+                throw;
             }
         }
 

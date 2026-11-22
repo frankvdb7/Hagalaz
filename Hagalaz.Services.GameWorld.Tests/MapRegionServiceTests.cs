@@ -690,7 +690,7 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public async Task CreateDynamicRegion_OtherThreadsCannotObserveTheRegionBeforeItIsReady()
+    public async Task CreateDynamicRegion_PopulationDoesNotHoldTheResidencyGateAndOtherThreadsOnlySeeAnInitializingRegion()
     {
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -705,20 +705,26 @@ public sealed class MapRegionServiceTests
         using var provider = CreateProvider(templateLoader: templateLoader);
         var service = CreateService(provider, new LocationBuilder(), CreateGameObjectBuilder(script));
         var destination = Location.Create(640, 640, 0, 0);
+        var unrelated = Location.Create(64, 64, 0, 0);
         var taskService = provider.GetRequiredService<IRsTaskService>();
         service.CreateDynamicRegion(Location.Create(3200, 3264, 0, 0), destination);
 
         var population = Task.Run(() => taskService.Tick());
         Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(5)), "Population never reached the object spawn.");
-        var observer = Task.Run(() => service.FindMapRegion(destination.RegionId, destination.Dimension));
 
-        await Task.Delay(200);
-        Assert.IsFalse(observer.IsCompleted, "Another thread obtained the region while it was being populated.");
+        // while an object script runs, other threads are not blocked, and the region is not usable yet
+        var observed = Task.Run(() => (
+            Destination: service.FindMapRegion(destination.RegionId, destination.Dimension),
+            Unrelated: service.GetOrCreateMapRegion(unrelated.RegionId, unrelated.Dimension)));
+        Assert.IsTrue(observed.Wait(TimeSpan.FromSeconds(2)), "A lookup waited on the dynamic region's population.");
+        Assert.AreEqual(MapRegionState.Initializing, observed.Result.Destination?.State);
+        Assert.IsNotNull(observed.Result.Unrelated);
 
         release.Set();
         await population;
-        var observed = await observer;
-        Assert.AreEqual(MapRegionState.Ready, observed!.State);
+        var published = service.FindMapRegion(destination.RegionId, destination.Dimension);
+        Assert.AreEqual(MapRegionState.Ready, published!.State);
+        Assert.IsTrue(published.IsDynamic);
     }
 
     [TestMethod]
