@@ -24,6 +24,7 @@
 - [x] 3.9 Remove runtime objects of a replaced part while keeping objects other columns placed there; verify `Delete_RemovesRuntimeObjectsButKeepsObjectsPlacedByOtherColumns`
 - [x] 3.10 Keep plane-0 objects under a bridge without collision, yielding to objects with collision, in dynamic parts and standard loads; verify `PlaneZeroObjectUnderABridge_IsKeptWithoutCollisionUntilTheBridgeGoes`, `LoadAsync_AddsPlaneZeroObjectUnderABridgeWithoutCollision` and the 12850 client-rule test
 - [x] 3.11 Rebuild columns that read an edited plane-1 chunk's bridge flags; verify `ChangingABridgeChunk_RebuildsColumnsThatReadIt`
+- [x] 3.12 Unflag a replaced object's collision and re-flag overlaps; flag an added object before its spawn hook and drop collision of objects the hook removes; verify `ReplacingAnObject_ClearsTheReplacedFootprintUntilTheChunkIsDeleted` and `SpawnHookThatRemovesTheObject_LeavesNoCollisionAndKeepsOverlaps`
 
 ## 4. Dynamic creation
 

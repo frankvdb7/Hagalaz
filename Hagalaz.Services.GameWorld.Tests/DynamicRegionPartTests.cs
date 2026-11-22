@@ -485,6 +485,64 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void ReplacingAnObject_ClearsTheReplacedFootprintUntilTheChunkIsDeleted()
+    {
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(CreateSourceTemplate()));
+        // The 1x1 replaces the 2x3 object (source index 1) rooted on the same tile and layer.
+        var (rootX, rootY) = ExpectedObjectPositions[0][1];
+        destination.Add(TestWorld.CreateGameObject(90, DestinationRegionX * 64 + DestinationMinX + rootX, DestinationRegionY * 64 + DestinationMinY + rootY, 0, 0, 0,
+            ShapeType.GroundDefault, Standard1X1));
+        for (var index = 0; index < SourceObjects.Length; index++)
+        {
+            var source = SourceObjects[index];
+            var (x, y) = ExpectedObjectPositions[0][index];
+            expected.Add(index == 1
+                ? TestWorld.CreateGameObject(90, DestinationRegionX * 64 + DestinationMinX + x, DestinationRegionY * 64 + DestinationMinY + y, 0, 1, 0, ShapeType.GroundDefault, Standard1X1)
+                : TestWorld.CreateGameObject(source.Id, DestinationRegionX * 64 + DestinationMinX + x, DestinationRegionY * 64 + DestinationMinY + y, 0, 1, source.Rotation, source.Shape, source.Definition));
+        }
+
+        expected.FlagCollision(DestinationMinX + SourceFloorBlock.X, DestinationMinY + SourceFloorBlock.Y, 0, CollisionFlag.FloorBlock);
+
+        CollectionAssert.AreEqual(Collision(expected), Collision(destination));
+
+        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, Templates(CreateSourceTemplate()));
+
+        Assert.IsTrue(Collision(destination).All(flag => flag == CollisionFlag.Walkable));
+    }
+
+    [TestMethod]
+    public void SpawnHookThatRemovesTheObject_LeavesNoCollisionAndKeepsOverlaps()
+    {
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var expected = world.CreateRegion(DestinationRegionX, DestinationRegionY, dimension: 1);
+        var baseX = DestinationRegionX * 64;
+        var baseY = DestinationRegionY * 64;
+        // A 2x3 object rooted at (10, 10) covers (11, 11), the tile of the self-removing object.
+        destination.Add(TestWorld.CreateGameObject(91, baseX + 10, baseY + 10, 0, 0, 0, ShapeType.GroundDefault, Standard2X3));
+        expected.Add(TestWorld.CreateGameObject(91, baseX + 10, baseY + 10, 0, 1, 0, ShapeType.GroundDefault, Standard2X3));
+        GameObject CreateSelfRemoving(int id, int localX, int localY)
+        {
+            var script = Substitute.For<IGameObjectScript>();
+            GameObject? self = null;
+            script.When(value => value.OnSpawn()).Do(_ => destination.Remove(self!));
+            self = new GameObject(id, Location.Create(baseX + localX, baseY + localY, 0, 0), 0, ShapeType.GroundDefault, false, Standard1X1, script);
+            return self;
+        }
+
+        destination.Add(CreateSelfRemoving(92, 11, 11));
+        destination.Add(CreateSelfRemoving(93, 20, 20));
+
+        Assert.IsFalse(destination.FindAllGameObjects().Any(obj => obj.Id is 92 or 93));
+        Assert.IsTrue(destination.GetCollision(11, 11, 0).HasFlag(CollisionFlag.ObjectBlock));
+        Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(20, 20, 0));
+        CollectionAssert.AreEqual(Collision(expected), Collision(destination));
+    }
+
+    [TestMethod]
     public void MakeStandard_RestoresMappingsObjectsAndCollision()
     {
         var world = new TestWorld();

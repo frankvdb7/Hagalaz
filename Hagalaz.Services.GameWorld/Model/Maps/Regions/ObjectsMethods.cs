@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Utilities;
@@ -73,14 +72,20 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <summary>
         /// Adds an object. An object without collision (drawn under a bridge, unreachable) never
         /// displaces an object in its slot and is skipped instead; an object with collision silently
-        /// replaces one without, so the reachable object wins regardless of order.
+        /// replaces one without, so the reachable object wins regardless of order. A replaced object
+        /// with collision gives its collision up first, and overlapping objects are re-flagged.
         /// </summary>
-        /// <returns>Whether the object was added.</returns>
+        /// <remarks>
+        /// The object's collision is in place before its spawn hook runs, so a hook that removes or
+        /// replaces the object unflags exactly what was flagged.
+        /// </remarks>
+        /// <returns>Whether the region still holds the object (enabled or disabled) after its spawn hook.</returns>
         private bool TryAdd(IGameObject gameObject, bool flagCollision)
         {
             EnsureAcceptsMutation();
             var part = _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart);
             var occupant = part.FindGameObject(gameObject.ShapeType.GetLayerType(), gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z);
+            IGameObject? replaced = null;
             if (occupant is not null && !ReferenceEquals(occupant, gameObject))
             {
                 if (!flagCollision)
@@ -93,19 +98,41 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     part.DiscardObjects([occupant]);
                     _objectsWithoutCollision.Remove(occupant);
                 }
+                else
+                {
+                    UnFlagCollisionCore(occupant);
+                    replaced = occupant;
+                }
             }
 
-            part.Add(gameObject);
             if (flagCollision)
             {
-                FlagCollision(gameObject);
+                FlagCollisionCore(gameObject);
             }
             else
             {
                 _objectsWithoutCollision.Add(gameObject);
             }
 
-            return true;
+            part.Add(gameObject);
+            var removedBySpawn = !OwnsGameObject(gameObject);
+            var unflagged = new List<IGameObject>(2);
+            if (replaced is not null)
+            {
+                unflagged.Add(replaced);
+            }
+
+            if (removedBySpawn && flagCollision)
+            {
+                unflagged.Add(gameObject);
+            }
+
+            if (unflagged.Count > 0)
+            {
+                ReflagOverlappingObjects(unflagged, gameObject.Location.Z);
+            }
+
+            return !removedBySpawn || part.FindAllDisabledStaticGameObjects().Any(disabled => ReferenceEquals(disabled, gameObject));
         }
 
         public void Remove(IGameObject gameObject)
