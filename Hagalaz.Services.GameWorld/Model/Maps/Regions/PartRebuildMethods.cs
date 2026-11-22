@@ -22,6 +22,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     {
         private readonly Dictionary<int, ColumnContent> _columnContent = new();
 
+        /// <summary>
+        /// Plane 0 is built last: its objects under a bridge have no collision and yield to the
+        /// bridge's own objects, which plane 1 places on collision plane 0.
+        /// </summary>
+        private static readonly int[] ColumnBuildOrder = [1, 2, 3, 0];
+
         private static int GetColumnKey(int localPartX, int localPartY) => localPartX * PartsPerRegionAxis + localPartY;
 
         /// <summary>
@@ -238,9 +244,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var localPartY = key % PartsPerRegionAxis;
             var minLocalX = localPartX * 8;
             var minLocalY = localPartY * 8;
-            // Plane 0 last: its objects under a bridge have no collision and yield to the
-            // bridge's own objects, which plane 1 places on collision plane 0.
-            foreach (var z in (int[])[1, 2, 3, 0])
+            foreach (var z in ColumnBuildOrder)
             {
                 if (!TryGetPartSource(localPartX, localPartY, z, out var source))
                 {
