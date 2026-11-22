@@ -318,7 +318,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private bool IsDisabledStatic(IGameObject gameObject) =>
             _parts[gameObject.Location.GetRegionPartHash()] is { } part
-            && part.FindAllDisabledStaticGameObjects().Any(disabled => ReferenceEquals(disabled, gameObject));
+            && ReferenceEquals(part.FindDisabledStaticGameObject(gameObject.ShapeType.GetLayerType(), gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z), gameObject);
 
         private (int X, int Y, int Z, LayerType Layer, int Id) GetTombstone(IGameObject gameObject) =>
             _builtObjects.TryGetValue(gameObject, out var built)
@@ -615,7 +615,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             var storage = _parts[LocationHelper.GetRegionPartHash(LocalXToPart(localX), LocalYToPart(localY), plane)];
             var occupant = FindGameObjects(localX, localY, plane).FirstOrDefault(InSlot)
-                           ?? storage?.FindAllDisabledStaticGameObjects().FirstOrDefault(InSlot);
+                           ?? storage?.FindDisabledStaticGameObject(layer, localX, localY, plane);
             if (occupant is null)
             {
                 return true;

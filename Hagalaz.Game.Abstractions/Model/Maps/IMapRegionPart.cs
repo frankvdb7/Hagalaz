@@ -60,6 +60,11 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         IEnumerable<IGameObject> FindAllDisabledStaticGameObjects();
 
         /// <summary>
+        /// Finds the removed (disabled) static object occupying a slot, if any.
+        /// </summary>
+        IGameObject? FindDisabledStaticGameObject(LayerType layer, int localX, int localY, int z);
+
+        /// <summary>
         /// Stops storing a removed (disabled) static object without destroying it.
         /// </summary>
         void DetachDisabledStatic(IGameObject gameObject);

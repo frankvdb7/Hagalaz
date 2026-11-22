@@ -80,6 +80,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         public IEnumerable<IGameObject> FindAllDisabledStaticGameObjects() => _disabledStaticGameObjects.Values;
 
+        public IGameObject? FindDisabledStaticGameObject(LayerType layer, int localX, int localY, int z) =>
+            _disabledStaticGameObjects.TryGetValue(GameObjectHelper.GetRegionLocalHash(localX, localY, z, (int)layer), out var gameObject) ? gameObject : null;
+
         public IGameObject? FindGameObject(LayerType layer, int localX, int localY, int z)
         {
             var localHash = GameObjectHelper.GetRegionLocalHash(localX, localY, z, (int)layer);

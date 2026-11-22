@@ -917,6 +917,31 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void FindDisabledStaticGameObject_ReturnsTheRemovedStaticOfExactlyThatSlot()
+    {
+        var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        var baseX = DestinationRegionX * 64 + DestinationMinX;
+        var baseY = DestinationRegionY * 64 + DestinationMinY;
+        var statics = Enumerable.Range(0, 8)
+            .Select(offset => TestWorld.CreateGameObject(80 + offset, baseX + offset, baseY, 0, 0, 0, ShapeType.GroundDefault, Standard1X1))
+            .ToList();
+        statics.ForEach(region.Add);
+        statics.ForEach(region.Remove);
+        var part = region.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+
+        foreach (var removed in statics)
+        {
+            Assert.AreSame(removed, part.FindDisabledStaticGameObject(
+                ShapeType.GroundDefault.GetLayerType(), removed.Location.RegionLocalX, removed.Location.RegionLocalY, 0));
+        }
+
+        Assert.IsNull(part.FindDisabledStaticGameObject(ShapeType.GroundDefault.GetLayerType(), statics[0].Location.RegionLocalX, statics[0].Location.RegionLocalY + 1, 0));
+        Assert.IsNull(part.FindDisabledStaticGameObject(LayerType.Walls, statics[0].Location.RegionLocalX, statics[0].Location.RegionLocalY, 0));
+        region.Add(statics[0]);
+        Assert.IsNull(part.FindDisabledStaticGameObject(ShapeType.GroundDefault.GetLayerType(), statics[0].Location.RegionLocalX, statics[0].Location.RegionLocalY, 0));
+    }
+
+    [TestMethod]
     public void FindGameObjectsOverlapping_LooksOnlyAtPartsThatCanHoldAnOverlappingObject()
     {
         var region = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
@@ -997,14 +1022,14 @@ public sealed class DynamicRegionPartTests
     // column (5, 6) maps the bridge chunk, so the static sits on plane 0 at the spawn's tile.
     private static (MapRegion Destination, IReadOnlyDictionary<int, MapRegionTemplate> Templates) CreateBridgeMovedStaticRegion()
     {
-        var templates = CreateSpawnAndRotatedStaticTemplates();
-        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlocksByIndex(
-        [
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
-            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
-        ], templates);
+        var templates = CreateSpawnAndRotatedStaticTemplates();
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 2),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, 0)
+        ], templates);
         return (destination, templates);
     }
 
