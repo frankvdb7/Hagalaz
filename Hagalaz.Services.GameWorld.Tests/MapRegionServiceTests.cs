@@ -608,19 +608,12 @@ public sealed class MapRegionServiceTests
     [TestMethod]
     public async Task CreateDynamicRegion_ExposesNothingUntilPopulatedAndThenPublishesAReadyRegion()
     {
-        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(templatesReady));
-        var service = CreateService(provider);
-        var destination = Location.Create(640, 640, 0, 0);
-        var taskService = provider.GetRequiredService<IRsTaskService>();
+        using var pending = StartPendingCreation(_ => (StandardSource, Location.Create(640, 640, 0, 0)));
 
-        service.CreateDynamicRegion(Location.Create(3200, 3264, 0, 0), destination);
-        taskService.Tick();
+        Assert.IsNull(pending.Service.FindMapRegion(pending.Destination.RegionId, pending.Destination.Dimension), "The destination is invisible while templates load.");
 
-        Assert.IsNull(service.FindMapRegion(destination.RegionId, destination.Dimension), "The destination is invisible while templates load.");
-
-        templatesReady.SetResult();
-        var published = await WaitForRegionAsync(service, taskService, destination);
+        pending.Gate.SetResult();
+        var published = await WaitForRegionAsync(pending.Service, pending.Tasks, pending.Destination);
 
         Assert.AreEqual(MapRegionState.Ready, published.State);
         Assert.IsTrue(published.IsDynamic);
@@ -632,69 +625,51 @@ public sealed class MapRegionServiceTests
     [TestMethod]
     public async Task CreateDynamicRegion_FromAPendingDynamicSourceFailsInsteadOfCopyingStandardCoordinates()
     {
-        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var templateLoader = CreateGatedTemplateLoader(templatesReady);
-        using var provider = CreateProvider(templateLoader: templateLoader);
-        var service = CreateService(provider);
-        var standard = Location.Create(3200, 3264, 0, 0);
-        var instanceA = Location.Create(640, 640, 0, 0);
+        using var pending = StartPendingCreation(_ => (StandardSource, Location.Create(640, 640, 0, 0)));
         var instanceB = Location.Create(1280, 640, 0, 0);
-        var taskService = provider.GetRequiredService<IRsTaskService>();
-        service.CreateDynamicRegion(standard, instanceA);
-        taskService.Tick();
 
-        service.CreateDynamicRegion(instanceA, instanceB);
-        taskService.Tick();
-        templatesReady.SetResult();
-        var a = await WaitForRegionAsync(service, taskService, instanceA);
-        taskService.Tick();
+        pending.Service.CreateDynamicRegion(pending.Destination, instanceB);
+        pending.Tasks.Tick();
+        pending.Gate.SetResult();
+        var a = await WaitForRegionAsync(pending.Service, pending.Tasks, pending.Destination);
+        pending.Tasks.Tick();
 
         Assert.AreEqual(MapRegionState.Ready, a.State);
-        Assert.IsNull(service.FindMapRegion(instanceB.RegionId, instanceB.Dimension), "B must not be built from A's cache coordinates.");
-        await templateLoader.DidNotReceive().LoadAsync(instanceA.RegionId, Arg.Any<int[]>(), Arg.Any<CancellationToken>());
+        Assert.IsNull(pending.Service.FindMapRegion(instanceB.RegionId, instanceB.Dimension), "B must not be built from A's cache coordinates.");
+        await pending.Loader.DidNotReceive().LoadAsync(pending.Destination.RegionId, Arg.Any<int[]>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
     public async Task CreateDynamicRegion_WhenAnOrdinaryRegionAppearsMeanwhile_FailsAndLeavesItUntouched()
     {
-        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(templatesReady));
-        var service = CreateService(provider);
-        var destination = Location.Create(640, 640, 0, 0);
-        var taskService = provider.GetRequiredService<IRsTaskService>();
-        service.CreateDynamicRegion(Location.Create(3200, 3264, 0, 0), destination);
-        taskService.Tick();
+        using var pending = StartPendingCreation(_ => (StandardSource, Location.Create(640, 640, 0, 0)));
 
-        var ordinary = service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension);
-        templatesReady.SetResult();
+        var ordinary = pending.Service.GetOrCreateMapRegion(pending.Destination.RegionId, pending.Destination.Dimension);
+        pending.Gate.SetResult();
         for (var attempt = 0; attempt < 20; attempt++)
         {
-            taskService.Tick();
+            pending.Tasks.Tick();
             await Task.Delay(10);
         }
 
-        Assert.AreSame(ordinary, service.FindMapRegion(destination.RegionId, destination.Dimension));
+        Assert.AreSame(ordinary, pending.Service.FindMapRegion(pending.Destination.RegionId, pending.Destination.Dimension));
         Assert.IsFalse(ordinary.IsDynamic);
     }
 
     [TestMethod]
     public void GetMapRegionsWithinRange_WhileADynamicDestinationIsPending_DoesNotFailAViewportRebuild()
     {
-        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(templatesReady));
-        var service = CreateService(provider);
         var neighbour = Location.Create(640 - 64, 640, 0, 0);
-        var destination = Location.Create(640, 640, 0, 0);
-        var taskService = provider.GetRequiredService<IRsTaskService>();
-        service.GetOrCreateMapRegion(neighbour.RegionId, neighbour.Dimension).MarkReady();
-        service.CreateDynamicRegion(Location.Create(3200, 3264, 0, 0), destination);
-        taskService.Tick();
-
+        using var pending = StartPendingCreation(service =>
+        {
+            service.GetOrCreateMapRegion(neighbour.RegionId, neighbour.Dimension).MarkReady();
+            return (StandardSource, Location.Create(640, 640, 0, 0));
+        });
         var character = Substitute.For<ICharacter>();
         character.Location.Returns(neighbour);
         var mapSize = Substitute.For<IMapSize>();
         mapSize.Size.Returns(104);
-        var viewport = new Viewport(character, service, mapSize);
+        var viewport = new Viewport(character, pending.Service, mapSize);
 
         viewport.RebuildView();
 
@@ -704,26 +679,14 @@ public sealed class MapRegionServiceTests
     [TestMethod]
     public void TryRemoveEmptyDimension_WhileADynamicRegionIsPending_KeepsTheDimension()
     {
-        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(templatesReady));
-        var service = CreateService(provider);
-        Assert.IsTrue(service.TryCreateDimension(out var dimension));
-        var source = Location.Create(3200, 3264, 0, 0);
-        var destination = Location.Create(640, 640, 0, dimension!.Id);
-        var taskService = provider.GetRequiredService<IRsTaskService>();
-        service.CreateDynamicRegion(source, destination);
-        taskService.Tick();
-
-        Assert.IsFalse(service.TryRemoveEmptyDimension(dimension));
-
-        templatesReady.SetResult();
-        for (var attempt = 0; attempt < 50 && service.FindMapRegion(destination.RegionId, dimension.Id) is null; attempt++)
+        IDimension? dimension = null;
+        using var pending = StartPendingCreation(service =>
         {
-            taskService.Tick();
-            Thread.Sleep(10);
-        }
+            Assert.IsTrue(service.TryCreateDimension(out dimension));
+            return (StandardSource, Location.Create(640, 640, 0, dimension!.Id));
+        });
 
-        Assert.IsNotNull(service.FindMapRegion(destination.RegionId, dimension.Id));
+        Assert.IsFalse(pending.Service.TryRemoveEmptyDimension(dimension!));
     }
 
     [TestMethod]
@@ -1265,6 +1228,35 @@ public sealed class MapRegionServiceTests
         service.GetOrCreateMapRegion(to.RegionId, to.Dimension).MarkReady();
 
         Assert.IsTrue(pathFinder.Find(from, 1, to, 1, 1, 0, 0, 0, true).Successful);
+    }
+
+    private static readonly ILocation StandardSource = Location.Create(3200, 3264, 0, 0);
+
+    /// <summary>
+    ///     A dynamic creation whose source templates are held back by <see cref="Gate"/>, one tick after it started.
+    /// </summary>
+    private sealed record PendingCreation(
+        ServiceProvider Provider,
+        MapRegionService Service,
+        IRsTaskService Tasks,
+        IMapRegionTemplateLoader Loader,
+        TaskCompletionSource Gate,
+        ILocation Destination) : IDisposable
+    {
+        public void Dispose() => Provider.Dispose();
+    }
+
+    private static PendingCreation StartPendingCreation(Func<MapRegionService, (ILocation Source, ILocation Destination)> locations)
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loader = CreateGatedTemplateLoader(gate);
+        var provider = CreateProvider(templateLoader: loader);
+        var service = CreateService(provider);
+        var (source, destination) = locations(service);
+        var tasks = provider.GetRequiredService<IRsTaskService>();
+        service.CreateDynamicRegion(source, destination);
+        tasks.Tick();
+        return new PendingCreation(provider, service, tasks, loader, gate, destination);
     }
 
     private static async Task<IMapRegion> WaitForRegionAsync(MapRegionService service, IRsTaskService taskService, ILocation location)
