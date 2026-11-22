@@ -697,9 +697,11 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
-    [DataRow(false, DisplayName = "Configured spawn")]
-    [DataRow(true, DisplayName = "Static transformed by gameplay")]
-    public void RemovingADestroyedObject_DoesNotKeepItInRegionBookkeeping(bool transformedStatic)
+    [DataRow(false, false, DisplayName = "Configured spawn removed")]
+    [DataRow(true, false, DisplayName = "Transformed static removed")]
+    [DataRow(false, true, DisplayName = "Configured spawn replaced")]
+    [DataRow(true, true, DisplayName = "Transformed static replaced")]
+    public void RemovingADestroyedObject_DoesNotKeepItInRegionBookkeeping(bool transformedStatic, bool replaced)
     {
         var (destination, _, _, spawnX, spawnY, templates) = CreateBridgeDependencyScenario(isStatic: transformedStatic);
         var spawn = (GameObject)destination.FindStandardGameObject(spawnX, spawnY, 0)!;
@@ -709,7 +711,16 @@ public sealed class DynamicRegionPartTests
             spawn.IsStatic = false;
         }
 
-        destination.Remove(spawn);
+        if (replaced)
+        {
+            var location = spawn.Location;
+            var replacement = TestWorld.CreateGameObject(900, location.X, location.Y, location.Z, 0, 0, ShapeType.GroundDefault, Standard1X1, isStatic: false);
+            destination.Add(replacement);
+        }
+        else
+        {
+            destination.Remove(spawn);
+        }
 
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var built = (System.Collections.IDictionary)typeof(MapRegion).GetField("_builtObjects", Flags)!.GetValue(destination)!;
@@ -722,7 +733,7 @@ public sealed class DynamicRegionPartTests
         }
 
         ChangeBridgeAwayFromTheObjects(destination, templates);
-        Assert.IsNull(destination.FindStandardGameObject(spawnX, spawnY, 0), "The removal still survives a dependency rebuild.");
+        Assert.IsFalse(destination.FindAllGameObjects().Any(obj => obj.Id == 733), "The removal still survives a dependency rebuild.");
     }
 
     [TestMethod]

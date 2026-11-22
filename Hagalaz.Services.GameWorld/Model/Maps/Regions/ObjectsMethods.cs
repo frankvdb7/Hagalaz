@@ -154,28 +154,24 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             _maxObjectExtent = Math.Max(_maxObjectExtent, Math.Max(gameObject.Definition.SizeX, gameObject.Definition.SizeY));
+            var replacedTombstone = replaced is null ? null : TakeConfiguredSpawnTombstone(replaced);
             part.Add(gameObject);
             if (replaced is not null && !OwnsGameObject(replaced) && !IsDisabledStatic(replaced))
             {
-                // The replaced object was destroyed, so no collision override may keep referencing it.
+                // The replaced object was destroyed, so no collision override or build record may keep referencing it.
                 _unclippedObjects.Remove(replaced);
                 _objectsWithoutCollision.Remove(replaced);
+                if (replacedTombstone is { } destroyed)
+                {
+                    RecordConfiguredSpawnRemoval(destroyed.Owner, replaced, destroyed.Tombstone);
+                }
             }
 
             var removedBySpawn = !OwnsGameObject(gameObject);
-            var unflagged = new List<IGameObject>(2);
-            if (replaced is not null)
+            var reflagSelf = removedBySpawn && flagCollision;
+            if (replaced is not null || reflagSelf)
             {
-                unflagged.Add(replaced);
-            }
-
-            if (removedBySpawn && flagCollision)
-            {
-                unflagged.Add(gameObject);
-            }
-
-            if (unflagged.Count > 0)
-            {
+                IGameObject[] unflagged = replaced is null ? [gameObject] : reflagSelf ? [replaced, gameObject] : [replaced];
                 ReflagOverlappingObjects(unflagged, gameObject.Location.Z);
             }
 
