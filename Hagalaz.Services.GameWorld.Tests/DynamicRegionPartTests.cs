@@ -739,6 +739,28 @@ public sealed class DynamicRegionPartTests
         destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
 
     [TestMethod]
+    public void NewBridgeUnderAnObject_KeepsItDrawnWithoutCollision()
+    {
+        var flags = new sbyte[4, 64, 64];
+        flags[1, SourceMinX + 8 + 1, SourceMinY + 1] = 0x2;
+        var template = new MapRegionTemplate(SourceRegionId, [], [],
+            [new MapRegionTemplateObject(70, SourceMinX + 1, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true)], flags);
+        var templates = Templates(template);
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], templates);
+        Assert.IsTrue(destination.GetCollision(DestinationMinX + 1, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
+
+        Assert.AreEqual(70, destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0)?.Id);
+        Assert.IsTrue(Collision(destination).All(flag => flag == CollisionFlag.Walkable));
+    }
+
+    [TestMethod]
     public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
     {
         var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));

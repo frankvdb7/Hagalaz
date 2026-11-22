@@ -76,6 +76,8 @@ When two parts claim one object slot (tile, layer, plane), checked against enabl
 
 Selecting a part's source objects uses a per-template index by (plane, source part), built once on first use, instead of filtering every placement per part. Objects displaced by slot arbitration are collected during materialization and their collision footprints are re-flagged in one pass per plane after all parts are placed.
 
+Edits are plain data: each write, rotate or delete computes the complete target descriptor of a part (source X/Y/Z, rotation, present or absent). The batch is validated against the prospective descriptors (templates, bridge masks) before anything is applied, then applied in one place, so no rollback is needed. Built objects are tracked in one registry (owner part plus the template entry they came from), and the reuse pool and displaced-object list live only for one rebuild pass. An object whose own rebuild no longer produces it as it was (for example it loses its collision under a new bridge) is replaced by the new object in the same slot, not kept out by its own stale copy.
+
 `WriteBlocksByIndex` applies many mappings and rebuilds each affected part once; dynamic creation uses it so spawn hooks run only for final objects. Part operations take templates by region id for every source region the region draws, validated before anything is discarded. `MakeStandard(own)` maps every part to itself and rebuilds all 256 parts from `own`.
 
 ### D6. Presence

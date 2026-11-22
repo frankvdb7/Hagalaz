@@ -23,25 +23,44 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
     public partial class MapRegion
     {
         private readonly Dictionary<int, PartContent> _partContent = new();
-        private readonly Dictionary<IGameObject, int> _objectOwners = new(ReferenceEqualityComparer.Instance);
 
         /// <summary>
-        /// What each built object was created from. Runtime scripts can change a live object in place
-        /// (id, rotation), so rebuilds compare against this, not against the object's current state.
+        /// Every object a part built, with the part that owns it and what it was created from. Runtime
+        /// scripts can change a live object in place (id, rotation), so rebuilds compare against this,
+        /// not against the object's current state.
         /// </summary>
-        private readonly Dictionary<IGameObject, (int Id, int Rotation, ShapeType Shape, bool IsStatic, bool HasCollision)> _objectOrigins = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<IGameObject, BuiltObject> _builtObjects = new(ReferenceEqualityComparer.Instance);
+
+        private readonly record struct BuiltObject(int Owner, int Id, int Rotation, ShapeType Shape, bool IsStatic, bool HasCollision);
 
         /// <summary>
-        /// Live objects of parts that are rebuilt only because something they depend on changed. A
-        /// rebuilt object that matches one of them keeps that object, with its runtime state.
+        /// The complete descriptor of a part: what it draws, rotated how, or nothing.
         /// </summary>
-        private readonly Dictionary<int, List<IGameObject>> _reusePool = new();
+        private readonly record struct PartDescriptor(int SourcePartX, int SourcePartY, int SourceZ, bool HasSource, int Rotation)
+        {
+            public static PartDescriptor Of(IMapRegionPart part) =>
+                new(part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.HasDrawSource, part.Rotation);
+
+            public static PartDescriptor Absent => default;
+        }
 
         /// <summary>
-        /// Objects other parts' objects displaced during the current rebuild; their collision is
-        /// unflagged and overlapping survivors are re-flagged once, after everything is placed.
+        /// State of one <see cref="RebuildParts"/> call.
         /// </summary>
-        private readonly List<IGameObject> _overwrittenObjects = [];
+        private sealed class RebuildPass
+        {
+            /// <summary>
+            /// Live objects of parts rebuilt only because something they depend on changed. A rebuilt
+            /// object that matches one of them keeps that object, with its runtime state.
+            /// </summary>
+            public Dictionary<int, List<IGameObject>> ReusePool { get; } = new();
+
+            /// <summary>
+            /// Objects of other parts displaced during the rebuild; their collision is unflagged and
+            /// overlapping survivors are re-flagged once, after everything is placed.
+            /// </summary>
+            public List<IGameObject> Overwritten { get; } = [];
+        }
 
         private static int GetColumnKey(int localPartX, int localPartY) => localPartX * PartsPerRegionAxis + localPartY;
 
@@ -55,37 +74,45 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private static int GetBuildRank(int partKey) => partKey % Planes * PartsPerRegionAxis * PartsPerRegionAxis + partKey / Planes;
 
         /// <summary>
-        /// Applies descriptor changes to parts, then rebuilds every affected part once.
+        /// Validates the target descriptors, applies them, then rebuilds every affected part once.
         /// </summary>
-        private void EditParts(IReadOnlyList<(int LocalPartX, int LocalPartY, int Z, Action<IMapRegionPart> Change)> edits, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private void EditParts(IReadOnlyList<(int LocalPartX, int LocalPartY, int Z, PartDescriptor Target)> edits, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             ArgumentNullException.ThrowIfNull(templates);
-            var edited = edits.Select(edit => GetRegionPartByLocalPart(edit.LocalPartX, edit.LocalPartY, edit.Z)).ToList();
-            var previous = edited.Select(part => (part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.HasDrawSource, part.Rotation)).ToList();
-            for (var index = 0; index < edits.Count; index++)
+            var targets = new Dictionary<int, PartDescriptor>();
+            foreach (var (localPartX, localPartY, z, target) in edits)
             {
-                edits[index].Change(edited[index]);
+                targets[GetPartKey(localPartX, localPartY, z)] = target;
             }
 
-            var editedKeys = edits.Select(edit => GetPartKey(edit.LocalPartX, edit.LocalPartY, edit.Z)).Distinct().ToList();
-            List<int> parts;
-            try
+            var editedKeys = targets.Keys.ToList();
+            EnsureTemplates(editedKeys, templates, targets);
+            var parts = GetPartsToRebuild(editedKeys, templates, targets);
+            EnsureTemplates(parts, templates, targets);
+
+            var edited = new List<IMapRegionPart>(targets.Count);
+            foreach (var (key, target) in targets)
             {
-                EnsureTemplates(editedKeys, templates);
-                parts = GetPartsToRebuild(editedKeys, templates);
-                EnsureTemplates(parts, templates);
-            }
-            catch
-            {
-                for (var index = edited.Count - 1; index >= 0; index--)
+                var column = key / Planes;
+                var part = GetRegionPartByLocalPart(column / PartsPerRegionAxis, column % PartsPerRegionAxis, key % Planes);
+                if (target.HasSource)
                 {
-                    (edited[index].DrawRegionPartX, edited[index].DrawRegionPartY, edited[index].DrawRegionZ, edited[index].HasDrawSource, edited[index].Rotation) = previous[index];
+                    part.DrawRegionPartX = target.SourcePartX;
+                    part.DrawRegionPartY = target.SourcePartY;
+                    part.DrawRegionZ = target.SourceZ;
+                    part.HasDrawSource = true;
+                    part.Rotation = target.Rotation;
+                }
+                else
+                {
+                    part.Erase();
+                    part.Rotation = target.Rotation;
                 }
 
-                throw;
+                edited.Add(part);
             }
 
-            RebuildParts(parts, editedKeys, templates, edited.Distinct().ToList());
+            RebuildParts(parts, editedKeys, templates, edited);
         }
 
         /// <summary>
@@ -96,14 +123,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// never built here (a region loaded as standard) is rebuilt whole, since its content is not
         /// recorded per part.
         /// </summary>
-        private List<int> GetPartsToRebuild(IReadOnlyCollection<int> editedParts, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private List<int> GetPartsToRebuild(IReadOnlyCollection<int> editedParts, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyDictionary<int, PartDescriptor> targets)
         {
             var parts = new HashSet<int>(editedParts);
             var bridgeMasks = editedParts
                 .Where(key => key % Planes == 1)
                 .Select(key => key / Planes)
                 .Distinct()
-                .ToDictionary(column => column, column => GetBridgeMask(column, templates));
+                .ToDictionary(column => column, column => GetBridgeMask(column, templates, targets));
             parts.UnionWith(_partContent
                 .Where(entry => entry.Value.BridgeReads.Any(read => bridgeMasks.TryGetValue(read.Key, out var mask) && mask != read.Value))
                 .Select(entry => entry.Key));
@@ -125,11 +152,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return parts.OrderBy(GetBuildRank).ToList();
         }
 
-        private void EnsureTemplates(IReadOnlyCollection<int> parts, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private void EnsureTemplates(IReadOnlyCollection<int> parts, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyDictionary<int, PartDescriptor> targets)
         {
             void Require(int localPartX, int localPartY, int z)
             {
-                if (!TryGetPartSource(localPartX, localPartY, z, out var source))
+                if (!TryGetPartSource(localPartX, localPartY, z, out var source, targets))
                 {
                     return;
                 }
@@ -171,16 +198,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 .Select(key => (Key: key, Tombstones: CollectTombstones(key)))
                 .Where(entry => entry.Tombstones.Count > 0)
                 .ToDictionary(entry => entry.Key, entry => entry.Tombstones);
-            _reusePool.Clear();
+            var pass = new RebuildPass();
             foreach (var key in dependentParts.Where(_partContent.ContainsKey))
             {
-                _reusePool[key] = _partContent[key].Objects.Where(obj => OwnsGameObject(obj) || IsDisabledStatic(obj)).ToList();
+                pass.ReusePool[key] = _partContent[key].Objects.Where(obj => OwnsGameObject(obj) || IsDisabledStatic(obj)).ToList();
             }
 
             var removed = DiscardRuntimeObjects(replacedParts);
             foreach (var key in parts)
             {
-                removed.AddRange(DiscardPart(key, _reusePool.GetValueOrDefault(key)));
+                removed.AddRange(DiscardPart(key, pass.ReusePool.GetValueOrDefault(key)));
             }
 
             // Content exists for every rebuilt part before any is built, so a part that loses a slot
@@ -192,10 +219,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var key in parts.OrderBy(GetBuildRank))
             {
-                MaterializePart(key, templates, carried.GetValueOrDefault(key));
+                MaterializePart(key, templates, carried.GetValueOrDefault(key), pass);
             }
 
-            var leftovers = _reusePool.Values
+            var leftovers = pass.ReusePool.Values
                 .SelectMany(pool => pool)
                 .GroupBy(obj => obj.Location.GetRegionPartHash())
                 .Select(group => (Storage: _parts[group.Key], Objects: group.ToList()))
@@ -205,9 +232,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 removed.AddRange(DiscardObjects(storage!, objects));
             }
 
-            _reusePool.Clear();
-            removed.AddRange(_overwrittenObjects);
-            _overwrittenObjects.Clear();
+            removed.AddRange(pass.Overwritten);
 
             foreach (var plane in removed.GroupBy(obj => obj.Location.Z))
             {
@@ -242,8 +267,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             && part.FindAllDisabledStaticGameObjects().Any(disabled => ReferenceEquals(disabled, gameObject));
 
         private (int X, int Y, int Z, LayerType Layer, int Id) GetTombstone(IGameObject gameObject) =>
-            _objectOrigins.TryGetValue(gameObject, out var origin)
-                ? (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, origin.Shape.GetLayerType(), origin.Id)
+            _builtObjects.TryGetValue(gameObject, out var built)
+                ? (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, built.Shape.GetLayerType(), built.Id)
                 : (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, gameObject.ShapeType.GetLayerType(), gameObject.Id);
 
         /// <summary>
@@ -257,7 +282,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             foreach (var part in replacedParts)
             {
                 var runtimeObjects = part.FindAllGameObjects().Concat(part.FindAllDisabledStaticGameObjects())
-                    .Where(obj => !_objectOwners.ContainsKey(obj))
+                    .Where(obj => !_builtObjects.ContainsKey(obj))
                     .ToList();
                 removed.AddRange(DiscardObjects(part, runtimeObjects));
             }
@@ -280,8 +305,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             _objectsWithoutCollision.ExceptWith(objects);
             foreach (var gameObject in objects)
             {
-                _objectOwners.Remove(gameObject);
-                _objectOrigins.Remove(gameObject);
+                _builtObjects.Remove(gameObject);
             }
 
             return enabled;
@@ -314,7 +338,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(LocalPartXToPartX(localPartX), LocalPartYToPartY(localPartY), z), out var stored))
                 {
                     objects.AddRange(stored.FindAllGameObjects().Concat(stored.FindAllDisabledStaticGameObjects())
-                        .Where(obj => !_objectOwners.ContainsKey(obj)));
+                        .Where(obj => !_builtObjects.ContainsKey(obj)));
                 }
 
                 floorTiles = from x in Enumerable.Range(localPartX * 8, 8)
@@ -351,7 +375,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// is a bridge, and objects that would fall below plane 0 stay on their draw plane without
         /// collision.
         /// </summary>
-        private void MaterializePart(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlySet<(int X, int Y, int Z, LayerType Layer, int Id)>? tombstones)
+        private void MaterializePart(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlySet<(int X, int Y, int Z, LayerType Layer, int Id)>? tombstones, RebuildPass pass)
         {
             if (!_partContent.TryGetValue(key, out var content))
             {
@@ -424,13 +448,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
 
                 var rotation = (entry.Rotation + source.Rotation) & 0x3;
-                if (_reusePool.TryGetValue(key, out var pool) && TakeReusable(pool, localX, localY, plane, entry, rotation, hasCollision) is { } reused)
+                if (pass.ReusePool.TryGetValue(key, out var pool) && TakeReusable(pool, localX, localY, plane, entry, rotation, hasCollision) is { } reused)
                 {
                     content.Objects.Add(reused);
                     continue;
                 }
 
-                if (!ClaimSlot(key, content, localX, localY, plane, entry.Shape.GetLayerType(), hasCollision))
+                if (!ClaimSlot(key, content, localX, localY, plane, entry.Shape.GetLayerType(), hasCollision, pass))
                 {
                     continue;
                 }
@@ -455,8 +479,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 if (TryAdd(gameObject, hasCollision))
                 {
                     content.Objects.Add(gameObject);
-                    _objectOwners[gameObject] = key;
-                    _objectOrigins[gameObject] = (entry.Id, rotation, entry.Shape, entry.IsStatic, hasCollision);
+                    _builtObjects[gameObject] = new BuiltObject(key, entry.Id, rotation, entry.Shape, entry.IsStatic, hasCollision);
                 }
             }
         }
@@ -467,8 +490,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         private IGameObject? TakeReusable(List<IGameObject> pool, int localX, int localY, int plane, MapRegionTemplateObject entry, int rotation, bool hasCollision)
         {
-            var index = pool.FindIndex(candidate => _objectOrigins.TryGetValue(candidate, out var origin)
-                && origin == (entry.Id, rotation, entry.Shape, entry.IsStatic, hasCollision)
+            var index = pool.FindIndex(candidate => _builtObjects.TryGetValue(candidate, out var built)
+                && built.Id == entry.Id && built.Rotation == rotation && built.Shape == entry.Shape
+                && built.IsStatic == entry.IsStatic && built.HasCollision == hasCollision
                 && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY && candidate.Location.Z == plane);
             if (index < 0)
             {
@@ -487,7 +511,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// take the slot) when the winner is. A beaten object another part built is removed silently,
         /// since the client never drew it. Slots held by runtime objects follow <see cref="TryAdd"/>.
         /// </summary>
-        private bool ClaimSlot(int key, PartContent content, int localX, int localY, int plane, LayerType layer, bool hasCollision)
+        private bool ClaimSlot(int key, PartContent content, int localX, int localY, int plane, LayerType layer, bool hasCollision, RebuildPass pass)
         {
             bool InSlot(IGameObject existing) => existing.ShapeType.GetLayerType() == layer
                 && existing.Location.RegionLocalX == localX && existing.Location.RegionLocalY == localY && existing.Location.Z == plane;
@@ -495,9 +519,28 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var storage = _parts[LocationHelper.GetRegionPartHash(LocalXToPart(localX), LocalYToPart(localY), plane)];
             var occupant = FindGameObjects(localX, localY, plane).FirstOrDefault(InSlot)
                            ?? storage?.FindAllDisabledStaticGameObjects().FirstOrDefault(InSlot);
-            if (occupant is null || !_objectOwners.TryGetValue(occupant, out var ownerKey) || ownerKey == key)
+            if (occupant is null)
             {
-                return occupant is null || hasCollision;
+                return true;
+            }
+
+            if (!_builtObjects.TryGetValue(occupant, out var builtOccupant))
+            {
+                return hasCollision;
+            }
+
+            var ownerKey = builtOccupant.Owner;
+            if (ownerKey == key)
+            {
+                // This part's own live object from before the rebuild that the rebuild no longer
+                // produces as it was (for example it lost its collision under a new bridge): replace it.
+                if (pass.ReusePool.TryGetValue(key, out var ownPool) && ownPool.Remove(occupant))
+                {
+                    pass.Overwritten.AddRange(DiscardObjects(storage!, [occupant]));
+                    return true;
+                }
+
+                return hasCollision;
             }
 
             var occupantHasCollision = !_objectsWithoutCollision.Contains(occupant);
@@ -522,13 +565,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 beaten.Tombstones.Add(GetTombstone(occupant));
             }
 
-            _overwrittenObjects.AddRange(DiscardObjects(storage!, [occupant]));
+            pass.Overwritten.AddRange(DiscardObjects(storage!, [occupant]));
             if (_partContent.TryGetValue(ownerKey, out var displaced))
             {
                 displaced.Objects.Remove(occupant);
             }
 
-            if (_reusePool.TryGetValue(ownerKey, out var ownerPool))
+            if (pass.ReusePool.TryGetValue(ownerKey, out var ownerPool))
             {
                 ownerPool.Remove(occupant);
             }
@@ -545,16 +588,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var column = GetColumnKey(localX >> 3, localY >> 3);
             if (!reader.BridgeReads.ContainsKey(column))
             {
-                reader.BridgeReads[column] = GetBridgeMask(column, templates);
+                reader.BridgeReads[column] = GetBridgeMask(column, templates, null);
             }
 
-            return IsBridgeTile(localX, localY, templates);
+            return IsBridgeTile(localX, localY, templates, null);
         }
 
         /// <summary>
         /// The bridge flags of a column's 64 tiles, as the chunk drawn on its plane 1 places them.
         /// </summary>
-        private ulong GetBridgeMask(int column, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private ulong GetBridgeMask(int column, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyDictionary<int, PartDescriptor>? targets)
         {
             var mask = 0UL;
             var minLocalX = column / PartsPerRegionAxis * 8;
@@ -563,7 +606,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 for (var y = 0; y < 8; y++)
                 {
-                    if (IsBridgeTile(minLocalX + x, minLocalY + y, templates))
+                    if (IsBridgeTile(minLocalX + x, minLocalY + y, templates, targets))
                     {
                         mask |= 1UL << (x * 8 + y);
                     }
@@ -573,9 +616,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return mask;
         }
 
-        private bool IsBridgeTile(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private bool IsBridgeTile(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyDictionary<int, PartDescriptor>? targets)
         {
-            if (!TryGetPartSource(localX >> 3, localY >> 3, 1, out var source))
+            if (!TryGetPartSource(localX >> 3, localY >> 3, 1, out var source, targets))
             {
                 return false;
             }
@@ -587,11 +630,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         /// <summary>
-        /// The source a part draws, without creating it. A part that does not exist yet draws
-        /// itself in a standard region and nothing in a dynamic one.
+        /// The source a part draws, without creating it, or the one an edit is about to give it. A part
+        /// that does not exist yet draws itself in a standard region and nothing in a dynamic one.
         /// </summary>
-        private bool TryGetPartSource(int localPartX, int localPartY, int z, out (int PartX, int PartY, int Z, int Rotation) source)
+        private bool TryGetPartSource(int localPartX, int localPartY, int z, out (int PartX, int PartY, int Z, int Rotation) source, IReadOnlyDictionary<int, PartDescriptor>? targets = null)
         {
+            if (targets is not null && targets.TryGetValue(GetPartKey(localPartX, localPartY, z), out var target))
+            {
+                source = (target.SourcePartX, target.SourcePartY, target.SourceZ, target.Rotation & 0x3);
+                return target.HasSource;
+            }
+
             var partX = LocalPartXToPartX(localPartX);
             var partY = LocalPartYToPartY(localPartY);
             if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(partX, partY, z), out var part))
