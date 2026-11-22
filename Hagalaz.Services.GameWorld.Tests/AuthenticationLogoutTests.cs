@@ -840,13 +840,13 @@ public sealed class AuthenticationLogoutTests
     [TestMethod]
     public async Task SignOutAsync_WhenFailedLobbySignInRetainsAuthenticationWithoutSession_DoesNotPublishLobbySignOut()
     {
-        await AssertNoLobbySignOutAsync(Substitute.For<IGameSessionService>());
+        await AssertNoLobbySignOutAsync("lobby-client", Substitute.For<IGameSessionService>());
     }
 
     [TestMethod]
     public async Task SignOutAsync_WhenFailedWorldSignInRetainsAuthenticationWithoutSession_DoesNotPublishLobbySignOut()
     {
-        await AssertNoLobbySignOutAsync(Substitute.For<IGameSessionService>());
+        await AssertNoLobbySignOutAsync("world-client", Substitute.For<IGameSessionService>());
     }
 
     [TestMethod]
@@ -856,7 +856,7 @@ public sealed class AuthenticationLogoutTests
         existingLobbySession.MasterId.Returns(42u);
         var gameSessionService = Substitute.For<IGameSessionService>();
         gameSessionService.FindByMasterId(42u).Returns(existingLobbySession);
-        await AssertNoLobbySignOutAsync(gameSessionService);
+        await AssertNoLobbySignOutAsync("world-client", gameSessionService);
     }
 
     [TestMethod]
@@ -1013,7 +1013,7 @@ public sealed class AuthenticationLogoutTests
         return context;
     }
 
-    private static async Task AssertNoLobbySignOutAsync(IGameSessionService gameSessionService)
+    private static async Task AssertNoLobbySignOutAsync(string clientId, IGameSessionService gameSessionService)
     {
         var mediator = Substitute.For<IGameMediator>();
         var service = CreateAuthenticationService(
@@ -1025,7 +1025,7 @@ public sealed class AuthenticationLogoutTests
                 session: null,
                 authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
                 {
-                    ClientId = "world-client",
+                    ClientId = clientId,
                     AuthorizationId = "authorization-id",
                     Claims = new Dictionary<string, object> { [Claims.Subject] = "42" }
                 }),
