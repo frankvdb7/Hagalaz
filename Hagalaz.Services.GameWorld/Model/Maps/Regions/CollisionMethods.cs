@@ -31,35 +31,6 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public void SetCollision(int localX, int localY, int z, CollisionFlag value) => _collision[z, localX, localY] = value;
 
         /// <summary>
-        /// Flags a tile. While this region is still being prepared privately it is not registered with the service, so
-        /// its own tiles are flagged directly; every other tile goes through the service.
-        /// </summary>
-        private void FlagTile(ILocation location, CollisionFlag flag)
-        {
-            if (OwnsUnpublishedTile(location))
-            {
-                FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
-                return;
-            }
-
-            _regionService.FlagCollision(location, flag);
-        }
-
-        private void UnFlagTile(ILocation location, CollisionFlag flag)
-        {
-            if (OwnsUnpublishedTile(location))
-            {
-                UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, flag);
-                return;
-            }
-
-            _regionService.UnFlagCollision(location, flag);
-        }
-
-        private bool OwnsUnpublishedTile(ILocation location) =>
-            IsUnpublished && location.RegionId == Id && location.Dimension == BaseLocation.Dimension;
-
-        /// <summary>
         /// Flag's clip with specific flag at specific location.
         /// Throws exception if location is invalid.
         /// </summary>
@@ -118,7 +89,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             for (var xcalc = obj.Location.X; xcalc < obj.Location.X + sizeX; xcalc++)
                 for (var ycalc = obj.Location.Y; ycalc < obj.Location.Y + sizeY; ycalc++)
-                    FlagTile(Location.Create(xcalc, ycalc, obj.Location.Z, obj.Location.Dimension), flag);
+                    _regionService.FlagCollision(Location.Create(xcalc, ycalc, obj.Location.Z, obj.Location.Dimension), flag);
         }
 
         /// <summary>
@@ -137,7 +108,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             for (int xcalc = obj.Location.X; xcalc < obj.Location.X + sizeX; xcalc++)
                 for (int ycalc = obj.Location.Y; ycalc < obj.Location.Y + sizeY; ycalc++)
-                    UnFlagTile(Location.Create(xcalc, ycalc, obj.Location.Z, obj.Location.Dimension), flag);
+                    _regionService.UnFlagCollision(Location.Create(xcalc, ycalc, obj.Location.Z, obj.Location.Dimension), flag);
         }
 
         private (int SizeX, int SizeY) GetStandardObjectDimensions(IGameObject obj)
@@ -176,26 +147,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (obj.Rotation == 0)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallWest);
-                    FlagTile(xm1Y0, CollisionFlag.WallEast);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallWest);
+                    _regionService.FlagCollision(xm1Y0, CollisionFlag.WallEast);
                 }
 
                 if (obj.Rotation == 1)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallNorth);
-                    FlagTile(x0Y1, CollisionFlag.WallSouth);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallNorth);
+                    _regionService.FlagCollision(x0Y1, CollisionFlag.WallSouth);
                 }
 
                 if (obj.Rotation == 2)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallEast);
-                    FlagTile(x1Y0, CollisionFlag.WallWest);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallEast);
+                    _regionService.FlagCollision(x1Y0, CollisionFlag.WallWest);
                 }
 
                 if (obj.Rotation == 3)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallSouth);
-                    FlagTile(x0Ym1, CollisionFlag.WallNorth);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallSouth);
+                    _regionService.FlagCollision(x0Ym1, CollisionFlag.WallNorth);
                 }
             }
 
@@ -203,26 +174,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (obj.Rotation == 0)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallNorthWest);
-                    FlagTile(xm1Y1, CollisionFlag.WallSouthEast);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallNorthWest);
+                    _regionService.FlagCollision(xm1Y1, CollisionFlag.WallSouthEast);
                 }
 
                 if (obj.Rotation == 1)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallNorthEast);
-                    FlagTile(x1Y1, CollisionFlag.WallSouthWest);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallNorthEast);
+                    _regionService.FlagCollision(x1Y1, CollisionFlag.WallSouthWest);
                 }
 
                 if (obj.Rotation == 2)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallSouthEast);
-                    FlagTile(x1Ym1, CollisionFlag.WallNorthWest);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallSouthEast);
+                    _regionService.FlagCollision(x1Ym1, CollisionFlag.WallNorthWest);
                 }
 
                 if (obj.Rotation == 3)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallSouthWest);
-                    FlagTile(xm1Ym1, CollisionFlag.WallNorthEast);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallSouthWest);
+                    _regionService.FlagCollision(xm1Ym1, CollisionFlag.WallNorthEast);
                 }
             }
 
@@ -230,30 +201,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (obj.Rotation == 0)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallNorth);
-                    FlagTile(xm1Y0, CollisionFlag.WallEast);
-                    FlagTile(x0Y1, CollisionFlag.WallSouth);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallNorth);
+                    _regionService.FlagCollision(xm1Y0, CollisionFlag.WallEast);
+                    _regionService.FlagCollision(x0Y1, CollisionFlag.WallSouth);
                 }
 
                 if (obj.Rotation == 1)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallNorth | CollisionFlag.WallEast);
-                    FlagTile(x0Y1, CollisionFlag.WallSouth);
-                    FlagTile(x1Y0, CollisionFlag.WallWest);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallNorth | CollisionFlag.WallEast);
+                    _regionService.FlagCollision(x0Y1, CollisionFlag.WallSouth);
+                    _regionService.FlagCollision(x1Y0, CollisionFlag.WallWest);
                 }
 
                 if (obj.Rotation == 2)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallSouth | CollisionFlag.WallEast);
-                    FlagTile(x1Y0, CollisionFlag.WallWest);
-                    FlagTile(x0Ym1, CollisionFlag.WallNorth);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallSouth | CollisionFlag.WallEast);
+                    _regionService.FlagCollision(x1Y0, CollisionFlag.WallWest);
+                    _regionService.FlagCollision(x0Ym1, CollisionFlag.WallNorth);
                 }
 
                 if (obj.Rotation == 3)
                 {
-                    FlagTile(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallSouth);
-                    FlagTile(x0Ym1, CollisionFlag.WallNorth);
-                    FlagTile(xm1Y0, CollisionFlag.WallEast);
+                    _regionService.FlagCollision(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallSouth);
+                    _regionService.FlagCollision(x0Ym1, CollisionFlag.WallNorth);
+                    _regionService.FlagCollision(xm1Y0, CollisionFlag.WallEast);
                 }
             }
 
@@ -263,26 +234,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedWest);
-                        FlagTile(xm1Y0, CollisionFlag.BlockedEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedWest);
+                        _regionService.FlagCollision(xm1Y0, CollisionFlag.BlockedEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedNorth);
-                        FlagTile(x0Y1, CollisionFlag.BlockedSouth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedNorth);
+                        _regionService.FlagCollision(x0Y1, CollisionFlag.BlockedSouth);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedEast);
-                        FlagTile(x1Y0, CollisionFlag.BlockedWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedEast);
+                        _regionService.FlagCollision(x1Y0, CollisionFlag.BlockedWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedSouth);
-                        FlagTile(x0Ym1, CollisionFlag.BlockedNorth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedSouth);
+                        _regionService.FlagCollision(x0Ym1, CollisionFlag.BlockedNorth);
                     }
                 }
 
@@ -290,26 +261,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedNorthWest);
-                        FlagTile(xm1Y1, CollisionFlag.BlockedSouthEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedNorthWest);
+                        _regionService.FlagCollision(xm1Y1, CollisionFlag.BlockedSouthEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedNorthEast);
-                        FlagTile(x1Y1, CollisionFlag.BlockedSouthWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedNorthEast);
+                        _regionService.FlagCollision(x1Y1, CollisionFlag.BlockedSouthWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedSouthEast);
-                        FlagTile(x1Ym1, CollisionFlag.BlockedNorthWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedSouthEast);
+                        _regionService.FlagCollision(x1Ym1, CollisionFlag.BlockedNorthWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedSouthWest);
-                        FlagTile(xm1Ym1, CollisionFlag.BlockedNorthEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedSouthWest);
+                        _regionService.FlagCollision(xm1Ym1, CollisionFlag.BlockedNorthEast);
                     }
                 }
 
@@ -317,30 +288,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedNorth);
-                        FlagTile(xm1Y0, CollisionFlag.BlockedEast);
-                        FlagTile(x0Y1, CollisionFlag.BlockedSouth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedNorth);
+                        _regionService.FlagCollision(xm1Y0, CollisionFlag.BlockedEast);
+                        _regionService.FlagCollision(x0Y1, CollisionFlag.BlockedSouth);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedEast | CollisionFlag.BlockedNorth);
-                        FlagTile(x0Y1, CollisionFlag.BlockedSouth);
-                        FlagTile(x1Y0, CollisionFlag.BlockedWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedEast | CollisionFlag.BlockedNorth);
+                        _regionService.FlagCollision(x0Y1, CollisionFlag.BlockedSouth);
+                        _regionService.FlagCollision(x1Y0, CollisionFlag.BlockedWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedSouth | CollisionFlag.BlockedEast);
-                        FlagTile(x1Y0, CollisionFlag.BlockedWest);
-                        FlagTile(x0Ym1, CollisionFlag.BlockedNorth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedSouth | CollisionFlag.BlockedEast);
+                        _regionService.FlagCollision(x1Y0, CollisionFlag.BlockedWest);
+                        _regionService.FlagCollision(x0Ym1, CollisionFlag.BlockedNorth);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        FlagTile(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedSouth);
-                        FlagTile(x0Ym1, CollisionFlag.BlockedNorth);
-                        FlagTile(xm1Y0, CollisionFlag.BlockedEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedSouth);
+                        _regionService.FlagCollision(x0Ym1, CollisionFlag.BlockedNorth);
+                        _regionService.FlagCollision(xm1Y0, CollisionFlag.BlockedEast);
                     }
                 }
             }
@@ -351,26 +322,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeWest);
-                        FlagTile(xm1Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.FlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeNorth);
-                        FlagTile(x0Y1, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.FlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeEast);
-                        FlagTile(x1Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x1Y0, CollisionFlag.WallAllowRangeWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeSouth);
-                        FlagTile(x0Ym1, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.FlagCollision(x0Ym1, CollisionFlag.WallAllowRangeNorth);
                     }
                 }
 
@@ -378,26 +349,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeNorthWest);
-                        FlagTile(xm1Y1, CollisionFlag.WallAllowRangeSouthEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorthWest);
+                        _regionService.FlagCollision(xm1Y1, CollisionFlag.WallAllowRangeSouthEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeNorthEast);
-                        FlagTile(x1Y1, CollisionFlag.WallAllowRangeSouthWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorthEast);
+                        _regionService.FlagCollision(x1Y1, CollisionFlag.WallAllowRangeSouthWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeSouthEast);
-                        FlagTile(x1Ym1, CollisionFlag.WallAllowRangeNorthWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouthEast);
+                        _regionService.FlagCollision(x1Ym1, CollisionFlag.WallAllowRangeNorthWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeSouthWest);
-                        FlagTile(xm1Ym1, CollisionFlag.WallAllowRangeNorthEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouthWest);
+                        _regionService.FlagCollision(xm1Ym1, CollisionFlag.WallAllowRangeNorthEast);
                     }
                 }
 
@@ -405,30 +376,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeNorth);
-                        FlagTile(xm1Y0, CollisionFlag.WallAllowRangeEast);
-                        FlagTile(x0Y1, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeNorth);
+                        _regionService.FlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeNorth | CollisionFlag.WallAllowRangeEast);
-                        FlagTile(x0Y1, CollisionFlag.WallAllowRangeSouth);
-                        FlagTile(x1Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorth | CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.FlagCollision(x1Y0, CollisionFlag.WallAllowRangeWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeSouth | CollisionFlag.WallAllowRangeEast);
-                        FlagTile(x1Y0, CollisionFlag.WallAllowRangeWest);
-                        FlagTile(x0Ym1, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouth | CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x1Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.FlagCollision(x0Ym1, CollisionFlag.WallAllowRangeNorth);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        FlagTile(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeSouth);
-                        FlagTile(x0Ym1, CollisionFlag.WallAllowRangeNorth);
-                        FlagTile(xm1Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.FlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeSouth);
+                        _regionService.FlagCollision(x0Ym1, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.FlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
                     }
                 }
             }
@@ -454,26 +425,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (obj.Rotation == 0)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallWest);
-                    UnFlagTile(xm1Y0, CollisionFlag.WallEast);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallWest);
+                    _regionService.UnFlagCollision(xm1Y0, CollisionFlag.WallEast);
                 }
 
                 if (obj.Rotation == 1)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallNorth);
-                    UnFlagTile(x0Y1, CollisionFlag.WallSouth);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallNorth);
+                    _regionService.UnFlagCollision(x0Y1, CollisionFlag.WallSouth);
                 }
 
                 if (obj.Rotation == 2)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallEast);
-                    UnFlagTile(x1Y0, CollisionFlag.WallWest);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallEast);
+                    _regionService.UnFlagCollision(x1Y0, CollisionFlag.WallWest);
                 }
 
                 if (obj.Rotation == 3)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallSouth);
-                    UnFlagTile(x0Ym1, CollisionFlag.WallNorth);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallSouth);
+                    _regionService.UnFlagCollision(x0Ym1, CollisionFlag.WallNorth);
                 }
             }
 
@@ -481,26 +452,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (obj.Rotation == 0)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallNorthWest);
-                    UnFlagTile(xm1Y1, CollisionFlag.WallSouthEast);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallNorthWest);
+                    _regionService.UnFlagCollision(xm1Y1, CollisionFlag.WallSouthEast);
                 }
 
                 if (obj.Rotation == 1)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallNorthEast);
-                    UnFlagTile(x1Y1, CollisionFlag.WallSouthWest);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallNorthEast);
+                    _regionService.UnFlagCollision(x1Y1, CollisionFlag.WallSouthWest);
                 }
 
                 if (obj.Rotation == 2)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallSouthEast);
-                    UnFlagTile(x1Ym1, CollisionFlag.WallNorthWest);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallSouthEast);
+                    _regionService.UnFlagCollision(x1Ym1, CollisionFlag.WallNorthWest);
                 }
 
                 if (obj.Rotation == 3)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallSouthWest);
-                    UnFlagTile(xm1Ym1, CollisionFlag.WallNorthEast);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallSouthWest);
+                    _regionService.UnFlagCollision(xm1Ym1, CollisionFlag.WallNorthEast);
                 }
             }
 
@@ -508,30 +479,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 if (obj.Rotation == 0)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallNorth);
-                    UnFlagTile(xm1Y0, CollisionFlag.WallEast);
-                    UnFlagTile(x0Y1, CollisionFlag.WallSouth);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallNorth);
+                    _regionService.UnFlagCollision(xm1Y0, CollisionFlag.WallEast);
+                    _regionService.UnFlagCollision(x0Y1, CollisionFlag.WallSouth);
                 }
 
                 if (obj.Rotation == 1)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallNorth | CollisionFlag.WallEast);
-                    UnFlagTile(x0Y1, CollisionFlag.WallSouth);
-                    UnFlagTile(x1Y0, CollisionFlag.WallWest);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallNorth | CollisionFlag.WallEast);
+                    _regionService.UnFlagCollision(x0Y1, CollisionFlag.WallSouth);
+                    _regionService.UnFlagCollision(x1Y0, CollisionFlag.WallWest);
                 }
 
                 if (obj.Rotation == 2)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallSouth | CollisionFlag.WallEast);
-                    UnFlagTile(x1Y0, CollisionFlag.WallWest);
-                    UnFlagTile(x0Ym1, CollisionFlag.WallNorth);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallSouth | CollisionFlag.WallEast);
+                    _regionService.UnFlagCollision(x1Y0, CollisionFlag.WallWest);
+                    _regionService.UnFlagCollision(x0Ym1, CollisionFlag.WallNorth);
                 }
 
                 if (obj.Rotation == 3)
                 {
-                    UnFlagTile(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallSouth);
-                    UnFlagTile(x0Ym1, CollisionFlag.WallNorth);
-                    UnFlagTile(xm1Y0, CollisionFlag.WallEast);
+                    _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallWest | CollisionFlag.WallSouth);
+                    _regionService.UnFlagCollision(x0Ym1, CollisionFlag.WallNorth);
+                    _regionService.UnFlagCollision(xm1Y0, CollisionFlag.WallEast);
                 }
             }
 
@@ -541,26 +512,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedWest);
-                        UnFlagTile(xm1Y0, CollisionFlag.BlockedEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedWest);
+                        _regionService.UnFlagCollision(xm1Y0, CollisionFlag.BlockedEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedNorth);
-                        UnFlagTile(x0Y1, CollisionFlag.BlockedSouth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedNorth);
+                        _regionService.UnFlagCollision(x0Y1, CollisionFlag.BlockedSouth);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedEast);
-                        UnFlagTile(x1Y0, CollisionFlag.BlockedWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedEast);
+                        _regionService.UnFlagCollision(x1Y0, CollisionFlag.BlockedWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedSouth);
-                        UnFlagTile(x0Ym1, CollisionFlag.BlockedNorth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedSouth);
+                        _regionService.UnFlagCollision(x0Ym1, CollisionFlag.BlockedNorth);
                     }
                 }
 
@@ -568,26 +539,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedNorthWest);
-                        UnFlagTile(xm1Y1, CollisionFlag.BlockedSouthEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedNorthWest);
+                        _regionService.UnFlagCollision(xm1Y1, CollisionFlag.BlockedSouthEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedNorthEast);
-                        UnFlagTile(x1Y1, CollisionFlag.BlockedSouthWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedNorthEast);
+                        _regionService.UnFlagCollision(x1Y1, CollisionFlag.BlockedSouthWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedSouthEast);
-                        UnFlagTile(x1Ym1, CollisionFlag.BlockedNorthWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedSouthEast);
+                        _regionService.UnFlagCollision(x1Ym1, CollisionFlag.BlockedNorthWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedSouthWest);
-                        UnFlagTile(xm1Ym1, CollisionFlag.BlockedNorthEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedSouthWest);
+                        _regionService.UnFlagCollision(xm1Ym1, CollisionFlag.BlockedNorthEast);
                     }
                 }
 
@@ -595,30 +566,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedNorth);
-                        UnFlagTile(xm1Y0, CollisionFlag.BlockedEast);
-                        UnFlagTile(x0Y1, CollisionFlag.BlockedSouth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedNorth);
+                        _regionService.UnFlagCollision(xm1Y0, CollisionFlag.BlockedEast);
+                        _regionService.UnFlagCollision(x0Y1, CollisionFlag.BlockedSouth);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedEast | CollisionFlag.BlockedNorth);
-                        UnFlagTile(x0Y1, CollisionFlag.BlockedSouth);
-                        UnFlagTile(x1Y0, CollisionFlag.BlockedWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedEast | CollisionFlag.BlockedNorth);
+                        _regionService.UnFlagCollision(x0Y1, CollisionFlag.BlockedSouth);
+                        _regionService.UnFlagCollision(x1Y0, CollisionFlag.BlockedWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedSouth | CollisionFlag.BlockedEast);
-                        UnFlagTile(x1Y0, CollisionFlag.BlockedWest);
-                        UnFlagTile(x0Ym1, CollisionFlag.BlockedNorth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedSouth | CollisionFlag.BlockedEast);
+                        _regionService.UnFlagCollision(x1Y0, CollisionFlag.BlockedWest);
+                        _regionService.UnFlagCollision(x0Ym1, CollisionFlag.BlockedNorth);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedSouth);
-                        UnFlagTile(x0Ym1, CollisionFlag.BlockedNorth);
-                        UnFlagTile(xm1Y0, CollisionFlag.BlockedEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.BlockedWest | CollisionFlag.BlockedSouth);
+                        _regionService.UnFlagCollision(x0Ym1, CollisionFlag.BlockedNorth);
+                        _regionService.UnFlagCollision(xm1Y0, CollisionFlag.BlockedEast);
                     }
                 }
             }
@@ -629,26 +600,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeWest);
-                        UnFlagTile(xm1Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.UnFlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeNorth);
-                        UnFlagTile(x0Y1, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.UnFlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeEast);
-                        UnFlagTile(x1Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.UnFlagCollision(x1Y0, CollisionFlag.WallAllowRangeWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeSouth);
-                        UnFlagTile(x0Ym1, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.UnFlagCollision(x0Ym1, CollisionFlag.WallAllowRangeNorth);
                     }
                 }
 
@@ -656,26 +627,26 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeNorthWest);
-                        UnFlagTile(xm1Y1, CollisionFlag.WallAllowRangeSouthEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorthWest);
+                        _regionService.UnFlagCollision(xm1Y1, CollisionFlag.WallAllowRangeSouthEast);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeNorthEast);
-                        UnFlagTile(x1Y1, CollisionFlag.WallAllowRangeSouthWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorthEast);
+                        _regionService.UnFlagCollision(x1Y1, CollisionFlag.WallAllowRangeSouthWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeSouthEast);
-                        UnFlagTile(x1Ym1, CollisionFlag.WallAllowRangeNorthWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouthEast);
+                        _regionService.UnFlagCollision(x1Ym1, CollisionFlag.WallAllowRangeNorthWest);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeSouthWest);
-                        UnFlagTile(xm1Ym1, CollisionFlag.WallAllowRangeNorthEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouthWest);
+                        _regionService.UnFlagCollision(xm1Ym1, CollisionFlag.WallAllowRangeNorthEast);
                     }
                 }
 
@@ -683,30 +654,30 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 {
                     if (obj.Rotation == 0)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeNorth);
-                        UnFlagTile(xm1Y0, CollisionFlag.WallAllowRangeEast);
-                        UnFlagTile(x0Y1, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeNorth);
+                        _regionService.UnFlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.UnFlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
                     }
 
                     if (obj.Rotation == 1)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeNorth | CollisionFlag.WallAllowRangeEast);
-                        UnFlagTile(x0Y1, CollisionFlag.WallAllowRangeSouth);
-                        UnFlagTile(x1Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeNorth | CollisionFlag.WallAllowRangeEast);
+                        _regionService.UnFlagCollision(x0Y1, CollisionFlag.WallAllowRangeSouth);
+                        _regionService.UnFlagCollision(x1Y0, CollisionFlag.WallAllowRangeWest);
                     }
 
                     if (obj.Rotation == 2)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeSouth | CollisionFlag.WallAllowRangeEast);
-                        UnFlagTile(x1Y0, CollisionFlag.WallAllowRangeWest);
-                        UnFlagTile(x0Ym1, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeSouth | CollisionFlag.WallAllowRangeEast);
+                        _regionService.UnFlagCollision(x1Y0, CollisionFlag.WallAllowRangeWest);
+                        _regionService.UnFlagCollision(x0Ym1, CollisionFlag.WallAllowRangeNorth);
                     }
 
                     if (obj.Rotation == 3)
                     {
-                        UnFlagTile(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeSouth);
-                        UnFlagTile(x0Ym1, CollisionFlag.WallAllowRangeNorth);
-                        UnFlagTile(xm1Y0, CollisionFlag.WallAllowRangeEast);
+                        _regionService.UnFlagCollision(x0Y0, CollisionFlag.WallAllowRangeWest | CollisionFlag.WallAllowRangeSouth);
+                        _regionService.UnFlagCollision(x0Ym1, CollisionFlag.WallAllowRangeNorth);
+                        _regionService.UnFlagCollision(xm1Y0, CollisionFlag.WallAllowRangeEast);
                     }
                 }
             }
