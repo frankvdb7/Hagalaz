@@ -566,12 +566,47 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
-    public void CreateDynamicRegion_WaitsForADynamicSourceAndCopiesItsMappings()
+    public async Task CreateDynamicRegion_WaitsForAnInitializingDynamicSourceWithoutTheNormalLoader()
     {
-        var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
-        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
-            .Returns(sourceReady.Task);
+        using var provider = CreateProvider(loadRequests, CreateGatedTemplateLoader(templatesReady));
+        var service = CreateService(provider);
+        var standard = Location.Create(3200, 3264, 0, 0);
+        var firstDynamic = Location.Create(640, 640, 0, 0);
+        var secondDynamic = Location.Create(1280, 640, 0, 0);
+        var taskService = provider.GetRequiredService<IRsTaskService>();
+        service.CreateDynamicRegion(standard, firstDynamic);
+        taskService.Tick();
+        var first = service.FindMapRegion(firstDynamic.RegionId, firstDynamic.Dimension)!;
+        Assert.AreEqual(MapRegionState.Initializing, first.State);
+
+        service.CreateDynamicRegion(firstDynamic, secondDynamic);
+        taskService.Tick();
+
+        var second = service.FindMapRegion(secondDynamic.RegionId, secondDynamic.Dimension)!;
+        Assert.AreEqual(MapRegionState.Initializing, second.State, "The second creation waits for the first to populate its source.");
+        templatesReady.SetResult();
+        for (var attempt = 0; attempt < 200 && second.State != MapRegionState.Ready; attempt++)
+        {
+            taskService.Tick();
+            await Task.Delay(10);
+        }
+
+        Assert.AreEqual(MapRegionState.Ready, first.State);
+        Assert.AreEqual(MapRegionState.Ready, second.State);
+        var part = second.GetRegionPartByLocalPart(3, 4, 2);
+        Assert.AreEqual(50 * 8 + 3, part.DrawRegionPartX);
+        Assert.AreEqual(51 * 8 + 4, part.DrawRegionPartY);
+        Assert.AreEqual(2, part.DrawRegionZ);
+        loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
+    }
+
+    [TestMethod]
+    public void CreateDynamicRegion_ResumesAnIdleDynamicSource()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
         using var provider = CreateProvider(loadRequests);
         var service = CreateService(provider);
         var standard = Location.Create(3200, 3264, 0, 0);
@@ -580,20 +615,20 @@ public sealed class MapRegionServiceTests
         var taskService = provider.GetRequiredService<IRsTaskService>();
         service.CreateDynamicRegion(standard, firstDynamic);
         taskService.Tick();
+        var first = service.FindMapRegion(firstDynamic.RegionId, firstDynamic.Dimension)!;
+        Assert.AreEqual(MapRegionState.Ready, first.State);
+        Assert.IsTrue(service.TrySuspendMapRegion(first));
+        Assert.IsTrue(service.FindIdleRegionsByDimension(0).Contains(first));
 
         service.CreateDynamicRegion(firstDynamic, secondDynamic);
         taskService.Tick();
 
         var second = service.FindMapRegion(secondDynamic.RegionId, secondDynamic.Dimension)!;
-        Assert.AreEqual(MapRegionState.Initializing, second.State, "A dynamic source is awaited before its mappings are read.");
-        sourceReady.SetResult();
-        taskService.Tick();
-
         Assert.AreEqual(MapRegionState.Ready, second.State);
-        var part = second.GetRegionPartByLocalPart(3, 4, 2);
-        Assert.AreEqual(50 * 8 + 3, part.DrawRegionPartX);
-        Assert.AreEqual(51 * 8 + 4, part.DrawRegionPartY);
-        Assert.AreEqual(2, part.DrawRegionZ);
+        Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(first), "The source was resumed.");
+        Assert.AreEqual(50 * 8 + 3, second.GetRegionPartByLocalPart(3, 4, 2).DrawRegionPartX);
+        loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
     }
 
     [TestMethod]

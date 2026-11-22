@@ -27,7 +27,7 @@ codes MUST NOT determine whether a part has a source mapping.
 - **AND** loading that part MUST not perform template lookup or copy objects
 
 ### Requirement: Dynamic destinations have a separate readiness path
-Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. Dynamic destinations publish as exact canonical Initializing regions and bypass that loader. A standard source maps every part to itself, so it MUST NOT be created, loaded or awaited: only its map template is read, once. A dynamic source MUST be awaited and revalidated as the exact canonical active Ready instance before its part mappings are read. Copy runs on serialized GameWorker; the destination becomes Ready only after success.
+Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. Dynamic destinations publish as exact canonical Initializing regions and bypass that loader. A standard source maps every part to itself, so it MUST NOT be created, loaded or awaited: only its map template is read, once. A dynamic source MUST NOT be given to the normal load scheduler: it is awaited through the task that populates it, resumed if it was suspended, and revalidated as the exact canonical active Ready instance before its part mappings are read. Copy runs on serialized GameWorker; the destination becomes Ready only after success.
 
 #### Scenario: A fresh dynamic destination is created
 
@@ -45,8 +45,9 @@ Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. Dy
 #### Scenario: Dynamic creation waits for its source
 
 - **WHEN** the source is a dynamic region that is still `Initializing` (a standard source is never awaited)
-- **THEN** dynamic creation MUST await the existing scheduler
+- **THEN** dynamic creation MUST wait for the task that populates it and MUST NOT request normal loading for it
 - **AND** it MUST NOT read the source's part mappings before the exact source is canonical and `Ready`
+- **AND** an idle (suspended) dynamic source MUST be resumed, not rejected
 
 #### Scenario: Dynamic population is canceled or fails
 
