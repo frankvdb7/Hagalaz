@@ -225,7 +225,10 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 foreach (var gameObject in pool.ToList())
                 {
-                    if (GetFinalPlane(gameObject, key, templates) != gameObject.Location.Z)
+                    var built = _builtObjects[gameObject];
+                    var isBridge = built.IsStatic && IsBridgeTile(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, templates, null);
+                    var (finalPlane, finalCollision) = GetPlacement(built.IsStatic, key % Planes, isBridge);
+                    if (finalPlane != gameObject.Location.Z)
                     {
                         // The rebuild places it on another plane, so it no longer holds this slot.
                         pool.Remove(gameObject);
@@ -233,8 +236,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                         continue;
                     }
 
-                    var finalCollision = HasFinalCollision(gameObject, key, templates);
-                    if (_builtObjects[gameObject].HasCollision != finalCollision)
+                    if (built.HasCollision != finalCollision)
                     {
                         SetCollision(gameObject, finalCollision, pass);
                     }
@@ -458,12 +460,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 // Configured spawns are not part of the client's map, so no bridge applies to them.
                 // Where the collision plane falls below plane 0 the client still draws the object
                 // on its draw plane, only without clipping it.
-                var plane = entry.IsStatic ? MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content)) : z;
-                var hasCollision = plane >= 0;
-                if (!hasCollision)
-                {
-                    plane = z;
-                }
+                var (plane, hasCollision) = GetPlacement(entry.IsStatic, z, entry.IsStatic && IsBridgeAt(localX, localY, templates, content));
 
                 var tombstone = (localX, localY, plane, entry.Shape.GetLayerType(), entry.Id);
                 if (tombstones is not null && tombstones.Contains(tombstone))
@@ -510,28 +507,22 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         /// <summary>
-        /// The plane a part's live object belongs on under the current bridges: statics drop one plane
-        /// where the tile is a bridge, if a plane lies below; everything else stays on its draw plane.
+        /// Where an object of a part drawn on <paramref name="drawPlane"/> goes, and whether it has
+        /// collision: a static drops one plane where its tile is a bridge, and where no plane lies below
+        /// it stays on its draw plane, drawn but unclipped (as the client does). Configured spawns are
+        /// not part of the client's map, so no bridge applies to them. This is the single rule for
+        /// building an object and for settling a live one.
         /// </summary>
-        private int GetFinalPlane(IGameObject gameObject, int partKey, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private static (int Plane, bool HasCollision) GetPlacement(bool isStatic, int drawPlane, bool isBridge)
         {
-            var drawPlane = partKey % Planes;
-            if (!_builtObjects[gameObject].IsStatic)
+            if (!isStatic)
             {
-                return drawPlane;
+                return (drawPlane, true);
             }
 
-            var plane = MapTerrain.GetCollisionPlane(drawPlane, IsBridgeTile(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, templates, null));
-            return plane >= 0 ? plane : drawPlane;
+            var collisionPlane = MapTerrain.GetCollisionPlane(drawPlane, isBridge);
+            return collisionPlane >= 0 ? (collisionPlane, true) : (drawPlane, false);
         }
-
-        /// <summary>
-        /// Whether a part's live object has collision under the current bridges: statics lose it where
-        /// the tile is a bridge and the draw plane has no plane below; configured spawns always have it.
-        /// </summary>
-        private bool HasFinalCollision(IGameObject gameObject, int partKey, IReadOnlyDictionary<int, MapRegionTemplate> templates) =>
-            !_builtObjects[gameObject].IsStatic
-            || MapTerrain.GetCollisionPlane(partKey % Planes, IsBridgeTile(gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, templates, null)) >= 0;
 
         /// <summary>
         /// Moves a reused object between having collision and not (a bridge appeared or went) without
@@ -664,12 +655,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private bool IsBridgeAt(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates, PartContent reader)
         {
             var column = GetColumnKey(localX >> 3, localY >> 3);
-            if (!reader.BridgeReads.ContainsKey(column))
+            if (!reader.BridgeReads.TryGetValue(column, out var mask))
             {
-                reader.BridgeReads[column] = GetBridgeMask(column, templates, null);
+                mask = GetBridgeMask(column, templates, null);
+                reader.BridgeReads[column] = mask;
             }
 
-            return IsBridgeTile(localX, localY, templates, null);
+            return (mask & (1UL << ((localX & 7) * 8 + (localY & 7)))) != 0;
         }
 
         /// <summary>
