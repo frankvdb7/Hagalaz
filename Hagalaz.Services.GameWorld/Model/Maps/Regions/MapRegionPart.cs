@@ -52,29 +52,29 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// If this part data is not modified this is same
         /// as the PartX of this data.
         /// </summary>
-        public int DrawRegionPartX { get; set; }
+        public int DrawRegionPartX { get; internal set; }
 
         /// <summary>
         /// Contains real (drawed) part Y
         /// If this part data is not modified this is same
         /// as the PartY of this data.
         /// </summary>
-        public int DrawRegionPartY { get; set; }
+        public int DrawRegionPartY { get; internal set; }
 
         /// <summary>
         /// Contains real (drawed) Z
         /// If this part data is not modified this is same
         /// as the Z of this data.
         /// </summary>
-        public int DrawRegionZ { get; set; }
+        public int DrawRegionZ { get; internal set; }
 
-        public bool HasDrawSource { get; set; }
+        public bool HasDrawSource { get; internal set; }
 
         /// <summary>
         /// Contains rotation of this sector,
         /// It is 0 by default if not modified.
         /// </summary>
-        public int Rotation { get; set; }
+        public int Rotation { get; internal set; }
 
         public IEnumerable<IGameObject> FindAllGameObjects() => _gameObjects.Values;
 
@@ -423,7 +423,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        public void Erase()
+        internal void Erase()
         {
             DrawRegionPartX = 0;
             DrawRegionPartY = 0;

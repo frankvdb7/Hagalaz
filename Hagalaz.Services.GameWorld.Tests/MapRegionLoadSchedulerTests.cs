@@ -67,6 +67,48 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public async Task EnsureLoadedAsync_WaitsForADynamicRegionsCopyAndNeverLoadsIt()
+        {
+            var loader = Substitute.For<IMapRegionLoader>();
+            using var provider = CreateLoaderProvider(loader);
+            using var scheduler = CreateScheduler(provider);
+            var state = MapRegionState.Initializing;
+            var region = CreateRegion(1);
+            region.IsDynamic.Returns(true);
+            region.State.Returns(_ => state);
+            scheduler.BeginDynamicPopulation(region);
+            await scheduler.StartAsync(CancellationToken.None);
+
+            var wait = scheduler.EnsureLoadedAsync([region]);
+            await Task.Delay(50);
+            Assert.IsFalse(wait.IsCompleted, "Sign-in waits for the dynamic copy.");
+
+            state = MapRegionState.Ready;
+            scheduler.CompleteDynamicPopulation(region, true);
+            await wait.WaitAsync(TimeSpan.FromSeconds(1));
+            await scheduler.StopAsync(CancellationToken.None);
+
+            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!, default);
+        }
+
+        [TestMethod]
+        public async Task EnsureLoadedAsync_FailsWhenADynamicRegionsCopyFails()
+        {
+            var loader = Substitute.For<IMapRegionLoader>();
+            using var provider = CreateLoaderProvider(loader);
+            using var scheduler = CreateScheduler(provider);
+            var region = CreateRegion(1);
+            region.IsDynamic.Returns(true);
+            scheduler.BeginDynamicPopulation(region);
+            var wait = scheduler.EnsureLoadedAsync([region]);
+
+            scheduler.CompleteDynamicPopulation(region, false);
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => wait);
+            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!, default);
+        }
+
+        [TestMethod]
         public async Task EnsureLoadedAsync_SkipsReadyRegions()
         {
             var loader = Substitute.For<IMapRegionLoader>();
@@ -355,6 +397,12 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             await loader.Received(1).LoadAsync(region, Arg.Any<CancellationToken>());
         }
+
+        private static ServiceProvider CreateLoaderProvider(IMapRegionLoader loader) =>
+            new ServiceCollection().AddScoped(_ => loader).BuildServiceProvider();
+
+        private static MapRegionLoadScheduler CreateScheduler(ServiceProvider provider) =>
+            new(provider.GetRequiredService<IServiceScopeFactory>(), Substitute.For<ILogger<MapRegionLoadScheduler>>());
 
         private static IMapRegion CreateRegion(int id, MapRegionState state = MapRegionState.Initializing)
         {

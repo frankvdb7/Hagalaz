@@ -126,7 +126,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             foreach (var (key, target) in targets)
             {
                 var column = key / Planes;
-                var part = GetRegionPartByLocalPart(column / PartsPerRegionAxis, column % PartsPerRegionAxis, key % Planes);
+                var part = (MapRegionPart)GetRegionPartByLocalPart(column / PartsPerRegionAxis, column % PartsPerRegionAxis, key % Planes);
                 if (target.HasSource)
                 {
                     part.DrawRegionPartX = target.SourcePartX;

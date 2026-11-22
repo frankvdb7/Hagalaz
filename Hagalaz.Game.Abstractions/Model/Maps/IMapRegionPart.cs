@@ -12,29 +12,29 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
     public interface IMapRegionPart
     {
         /// <summary>
-        /// Gets or sets the X-coordinate of the region part that this part's data is drawn from.
+        /// Gets the X-coordinate of the region part that this part's data is drawn from.
         /// </summary>
-        int DrawRegionPartX { get; set; }
+        int DrawRegionPartX { get; }
 
         /// <summary>
-        /// Gets or sets the Y-coordinate of the region part that this part's data is drawn from.
+        /// Gets the Y-coordinate of the region part that this part's data is drawn from.
         /// </summary>
-        int DrawRegionPartY { get; set; }
+        int DrawRegionPartY { get; }
 
         /// <summary>
-        /// Gets or sets the plane (height level) of the region part that this part's data is drawn from.
+        /// Gets the plane (height level) of the region part that this part's data is drawn from.
         /// </summary>
-        int DrawRegionZ { get; set; }
+        int DrawRegionZ { get; }
 
         /// <summary>
         /// Gets whether this part has a source mapping to load.
         /// </summary>
-        bool HasDrawSource { get; set; }
+        bool HasDrawSource { get; }
 
         /// <summary>
-        /// Gets or sets the rotation of this region part.
+        /// Gets the rotation of this region part.
         /// </summary>
-        int Rotation { get; set; }
+        int Rotation { get; }
 
         /// <summary>
         /// Finds a game object at the specified local coordinates and layer within this region part.
@@ -141,11 +141,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// prepared updates.
         /// </summary>
         void CompleteUpdateTick();
-
-        /// <summary>
-        /// Erases all dynamic data from this region part, resetting it to its base state.
-        /// </summary>
-        void Erase();
 
         /// <summary>
         /// Destroys and unregisters the given objects that this part holds, enabled or

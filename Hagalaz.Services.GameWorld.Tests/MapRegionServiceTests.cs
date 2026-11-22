@@ -569,7 +569,8 @@ public sealed class MapRegionServiceTests
     public async Task CreateDynamicRegion_WaitsForAnInitializingDynamicSourceWithoutTheNormalLoader()
     {
         var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        using var loadRequests = new MapRegionLoadScheduler(scopeFactory, Substitute.For<ILogger<MapRegionLoadScheduler>>());
         using var provider = CreateProvider(loadRequests, CreateGatedTemplateLoader(templatesReady));
         var service = CreateService(provider);
         var standard = Location.Create(3200, 3264, 0, 0);
@@ -599,8 +600,7 @@ public sealed class MapRegionServiceTests
         Assert.AreEqual(50 * 8 + 3, part.DrawRegionPartX);
         Assert.AreEqual(51 * 8 + 4, part.DrawRegionPartY);
         Assert.AreEqual(2, part.DrawRegionZ);
-        loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
-        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
+        scopeFactory.DidNotReceiveWithAnyArgs().CreateScope();
     }
 
     [TestMethod]

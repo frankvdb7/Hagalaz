@@ -36,7 +36,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     for (var z = 0; z < Planes; z++)
                     {
                         parts.Add(GetPartKey(localPartX, localPartY, z));
-                        var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
+                        var part = (MapRegionPart)GetRegionPartByLocalPart(localPartX, localPartY, z);
                         part.DrawRegionPartX = LocalPartXToPartX(localPartX);
                         part.DrawRegionPartY = LocalPartYToPartY(localPartY);
                         part.DrawRegionZ = z;

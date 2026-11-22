@@ -56,3 +56,9 @@ Normal loads MUST remain owned by MapRegionLoadScheduler and MapRegionLoader. Dy
   GameWorker boundary
 - **AND** a newer replacement destination MUST remain untouched
 - **AND** the destination MUST NOT publish `Ready`
+
+#### Scenario: Readiness waits for a dynamic destination's copy
+
+- **WHEN** any caller (for example sign-in) requires an `Initializing` dynamic region to be loaded
+- **THEN** the normal load scheduler MUST NOT invoke the normal loader for it
+- **AND** the caller MUST wait for the dynamic copy to finish, and MUST fail if the copy fails
