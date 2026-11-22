@@ -90,9 +90,17 @@ namespace Hagalaz.Services.GameWorld.Data
                 }
             }
 
+            // Standard placements: a cache object is clipped on its collision plane; where that
+            // falls below plane 0 the client still draws it on its raw plane without collision.
+            MapRegionTemplateObject StandardPlacement(IMapObject placement)
+            {
+                var plane = MapTerrain.GetCollisionPlane(placement.Z, MapTerrain.IsBridge(terrainFlags[1, placement.X, placement.Y]));
+                return plane >= 0 ? FromPlacement(placement) with { Z = plane } : FromPlacement(placement) with { HasCollision = false };
+            }
+
             return new MapRegionTemplate(
                 regionId,
-                decodedRegion.ObjectPlacements.Select(FromPlacement).Concat(spawns),
+                decodedRegion.RawObjectPlacements.Select(StandardPlacement).Concat(spawns),
                 decodedRegion.BlockedTiles,
                 decodedRegion.RawObjectPlacements.Select(FromPlacement).Concat(spawns),
                 terrainFlags);

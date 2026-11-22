@@ -21,10 +21,14 @@
 - [x] 3.6 Drop pending and prepared updates of discarded objects while keeping other updates; verify both queues with `Rewrite_DropsQueuedUpdatesOfDiscardedObjectsButKeepsOtherUpdates`
 - [x] 3.7 Re-flag surviving objects that overlap discarded collision; including survivors in resident adjacent regions; verify with cross-part and two-region overlapping-footprint regressions
 - [x] 3.8 Keep raw object planes and terrain flags in the decoded map and template, rebuild whole columns with recorded content, and apply bridge planes at the destination; verify `DynamicChunks_FollowClientBridgePlanesForRegion12850` against a client-rule reference for all rotations, and the region 12850 standard and restore tests
+- [x] 3.9 Remove runtime objects of a replaced part while keeping objects other columns placed there; verify `Delete_RemovesRuntimeObjectsButKeepsObjectsPlacedByOtherColumns`
+- [x] 3.10 Keep plane-0 objects under a bridge without collision, yielding to objects with collision, in dynamic parts and standard loads; verify `PlaneZeroObjectUnderABridge_IsKeptWithoutCollisionUntilTheBridgeGoes`, `LoadAsync_AddsPlaneZeroObjectUnderABridgeWithoutCollision` and the 12850 client-rule test
+- [x] 3.11 Rebuild columns that read an edited plane-1 chunk's bridge flags; verify `ChangingABridgeChunk_RebuildsColumnsThatReadIt`
 
 ## 4. Dynamic creation
 
 - [x] 4.1 Update `MapRegionService.CreateDynamicRegion` to read source descriptors by local index, load each distinct source template, write parts by local index, and stop calling `MakeStandard()` on the source; verify a source with region X != region Y away from origin maps all 4x8x8 parts correctly, and existing `MapRegionServiceTests` readiness/cancellation tests pass
+- [x] 4.3 Apply all mappings first and build each column once during creation; verify `CreateDynamicRegion_BuildsEachObjectOnlyForItsFinalPlacement`
 - [x] 4.2 Verify determinism: creation with the source resident and not resident produces the same objects and collision, and runtime objects, ground items and NPCs in the source are not copied; replace `DynamicRegionDimensionTests` with template-based coverage in `DynamicRegionPartTests`
 
 ## 5. Integration

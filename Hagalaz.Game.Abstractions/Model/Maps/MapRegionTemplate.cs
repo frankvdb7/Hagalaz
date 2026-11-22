@@ -87,7 +87,8 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
 
     /// <summary>
     /// A template object in region-local coordinates. Cache placements are static;
-    /// configured spawns are not.
+    /// configured spawns are not. An object without collision is drawn by the client
+    /// but not clipped (a plane-0 object under a bridge).
     /// </summary>
     public sealed record MapRegionTemplateObject(
         int Id,
@@ -97,5 +98,6 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         int Rotation,
         ShapeType Shape,
         IGameObjectDefinition Definition,
-        bool IsStatic);
+        bool IsStatic,
+        bool HasCollision = true);
 }

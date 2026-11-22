@@ -543,19 +543,14 @@ namespace Hagalaz.Services.GameWorld.Services
                     // Dynamic block population can invoke object scripts while loading
                     // copied objects. This operation is a game task, so it remains on
                     // the serialized GameWorker boundary.
-                    foreach (var part in sourceParts)
-                    {
-                        if (!part.IsPresent)
-                        {
-                            continue;
-                        }
-
-                        dynamicRegion.WriteBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, templates);
-                        if (part.Rotation != 0)
-                        {
-                            dynamicRegion.RotateBlockByIndex(part.LocalPartX, part.LocalPartY, part.Z, part.Rotation, templates);
-                        }
-                    }
+                    // All mappings are applied first and each column is built once, so object
+                    // spawn hooks only run for the final content.
+                    dynamicRegion.WriteBlocksByIndex(
+                        sourceParts
+                            .Where(part => part.IsPresent)
+                            .Select(part => new MapRegionPartMapping(part.LocalPartX, part.LocalPartY, part.Z, part.SourcePartX, part.SourcePartY, part.SourceZ, part.Rotation))
+                            .ToList(),
+                        templates);
 
                     lock (discardGate)
                     {

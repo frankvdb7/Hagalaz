@@ -174,6 +174,7 @@ namespace Hagalaz.Services.GameWorld.Data
             activity?.SetTag("map.region.gameobject.definition_id_count", template.Objects.Select(entry => entry.Id).Distinct().Count());
             activity?.SetTag("map.region.npc_spawn_count", npcSpawns.Length);
 
+            var objectsWithoutCollision = new HashSet<IGameObject>(ReferenceEqualityComparer.Instance);
             var collisionTiles = template.BlockedTiles
                 .Select(tile => new CollisionTile(tile.LocalX, tile.LocalY, tile.Z))
                 .ToList();
@@ -197,7 +198,12 @@ namespace Hagalaz.Services.GameWorld.Data
                     builder = builder.AsStatic();
                 }
 
-                createdGameObjects.Add(builder.Build());
+                var gameObject = builder.Build();
+                createdGameObjects.Add(gameObject);
+                if (!entry.HasCollision)
+                {
+                    objectsWithoutCollision.Add(gameObject);
+                }
             }
 
             foreach (var spawn in itemSpawns)
@@ -212,7 +218,7 @@ namespace Hagalaz.Services.GameWorld.Data
                 createdGroundItems.Add(groundItem);
             }
 
-            return new PreparedRegion(npcSpawns, collisionTiles);
+            return new PreparedRegion(npcSpawns, collisionTiles, objectsWithoutCollision);
         }
 
         private static void ApplyPreparedRegion(
@@ -228,7 +234,14 @@ namespace Hagalaz.Services.GameWorld.Data
 
             foreach (var gameObject in gameObjects)
             {
-                region.Add(gameObject);
+                if (prepared.ObjectsWithoutCollision.Contains(gameObject))
+                {
+                    region.Add(gameObject, false);
+                }
+                else
+                {
+                    region.Add(gameObject);
+                }
             }
 
             foreach (var groundItem in groundItems)
@@ -319,7 +332,8 @@ namespace Hagalaz.Services.GameWorld.Data
 
         private sealed record PreparedRegion(
             NpcSpawnDto[] NpcSpawns,
-            List<CollisionTile> CollisionTiles);
+            List<CollisionTile> CollisionTiles,
+            IReadOnlySet<IGameObject> ObjectsWithoutCollision);
 
         private readonly record struct CollisionTile(int LocalX, int LocalY, int Z);
     }

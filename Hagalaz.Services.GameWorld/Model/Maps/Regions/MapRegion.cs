@@ -30,6 +30,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly ConcurrentStore<int, INpc> _npcs = new();
         private readonly HashSet<int> _nonSuspendableNpcIndexes = [];
         private readonly ConcurrentStore<int, IMapRegionPart> _parts = new();
+        private readonly HashSet<IGameObject> _objectsWithoutCollision = new(ReferenceEqualityComparer.Instance);
         private readonly CollisionFlag[,,] _collision;
         private DateTime _idleTime = DateTime.MinValue;
         private readonly INpcService _npcService;

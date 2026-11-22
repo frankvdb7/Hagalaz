@@ -388,6 +388,99 @@ public sealed class DynamicRegionPartTests
     }
 
     [TestMethod]
+    public void Delete_RemovesRuntimeObjectsButKeepsObjectsPlacedByOtherColumns()
+    {
+        // Column (6, 6) copies the source chunk rotated by 2, which roots its 2x3 object (10)
+        // in column (5, 6) at local (47, 53). Column (5, 6) copies an empty chunk.
+        var template = CreateSourceTemplate(new MapRegionTemplateObject(10, SourceMinX + 7, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard2X3, true));
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX - 1, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX + 1, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 2)
+        ], Templates(template));
+        var foreign = destination.FindStandardGameObject(47, 53, 0);
+        Assert.AreEqual(10, foreign?.Id);
+        var runtimeObject = TestWorld.CreateGameObject(77, DestinationRegionX * 64 + DestinationMinX + 3, DestinationRegionY * 64 + DestinationMinY + 3, 0, 0, 0,
+            ShapeType.GroundDefault, Standard1X1, isStatic: false);
+        var disabledStatic = TestWorld.CreateGameObject(78, DestinationRegionX * 64 + DestinationMinX + 2, DestinationRegionY * 64 + DestinationMinY + 1, 0, 0, 0,
+            ShapeType.GroundDefault, Standard1X1);
+        destination.Add(runtimeObject);
+        destination.Add(disabledStatic);
+        destination.Remove(disabledStatic);
+        var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        Assert.AreSame(disabledStatic, part.FindAllDisabledStaticGameObjects().Single());
+
+        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, Templates(template));
+
+        Assert.IsFalse(destination.FindGameObjects(DestinationMinX + 3, DestinationMinY + 3, 0).Any());
+        Assert.IsFalse(part.FindAllDisabledStaticGameObjects().Any());
+        Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(DestinationMinX + 3, DestinationMinY + 3, 0));
+        Assert.IsFalse(world.Store.TryResolve(runtimeObject.Handle, out _));
+        Assert.IsFalse(world.Store.TryResolve(disabledStatic.Handle, out _));
+        Assert.AreSame(foreign, destination.FindStandardGameObject(47, 53, 0));
+        Assert.IsTrue(destination.GetCollision(47, 53, 0).HasFlag(CollisionFlag.ObjectBlock));
+    }
+
+    [TestMethod]
+    public void PlaneZeroObjectUnderABridge_IsKeptWithoutCollisionUntilTheBridgeGoes()
+    {
+        // Map.readRegionPartLandscape still draws the object when the destination tile's
+        // collision plane is below 0; it only skips clipping.
+        var template = CreateTemplateWithTerrain(
+            [new MapRegionTemplateObject(30, SourceMinX + 1, SourceMinY + 1, 0, 0, ShapeType.GroundDefault, Standard1X1, true)],
+            terrain => terrain[1, SourceMinX + 1, SourceMinY + 1] = 0x2);
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, 0, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, 1, 0)
+        ], Templates(template));
+
+        var drawn = destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0);
+        Assert.AreEqual(30, drawn?.Id);
+        Assert.IsTrue(Collision(destination).All(flag => flag == CollisionFlag.Walkable));
+
+        destination.DeleteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, Templates(template));
+
+        Assert.AreEqual(30, destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0)?.Id);
+        Assert.IsTrue(destination.GetCollision(DestinationMinX + 1, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
+    }
+
+    [TestMethod]
+    public void ChangingABridgeChunk_RebuildsColumnsThatReadIt()
+    {
+        // Rotation 2 roots the 2x1 object of source chunk (2, 3) at destination local (39, 53),
+        // in column (4, 6), whose plane-1 chunk is all bridge.
+        var template = CreateTemplateWithTerrain(
+            [new MapRegionTemplateObject(20, SourceMinX + 7, SourceMinY + 2, 0, 0, ShapeType.GroundDefault, Definition(2, 1), true)],
+            terrain =>
+            {
+                for (var x = 0; x < 8; x++)
+                for (var y = 0; y < 8; y++)
+                    terrain[1, SourceMinX + 8 + x, SourceMinY + y] = 0x2;
+            });
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX - 1, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, 1, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, 0, 2)
+        ], Templates(template));
+        Assert.AreEqual(20, destination.FindStandardGameObject(39, 53, 0)?.Id);
+        Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(39, 53, 0));
+
+        destination.DeleteBlockByIndex(DestinationLocalPartX - 1, DestinationLocalPartY, 1, Templates(template));
+
+        Assert.AreEqual(20, destination.FindStandardGameObject(39, 53, 0)?.Id);
+        Assert.IsTrue(destination.GetCollision(39, 53, 0).HasFlag(CollisionFlag.ObjectBlock));
+        Assert.IsTrue(destination.GetCollision(40, 53, 0).HasFlag(CollisionFlag.ObjectBlock));
+    }
+
+    [TestMethod]
     public void MakeStandard_RestoresMappingsObjectsAndCollision()
     {
         var world = new TestWorld();
@@ -426,6 +519,13 @@ public sealed class DynamicRegionPartTests
 
         CollectionAssert.AreEquivalent(ObjectSnapshot(fresh), ObjectSnapshot(region));
         CollectionAssert.AreEqual(Collision(fresh), Collision(region));
+    }
+
+    private static MapRegionTemplate CreateTemplateWithTerrain(MapRegionTemplateObject[] sourceObjects, Action<sbyte[,,]> terrain)
+    {
+        var flags = new sbyte[4, 64, 64];
+        terrain(flags);
+        return new MapRegionTemplate(SourceRegionId, [], [], sourceObjects, flags);
     }
 
     private static IReadOnlyDictionary<int, MapRegionTemplate> Templates(params MapRegionTemplate[] templates) =>
@@ -530,8 +630,8 @@ public sealed class DynamicRegionPartTests
             return region;
         }
 
-        public static GameObject CreateGameObject(int id, int x, int y, int z, int dimension, int rotation, ShapeType shape, IGameObjectDefinition definition) =>
-            new(id, Location.Create(x, y, z, dimension), rotation, shape, true, definition, Substitute.For<IGameObjectScript>());
+        public static GameObject CreateGameObject(int id, int x, int y, int z, int dimension, int rotation, ShapeType shape, IGameObjectDefinition definition, bool isStatic = true) =>
+            new(id, Location.Create(x, y, z, dimension), rotation, shape, isStatic, definition, Substitute.For<IGameObjectScript>());
 
         private void Route(ILocation location, CollisionFlag flag, Action<MapRegion, int, int, int, CollisionFlag> action)
         {

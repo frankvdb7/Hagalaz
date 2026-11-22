@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Utilities;
 
@@ -46,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             IsDynamic = false;
-            RebuildColumns(columns, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate });
+            RebuildColumns(columns, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate }, _parts.ToList());
         }
 
         /// <summary>
@@ -90,13 +91,32 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Writing");
-            EditPart(localPartX, localPartY, z, templates, part =>
+            EditParts([(localPartX, localPartY, z, part =>
             {
                 part.DrawRegionPartX = sourcePartX;
                 part.DrawRegionPartY = sourcePartY;
                 part.DrawRegionZ = sourceZ;
                 part.HasDrawSource = true;
-            });
+            })], templates);
+        }
+
+        /// <summary>
+        /// Maps several local parts of this dynamic region at once and rebuilds each affected
+        /// column a single time.
+        /// </summary>
+        public void WriteBlocksByIndex(IReadOnlyCollection<MapRegionPartMapping> mappings, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        {
+            EnsureAcceptsMutation();
+            EnsureDynamic("Writing");
+            ArgumentNullException.ThrowIfNull(mappings);
+            EditParts(mappings.Select(mapping => (mapping.LocalPartX, mapping.LocalPartY, mapping.Z, (Action<IMapRegionPart>)(part =>
+            {
+                part.DrawRegionPartX = mapping.SourcePartX;
+                part.DrawRegionPartY = mapping.SourcePartY;
+                part.DrawRegionZ = mapping.SourceZ;
+                part.HasDrawSource = true;
+                part.Rotation = mapping.Rotation;
+            }))).ToList(), templates);
         }
 
         /// <summary>
@@ -111,7 +131,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            EditPart(localPartX, localPartY, z, templates, part => part.Rotation = rotation);
+            EditParts([(localPartX, localPartY, z, part => part.Rotation = rotation)], templates);
         }
 
         /// <summary>
@@ -121,7 +141,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         {
             EnsureAcceptsMutation();
             EnsureDynamic("Deleting");
-            EditPart(localPartX, localPartY, z, templates, part => part.Erase());
+            EditParts([(localPartX, localPartY, z, part => part.Erase())], templates);
         }
 
         internal static int GetSourceRegionId(int sourcePartX, int sourcePartY) =>

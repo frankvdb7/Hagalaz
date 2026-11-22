@@ -782,6 +782,29 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void CreateDynamicRegion_BuildsEachObjectOnlyForItsFinalPlacement()
+    {
+        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
+        loadRequests.EnsureLoadedAsync(Arg.Any<IEnumerable<IMapRegion>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var templateLoader = CreateTemplateLoader(regionId => new MapRegionTemplate(regionId,
+            [new MapRegionTemplateObject(42, 3, 4, 0, 0, ShapeType.GroundDefault, CreateSolidDefinition(), true)], []));
+        var script = Substitute.For<IGameObjectScript>();
+        using var provider = CreateProvider(loadRequests, templateLoader);
+        var service = CreateService(provider, new LocationBuilder(), CreateGameObjectBuilder(script));
+        var source = Location.Create(64, 64, 0, 0);
+        var destination = Location.Create(128, 64, 0, 0);
+        service.GetOrCreateMapRegion(source.RegionId, source.Dimension).MarkReady();
+
+        service.CreateDynamicRegion(source, destination);
+        provider.GetRequiredService<IRsTaskService>().Tick();
+
+        Assert.AreEqual(1, service.FindMapRegion(destination.RegionId, destination.Dimension)!.FindAllGameObjects().Count());
+        script.Received(1).OnSpawn();
+        script.DidNotReceive().OnDestroy();
+    }
+
+    [TestMethod]
     public void CreateDynamicRegion_FailedStaleDestinationCannotRemoveReplacement()
     {
         var sourceReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1074,11 +1097,11 @@ public sealed class MapRegionServiceTests
         return loader;
     }
 
-    private static GameObjectBuilder CreateGameObjectBuilder()
+    private static GameObjectBuilder CreateGameObjectBuilder(IGameObjectScript? script = null)
     {
         var scriptProvider = Substitute.For<Hagalaz.Game.Abstractions.Providers.IGameObjectScriptProvider>();
         scriptProvider.GetGameObjectScriptTypeById(Arg.Any<int>()).Returns(typeof(IGameObjectScript));
-        var services = new ServiceCollection().AddSingleton(_ => Substitute.For<IGameObjectScript>()).BuildServiceProvider();
+        var services = new ServiceCollection().AddSingleton(_ => script ?? Substitute.For<IGameObjectScript>()).BuildServiceProvider();
         return new GameObjectBuilder(services, scriptProvider);
     }
 

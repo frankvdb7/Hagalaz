@@ -23,6 +23,7 @@ using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
@@ -285,6 +286,23 @@ public sealed class MapRegionLoaderTests
         Assert.AreEqual(2, template.Objects.Count);
         Assert.AreEqual(new MapRegionTemplateObject(100, 5, 6, 1, 3, (ShapeType)10, definitions[100], true), template.Objects[0]);
         Assert.AreEqual(new MapRegionTemplateObject(200, 10, 6, 2, 1, (ShapeType)22, definitions[200], false), template.Objects[1]);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_AddsPlaneZeroObjectUnderABridgeWithoutCollision()
+    {
+        var region = CreateRegion();
+        var gameObject = Substitute.For<IGameObject>();
+        var terrain = new sbyte[4, 64, 64];
+        terrain[1, 3, 3] = 0x2;
+        var rawObject = CreateMapObject(100, 10, 0, 3, 3, 0);
+        var mapProvider = CreateMapProvider(new DecodedMapRegion([], [], [rawObject], terrain));
+        var fixture = CreateLoader(mapProvider: mapProvider, gameObjectBuilder: ConfigureStaticGameObjectBuilder(gameObject));
+
+        await fixture.Loader.LoadAsync(region);
+
+        region.Received(1).Add(gameObject, false);
+        region.DidNotReceive().Add(gameObject);
     }
 
     [TestMethod]
@@ -671,6 +689,8 @@ public sealed class MapRegionLoaderTests
 
         int Height(int z, int x, int y) => bridges.Contains((x, y)) ? z - 1 : z;
         var objects = new List<string>();
+        var withoutCollision = new List<(string Key, int X, int Y, int Z, LayerType Layer)>();
+        var occupied = new HashSet<(int, int, int, LayerType)>();
         var floor = new List<(int, int, int)>();
         var shifted = 0;
         foreach (var (z, sourceZ) in mappings)
@@ -681,11 +701,21 @@ public sealed class MapRegionLoaderTests
                 var x = destinationMinX + MapRegion.CalculateObjectRotationDelta(entry.Definition.SizeX, entry.Definition.SizeY, entry.Rotation, entry.LocalX & 7, entry.LocalY & 7, rotation, false);
                 var y = destinationMinY + MapRegion.CalculateObjectRotationDelta(entry.Definition.SizeX, entry.Definition.SizeY, entry.Rotation, entry.LocalX & 7, entry.LocalY & 7, rotation, true);
                 var height = Height(z, x, y);
-                if (x < 0 || y < 0 || x >= 64 || y >= 64 || height < 0)
+                if (x < 0 || y < 0 || x >= 64 || y >= 64)
                     continue;
+                var key = $"{entry.Id}:{x},{y},{(height < 0 ? z : height)}:{(entry.Rotation + rotation) & 3}";
+                if (height < 0)
+                {
+                    // Map.addToClip still builds the object when there is no collision plane. The server
+                    // keeps it on its draw plane unless a reachable object holds that slot.
+                    withoutCollision.Add((key, x, y, z, entry.Shape.GetLayerType()));
+                    continue;
+                }
+
                 if (height != z)
                     shifted++;
-                objects.Add($"{entry.Id}:{x},{y},{height}:{(entry.Rotation + rotation) & 3}");
+                objects.Add(key);
+                occupied.Add((x, y, height, entry.Shape.GetLayerType()));
             }
 
             for (var x = 0; x < 8; x++)
@@ -700,6 +730,7 @@ public sealed class MapRegionLoaderTests
             }
         }
 
+        objects.AddRange(withoutCollision.Where(entry => !occupied.Contains((entry.X, entry.Y, entry.Z, entry.Layer))).Select(entry => entry.Key));
         return (objects.ToArray(), floor.Distinct().ToArray(), shifted);
     }
 

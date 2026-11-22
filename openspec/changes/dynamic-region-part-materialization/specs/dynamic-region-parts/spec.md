@@ -67,7 +67,7 @@ A part SHALL read the 8x8 source tiles at the source part's local origin ((sourc
 
 ### Requirement: Bridge planes follow the client
 
-A dynamic part SHALL select static cache objects and blocked tiles by their raw source plane, and SHALL place them one plane lower where the destination tile is a bridge according to the chunk drawn on destination plane 1, skipping anything that falls below plane 0. A self-mapped region SHALL equal its standard decoding.
+A dynamic part SHALL select static cache objects and blocked tiles by their raw source plane, and SHALL place them one plane lower where the destination tile is a bridge according to the chunk drawn on destination plane 1. Blocked tiles below plane 0 are skipped; objects below plane 0 stay on their draw plane without collision unless an object with collision holds that slot. A self-mapped region SHALL equal its standard decoding.
 
 #### Scenario: Copying a bridge chunk across planes
 
@@ -75,10 +75,17 @@ A dynamic part SHALL select static cache objects and blocked tiles by their raw 
 - **WHEN** destination planes 0 and 1 copy source plane 1 and plane 2 copies source plane 0, with rotation 0, 1, 2 and 3
 - **THEN** the objects and floor blocks equal the client's dynamic chunk decoding of the same mapping
 
+#### Scenario: Plane-0 object under a bridge
+
+- **GIVEN** a static object on raw plane 0 whose destination tile is a bridge
+- **WHEN** the part is materialized
+- **THEN** the object exists on plane 0 without collision
+- **AND** an object with collision in the same slot takes precedence over it
+
 #### Scenario: Plane-1 chunk changes
 
 - **WHEN** the chunk drawn on plane 1 of a column is written, rotated or deleted
-- **THEN** objects and floor blocks of every plane in that column, and objects other columns placed in it, follow the new bridge flags
+- **THEN** objects and floor blocks of every plane in that column, and of every column that read its bridge flags, follow the new bridge flags
 
 ### Requirement: Objects follow the part rotation
 
@@ -102,6 +109,12 @@ Destination collision SHALL be computed from the rotated floor blocks and the pl
 ### Requirement: Rebuilding a part discards old content
 
 Writing, rotating or deleting a part SHALL remove all objects of its previous content, including disabled static objects, and their collision, without recording them as disabled static objects or queuing runtime removal updates. Runtime object add and remove outside part rebuilds SHALL keep their existing behaviour.
+
+#### Scenario: Runtime objects of a replaced chunk are removed
+
+- **GIVEN** a runtime-added object and a runtime-disabled static object in a part, and an object another column placed in it
+- **WHEN** the part is deleted or rewritten
+- **THEN** the runtime objects are removed with their collision, and the other column's object stays
 
 #### Scenario: Old static removal does not leak
 
@@ -130,6 +143,15 @@ Zone updates for a part's runtime objects, disabled static objects and ground it
 - **GIVEN** a destination part on plane 0 mapped to a different source part on plane 1
 - **WHEN** a full or incremental zone update is sent for it
 - **THEN** the update's zone base and plane are the destination part's
+
+### Requirement: Dynamic creation builds content once
+
+Creating a dynamic region SHALL apply every part mapping before building, so each column is built once and object spawn hooks run only for the final objects.
+
+#### Scenario: Object spawn hooks during creation
+
+- **WHEN** a dynamic region is created from a source with one static object
+- **THEN** the object's spawn hook runs once and no destroy hook runs
 
 ### Requirement: Restoring a standard region
 

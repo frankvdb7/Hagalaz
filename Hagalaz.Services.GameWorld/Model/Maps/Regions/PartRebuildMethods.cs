@@ -24,44 +24,59 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
         private static int GetColumnKey(int localPartX, int localPartY) => localPartX * PartsPerRegionAxis + localPartY;
 
-        private void EditPart(int localPartX, int localPartY, int z, IReadOnlyDictionary<int, MapRegionTemplate> templates, Action<IMapRegionPart> change)
+        /// <summary>
+        /// Applies descriptor changes to parts, then rebuilds every affected column once.
+        /// </summary>
+        private void EditParts(IReadOnlyList<(int LocalPartX, int LocalPartY, int Z, Action<IMapRegionPart> Change)> edits, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             ArgumentNullException.ThrowIfNull(templates);
-            var part = GetRegionPartByLocalPart(localPartX, localPartY, z);
-            var previous = (part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.HasDrawSource, part.Rotation);
-            change(part);
-            var columns = GetColumnsToRebuild(localPartX, localPartY, z);
+            var edited = edits.Select(edit => GetRegionPartByLocalPart(edit.LocalPartX, edit.LocalPartY, edit.Z)).ToList();
+            var previous = edited.Select(part => (part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.HasDrawSource, part.Rotation)).ToList();
+            for (var index = 0; index < edits.Count; index++)
+            {
+                edits[index].Change(edited[index]);
+            }
+
+            var columns = GetColumnsToRebuild(edits);
             try
             {
                 EnsureTemplates(columns, templates);
             }
             catch
             {
-                (part.DrawRegionPartX, part.DrawRegionPartY, part.DrawRegionZ, part.HasDrawSource, part.Rotation) = previous;
+                for (var index = edited.Count - 1; index >= 0; index--)
+                {
+                    (edited[index].DrawRegionPartX, edited[index].DrawRegionPartY, edited[index].DrawRegionZ, edited[index].HasDrawSource, edited[index].Rotation) = previous[index];
+                }
+
                 throw;
             }
 
-            RebuildColumns(columns, templates);
+            RebuildColumns(columns, templates, edited.Distinct().ToList());
         }
 
         /// <summary>
-        /// The edited column, plus, when its plane-1 chunk changes, the columns that placed
-        /// objects inside it, because those objects take their bridge flag from it.
+        /// The edited columns, plus, for every edited plane-1 chunk, the columns that read its
+        /// bridge flags when they were built.
         /// </summary>
-        private List<int> GetColumnsToRebuild(int localPartX, int localPartY, int z)
+        private List<int> GetColumnsToRebuild(IEnumerable<(int LocalPartX, int LocalPartY, int Z, Action<IMapRegionPart> Change)> edits)
         {
-            var key = GetColumnKey(localPartX, localPartY);
-            var columns = new List<int> { key };
-            if (z != 1)
+            var columns = new HashSet<int>();
+            var bridgeColumns = new HashSet<int>();
+            foreach (var (localPartX, localPartY, z, _) in edits)
             {
-                return columns;
+                var key = GetColumnKey(localPartX, localPartY);
+                columns.Add(key);
+                if (z == 1)
+                {
+                    bridgeColumns.Add(key);
+                }
             }
 
-            columns.AddRange(_columnContent
-                .Where(entry => entry.Key != key && entry.Value.Objects.Any(obj =>
-                    obj.Location.RegionLocalX >> 3 == localPartX && obj.Location.RegionLocalY >> 3 == localPartY))
+            columns.UnionWith(_columnContent
+                .Where(entry => entry.Value.BridgeColumns.Overlaps(bridgeColumns))
                 .Select(entry => entry.Key));
-            return columns;
+            return columns.ToList();
         }
 
         private void EnsureTemplates(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates)
@@ -98,9 +113,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
         }
 
-        private void RebuildColumns(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        /// <param name="columns">The columns to rebuild.</param>
+        /// <param name="templates">Templates by region id.</param>
+        /// <param name="replacedParts">Parts whose chunk was replaced: objects added to them at runtime are removed too.</param>
+        private void RebuildColumns(IReadOnlyCollection<int> columns, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
         {
-            var removed = new List<IGameObject>();
+            var removed = DiscardRuntimeObjects(replacedParts);
             foreach (var key in columns)
             {
                 removed.AddRange(DiscardColumn(key));
@@ -115,6 +133,42 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             {
                 ReflagOverlappingObjects(plane.ToList(), plane.Key);
             }
+        }
+
+        /// <summary>
+        /// Removes objects stored in replaced parts that no column built (added at runtime,
+        /// enabled or disabled), leaving objects other columns placed there.
+        /// </summary>
+        /// <returns>The removed objects whose collision was unflagged.</returns>
+        private List<IGameObject> DiscardRuntimeObjects(IReadOnlyCollection<IMapRegionPart> replacedParts)
+        {
+            var built = _columnContent.Values.SelectMany(content => content.Objects).ToHashSet(ReferenceEqualityComparer.Instance);
+            var removed = new List<IGameObject>();
+            foreach (var part in replacedParts)
+            {
+                var runtimeObjects = part.FindAllGameObjects().Concat(part.FindAllDisabledStaticGameObjects())
+                    .Where(obj => !built.Contains(obj))
+                    .ToList();
+                removed.AddRange(DiscardObjects(part, runtimeObjects));
+            }
+
+            return removed;
+        }
+
+        /// <summary>
+        /// Unflags the enabled objects, then removes and destroys the objects from the part storing them.
+        /// </summary>
+        private List<IGameObject> DiscardObjects(IMapRegionPart part, IReadOnlyCollection<IGameObject> objects)
+        {
+            var enabled = objects.Where(OwnsGameObject).ToList();
+            foreach (var gameObject in enabled)
+            {
+                UnFlagCollisionCore(gameObject);
+            }
+
+            part.DiscardObjects(objects);
+            _objectsWithoutCollision.ExceptWith(objects);
+            return enabled;
         }
 
         /// <summary>
@@ -152,17 +206,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     select (x, y, z);
             }
 
-            var enabled = objects.Where(OwnsGameObject).ToList();
-            foreach (var gameObject in enabled)
-            {
-                UnFlagCollisionCore(gameObject);
-            }
-
+            var enabled = new List<IGameObject>();
             foreach (var stored in objects.GroupBy(obj => obj.Location.GetRegionPartHash()))
             {
                 if (_parts.TryGetValue(stored.Key, out var part))
                 {
-                    part.DiscardObjects(stored.ToList());
+                    enabled.AddRange(DiscardObjects(part, stored.ToList()));
                 }
             }
 
@@ -177,7 +226,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// <summary>
         /// Builds a column as the client draws it: each present chunk reads its source 8x8 on its
         /// source plane, rotated; static objects and floor blocks land one plane lower where the
-        /// destination tile is a bridge.
+        /// destination tile is a bridge, and objects that would fall below plane 0 stay on their
+        /// draw plane without collision.
         /// </summary>
         private void MaterializeColumn(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
@@ -187,7 +237,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var localPartY = key % PartsPerRegionAxis;
             var minLocalX = localPartX * 8;
             var minLocalY = localPartY * 8;
-            for (var z = 0; z < Planes; z++)
+            // Plane 0 last: its objects under a bridge have no collision and yield to the
+            // bridge's own objects, which plane 1 places on collision plane 0.
+            foreach (var z in (int[])[1, 2, 3, 0])
             {
                 if (!TryGetPartSource(localPartX, localPartY, z, out var source))
                 {
@@ -208,7 +260,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
                         var localX = minLocalX + CalculateRotationDelta(sourceX, sourceY, source.Rotation, false);
                         var localY = minLocalY + CalculateRotationDelta(sourceX, sourceY, source.Rotation, true);
-                        var plane = MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates));
+                        var plane = MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content));
                         if (plane < 0)
                         {
                             continue;
@@ -238,10 +290,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     }
 
                     // Configured spawns are not part of the client's map, so no bridge applies to them.
-                    var plane = entry.IsStatic ? MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates)) : z;
-                    if (plane < 0)
+                    // Where the collision plane falls below plane 0 the client still draws the object
+                    // on its draw plane, only without clipping it.
+                    var plane = entry.IsStatic ? MapTerrain.GetCollisionPlane(z, IsBridgeAt(localX, localY, templates, content)) : z;
+                    var hasCollision = plane >= 0;
+                    if (!hasCollision)
                     {
-                        continue;
+                        plane = z;
                     }
 
                     var location = Location.Create(
@@ -260,9 +315,16 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                         builder = builder.AsStatic();
                     }
 
+                    if (!hasCollision && FindGameObjects(localX, localY, plane).Any(existing => existing.ShapeType.GetLayerType() == entry.Shape.GetLayerType()))
+                    {
+                        continue;
+                    }
+
                     var gameObject = builder.Build();
-                    Add(gameObject);
-                    content.Objects.Add(gameObject);
+                    if (TryAdd(gameObject, hasCollision))
+                    {
+                        content.Objects.Add(gameObject);
+                    }
                 }
             }
         }
@@ -271,8 +333,9 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// Whether a region-local tile is a bridge: the plane-1 flag of the source tile that the
         /// chunk drawn on plane 1 places there.
         /// </summary>
-        private bool IsBridgeAt(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private bool IsBridgeAt(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates, ColumnContent reader)
         {
+            reader.BridgeColumns.Add(GetColumnKey(localX >> 3, localY >> 3));
             if (!TryGetPartSource(localX >> 3, localY >> 3, 1, out var source))
             {
                 return false;
@@ -307,6 +370,11 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             public List<IGameObject> Objects { get; } = [];
 
             public List<(int X, int Y, int Z)> FloorTiles { get; } = [];
+
+            /// <summary>
+            /// Columns whose plane-1 chunk this column read bridge flags from.
+            /// </summary>
+            public HashSet<int> BridgeColumns { get; } = [];
         }
     }
 }

@@ -66,11 +66,46 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return _parts.TryGetValue(partHash, out var part) ? part.FindGameObject(LayerType.FloorDecorations, localX, localY, z) : null;
         }
 
-        public void Add(IGameObject gameObject)
+        public void Add(IGameObject gameObject) => Add(gameObject, true);
+
+        public void Add(IGameObject gameObject, bool flagCollision) => TryAdd(gameObject, flagCollision);
+
+        /// <summary>
+        /// Adds an object. An object without collision (drawn under a bridge, unreachable) never
+        /// displaces an object in its slot and is skipped instead; an object with collision silently
+        /// replaces one without, so the reachable object wins regardless of order.
+        /// </summary>
+        /// <returns>Whether the object was added.</returns>
+        private bool TryAdd(IGameObject gameObject, bool flagCollision)
         {
             EnsureAcceptsMutation();
-            _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart).Add(gameObject);
-            FlagCollision(gameObject);
+            var part = _parts.GetOrAdd(gameObject.Location.GetRegionPartHash(), CreateRegionPart);
+            var occupant = part.FindGameObject(gameObject.ShapeType.GetLayerType(), gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z);
+            if (occupant is not null && !ReferenceEquals(occupant, gameObject))
+            {
+                if (!flagCollision)
+                {
+                    return false;
+                }
+
+                if (_objectsWithoutCollision.Contains(occupant))
+                {
+                    part.DiscardObjects([occupant]);
+                    _objectsWithoutCollision.Remove(occupant);
+                }
+            }
+
+            part.Add(gameObject);
+            if (flagCollision)
+            {
+                FlagCollision(gameObject);
+            }
+            else
+            {
+                _objectsWithoutCollision.Add(gameObject);
+            }
+
+            return true;
         }
 
         public void Remove(IGameObject gameObject)

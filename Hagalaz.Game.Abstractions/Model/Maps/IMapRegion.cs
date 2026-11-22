@@ -153,6 +153,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         void Add(IGameObject gameObj);
 
         /// <summary>
+        /// Adds a game object, optionally without collision. The client draws objects whose
+        /// collision plane falls below plane 0 (plane-0 objects under a bridge) without clipping them.
+        /// </summary>
+        /// <param name="gameObj">The game object to add.</param>
+        /// <param name="flagCollision">Whether the object contributes collision.</param>
+        void Add(IGameObject gameObj, bool flagCollision);
+
+        /// <summary>
         /// Removes a character from the region.
         /// </summary>
         /// <param name="character">The character to remove.</param>
@@ -264,6 +272,14 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// <param name="sourceZ">The source plane.</param>
         /// <param name="templates">Templates by region id, for every source region this region draws.</param>
         void WriteBlockByIndex(int localPartX, int localPartY, int z, int sourcePartX, int sourcePartY, int sourceZ, IReadOnlyDictionary<int, MapRegionTemplate> templates);
+
+        /// <summary>
+        /// Maps several local parts of this dynamic region at once and rebuilds each affected
+        /// column a single time, so objects are built only for their final mapping.
+        /// </summary>
+        /// <param name="mappings">The part mappings.</param>
+        /// <param name="templates">Templates by region id, for every source region this region draws.</param>
+        void WriteBlocksByIndex(IReadOnlyCollection<MapRegionPartMapping> mappings, IReadOnlyDictionary<int, MapRegionTemplate> templates);
 
         /// <summary>
         /// Rotates a local part of this dynamic region and rebuilds the affected content from the source templates.
