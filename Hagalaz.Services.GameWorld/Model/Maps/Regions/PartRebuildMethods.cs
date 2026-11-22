@@ -230,19 +230,17 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                     var (finalPlane, finalCollision) = GetPlacement(built.IsStatic, key % Planes, isBridge);
                     if (finalPlane != gameObject.Location.Z)
                     {
-                        // The rebuild places it on another plane, so it no longer holds this slot. A static
-                        // removed at runtime stays removed on its new plane.
-                        pool.Remove(gameObject);
+                        // A static removed at runtime keeps its identity (a scheduled respawn re-adds this
+                        // very object, and clients hide the base-map object by its entry), so it stays where
+                        // it is and is reused on the new plane; it cannot be moved, and a rebuild after it
+                        // respawns places it on the right plane.
                         if (IsDisabledStatic(gameObject))
                         {
-                            if (!carried.TryGetValue(key, out var movedTombstones))
-                            {
-                                carried[key] = movedTombstones = [];
-                            }
-
-                            movedTombstones.Add((gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, finalPlane, built.Shape.GetLayerType(), built.Id));
+                            continue;
                         }
 
+                        // The rebuild places it on another plane, so it no longer holds this slot.
+                        pool.Remove(gameObject);
                         removed.AddRange(DiscardObjects(_parts[gameObject.Location.GetRegionPartHash()]!, [gameObject]));
                         continue;
                     }
@@ -573,7 +571,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             var index = pool.FindIndex(candidate => _builtObjects.TryGetValue(candidate, out var built)
                 && built.Id == entry.Id && built.Rotation == rotation && built.Shape == entry.Shape
                 && built.IsStatic == entry.IsStatic
-                && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY && candidate.Location.Z == plane);
+                && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY
+                && (candidate.Location.Z == plane || (entry.IsStatic && IsDisabledStatic(candidate))));
             if (index < 0)
             {
                 return null;

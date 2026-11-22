@@ -868,11 +868,21 @@ public sealed class DynamicRegionPartTests
         var removed = destination.FindStandardGameObject(47, 55, 0)!;
         Assert.AreEqual(51, removed.Id);
         destination.Remove(removed);
+        var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
 
-        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, templates);
+        // Bridge off, back on, off: the removal survives every transition and keeps the same object.
+        foreach (var bridgeChunkX in new[] { SourcePartX, SourcePartX + 1, SourcePartX })
+        {
+            destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, bridgeChunkX, SourcePartY, SourceZ, templates);
 
-        Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
-        Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 1)?.Id);
+            Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
+            Assert.AreNotEqual(51, destination.FindStandardGameObject(47, 55, 1)?.Id);
+            Assert.AreSame(removed, part.FindAllDisabledStaticGameObjects().Single(), "The client keeps hiding the base-map object.");
+        }
+
+        // The scheduled respawn re-adds the original object.
+        destination.Add(removed);
+        Assert.AreSame(removed, destination.FindStandardGameObject(47, 55, 0));
     }
 
     [TestMethod]
