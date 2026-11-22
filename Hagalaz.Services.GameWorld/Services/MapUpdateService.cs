@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Protocol;
 
@@ -33,6 +34,21 @@ namespace Hagalaz.Services.GameWorld.Services
             viewport.RefreshVisibleRegions();
             var visibleRegions = viewport.VisibleRegions;
 
+            if (viewport.DeferredMapDraw is { } deferred)
+            {
+                forceUpdate |= deferred.ForceUpdate;
+                renderViewPort |= deferred.RenderViewport;
+            }
+
+            if (viewport.NeedsDynamicDraw() && visibleRegions.Any(region => region.IsDynamic && region.State == MapRegionState.Initializing))
+            {
+                // The parts of an initializing dynamic region have no source yet and would be drawn as deleted.
+                // Keep the requested flags and draw the map on the first client update after population.
+                viewport.DeferredMapDraw = new DeferredMapDraw(forceUpdate, renderViewPort);
+                return;
+            }
+
+            viewport.DeferredMapDraw = null;
             if (viewport.NeedsDynamicDraw())
             {
                 var (chunks, sourceRegionXteaKeys) = BuildDynamicChunks(viewport);

@@ -270,6 +270,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// Get's if one of the visible region's are dynamic.
         /// </summary>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
+        public DeferredMapDraw? DeferredMapDraw { get; set; }
+
         public bool NeedsDynamicDraw()
         {
             return _visibleRegions.Any(r => r.IsDynamic);

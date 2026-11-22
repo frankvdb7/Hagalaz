@@ -63,15 +63,38 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
-        public void UpdateMap_InitializingDynamicRegion_SendsDynamicMapWithoutPrematureFullState()
+        public void UpdateMap_InitializingDynamicRegion_DefersTheMapUntilPopulationCompletes()
         {
             var scenario = CreateScenario(MapRegionState.Initializing, true);
+            var service = new MapUpdateService(Substitute.For<IMapRegionService>());
 
-            new MapUpdateService(Substitute.For<IMapRegionService>()).UpdateMap(scenario.Character, false);
+            service.UpdateMap(scenario.Character, true, true);
 
-            scenario.Session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawDynamicMapMessage));
+            scenario.Session.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
             scenario.Region.DidNotReceive().SendFullPartUpdates(scenario.Character);
-            scenario.Character.DidNotReceive().QueueTask(Arg.Any<Func<CancellationToken, Task>>());
+            Assert.AreEqual(new DeferredMapDraw(true, true), scenario.Character.Viewport.DeferredMapDraw);
+
+            // still initializing on the next client update: still deferred, flags are kept
+            service.UpdateMap(scenario.Character, false);
+            scenario.Session.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
+            Assert.AreEqual(new DeferredMapDraw(true, true), scenario.Character.Viewport.DeferredMapDraw);
+
+            // population completes without the player moving; the next client update draws the map
+            foreach (var region in scenario.Regions)
+            {
+                region.State.Returns(MapRegionState.Ready);
+            }
+
+            service.UpdateMap(scenario.Character, false);
+
+            var message = scenario.Session.ReceivedCalls()
+                .Select(call => call.GetArguments()[0])
+                .OfType<DrawDynamicMapMessage>()
+                .Single();
+            Assert.IsTrue(message.ForceUpdate);
+            Assert.IsTrue(message.RenderViewport);
+            Assert.IsNull(scenario.Character.Viewport.DeferredMapDraw);
+            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
         }
 
         [TestMethod]
@@ -217,9 +240,9 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), mapSize).Returns(regions);
 
-            return new Scenario(character, session, region);
+            return new Scenario(character, session, region, regions);
         }
 
-        private sealed record Scenario(ICharacter Character, IGameSession Session, IMapRegion Region);
+        private sealed record Scenario(ICharacter Character, IGameSession Session, IMapRegion Region, IReadOnlyList<IMapRegion> Regions);
     }
 }
