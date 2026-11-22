@@ -741,23 +741,37 @@ public sealed class DynamicRegionPartTests
     [TestMethod]
     public void NewBridgeUnderAnObject_KeepsItDrawnWithoutCollision()
     {
-        var flags = new sbyte[4, 64, 64];
-        flags[1, SourceMinX + 8 + 1, SourceMinY + 1] = 0x2;
-        var template = new MapRegionTemplate(SourceRegionId, [], [],
-            [new MapRegionTemplateObject(70, SourceMinX + 1, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true)], flags);
-        var templates = Templates(template);
-        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlocksByIndex(
-        [
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
-        ], templates);
+        var (destination, templates) = CreateBridgeFreeObjectRegion();
         Assert.IsTrue(destination.GetCollision(DestinationMinX + 1, DestinationMinY + 1, 0).HasFlag(CollisionFlag.ObjectBlock));
 
         destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
 
         Assert.AreEqual(70, destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0)?.Id);
         Assert.IsTrue(Collision(destination).All(flag => flag == CollisionFlag.Walkable));
+    }
+
+    [TestMethod]
+    public void NewBridgeUnderARemovedObject_KeepsItRemoved()
+    {
+        var (destination, templates) = CreateBridgeFreeObjectRegion();
+        var removed = destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0)!;
+        destination.Remove(removed);
+        var planeZero = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        planeZero.PrepareUpdatesForTick();
+        planeZero.CompleteUpdateTick();
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX + 1, SourcePartY, SourceZ, templates);
+
+        Assert.IsNull(destination.FindStandardGameObject(DestinationMinX + 1, DestinationMinY + 1, 0));
+        Assert.AreSame(removed, planeZero.FindAllDisabledStaticGameObjects().Single());
+        Assert.IsTrue(Collision(destination).All(flag => flag == CollisionFlag.Walkable));
+        var character = CreateObserver(out _, out var zoneMessages);
+        planeZero.PrepareUpdatesForTick();
+        planeZero.SendUpdates(character);
+        Assert.AreEqual(0, zoneMessages.Count);
+        zoneMessages.Clear();
+        planeZero.SendFullUpdate(character);
+        Assert.AreEqual(1, zoneMessages.Count, "A full update still sends the removal, and no add.");
     }
 
     [TestMethod]
@@ -770,6 +784,24 @@ public sealed class DynamicRegionPartTests
         CollectionAssert.AreEqual(SourceObjects.Select(obj => obj.Id).ToArray(), objects.Select(obj => obj.Id).ToArray());
         Assert.AreEqual(0, template.GetSourceObjects(0, SourcePartX & 7, SourcePartY & 7).Count);
         Assert.AreEqual(60, template.GetSourceObjects(SourceZ, (SourcePartX & 7) + 1, SourcePartY & 7).Single().Id);
+    }
+
+    // Plane 0 holds a static 1x1 object (id 70) at chunk tile (1, 1); plane 1 maps the same chunk, which has no
+    // bridge. The neighbouring source chunk has a bridge bit on that tile, so mapping plane 1 to it adds a bridge.
+    private static (MapRegion Destination, IReadOnlyDictionary<int, MapRegionTemplate> Templates) CreateBridgeFreeObjectRegion()
+    {
+        var flags = new sbyte[4, 64, 64];
+        flags[1, SourceMinX + 8 + 1, SourceMinY + 1] = 0x2;
+        var template = new MapRegionTemplate(SourceRegionId, [], [],
+            [new MapRegionTemplateObject(70, SourceMinX + 1, SourceMinY + 1, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true)], flags);
+        var templates = Templates(template);
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], templates);
+        return (destination, templates);
     }
 
     // The same column on planes 0 and 1, both mapped from the same bridge-free source chunk.

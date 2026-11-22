@@ -448,9 +448,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
 
                 var rotation = (entry.Rotation + source.Rotation) & 0x3;
-                if (pass.ReusePool.TryGetValue(key, out var pool) && TakeReusable(pool, localX, localY, plane, entry, rotation, hasCollision) is { } reused)
+                if (pass.ReusePool.TryGetValue(key, out var pool) && TakeReusable(pool, localX, localY, plane, entry, rotation) is { } reused)
                 {
                     content.Objects.Add(reused);
+                    if (_builtObjects[reused].HasCollision != hasCollision)
+                    {
+                        SetCollision(reused, hasCollision, pass);
+                    }
+
                     continue;
                 }
 
@@ -485,14 +490,43 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         /// <summary>
+        /// Moves a reused object between having collision and not (a bridge appeared or went) without
+        /// recreating it, so a runtime removal or in-place change stays as it is. A removed (disabled)
+        /// object has no collision to change and stays removed.
+        /// </summary>
+        private void SetCollision(IGameObject gameObject, bool hasCollision, RebuildPass pass)
+        {
+            _builtObjects[gameObject] = _builtObjects[gameObject] with { HasCollision = hasCollision };
+            var enabled = OwnsGameObject(gameObject);
+            if (hasCollision)
+            {
+                _objectsWithoutCollision.Remove(gameObject);
+                if (enabled)
+                {
+                    FlagCollisionCore(gameObject);
+                }
+
+                return;
+            }
+
+            if (enabled)
+            {
+                UnFlagCollisionCore(gameObject);
+                pass.Overwritten.Add(gameObject);
+            }
+
+            _objectsWithoutCollision.Add(gameObject);
+        }
+
+        /// <summary>
         /// Takes the live object of a rebuilt part that was created from the same template entry and
         /// still sits in the slot the entry now maps to.
         /// </summary>
-        private IGameObject? TakeReusable(List<IGameObject> pool, int localX, int localY, int plane, MapRegionTemplateObject entry, int rotation, bool hasCollision)
+        private IGameObject? TakeReusable(List<IGameObject> pool, int localX, int localY, int plane, MapRegionTemplateObject entry, int rotation)
         {
             var index = pool.FindIndex(candidate => _builtObjects.TryGetValue(candidate, out var built)
                 && built.Id == entry.Id && built.Rotation == rotation && built.Shape == entry.Shape
-                && built.IsStatic == entry.IsStatic && built.HasCollision == hasCollision
+                && built.IsStatic == entry.IsStatic
                 && candidate.Location.RegionLocalX == localX && candidate.Location.RegionLocalY == localY && candidate.Location.Z == plane);
             if (index < 0)
             {

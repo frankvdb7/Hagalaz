@@ -30,6 +30,7 @@
 - [x] 3.15 Rebuild bridge readers only when the effective bridge mask changes, keep runtime removals of unchanged and beaten parts, index template source objects per part and coalesce slot-replacement re-flagging; verify `RewritingPlaneOneUnchanged_LeavesPlaneZeroRuntimeRemovalAlone`, `BeatenChunk_KeepsItsRuntimeRemovalWhenTheWinnerIsDeleted` and `SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder`
 - [x] 3.16 Reuse live objects and carry removals of all template-owned objects through dependency-only rebuilds; verify `BridgeDependencyRebuild_KeepsARemovedConfiguredSpawnRemoved` and `BridgeDependencyRebuild_KeepsAnObjectChangedInPlace`
 - [x] 3.17 Replace a part's own stale object when its rebuild produces a different one in the slot, merge the owner/origin registries into one, keep rebuild scratch state local, and express edits as part descriptors validated before applying; verify `NewBridgeUnderAnObject_KeepsItDrawnWithoutCollision` and the existing rebuild regressions
+- [x] 3.18 Reuse objects across collision transitions instead of replacing them, keeping runtime removals and in-place changes; verify `NewBridgeUnderARemovedObject_KeepsItRemoved` and `NewBridgeUnderAnObject_KeepsItDrawnWithoutCollision`
 
 ## 4. Dynamic creation
 
