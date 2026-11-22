@@ -27,6 +27,7 @@
 - [x] 3.12 Unflag a replaced object's collision and re-flag overlaps; flag an added object before its spawn hook and drop collision of objects the hook removes; verify `ReplacingAnObject_ClearsTheReplacedFootprintUntilTheChunkIsDeleted` and `SpawnHookThatRemovesTheObject_LeavesNoCollisionAndKeepsOverlaps`
 - [x] 3.13 Rebuild columns whose objects an edited column displaced from a shared slot, building columns in ascending order; verify `DeletingAChunkThatDisplacedAnObject_RestoresTheDisplacedObject`
 - [x] 3.14 Track content per part and rebuild only affected parts, arbitrating shared slots by client load order; verify `RewritingTheLosingChunk_KeepsTheWinnersObjectWhateverTheEditOrder`, `RewritingTheLosingChunk_KeepsARuntimeRemovedWinnerRemoved` and `EditingPlaneZero_LeavesARuntimeRemovalOnPlaneOneAlone`
+- [x] 3.15 Rebuild bridge readers only when the effective bridge mask changes, keep runtime removals of unchanged and beaten parts, index template source objects per part and coalesce slot-replacement re-flagging; verify `RewritingPlaneOneUnchanged_LeavesPlaneZeroRuntimeRemovalAlone`, `BeatenChunk_KeepsItsRuntimeRemovalWhenTheWinnerIsDeleted` and `SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder`
 
 ## 4. Dynamic creation
 

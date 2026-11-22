@@ -617,14 +617,7 @@ public sealed class DynamicRegionPartTests
     [TestMethod]
     public void EditingPlaneZero_LeavesARuntimeRemovalOnPlaneOneAlone()
     {
-        var template = CreateSourceTemplate();
-        var world = new TestWorld();
-        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
-        destination.WriteBlocksByIndex(
-        [
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
-            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
-        ], Templates(template));
+        var (destination, template) = CreateTwoPlaneRegion();
         var (x, y) = ExpectedObjectPositions[0][0];
         var removed = destination.FindStandardGameObject(DestinationMinX + x, DestinationMinY + y, 1)!;
         destination.Remove(removed);
@@ -644,6 +637,73 @@ public sealed class DynamicRegionPartTests
         planeOne.PrepareUpdatesForTick();
         planeOne.SendUpdates(character);
         Assert.AreEqual(0, zoneMessages.Count);
+    }
+
+    [TestMethod]
+    public void RewritingPlaneOneUnchanged_LeavesPlaneZeroRuntimeRemovalAlone()
+    {
+        var (destination, template) = CreateTwoPlaneRegion();
+        var (x, y) = ExpectedObjectPositions[0][0];
+        var removed = destination.FindStandardGameObject(DestinationMinX + x, DestinationMinY + y, 0)!;
+        destination.Remove(removed);
+        var planeZero = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        planeZero.PrepareUpdatesForTick();
+        planeZero.CompleteUpdateTick();
+        var collision = Collision(destination);
+
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, Templates(template));
+
+        Assert.AreSame(removed, planeZero.FindAllDisabledStaticGameObjects().Single());
+        Assert.IsNull(destination.FindStandardGameObject(DestinationMinX + x, DestinationMinY + y, 0));
+        CollectionAssert.AreEqual(collision, Collision(destination));
+        var character = CreateObserver(out _, out var zoneMessages);
+        planeZero.PrepareUpdatesForTick();
+        planeZero.SendUpdates(character);
+        Assert.AreEqual(0, zoneMessages.Count);
+    }
+
+    [TestMethod]
+    public void BeatenChunk_KeepsItsRuntimeRemovalWhenTheWinnerIsDeleted()
+    {
+        var template = CreateSharedSlotTemplate();
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, Templates(template));
+        var loser = destination.FindStandardGameObject(47, 55, 0)!;
+        Assert.AreEqual(50, loser.Id);
+        destination.Remove(loser);
+
+        destination.WriteBlocksByIndex([SharedSlotMappings()[1]], Templates(template));
+        Assert.AreEqual(51, destination.FindStandardGameObject(47, 55, 0)?.Id);
+        destination.DeleteBlockByIndex(DestinationLocalPartX + 1, DestinationLocalPartY, 0, Templates(template));
+
+        Assert.IsNull(destination.FindStandardGameObject(47, 55, 0));
+        Assert.AreEqual(CollisionFlag.Walkable, destination.GetCollision(47, 55, 0));
+    }
+
+    [TestMethod]
+    public void SourceObjectIndex_ReturnsOnlyThePartsObjectsInSourceOrder()
+    {
+        var template = CreateSourceTemplate(new MapRegionTemplateObject(60, SourceMinX + 8, SourceMinY, SourceZ, 0, ShapeType.GroundDefault, Standard1X1, true));
+
+        var objects = template.GetSourceObjects(SourceZ, SourcePartX & 7, SourcePartY & 7);
+
+        CollectionAssert.AreEqual(SourceObjects.Select(obj => obj.Id).ToArray(), objects.Select(obj => obj.Id).ToArray());
+        Assert.AreEqual(0, template.GetSourceObjects(0, SourcePartX & 7, SourcePartY & 7).Count);
+        Assert.AreEqual(60, template.GetSourceObjects(SourceZ, (SourcePartX & 7) + 1, SourcePartY & 7).Single().Id);
+    }
+
+    // The same column on planes 0 and 1, both mapped from the same bridge-free source chunk.
+    private static (MapRegion Destination, MapRegionTemplate Template) CreateTwoPlaneRegion()
+    {
+        var template = CreateSourceTemplate();
+        var destination = new TestWorld().CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlocksByIndex(
+        [
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, 0),
+            new MapRegionPartMapping(DestinationLocalPartX, DestinationLocalPartY, 1, SourcePartX, SourcePartY, SourceZ, 0)
+        ], Templates(template));
+        return (destination, template);
     }
 
     // A: column (5, 6) maps source chunk (2, 3), whose 1x1 object at chunk (7, 7) lands on (47, 55).

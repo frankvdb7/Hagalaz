@@ -65,12 +65,16 @@ Bridge objects and blocks land one plane down, and large rotated objects can roo
 
 An edit rebuilds only:
 - the edited parts;
-- for an edited plane-1 chunk, every part that read its bridge flags (in practice the other planes of that column and neighbours whose objects land in it);
+- for an edited plane-1 chunk, every part that read the column's bridge flags and whose recorded 64-tile bridge mask differs from the new one (a rewrite that leaves the effective bridge flags unchanged rebuilds no readers);
 - transitively, the parts those beat for a slot, which may get it back.
+
+A part rebuilt only because something it depends on changed keeps its runtime removals: removed statics are carried as per-part tombstones (slot, layer, id) and not recreated, and a part beaten for a slot keeps a tombstone for its own removed object when the winner takes over. An edited part resets its removals, since its content may differ.
 
 Other parts keep their runtime state (removed statics, spawned objects). Discarding unflags a part's enabled objects, calls `MapRegionPart.DiscardObjects` on the parts storing them (no runtime removal updates) and clears its floor tiles. Runtime objects stored in a replaced part are removed with it. A column never built this way (a region loaded as standard) is rebuilt whole, giving up what its parts store that no part built. Surviving objects overlapping removed collision are re-flagged, in this and resident adjacent regions.
 
 When two parts claim one object slot (tile, layer, plane), checked against enabled and runtime-disabled objects: an object with collision beats one without; otherwise the later part in the client's load order wins. `RegionManager.loadPartObjects` loops plane, then x, then y. Whether the client's scene keeps the later object in that slot was not confirmed (the scene code is obfuscated); the server holds one object per slot. A beaten object another part built is removed silently. A losing part rebuilt alone loses again to the unchanged winner, including one removed at runtime.
+
+Selecting a part's source objects uses a per-template index by (plane, source part), built once on first use, instead of filtering every placement per part. Objects displaced by slot arbitration are collected during materialization and their collision footprints are re-flagged in one pass per plane after all parts are placed.
 
 `WriteBlocksByIndex` applies many mappings and rebuilds each affected part once; dynamic creation uses it so spawn hooks run only for final objects. Part operations take templates by region id for every source region the region draws, validated before anything is discarded. `MakeStandard(own)` maps every part to itself and rebuilds all 256 parts from `own`.
 

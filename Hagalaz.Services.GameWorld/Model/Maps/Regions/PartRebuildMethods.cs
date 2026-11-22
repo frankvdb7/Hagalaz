@@ -25,6 +25,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private readonly Dictionary<int, PartContent> _partContent = new();
         private readonly Dictionary<IGameObject, int> _objectOwners = new(ReferenceEqualityComparer.Instance);
 
+        /// <summary>
+        /// Objects other parts' objects displaced during the current rebuild; their collision is
+        /// unflagged and overlapping survivors are re-flagged once, after everything is placed.
+        /// </summary>
+        private readonly List<IGameObject> _overwrittenObjects = [];
+
         private static int GetColumnKey(int localPartX, int localPartY) => localPartX * PartsPerRegionAxis + localPartY;
 
         private static int GetPartKey(int localPartX, int localPartY, int z) => GetColumnKey(localPartX, localPartY) * Planes + z;
@@ -49,9 +55,12 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 edits[index].Change(edited[index]);
             }
 
-            var parts = GetPartsToRebuild(edits.Select(edit => GetPartKey(edit.LocalPartX, edit.LocalPartY, edit.Z)));
+            var editedKeys = edits.Select(edit => GetPartKey(edit.LocalPartX, edit.LocalPartY, edit.Z)).Distinct().ToList();
+            List<int> parts;
             try
             {
+                EnsureTemplates(editedKeys, templates);
+                parts = GetPartsToRebuild(editedKeys, templates);
                 EnsureTemplates(parts, templates);
             }
             catch
@@ -64,22 +73,27 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 throw;
             }
 
-            RebuildParts(parts, templates, edited.Distinct().ToList());
+            RebuildParts(parts, editedKeys, templates, edited.Distinct().ToList());
         }
 
         /// <summary>
-        /// The edited parts; for an edited plane-1 chunk, every part that read its bridge flags;
-        /// and, transitively, every part these beat for an object slot, which may get the slot back.
+        /// The edited parts; for an edited plane-1 chunk whose bridge flags changed, every part that
+        /// read the old flags; and, transitively, every part these beat for an object slot, which may
+        /// get the slot back.
         /// A part that lost a slot is rebuilt alone: it loses again to the unchanged winner. A column
         /// never built here (a region loaded as standard) is rebuilt whole, since its content is not
         /// recorded per part.
         /// </summary>
-        private List<int> GetPartsToRebuild(IEnumerable<int> editedParts)
+        private List<int> GetPartsToRebuild(IReadOnlyCollection<int> editedParts, IReadOnlyDictionary<int, MapRegionTemplate> templates)
         {
             var parts = new HashSet<int>(editedParts);
-            var bridgeColumns = parts.Where(key => key % Planes == 1).Select(key => key / Planes).ToHashSet();
+            var bridgeMasks = editedParts
+                .Where(key => key % Planes == 1)
+                .Select(key => key / Planes)
+                .Distinct()
+                .ToDictionary(column => column, column => GetBridgeMask(column, templates));
             parts.UnionWith(_partContent
-                .Where(entry => entry.Value.BridgeColumns.Overlaps(bridgeColumns))
+                .Where(entry => entry.Value.BridgeReads.Any(read => bridgeMasks.TryGetValue(read.Key, out var mask) && mask != read.Value))
                 .Select(entry => entry.Key));
 
             var pending = new Queue<int>(parts);
@@ -132,10 +146,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         }
 
         /// <param name="parts">The parts to rebuild.</param>
+        /// <param name="editedParts">The parts whose descriptor changed; other parts keep their runtime removals.</param>
         /// <param name="templates">Templates by region id.</param>
         /// <param name="replacedParts">Parts whose chunk was replaced: objects added to them at runtime are removed too.</param>
-        private void RebuildParts(IReadOnlyCollection<int> parts, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
+        private void RebuildParts(IReadOnlyCollection<int> parts, IReadOnlyCollection<int> editedParts, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlyCollection<IMapRegionPart> replacedParts)
         {
+            // A part rebuilt only because something it depends on changed has the same descriptor,
+            // so objects removed at runtime stay removed.
+            var carried = parts
+                .Where(key => !editedParts.Contains(key))
+                .Select(key => (Key: key, Tombstones: CollectTombstones(key)))
+                .Where(entry => entry.Tombstones.Count > 0)
+                .ToDictionary(entry => entry.Key, entry => entry.Tombstones);
             var removed = DiscardRuntimeObjects(replacedParts);
             foreach (var key in parts)
             {
@@ -144,14 +166,45 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             foreach (var key in parts.OrderBy(GetBuildRank))
             {
-                MaterializePart(key, templates);
+                MaterializePart(key, templates, carried.GetValueOrDefault(key));
             }
+
+            removed.AddRange(_overwrittenObjects);
+            _overwrittenObjects.Clear();
 
             foreach (var plane in removed.GroupBy(obj => obj.Location.Z))
             {
                 ReflagOverlappingObjects(plane.ToList(), plane.Key);
             }
         }
+
+        /// <summary>
+        /// The slots of a part's objects that were removed at runtime (disabled statics), plus the
+        /// removals it already carries from being beaten for a slot.
+        /// </summary>
+        private HashSet<(int X, int Y, int Z, LayerType Layer, int Id)> CollectTombstones(int key)
+        {
+            var tombstones = new HashSet<(int X, int Y, int Z, LayerType Layer, int Id)>();
+            if (!_partContent.TryGetValue(key, out var content))
+            {
+                return tombstones;
+            }
+
+            tombstones.UnionWith(content.Tombstones);
+            foreach (var gameObject in content.Objects.Where(IsDisabledStatic))
+            {
+                tombstones.Add(GetTombstone(gameObject));
+            }
+
+            return tombstones;
+        }
+
+        private bool IsDisabledStatic(IGameObject gameObject) =>
+            _parts[gameObject.Location.GetRegionPartHash()] is { } part
+            && part.FindAllDisabledStaticGameObjects().Any(disabled => ReferenceEquals(disabled, gameObject));
+
+        private static (int X, int Y, int Z, LayerType Layer, int Id) GetTombstone(IGameObject gameObject) =>
+            (gameObject.Location.RegionLocalX, gameObject.Location.RegionLocalY, gameObject.Location.Z, gameObject.ShapeType.GetLayerType(), gameObject.Id);
 
         /// <summary>
         /// Removes objects stored in replaced parts that no part built (added at runtime,
@@ -250,7 +303,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// is a bridge, and objects that would fall below plane 0 stay on their draw plane without
         /// collision.
         /// </summary>
-        private void MaterializePart(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        private void MaterializePart(int key, IReadOnlyDictionary<int, MapRegionTemplate> templates, IReadOnlySet<(int X, int Y, int Z, LayerType Layer, int Id)>? tombstones)
         {
             var content = new PartContent();
             _partContent[key] = content;
@@ -290,15 +343,8 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 }
             }
 
-            foreach (var entry in template.SourceObjects)
+            foreach (var entry in template.GetSourceObjects(source.Z, sourceMinX >> 3, sourceMinY >> 3))
             {
-                if (entry.Z != source.Z
-                    || entry.LocalX < sourceMinX || entry.LocalX >= sourceMinX + 8
-                    || entry.LocalY < sourceMinY || entry.LocalY >= sourceMinY + 8)
-                {
-                    continue;
-                }
-
                 var sizeX = entry.Definition.SizeX;
                 var sizeY = entry.Definition.SizeY;
                 var localX = minLocalX + CalculateObjectRotationDelta(sizeX, sizeY, entry.Rotation, entry.LocalX & 0x7, entry.LocalY & 0x7, source.Rotation, false);
@@ -316,6 +362,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 if (!hasCollision)
                 {
                     plane = z;
+                }
+
+                var tombstone = (localX, localY, plane, entry.Shape.GetLayerType(), entry.Id);
+                if (tombstones is not null && tombstones.Contains(tombstone))
+                {
+                    content.Tombstones.Add(tombstone);
+                    continue;
                 }
 
                 if (!ClaimSlot(key, content, localX, localY, plane, entry.Shape.GetLayerType(), hasCollision))
@@ -384,12 +437,13 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
 
             content.BeatenParts.Add(ownerKey);
 
-            var unflagged = DiscardObjects(storage!, [occupant]);
-            if (unflagged.Count > 0)
+            // The beaten part keeps its own runtime removal, so it is still removed if the winner goes.
+            if (IsDisabledStatic(occupant) && _partContent.TryGetValue(ownerKey, out var beaten))
             {
-                ReflagOverlappingObjects(unflagged, plane);
+                beaten.Tombstones.Add(GetTombstone(occupant));
             }
 
+            _overwrittenObjects.AddRange(DiscardObjects(storage!, [occupant]));
             return true;
         }
 
@@ -399,7 +453,39 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         /// </summary>
         private bool IsBridgeAt(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates, PartContent reader)
         {
-            reader.BridgeColumns.Add(GetColumnKey(localX >> 3, localY >> 3));
+            var column = GetColumnKey(localX >> 3, localY >> 3);
+            if (!reader.BridgeReads.ContainsKey(column))
+            {
+                reader.BridgeReads[column] = GetBridgeMask(column, templates);
+            }
+
+            return IsBridgeTile(localX, localY, templates);
+        }
+
+        /// <summary>
+        /// The bridge flags of a column's 64 tiles, as the chunk drawn on its plane 1 places them.
+        /// </summary>
+        private ulong GetBridgeMask(int column, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        {
+            var mask = 0UL;
+            var minLocalX = column / PartsPerRegionAxis * 8;
+            var minLocalY = column % PartsPerRegionAxis * 8;
+            for (var x = 0; x < 8; x++)
+            {
+                for (var y = 0; y < 8; y++)
+                {
+                    if (IsBridgeTile(minLocalX + x, minLocalY + y, templates))
+                    {
+                        mask |= 1UL << (x * 8 + y);
+                    }
+                }
+            }
+
+            return mask;
+        }
+
+        private bool IsBridgeTile(int localX, int localY, IReadOnlyDictionary<int, MapRegionTemplate> templates)
+        {
             if (!TryGetPartSource(localX >> 3, localY >> 3, 1, out var source))
             {
                 return false;
@@ -436,9 +522,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             public List<(int X, int Y, int Z)> FloorTiles { get; } = [];
 
             /// <summary>
-            /// Columns whose plane-1 chunk this part read bridge flags from.
+            /// The bridge flags of each column's plane-1 chunk, as this part read them when built.
             /// </summary>
-            public HashSet<int> BridgeColumns { get; } = [];
+            public Dictionary<int, ulong> BridgeReads { get; } = [];
+
+            /// <summary>
+            /// Objects of this part that stay removed (removed at runtime) when it is rebuilt unchanged.
+            /// </summary>
+            public HashSet<(int X, int Y, int Z, LayerType Layer, int Id)> Tombstones { get; } = [];
 
             /// <summary>
             /// Parts whose claim on an object slot this part beat.

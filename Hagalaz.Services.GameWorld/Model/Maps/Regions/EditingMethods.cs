@@ -47,7 +47,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             }
 
             IsDynamic = false;
-            RebuildParts(parts, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate }, _parts.ToList());
+            RebuildParts(parts, parts, new Dictionary<int, MapRegionTemplate> { [Id] = standardTemplate }, _parts.ToList());
         }
 
         /// <summary>

@@ -14,6 +14,7 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
     public sealed class MapRegionTemplate
     {
         private readonly sbyte[,,] _terrainFlags;
+        private readonly Lazy<Dictionary<(int Plane, int LocalPartX, int LocalPartY), MapRegionTemplateObject[]>> _sourceObjectIndex;
 
         /// <summary>
         /// Creates a template without bridges, where source planes equal collision planes.
@@ -48,6 +49,9 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
             BlockedTiles = Array.AsReadOnly(blockedTiles.ToArray());
             SourceObjects = Array.AsReadOnly(sourceObjects.ToArray());
             _terrainFlags = (sbyte[,,])terrainFlags.Clone();
+            _sourceObjectIndex = new Lazy<Dictionary<(int Plane, int LocalPartX, int LocalPartY), MapRegionTemplateObject[]>>(() => SourceObjects
+                .GroupBy(entry => (entry.Z, entry.LocalX >> 3, entry.LocalY >> 3))
+                .ToDictionary(group => group.Key, group => group.ToArray()));
         }
 
         public int RegionId { get; }
@@ -67,6 +71,15 @@ namespace Hagalaz.Game.Abstractions.Model.Maps
         /// landscape plane, configured spawns on their plane.
         /// </summary>
         public IReadOnlyList<MapRegionTemplateObject> SourceObjects { get; }
+
+        /// <summary>
+        /// Gets the source objects inside one 8x8 source part, in source order.
+        /// </summary>
+        /// <param name="plane">The raw source plane.</param>
+        /// <param name="localPartX">The source part X index within the region (0-7).</param>
+        /// <param name="localPartY">The source part Y index within the region (0-7).</param>
+        public IReadOnlyList<MapRegionTemplateObject> GetSourceObjects(int plane, int localPartX, int localPartY) =>
+            _sourceObjectIndex.Value.TryGetValue((plane, localPartX, localPartY), out var objects) ? objects : [];
 
         /// <summary>
         /// Gets the raw terrain flags of a tile on a raw plane.
