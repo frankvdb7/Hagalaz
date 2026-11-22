@@ -9,6 +9,12 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
     public interface ICharacterRenderInformation : ICreatureRenderInformation
     {
         /// <summary>
+        /// Gets where the client last saw this character when the character moved while its map draw was deferred;
+        /// otherwise <c>null</c>. The move to the current location is sent once the map has been drawn.
+        /// </summary>
+        ILocation? UnpublishedMoveOrigin { get; }
+
+        /// <summary>
         /// Gets the combined bitmask of update flags that are currently scheduled for the character.
         /// </summary>
         UpdateFlags UpdateFlag { get; }

@@ -63,6 +63,31 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void Reset_WhileMapDrawIsDeferred_HoldsWhereTheClientLastSawTheCharacter()
+        {
+            var viewport = Substitute.For<IViewport>();
+            var current = Location.Create(3200, 3200, 0, 0);
+            _owner.Viewport.Returns(viewport);
+            _owner.Location.Returns(_ => current);
+            var renderInfo = new CharacterRenderInformation(_owner, _locationService);
+            renderInfo.OnRegistered();
+
+            viewport.DeferredMapDraw.Returns(new DeferredMapDraw(false, false));
+            current = Location.Create(3300, 3200, 0, 0);
+            renderInfo.Reset();
+            current = Location.Create(3301, 3200, 0, 0);
+            renderInfo.Reset();
+
+            // the origin stays at the first position the client was told about, not the latest one
+            Assert.AreEqual(3200, renderInfo.UnpublishedMoveOrigin?.X);
+
+            viewport.DeferredMapDraw.Returns((DeferredMapDraw?)null);
+            renderInfo.Reset();
+
+            Assert.IsNull(renderInfo.UnpublishedMoveOrigin);
+        }
+
+        [TestMethod]
         public void Update_SendsCorrectMessages()
         {
             // Arrange

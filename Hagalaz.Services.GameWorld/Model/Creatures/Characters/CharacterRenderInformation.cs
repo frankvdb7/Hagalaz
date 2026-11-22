@@ -51,6 +51,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <value>The last location.</value>
         private ILocation? _lastLocation;
 
+        private ILocation? _unpublishedMoveOrigin;
+
+        public ILocation? UnpublishedMoveOrigin => _unpublishedMoveOrigin;
+
         public ILocation LastLocation =>
             _lastLocation ?? throw new InvalidOperationException("Last location is available after character registration.");
 
@@ -167,6 +171,16 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 SetJustCrossedViewport(i, false);
                 SetIdle(i, IsIdleOnThisLoop(i));
                 SetIdleOnThisLoop(i, false);
+            }
+
+            if (_owner.Viewport.DeferredMapDraw is null)
+            {
+                _unpublishedMoveOrigin = null;
+            }
+            else if (_unpublishedMoveOrigin is null && _lastLocation is not null && Location.GetDelta(_lastLocation, _owner.Location) != Location.Zero)
+            {
+                // The client still uses its previous map base: it must not see this move before the map draw.
+                _unpublishedMoveOrigin = _lastLocation;
             }
 
             _characterLocationMap.SetLocationByIndex(_owner.Index, _owner.Location);
