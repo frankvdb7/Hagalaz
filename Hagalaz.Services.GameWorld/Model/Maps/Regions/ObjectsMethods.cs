@@ -23,9 +23,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         public IEnumerable<IGameObject> FindGameObjectsOverlapping(int minX, int minY, int maxX, int maxY, int z)
         {
             var objects = new List<IGameObject>();
-            for (var partX = Math.Max(0, (minX - _maxObjectExtent) >> 3); partX <= (maxX + 1) >> 3; partX++)
+            // Only the 8x8 parts this region owns can hold objects, however far an object can reach.
+            var firstPartX = BaseLocation.RegionX * 8;
+            var firstPartY = BaseLocation.RegionY * 8;
+            var lastPartX = Math.Min((maxX + 1) >> 3, firstPartX + 7);
+            var lastPartY = Math.Min((maxY + 1) >> 3, firstPartY + 7);
+            for (var partX = Math.Max(firstPartX, (minX - _maxObjectExtent) >> 3); partX <= lastPartX; partX++)
             {
-                for (var partY = Math.Max(0, (minY - _maxObjectExtent) >> 3); partY <= (maxY + 1) >> 3; partY++)
+                for (var partY = Math.Max(firstPartY, (minY - _maxObjectExtent) >> 3); partY <= lastPartY; partY++)
                 {
                     if (_parts.TryGetValue(LocationHelper.GetRegionPartHash(partX, partY, z), out var part))
                     {
@@ -204,7 +209,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 (Math.Min(a.MinX, b.MinX), Math.Min(a.MinY, b.MinY), Math.Max(a.MaxX, b.MaxX), Math.Max(a.MaxY, b.MaxY)));
             foreach (var region in FindRegionsThatCanOverlap(affected))
             {
-                foreach (var survivor in region.FindGameObjectsOverlapping(affected.MinX, affected.MinY, affected.MaxX, affected.MaxY, z).ToList())
+                foreach (var survivor in region.FindGameObjectsOverlapping(affected.MinX, affected.MinY, affected.MaxX, affected.MaxY, z))
                 {
                     var bounds = GetCollisionBounds(survivor);
                     if (bounds.MinX <= affected.MaxX && bounds.MaxX >= affected.MinX && bounds.MinY <= affected.MaxY && bounds.MaxY >= affected.MinY)

@@ -934,6 +934,13 @@ public sealed class DynamicRegionPartTests
         var found = region.FindGameObjectsOverlapping(baseX + 14, baseY + 14, baseX + 14, baseY + 14, 0).ToList();
 
         CollectionAssert.AreEquivalent(new[] { wide, near }, found, "A wide object rooted parts away is a candidate; unrelated parts and planes are not scanned.");
+
+        // A huge object that was added and removed again widens the reach, but the search stays inside the region's own parts.
+        var huge = TestWorld.CreateGameObject(5, baseX + 40, baseY + 50, 0, 0, 0, ShapeType.GroundDefault, Definition(255, 1), isStatic: false);
+        region.Add(huge);
+        region.Remove(huge);
+        CollectionAssert.AreEquivalent(new[] { wide, near }, region.FindGameObjectsOverlapping(baseX + 14, baseY + 14, baseX + 14, baseY + 14, 0).ToList());
+        Assert.AreEqual(0, region.FindGameObjectsOverlapping(baseX + 1000, baseY + 1000, baseX + 1000, baseY + 1000, 0).Count());
     }
 
     [TestMethod]
