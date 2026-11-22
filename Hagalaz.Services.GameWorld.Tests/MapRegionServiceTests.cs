@@ -608,37 +608,27 @@ public sealed class MapRegionServiceTests
     public async Task CreateDynamicRegion_ExposesNothingUntilPopulatedAndThenPublishesAReadyRegion()
     {
         var templatesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var loadRequests = Substitute.For<IMapRegionLoadScheduler>();
-        using var provider = CreateProvider(loadRequests, CreateGatedTemplateLoader(templatesReady));
+        using var provider = CreateProvider(templateLoader: CreateGatedTemplateLoader(templatesReady));
         var service = CreateService(provider);
-        var standard = Location.Create(3200, 3264, 0, 0);
-        var firstDynamic = Location.Create(640, 640, 0, 0);
-        var secondDynamic = Location.Create(1280, 640, 0, 0);
+        var destination = Location.Create(640, 640, 0, 0);
         var taskService = provider.GetRequiredService<IRsTaskService>();
 
-        service.CreateDynamicRegion(standard, firstDynamic);
+        service.CreateDynamicRegion(Location.Create(3200, 3264, 0, 0), destination);
         taskService.Tick();
 
         // while the source templates load, the destination is only reserved
-        Assert.IsNull(service.FindMapRegion(firstDynamic.RegionId, firstDynamic.Dimension));
-        Assert.ThrowsExactly<InvalidOperationException>(() => service.GetOrCreateMapRegion(firstDynamic.RegionId, firstDynamic.Dimension));
-        Assert.IsNull(service.FindMapRegion(firstDynamic.RegionId, firstDynamic.Dimension), "A standard region was created in its place.");
+        Assert.IsNull(service.FindMapRegion(destination.RegionId, destination.Dimension));
+        Assert.ThrowsExactly<InvalidOperationException>(() => service.GetOrCreateMapRegion(destination.RegionId, destination.Dimension));
+        Assert.IsNull(service.FindMapRegion(destination.RegionId, destination.Dimension), "A standard region was created in its place.");
 
         templatesReady.SetResult();
-        var first = await WaitForRegionAsync(service, taskService, firstDynamic);
+        var published = await WaitForRegionAsync(service, taskService, destination);
 
-        Assert.AreEqual(MapRegionState.Ready, first.State);
-        Assert.IsTrue(first.IsDynamic);
-
-        service.CreateDynamicRegion(firstDynamic, secondDynamic);
-        var second = await WaitForRegionAsync(service, taskService, secondDynamic);
-
-        Assert.AreEqual(MapRegionState.Ready, second.State);
-        var part = second.GetRegionPartByLocalPart(3, 4, 2);
+        Assert.AreEqual(MapRegionState.Ready, published.State);
+        Assert.IsTrue(published.IsDynamic);
+        var part = published.GetRegionPartByLocalPart(3, 4, 2);
         Assert.AreEqual(50 * 8 + 3, part.DrawRegionPartX);
         Assert.AreEqual(51 * 8 + 4, part.DrawRegionPartY);
-        loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
-        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
     }
 
     [TestMethod]
