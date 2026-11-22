@@ -94,6 +94,16 @@ Writing, rotating or deleting a part SHALL remove all objects of its previous co
 - **WHEN** the part is rewritten with another source part
 - **THEN** a full update of the part sends no removal for the old object, and the old object is destroyed and unregistered
 
+### Requirement: Zone updates address the destination part
+
+Zone updates for a part's runtime objects, disabled static objects and ground items SHALL be addressed to the destination part's coordinates and plane, never to its source part.
+
+#### Scenario: Cross-part and cross-plane mapping
+
+- **GIVEN** a destination part on plane 0 mapped to a different source part on plane 1
+- **WHEN** a full or incremental zone update is sent for it
+- **THEN** the update's zone base and plane are the destination part's
+
 ### Requirement: Restoring a standard region
 
 Making a region standard SHALL map every part to itself, present, with rotation 0, and rebuild its objects and collision from the region's own template.

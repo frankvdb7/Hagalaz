@@ -386,14 +386,19 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
             return CreateRegionPartCore(partHash);
         }
 
-        private MapRegionPart CreateRegionPartCore(int partHash) =>
-            new MapRegionPart(_mapper, _groundItemBuilder, _entityStore)
+        private MapRegionPart CreateRegionPartCore(int partHash)
+        {
+            var partX = partHash & 0x3ff;
+            var partY = (partHash >> 10) & 0x7ff;
+            var z = (partHash >> 21) & 0x3;
+            return new MapRegionPart(_mapper, _groundItemBuilder, _entityStore, partX, partY, z)
             {
-                DrawRegionPartX = partHash & 0x3ff,
-                DrawRegionPartY = (partHash >> 10) & 0x7ff,
-                DrawRegionZ = (partHash >> 21) & 0x3,
+                DrawRegionPartX = partX,
+                DrawRegionPartY = partY,
+                DrawRegionZ = z,
                 HasDrawSource = !IsDynamic,
             };
+        }
 
     }
 }

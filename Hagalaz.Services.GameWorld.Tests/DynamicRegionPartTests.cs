@@ -2,17 +2,21 @@ using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Model;
+using Hagalaz.Game.Abstractions.Model.Creatures;
+using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Extensions;
+using Hagalaz.Game.Messages.Protocol.Map;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Model.Maps.GameObjects;
 using Hagalaz.Services.GameWorld.Model.Maps.Regions;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using Raido.Common.Protocol;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 
@@ -275,6 +279,51 @@ public sealed class DynamicRegionPartTests
         Assert.IsFalse(part.FindAllGameObjects().Any());
         Assert.IsFalse(world.Store.TryResolve(removed.Handle, out _));
         Assert.IsTrue(Collision(destination).All(flag => flag == CollisionFlag.Walkable));
+    }
+
+    [TestMethod]
+    public void ZoneUpdates_AddressTheDestinationPartForCrossPartAndCrossPlaneMappings()
+    {
+        var world = new TestWorld();
+        var destination = world.CreateDynamicRegion(DestinationRegionX, DestinationRegionY);
+        destination.WriteBlockByIndex(DestinationLocalPartX, DestinationLocalPartY, 0, SourcePartX, SourcePartY, SourceZ, CreateSourceTemplate());
+        var part = destination.GetRegionPartByLocalPart(DestinationLocalPartX, DestinationLocalPartY, 0);
+        destination.Remove(destination.FindAllGameObjects().Single(obj => obj.Id == 1));
+        var bases = new List<ILocation>();
+        var zoneMessages = new List<MapRegionPartUpdateMessage>();
+        var character = Substitute.For<ICharacter>();
+        var viewport = Substitute.For<IViewport>();
+        var session = Substitute.For<IGameSession>();
+        character.Viewport.Returns(viewport);
+        character.Session.Returns(session);
+        viewport.InBounds(Arg.Any<ILocation>()).Returns(true);
+        viewport.When(value => value.GetLocalPosition(Arg.Any<ILocation>(), ref Arg.Any<int>(), ref Arg.Any<int>()))
+            .Do(call => bases.Add(call.ArgAt<ILocation>(0)));
+        session.When(value => value.SendMessage(Arg.Any<RaidoMessage>()))
+            .Do(call =>
+            {
+                if (call.Arg<RaidoMessage>() is MapRegionPartUpdateMessage message)
+                {
+                    zoneMessages.Add(message);
+                }
+            });
+
+        part.SendFullUpdate(character);
+        part.PrepareUpdatesForTick();
+        part.SendUpdates(character);
+
+        Assert.AreEqual(2, bases.Count);
+        foreach (var zoneBase in bases)
+        {
+            Assert.AreEqual(DestinationRegionX * 64 + DestinationMinX, zoneBase.X);
+            Assert.AreEqual(DestinationRegionY * 64 + DestinationMinY, zoneBase.Y);
+            Assert.AreEqual(0, zoneBase.Z);
+        }
+
+        Assert.AreEqual(2, zoneMessages.Count);
+        Assert.IsTrue(zoneMessages[0].FullUpdate);
+        Assert.IsFalse(zoneMessages[1].FullUpdate);
+        Assert.IsTrue(zoneMessages.All(message => message.Z == 0));
     }
 
     [TestMethod]

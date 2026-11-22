@@ -33,12 +33,18 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
         private List<IRegionPartUpdate> _pendingUpdates = [];
         private List<IRegionPartUpdate> _preparedUpdates = [];
         private readonly object _updatesLock = new();
+        private readonly int _partX;
+        private readonly int _partY;
+        private readonly int _z;
 
-        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, IEntityStore entityStore)
+        public MapRegionPart(IMapper mapper, IGroundItemBuilder groundItemBuilder, IEntityStore entityStore, int partX, int partY, int z)
         {
             _mapper = mapper;
             _groundItemBuilder = groundItemBuilder;
             _entityStore = entityStore;
+            _partX = partX;
+            _partY = partY;
+            _z = z;
         }
 
         /// <summary>
@@ -363,13 +369,14 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return;
             }
 
-            var baseLocation = new Location(DrawRegionPartX << 3, DrawRegionPartY << 3, DrawRegionZ, 0);
+            // Zone updates address the destination part the client sees, not its draw source.
+            var baseLocation = new Location(_partX << 3, _partY << 3, _z, 0);
             int localX = -1;
             int localY = -1;
             character.Viewport.GetLocalPosition(baseLocation, ref localX, ref localY);
             character.Session.SendMessage(new MapRegionPartUpdateMessage
             {
-                LocalX = localX, LocalY = localY, Z = DrawRegionZ, FullUpdate = fullUpdate
+                LocalX = localX, LocalY = localY, Z = _z, FullUpdate = fullUpdate
             });
             foreach (var update in updateables)
             {

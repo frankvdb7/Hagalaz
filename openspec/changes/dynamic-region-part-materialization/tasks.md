@@ -17,6 +17,8 @@
 - [x] 3.3 Verify collision for the four rotations equals a standard region containing the rotated floor block and objects (floor, wall, solid object, range flags, multi-tile footprint)
 - [x] 3.4 Implement `MakeStandard(own)` as a full restore; verify load, make dynamic, write/rotate/delete, make standard equals a fresh standard load (mappings, presence, objects, collision)
 
+- [x] 3.5 Address zone updates to the destination part instead of the draw source; verify full and incremental updates for a cross-part, cross-plane mapping use the destination base and plane
+
 ## 4. Dynamic creation
 
 - [x] 4.1 Update `MapRegionService.CreateDynamicRegion` to read source descriptors by local index, load each distinct source template, write parts by local index, and stop calling `MakeStandard()` on the source; verify a source with region X != region Y away from origin maps all 4x8x8 parts correctly, and existing `MapRegionServiceTests` readiness/cancellation tests pass
