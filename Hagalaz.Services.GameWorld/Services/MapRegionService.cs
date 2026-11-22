@@ -496,7 +496,9 @@ namespace Hagalaz.Services.GameWorld.Services
                     // itself, so it is neither created nor loaded here: only its template is read, once.
                     var dynamicSource = FindMapRegion(source.RegionId, source.Dimension) is { IsDynamic: true } resident ? resident : null;
                     var sourceParts = dynamicSource is not null ? ReadSourceParts(dynamicSource) : CreateIdentityParts(source);
-                    var templates = await LoadSourceTemplatesAsync(sourceParts, cancellationToken);
+                    // WaitAsync lets cancellation end the wait, and release the pending entry, even if a loader hangs
+                    // or ignores the token.
+                    var templates = await LoadSourceTemplatesAsync(sourceParts, cancellationToken).WaitAsync(cancellationToken);
 
                     // A loader may finish without observing cancellation; nothing is published for a canceled creation.
                     cancellationToken.ThrowIfCancellationRequested();

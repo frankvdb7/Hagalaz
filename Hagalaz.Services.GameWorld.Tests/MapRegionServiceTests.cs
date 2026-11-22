@@ -1013,6 +1013,28 @@ public sealed class MapRegionServiceTests
     }
 
     [TestMethod]
+    public void CreateDynamicRegion_CanceledWhileALoaderHangs_ReleasesThePendingDestination()
+    {
+        var templateLoader = Substitute.For<IMapRegionTemplateLoader>();
+        templateLoader.LoadAsync(Arg.Any<int>(), Arg.Any<int[]>(), Arg.Any<CancellationToken>())
+            .Returns(new TaskCompletionSource<MapRegionTemplate>().Task); // never completes and ignores the token
+        using var provider = CreateProvider(templateLoader: templateLoader);
+        var service = CreateService(provider);
+        Assert.IsTrue(service.TryCreateDimension(out var dimension));
+        var destination = Location.Create(128, 64, 0, dimension!.Id);
+        var taskService = provider.GetRequiredService<IRsTaskService>();
+        var handle = service.CreateDynamicRegion(Location.Create(64, 64, 0, 0), destination);
+        taskService.Tick();
+        Assert.IsFalse(service.TryRemoveEmptyDimension(dimension), "The creation is still pending.");
+
+        handle.Cancel();
+        taskService.Tick();
+        taskService.Tick();
+
+        Assert.IsTrue(service.TryRemoveEmptyDimension(dimension), "Cancellation must release the pending destination.");
+    }
+
+    [TestMethod]
     public void CreateDynamicRegion_FailedTemplateLoadNeverExposesAPartialDestination()
     {
         var templateLoader = Substitute.For<IMapRegionTemplateLoader>();
