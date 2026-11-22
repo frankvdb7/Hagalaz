@@ -620,6 +620,7 @@ namespace Hagalaz.Services.GameWorld
                 options.AddEncoder<DrawInterfaceComponentMessageEncoder>();
                 options.AddEncoder<DrawItemComponentMessageEncoder>();
                 options.AddEncoder<DrawStandardMapMessageEncoder>();
+                options.AddEncoder<DrawDynamicMapMessageEncoder>();
                 options.AddEncoder<DrawItemContainerMessageEncoder>();
                 options.AddEncoder<FriendsListMessageEncoder>();
                 options.AddEncoder<IgnoreListMessageEncoder>();
