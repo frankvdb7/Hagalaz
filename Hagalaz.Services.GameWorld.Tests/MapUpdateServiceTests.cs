@@ -51,6 +51,29 @@ namespace Hagalaz.Services.GameWorld.Tests
         }
 
         [TestMethod]
+        public void UpdateMap_EnteringAReadyInstance_SendsTheEnterWorldMapBeforeAnyZoneStateInOneTick()
+        {
+            var scenario = CreateScenario(MapRegionState.Ready, true);
+
+            new MapUpdateService(Substitute.For<IMapRegionService>()).UpdateMap(scenario.Character, true, true);
+            scenario.Character.Viewport.UpdateTick();
+
+            var message = scenario.Session.ReceivedCalls()
+                .Select(call => call.GetArguments()[0])
+                .OfType<DrawDynamicMapMessage>()
+                .Single();
+            Assert.IsTrue(message.RenderViewport);
+            Assert.IsTrue(message.ForceUpdate);
+            Received.InOrder(() =>
+            {
+                scenario.Session.SendMessage(Arg.Is<RaidoMessage>(sent => sent is DrawDynamicMapMessage));
+                scenario.Region.SendFullPartUpdates(scenario.Character);
+            });
+            // the tick right after the draw does not synchronize the regions a second time
+            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
+        }
+
+        [TestMethod]
         public void UpdateMap_InitializingStandardRegion_SendsMapWithoutPrematureFullState()
         {
             var scenario = CreateScenario(MapRegionState.Initializing, false);
@@ -60,70 +83,6 @@ namespace Hagalaz.Services.GameWorld.Tests
             scenario.Session.Received(1).SendMessage(Arg.Is<RaidoMessage>(message => message is DrawStandardMapMessage));
             scenario.Region.DidNotReceive().SendFullPartUpdates(scenario.Character);
             scenario.Character.DidNotReceive().QueueTask(Arg.Any<Func<CancellationToken, Task>>());
-        }
-
-        [TestMethod]
-        public void UpdateMap_InitializingDynamicRegion_DefersTheMapUntilPopulationCompletes()
-        {
-            var scenario = CreateScenario(MapRegionState.Initializing, true);
-            var service = new MapUpdateService(Substitute.For<IMapRegionService>());
-
-            service.UpdateMap(scenario.Character, true, true);
-
-            scenario.Session.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
-            scenario.Region.DidNotReceive().SendFullPartUpdates(scenario.Character);
-            Assert.AreEqual(new DeferredMapDraw(true, true), scenario.Character.Viewport.DeferredMapDraw);
-
-            // still initializing on the next client update: still deferred, flags are kept
-            service.UpdateMap(scenario.Character, false);
-            scenario.Session.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
-            Assert.AreEqual(new DeferredMapDraw(true, true), scenario.Character.Viewport.DeferredMapDraw);
-
-            // population completes without the player moving; the next client update draws the map
-            foreach (var region in scenario.Regions)
-            {
-                region.State.Returns(MapRegionState.Ready);
-            }
-
-            service.UpdateMap(scenario.Character, false);
-
-            var message = scenario.Session.ReceivedCalls()
-                .Select(call => call.GetArguments()[0])
-                .OfType<DrawDynamicMapMessage>()
-                .Single();
-            Assert.IsTrue(message.ForceUpdate);
-            Assert.IsTrue(message.RenderViewport);
-            Assert.IsNull(scenario.Character.Viewport.DeferredMapDraw);
-            scenario.Region.Received(1).SendFullPartUpdates(scenario.Character);
-        }
-
-        [TestMethod]
-        public void UpdateMap_DeferredDynamicMap_SendsNoNewViewZoneStateAheadOfTheMap()
-        {
-            var scenario = CreateScenario(MapRegionState.Initializing, true);
-            var neighbour = scenario.Regions[0];
-            neighbour.State.Returns(MapRegionState.Ready);
-            neighbour.IsDynamic.Returns(false);
-            var service = new MapUpdateService(Substitute.For<IMapRegionService>());
-
-            service.UpdateMap(scenario.Character, true, true);
-            scenario.Character.Viewport.UpdateTick();
-
-            neighbour.DidNotReceive().SendFullPartUpdates(scenario.Character);
-            scenario.Session.DidNotReceive().SendMessage(Arg.Any<RaidoMessage>());
-
-            foreach (var region in scenario.Regions)
-            {
-                region.State.Returns(MapRegionState.Ready);
-            }
-
-            service.UpdateMap(scenario.Character, false);
-
-            Received.InOrder(() =>
-            {
-                scenario.Session.SendMessage(Arg.Is<RaidoMessage>(message => message is DrawDynamicMapMessage));
-                neighbour.SendFullPartUpdates(scenario.Character);
-            });
         }
 
         [TestMethod]

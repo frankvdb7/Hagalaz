@@ -115,7 +115,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         protected override void UpdateTick()
         {
-            if (Viewport.ShouldRebuild() || Viewport.DeferredMapDraw is not null)
+            if (Viewport.ShouldRebuild())
                 UpdateMap(false, false);
 
             Viewport.UpdateTick();

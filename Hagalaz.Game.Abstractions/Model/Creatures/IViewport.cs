@@ -56,11 +56,6 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures
         /// <returns><c>true</c> if any visible region is dynamic; otherwise, <c>false</c>.</returns>
         bool NeedsDynamicDraw();
         /// <summary>
-        /// Gets or sets the map draw that could not be sent yet because a visible dynamic region was still
-        /// being populated. It is retried on the next client update with the flags requested so far.
-        /// </summary>
-        DeferredMapDraw? DeferredMapDraw { get; set; }
-        /// <summary>
         /// Checks if a specific location is within the bounds of this viewport. This check does not consider the dimension.
         /// </summary>
         /// <param name="location">The location to check.</param>

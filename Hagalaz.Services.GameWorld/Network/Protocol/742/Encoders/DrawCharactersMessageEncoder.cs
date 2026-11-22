@@ -127,7 +127,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
                             case 3:
                                 {
                                     // 12 or 30 bits sortHash update.
-                                    var delta = Location.GetDelta(GetMoveOrigin(writingFor, localCharacter), localCharacter.Location);
+                                    var delta = Location.GetDelta(localCharacter.RenderInformation.LastLocation, localCharacter.Location);
                                     var deltaX = delta.X < 0 ? -delta.X : delta.X;
                                     var deltaY = delta.Y < 0 ? -delta.Y : delta.Y;
                                     var deltaZ = delta.Z < 0 ? -delta.Z : delta.Z;
@@ -379,14 +379,9 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
         /// </summary>
         /// <param name="toCheck">Character for which we are getting movement update type.</param>
         /// <returns>Returns 1 if 3 Bit's update type required, 2 if 4bits update required and 3 if other.</returns>
-        private static ILocation GetMoveOrigin(ICharacter owner, ICharacter checkable) =>
-            ReferenceEquals(owner, checkable) && checkable.RenderInformation.UnpublishedMoveOrigin is { } origin
-                ? origin
-                : checkable.RenderInformation.LastLocation;
-
-        private static int GetMovementUpdateType(ICharacter toCheck, ILocation origin)
+        private static int GetMovementUpdateType(ICharacter toCheck)
         {
-            var delta = Location.GetDelta(origin, toCheck.Location);
+            var delta = Location.GetDelta(toCheck.RenderInformation.LastLocation, toCheck.Location);
             if (delta.X == 0 && delta.Y == 0 && delta.Z == 0)
             {
                 return -1;
@@ -438,23 +433,9 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
                 return -2;
             }
 
-            var isSelf = ReferenceEquals(owner, checkable);
-            if (isSelf && owner.Viewport.DeferredMapDraw is not null)
+            if (checkable.Movement.Teleported || checkable.Movement.Moved)
             {
-                // The client has not received the map of the new view yet; moving it now would place it
-                // in a scene it does not have. The move is sent after the map draw.
-            }
-            else if (isSelf && checkable.RenderInformation.UnpublishedMoveOrigin is not null)
-            {
-                // Resend the held move as one relocation from where the client last saw the character.
-                if (GetMovementUpdateType(checkable, checkable.RenderInformation.UnpublishedMoveOrigin) != -1)
-                {
-                    return 3;
-                }
-            }
-            else if (checkable.Movement.Teleported || checkable.Movement.Moved)
-            {
-                var type = GetMovementUpdateType(checkable, checkable.RenderInformation.LastLocation);
+                var type = GetMovementUpdateType(checkable);
                 if (type != -1)
                 {
                     return type;
