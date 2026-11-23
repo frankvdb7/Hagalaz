@@ -64,7 +64,10 @@ public sealed class AddContactMessageConsumerTests
     public async Task Consume_AvailabilityFriends_BlocksWhenSenderNotInRecipientFriends()
     {
         SetSettings(friends: true);
-        SetRecipientFriendOfSender(false); // reverse-only friendship: sender may have friended receiver, receiver has not
+        SetRecipientFriendOfSender(false);
+        // Reverse-only friendship: sender has friended receiver, receiver has not friended sender.
+        _contactService.Setup(x => x.FindFriendByIdAsync(SenderId, ReceiverId))
+            .ReturnsAsync(new ContactDto { MasterId = ReceiverId, DisplayName = "Receiver" });
 
         await Assert.ThrowsExactlyAsync<NotFoundException>(() => _consumer.Consume(_context.Object));
         VerifyNotDelivered();
