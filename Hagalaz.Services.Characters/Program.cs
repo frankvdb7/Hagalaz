@@ -30,31 +30,7 @@ namespace Hagalaz.Services.Characters
 
             builder.Services.AddAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
 
-            builder.Services.AddOpenIddict()
-                .AddValidation(options =>
-                {                    
-                    var authServiceUri = builder.Configuration.GetServiceConfigurationValue("hagalaz-services-authorization", "https", "http");
-                    if (string.IsNullOrEmpty(authServiceUri))
-                    {
-                        Console.Error.WriteLine("The authorization service URI is not configured.");
-                        return;
-                    }
-                    // Note: the validation handler uses OpenID Connect discovery
-                    // to retrieve the address of the introspection endpoint.
-                    options.SetIssuer(authServiceUri);
-                    options.AddAudiences("characters-service-1", "hagalaz-web-app");
-
-                    // Configure the validation handler to use introspection and register the client
-                    // credentials used when communicating with the remote introspection endpoint.
-                    var clientSecret = builder.Configuration.GetValue<string>("Security:Introspection:ClientSecret") ?? string.Empty;
-                    options.UseIntrospection().SetClientId("characters-service-1").SetClientSecret(clientSecret);
-
-                    // Register the System.Net.Http integration.
-                    options.UseSystemNetHttp();
-
-                    // Register the ASP.NET Core host.
-                    options.UseAspNetCore();
-                });
+            builder.Services.AddCharactersTokenValidation(builder.Configuration);
 
             // unit of work
             builder.Services.AddScoped<ICharacterUnitOfWork, CharacterUnitOfWork>();

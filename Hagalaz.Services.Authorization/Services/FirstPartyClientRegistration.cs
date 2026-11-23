@@ -13,7 +13,9 @@ namespace Hagalaz.Services.Authorization.Services
         private const string NormalClientId = "storm-app";
         private const string AdminClientId = "storm-admin";
         private const string CacheServiceClientId = "cache-service-1";
-        private const string IntrospectionClientSecretConfigurationKey = "Security:Introspection:ClientSecret";
+        private const string CharactersServiceClientId = "characters-service-1";
+        private const string CacheClientSecretConfigurationKey = "Security:Introspection:ClientSecret";
+        private const string CharactersClientSecretConfigurationKey = "Security:Introspection:CharactersClientSecret";
 
         private readonly IOpenIddictApplicationManager _applicationManager;
         private readonly IConfiguration _configuration;
@@ -28,14 +30,8 @@ namespace Hagalaz.Services.Authorization.Services
 
         public async Task RegisterIfMissingAsync(CancellationToken cancellationToken = default)
         {
-            var cacheServiceClientSecret = _configuration[IntrospectionClientSecretConfigurationKey];
-            if (string.IsNullOrWhiteSpace(cacheServiceClientSecret))
-            {
-                throw new InvalidOperationException(
-                    $"The {IntrospectionClientSecretConfigurationKey} setting must be configured to register the Cache API introspection client.");
-            }
-
-            var cacheServiceClient = await _applicationManager.FindByClientIdAsync(CacheServiceClientId, cancellationToken);
+            var cacheServiceClientSecret = GetRequiredSecret(CacheClientSecretConfigurationKey, "Cache API");
+            var charactersServiceClientSecret = GetRequiredSecret(CharactersClientSecretConfigurationKey, "Characters API");
 
             var normalClient = await _applicationManager.FindByClientIdAsync(NormalClientId, cancellationToken);
             if (normalClient is null)
@@ -60,33 +56,53 @@ namespace Hagalaz.Services.Authorization.Services
                     cancellationToken);
             }
 
-            if (cacheServiceClient is null)
+            await RegisterIntrospectionClientAsync(CacheServiceClientId, "Hagalaz Cache Service", cacheServiceClientSecret, cancellationToken);
+            await RegisterIntrospectionClientAsync(CharactersServiceClientId, "Hagalaz Characters Service", charactersServiceClientSecret, cancellationToken);
+        }
+
+        private string GetRequiredSecret(string configurationKey, string serviceName)
+        {
+            var secret = _configuration[configurationKey];
+            if (string.IsNullOrWhiteSpace(secret))
+            {
+                throw new InvalidOperationException(
+                    $"The {configurationKey} setting must be configured to register the {serviceName} introspection client.");
+            }
+
+            return secret;
+        }
+
+        private async Task RegisterIntrospectionClientAsync(
+            string clientId,
+            string displayName,
+            string clientSecret,
+            CancellationToken cancellationToken)
+        {
+            var client = await _applicationManager.FindByClientIdAsync(clientId, cancellationToken);
+            if (client is null)
             {
                 await _applicationManager.CreateAsync(
-                    CreateCacheServiceDescriptor(cacheServiceClientSecret),
+                    CreateIntrospectionDescriptor(clientId, displayName, clientSecret),
                     cancellationToken);
             }
-            else if (!await _applicationManager.ValidateClientSecretAsync(
-                         cacheServiceClient,
-                         cacheServiceClientSecret,
-                         cancellationToken))
+            else if (!await _applicationManager.ValidateClientSecretAsync(client, clientSecret, cancellationToken))
             {
                 var descriptor = new OpenIddictApplicationDescriptor();
-                await _applicationManager.PopulateAsync(descriptor, cacheServiceClient, cancellationToken);
-                descriptor.ClientSecret = cacheServiceClientSecret;
-                await _applicationManager.UpdateAsync(cacheServiceClient, descriptor, cancellationToken);
+                await _applicationManager.PopulateAsync(descriptor, client, cancellationToken);
+                descriptor.ClientSecret = clientSecret;
+                await _applicationManager.UpdateAsync(client, descriptor, cancellationToken);
             }
         }
 
-        private static OpenIddictApplicationDescriptor CreateCacheServiceDescriptor(string clientSecret)
+        private static OpenIddictApplicationDescriptor CreateIntrospectionDescriptor(string clientId, string displayName, string clientSecret)
         {
             var descriptor = new OpenIddictApplicationDescriptor
             {
                 ApplicationType = OpenIddictConstants.ApplicationTypes.Web,
-                ClientId = CacheServiceClientId,
+                ClientId = clientId,
                 ClientSecret = clientSecret,
                 ClientType = OpenIddictConstants.ClientTypes.Confidential,
-                DisplayName = "Hagalaz Cache Service"
+                DisplayName = displayName
             };
 
             descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Introspection);

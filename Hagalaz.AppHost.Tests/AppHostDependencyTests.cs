@@ -100,6 +100,40 @@ public sealed class AppHostDependencyTests
         Assert.IsInstanceOfType<EndpointReference>(issuer);
         Assert.AreSame(https, ((EndpointReference)issuer).EndpointAnnotation);
     }
+
+    [TestMethod]
+    public async Task IntrospectionSecrets_AreSeparateAndSharedOnlyBetweenAuthorizationAndOwningService()
+    {
+        var builder = DistributedApplication.CreateBuilder(["--disable-dashboard"]);
+        AppHostConfiguration.Configure(builder, includeHealthChecks: false);
+
+        await using var application = builder.Build();
+        var model = application.Services.GetRequiredService<DistributedApplicationModel>();
+        var executionContext = application.Services.GetRequiredService<DistributedApplicationExecutionContext>();
+
+        async Task<Dictionary<string, object>> GetEnvironmentAsync(string name)
+        {
+            var resource = model.GetProjectResources().Single(r => r.Name == name);
+            var environment = new Dictionary<string, object>();
+            var context = new EnvironmentCallbackContext(executionContext, resource, environment, CancellationToken.None);
+            foreach (var annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
+            {
+                await annotation.Callback(context);
+            }
+            return environment;
+        }
+
+        var authorization = await GetEnvironmentAsync("hagalaz-services-authorization");
+        var cache = await GetEnvironmentAsync("hagalaz-services-cache");
+        var characters = await GetEnvironmentAsync("hagalaz-services-characters");
+
+        var cacheSecret = authorization["Security__Introspection__ClientSecret"];
+        var charactersSecret = authorization["Security__Introspection__CharactersClientSecret"];
+        Assert.AreNotSame(cacheSecret, charactersSecret);
+        Assert.AreSame(cacheSecret, cache["Security__Introspection__ClientSecret"]);
+        Assert.AreSame(charactersSecret, characters["Security__Introspection__ClientSecret"]);
+    }
+
     [TestMethod]
     [DataRow("hagalaz-web-app", 4400)]
     [DataRow("hagalaz-web-admin", 4410)]
