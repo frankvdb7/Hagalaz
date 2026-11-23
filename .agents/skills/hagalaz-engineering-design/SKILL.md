@@ -22,4 +22,4 @@ Use this workflow for design or implementation decisions where ownership, distri
 - Start with focused tests; expand to full build, integration, or cross-service validation whenever the change warrants it. Do not use arbitrary read, line, tool-call or log-output limits that can weaken correctness.
 - See [targeted search and .NET command examples](references/context-efficient-commands.md) when shell examples or usage measurement help. These are optional patterns, not new required tooling.
 
-For a PR review or remediation of review feedback, switch to `hagalaz-pr-review`. For jscpd-specific clone remediation use `dry-refactoring`; do not extract abstractions solely for syntax similarity.
+For a PR review or remediation of review feedback, switch to `hagalaz-pr-review`. Do not extract abstractions solely for syntax similarity.
