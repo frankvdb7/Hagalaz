@@ -1,0 +1,7 @@
+species,seed_item_id,product_item_id,required_level,planting_xp,health_check_xp,xp_per_berry,varpbit_slot,growth_stages_cache,cache_growth_varbit_base,cycle_ticks,source,status
+Redberry,5101,1951,10,11.5,64,4.5,0,5,5,2000,https://wiki.darkan.org/Seeds,wiki estimate pending 742 confirmation
+Cadavaberry,5102,753,22,18,102.5,7,1,6,15,2000,https://wiki.darkan.org/Seeds,wiki estimate pending 742 confirmation
+Dwellberry,5103,2126,36,31.5,177.5,12,2,7,26,2000,https://wiki.darkan.org/Seeds,wiki estimate pending 742 confirmation
+Jangerberry,5104,247,48,50.5,284.5,19,3,8,38,2000,https://wiki.darkan.org/Seeds,wiki estimate pending 742 confirmation
+Whiteberry,5105,239,59,78,437.5,29,4,8,51,2000,https://wiki.darkan.org/Seeds,wiki estimate pending 742 confirmation
+Poison ivy,5106,6018,70,120,675,45,5,8,197,2000,https://wiki.darkan.org/Seeds,wiki estimate pending 742 confirmation

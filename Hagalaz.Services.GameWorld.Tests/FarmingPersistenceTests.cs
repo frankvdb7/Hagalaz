@@ -1,4 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Tasks;
+using System.Threading;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Services.GameWorld.Logic.Characters;
@@ -412,6 +415,232 @@ public sealed class FarmingPersistenceTests
         Assert.AreEqual(0, task.Dehydrate().CurrentCycleTicks);
     }
 
+    private static FarmingPatchTickTask CreateMaturePatch(
+        PatchType type,
+        PatchCondition extraConditions,
+        int productCount,
+        int maximumProductCount = 6,
+        int cycleTicks = 100,
+        int offlineTicks = 0,
+        int savedProgress = 0)
+    {
+        var now = new DateTimeOffset(2026, 9, 23, 20, 0, 0, TimeSpan.Zero);
+        var seed = CreateSeed(5374, cycleTicks: cycleTicks, maxCycles: 4, type: type, minimumProductCount: 1, maximumProductCount: maximumProductCount);
+        var task = CreatePatchTask(8389, seed, now.AddMilliseconds(-(offlineTicks * 600L)));
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 8389,
+            SeedId = 5374,
+            Condition = PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Cleared | extraConditions,
+            CurrentCycle = 4,
+            CurrentCycleTicks = savedProgress,
+            ProductCount = productCount
+        }, now);
+        return task;
+    }
+
+    [TestMethod]
+    public void FellTree_CheckedMatureTree_LeavesStumpOnceAndClearEmptiesPatch()
+    {
+        var task = CreateMaturePatch(PatchType.Tree, PatchCondition.Checked, productCount: 1);
+
+        Assert.IsTrue(task.FellTree());
+        Assert.IsTrue(task.HasCondition(PatchCondition.Empty));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Planted));
+        Assert.AreEqual(0, task.ProductCount);
+        Assert.IsFalse(task.FellTree());
+
+        task.Clear();
+
+        Assert.IsFalse(task.HasCondition(PatchCondition.Planted));
+        Assert.IsFalse(task.HasCondition(PatchCondition.Checked));
+        Assert.IsFalse(task.HasCondition(PatchCondition.Empty));
+    }
+
+    [TestMethod]
+    public void FellTree_UncheckedTreeOrOtherCrop_IsRejected()
+    {
+        var unchecked_ = CreateMaturePatch(PatchType.Tree, 0, productCount: 1);
+        var fruitTree = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 3);
+
+        Assert.IsFalse(unchecked_.FellTree());
+        Assert.IsFalse(fruitTree.FellTree());
+        Assert.IsFalse(fruitTree.HasCondition(PatchCondition.Empty));
+        Assert.AreEqual(3, fruitTree.ProductCount);
+    }
+
+    [TestMethod]
+    public void Clear_AfterCheckedTree_RequiresANewHealthCheckForTheNextCrop()
+    {
+        var task = CreateMaturePatch(PatchType.Tree, PatchCondition.Checked, productCount: 1);
+
+        task.Clear();
+        task.Plant(CreateSeed(5374, type: PatchType.Tree));
+        task.AddCondition(PatchCondition.Mature);
+
+        Assert.IsFalse(task.HasCondition(PatchCondition.Checked));
+    }
+
+    [TestMethod]
+    public void Harvest_FruitTreeEmptied_KeepsMaturePlantInPatch()
+    {
+        var task = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 2);
+
+        task.Harvest();
+        task.Harvest();
+
+        Assert.AreEqual(0, task.ProductCount);
+        Assert.IsTrue(task.HasCondition(PatchCondition.Planted));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Mature));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Checked));
+
+        task.Harvest();
+        Assert.AreEqual(0, task.ProductCount);
+    }
+
+    [TestMethod]
+    public void Harvest_AllotmentEmptied_ClearsPatch()
+    {
+        var task = CreateMaturePatch(PatchType.Allotment, 0, productCount: 1);
+
+        task.Harvest();
+
+        Assert.IsFalse(task.HasCondition(PatchCondition.Planted));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Cleared));
+    }
+
+    [TestMethod]
+    public void Tick_EmptiedBush_RegrowsOneBerryPerCycleUpToTheMaximum()
+    {
+        var task = CreateMaturePatch(PatchType.Bush, PatchCondition.Checked, productCount: 1, maximumProductCount: 2, cycleTicks: 10);
+        task.Harvest();
+        Assert.AreEqual(0, task.ProductCount);
+
+        for (var i = 0; i < 10; i++)
+            task.Tick();
+        Assert.AreEqual(1, task.ProductCount);
+
+        for (var i = 0; i < 30; i++)
+            task.Tick();
+        Assert.AreEqual(2, task.ProductCount);
+        Assert.AreEqual(0, task.TickCount);
+    }
+
+    [TestMethod]
+    public void Hydrate_MatureFruitTree_ReplenishesElapsedCyclesWithoutExceedingMaximum()
+    {
+        var partial = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 1, cycleTicks: 100, offlineTicks: 250);
+        var capped = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 1, maximumProductCount: 3, cycleTicks: 100, offlineTicks: 100_000);
+
+        Assert.AreEqual(3, partial.ProductCount);
+        Assert.AreEqual(50, partial.TickCount);
+        Assert.AreEqual(3, capped.ProductCount);
+        Assert.AreEqual(0, capped.TickCount);
+        Assert.AreEqual(3, capped.Dehydrate().ProductCount);
+    }
+
+    [TestMethod]
+    public void Tick_MatureFruitTree_RegrowsOnTheRegrowIntervalNotTheGrowthCycle()
+    {
+        var now = new DateTimeOffset(2026, 9, 23, 20, 0, 0, TimeSpan.Zero);
+        var seed = CreateSeed(5283, cycleTicks: 16000, maxCycles: 6, type: PatchType.FruitTree, minimumProductCount: 6, maximumProductCount: 6, productRegrowTicks: 20);
+        var task = CreatePatchTask(8389, seed, now);
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 8389, SeedId = 5283, Condition = PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Checked,
+            CurrentCycle = 6, CurrentCycleTicks = 0, ProductCount = 6
+        }, now);
+        task.Harvest();
+        task.Harvest();
+
+        for (var i = 0; i < 20; i++)
+            task.Tick();
+
+        Assert.AreEqual(5, task.ProductCount);
+    }
+
+    [TestMethod]
+    [DataRow(PatchCondition.Planted, 0, 3, 8 + 3)]
+    [DataRow(PatchCondition.Planted | PatchCondition.Mature, 6, 6, 8 + 26)]
+    [DataRow(PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Checked, 4, 6, 8 + 6 + 4)]
+    [DataRow(PatchCondition.Planted | PatchCondition.Diseased, 0, 2, 8 + 13 + 2)]
+    [DataRow(PatchCondition.Planted | PatchCondition.Dead, 0, 2, 8 + 19 + 2)]
+    public void Refresh_AppleTree_SendsCacheVarbitStateForPlantStage(PatchCondition condition, int productCount, int cycle, int expected)
+    {
+        var task = CreateFruitTreeRefreshTask(slot: 0, out var configurations);
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 7965, SeedId = 5283, Condition = condition, CurrentCycle = cycle, CurrentCycleTicks = 0, ProductCount = productCount
+        }, DateTimeOffset.Now);
+
+        task.Refresh();
+
+        configurations.Received(1).SendBitConfiguration(707, expected);
+    }
+
+    [TestMethod]
+    [DataRow(1, 35)]
+    [DataRow(2, 72)]
+    [DataRow(3, 99)]
+    [DataRow(4, 136)]
+    [DataRow(5, 163)]
+    [DataRow(6, 200)]
+    public void Refresh_FruitTreeSpecies_StartsAtItsCacheVarbitBase(int slot, int expectedBase)
+    {
+        var task = CreateFruitTreeRefreshTask(slot, out var configurations);
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 7965, SeedId = 5283, Condition = PatchCondition.Planted, CurrentCycle = 0, CurrentCycleTicks = 0, ProductCount = 0
+        }, DateTimeOffset.Now);
+
+        task.Refresh();
+
+        configurations.Received(1).SendBitConfiguration(707, expectedBase);
+    }
+
+    [TestMethod]
+    [DataRow(0, 5, PatchCondition.Planted, 0, 3, 5 + 3)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Mature, 4, 5, 250)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Checked, 4, 5, 5 + 5 + 4)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Diseased, 0, 2, 70 + 2)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Dead, 0, 1, 134 + 1)]
+    [DataRow(5, 8, PatchCondition.Planted | PatchCondition.Mature, 4, 8, 255)]
+    [DataRow(5, 8, PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Checked, 2, 8, 197 + 8 + 2)]
+    public void Refresh_Bush_SendsCacheVarbitStateForPlantStage(int slot, int maxCycles, PatchCondition condition, int productCount, int cycle, int expected)
+    {
+        var task = CreateFruitTreeRefreshTask(slot, out var configurations, PatchType.Bush, maxCycles);
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 7965, SeedId = 5283, Condition = condition, CurrentCycle = cycle, CurrentCycleTicks = 0, ProductCount = productCount
+        }, DateTimeOffset.Now);
+
+        task.Refresh();
+
+        configurations.Received(1).SendBitConfiguration(707, expected);
+    }
+
+    private static FarmingPatchTickTask CreateFruitTreeRefreshTask(int slot, out IConfigurations configurations, PatchType type = PatchType.FruitTree, int maxCycles = 6)
+    {
+        var seed = CreateSeed(5283, cycleTicks: 16000, maxCycles: maxCycles, type: type, minimumProductCount: 4, maximumProductCount: 6, varpBitIndex: slot);
+        var farmingService = Substitute.For<IFarmingService>();
+        farmingService.FindPatchById(7965).Returns(Task.FromResult<PatchDto?>(CreatePatchDefinition(7965, type)));
+        farmingService.FindSeedById(5283).Returns(Task.FromResult<SeedDto?>(seed));
+        var objectService = Substitute.For<IGameObjectService>();
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.VarpBitFileId.Returns(707);
+        objectService.FindGameObjectDefinitionById(7965).Returns(Task.FromResult(definition));
+        var owner = Substitute.For<ICharacter>();
+        owner.LastLogin.Returns(DateTimeOffset.Now);
+        configurations = Substitute.For<IConfigurations>();
+        owner.Configurations.Returns(configurations);
+        owner.QueueTask(Arg.Any<Func<CancellationToken, Task>>()).Returns(call =>
+        {
+            call.Arg<Func<CancellationToken, Task>>()(CancellationToken.None).GetAwaiter().GetResult();
+            return Substitute.For<IRsTaskHandle>();
+        });
+        return new FarmingPatchTickTask(owner, 7965, farmingService, objectService);
+    }
+
     private static Farming CreateFarming(
         IReadOnlyList<PatchDto> patchDefinitions,
         IReadOnlyList<SeedDto> seeds,
@@ -455,7 +684,9 @@ public sealed class FarmingPersistenceTests
         int maxCycles = 4,
         PatchType type = PatchType.Allotment,
         int minimumProductCount = 1,
-        int maximumProductCount = 3) => new()
+        int maximumProductCount = 3,
+        int productRegrowTicks = 0,
+        int varpBitIndex = 1) => new()
     {
         ItemID = itemId,
         ProductID = 100,
@@ -464,7 +695,8 @@ public sealed class FarmingPersistenceTests
         RequiredLevel = 1,
         PlantingExperience = 0,
         HarvestExperience = 0,
-        VarpBitIndex = 1,
+        VarpBitIndex = varpBitIndex,
+        ProductRegrowTicks = productRegrowTicks,
         MaxCycles = maxCycles,
         CycleTicks = cycleTicks,
         Type = type

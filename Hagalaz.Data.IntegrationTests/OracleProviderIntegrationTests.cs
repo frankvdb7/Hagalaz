@@ -88,7 +88,7 @@ public sealed class OracleProviderIntegrationTests
         await using var context = CreateContext();
         var applied = await context.Database.GetAppliedMigrationsAsync();
         await context.Database.OpenConnectionAsync();
-        Assert.HasCount(9, applied);
+        Assert.HasCount(10, applied);
         Assert.Contains("20240316233038_InitialCreate", applied);
         Assert.Contains("20250721222703_UpdateOpenIddict7", applied);
         Assert.Contains("20251119194916_UpdateStateId", applied);
@@ -98,6 +98,7 @@ public sealed class OracleProviderIntegrationTests
         Assert.Contains("20260810120113_RemoveLegacyMinigamePersistence", applied);
         Assert.Contains("20260818183057_RemoveObsoleteCharacterPermissions", applied);
         Assert.Contains("20260818192702_RemoveObsoleteCharacterPreferences", applied);
+        Assert.Contains("20261123215903_AddFarmingSeedProductExperience", applied);
         Assert.IsTrue(await TableExistsAsync(context, "aspnetroles"));
         Assert.IsTrue(await TableExistsAsync(context, "aspnetuserroles"));
     }

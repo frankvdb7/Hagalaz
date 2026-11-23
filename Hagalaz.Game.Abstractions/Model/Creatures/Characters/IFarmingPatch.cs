@@ -21,9 +21,19 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
         /// </summary>
         PatchDto PatchDefinition { get; }
         /// <summary>
+        /// Gets the number of products that can currently be taken from the mature plant.
+        /// </summary>
+        int ProductCount { get; }
+        /// <summary>
         /// Performs a harvest action on the patch, gathering one of its products.
+        /// Fruit trees and bushes keep growing and replenish; every other crop is cleared once empty.
         /// </summary>
         void Harvest();
+        /// <summary>
+        /// Fells a mature, health-checked tree, leaving its stump until the patch is dug up.
+        /// </summary>
+        /// <returns><c>true</c> if a standing checked tree was felled; otherwise, <c>false</c>.</returns>
+        bool FellTree();
         /// <summary>
         /// Resets the patch to a clear state, ready for a new seed.
         /// </summary>
