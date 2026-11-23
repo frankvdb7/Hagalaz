@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 using Hagalaz.Data;
 using Hagalaz.Data.Extensions;
 using Hagalaz.Services.Authorization.Services;
+using Hagalaz.Services.Characters.Services;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
+using OpenIddict.Validation.AspNetCore;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using HagalazScopes = Hagalaz.Authorization.Constants.Scopes;
 
@@ -103,6 +106,104 @@ namespace Hagalaz.Services.Authorization.Tests
             Assert.IsTrue(newSecret.Json.GetProperty("active").GetBoolean());
         }
 
+        [TestMethod]
+        public async Task CharactersValidation_WithSameSecret_AcceptsValidTokenAndRejectsOthers()
+        {
+            await using var host = await TestAuthorizationHost.StartAsync(CacheSecret, CharactersSecret);
+            var validToken = await host.IssueTokenAsync("characters-service-1");
+            var otherAudienceToken = await host.IssueTokenAsync("some-other-service");
+
+            await using var characters = await CharactersValidationHost.StartAsync(host.BaseUrl, CharactersSecret);
+
+            Assert.AreEqual(HttpStatusCode.OK, await characters.GetProtectedAsync(validToken));
+            Assert.AreEqual(HttpStatusCode.Unauthorized, await characters.GetProtectedAsync("not-a-token"));
+            Assert.AreEqual(HttpStatusCode.Unauthorized, await characters.GetProtectedAsync(otherAudienceToken));
+            Assert.AreEqual(HttpStatusCode.Unauthorized, await characters.GetProtectedAsync(null));
+        }
+
+        [TestMethod]
+        public async Task CharactersValidation_WithWrongSecret_RejectsOtherwiseValidToken()
+        {
+            await using var host = await TestAuthorizationHost.StartAsync(CacheSecret, CharactersSecret);
+            var validToken = await host.IssueTokenAsync("characters-service-1");
+
+            await using var characters = await CharactersValidationHost.StartAsync(host.BaseUrl, "wrong-secret");
+
+            // The validation handler fails (server error) rather than accepting the token when Authorization rejects its client.
+            Assert.AreNotEqual(HttpStatusCode.OK, await characters.GetProtectedAsync(validToken));
+        }
+
+        [TestMethod]
+        public void CharactersValidation_WithoutSecret_FailsFast()
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["services:hagalaz-services-authorization:https:0"] = "https://localhost:1"
+                })
+                .Build();
+            var exception = Assert.Throws<System.InvalidOperationException>(() =>
+            {
+                using var provider = new ServiceCollection()
+                    .AddCharactersTokenValidation(configuration)
+                    .BuildServiceProvider();
+                _ = provider.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<OpenIddict.Validation.OpenIddictValidationOptions>>().CurrentValue;
+            });
+            StringAssert.Contains(exception.Message, "Security:Introspection:ClientSecret");
+        }
+
+        private sealed class CharactersValidationHost : System.IAsyncDisposable
+        {
+            private readonly WebApplication _app;
+            private readonly HttpClient _client;
+
+            private CharactersValidationHost(WebApplication app)
+            {
+                _app = app;
+                _client = new HttpClient { BaseAddress = new System.Uri(app.Urls.First()) };
+            }
+
+            public static async Task<CharactersValidationHost> StartAsync(string authorizationUrl, string clientSecret)
+            {
+                var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Development });
+                builder.WebHost.UseUrls("http://127.0.0.1:0");
+                builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["services:hagalaz-services-authorization:http:0"] = authorizationUrl,
+                    ["Security:Introspection:ClientSecret"] = clientSecret
+                });
+                builder.Services.AddAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+                builder.Services.AddAuthorization();
+                builder.Services.AddCharactersTokenValidation(builder.Configuration);
+
+                var app = builder.Build();
+                app.UseAuthentication();
+                app.UseAuthorization();
+                app.MapGet("/protected", () => Results.Ok()).RequireAuthorization();
+                await app.StartAsync();
+                return new CharactersValidationHost(app);
+            }
+
+            public async Task<HttpStatusCode> GetProtectedAsync(string? token)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, "protected");
+                if (token is not null)
+                {
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                }
+
+                using var response = await _client.SendAsync(request);
+                return response.StatusCode;
+            }
+
+            public async ValueTask DisposeAsync()
+            {
+                _client.Dispose();
+                await _app.StopAsync();
+                await _app.DisposeAsync();
+            }
+        }
+
         private sealed class JsonResponse : System.IDisposable
         {
             private readonly JsonDocument _document;
@@ -125,6 +226,8 @@ namespace Hagalaz.Services.Authorization.Tests
 
             private readonly WebApplication _app;
             private readonly HttpClient _client;
+
+            public string BaseUrl => _app.Urls.First();
 
             private TestAuthorizationHost(WebApplication app)
             {

@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hagalaz.Services.Authorization\Hagalaz.Services.Authorization.csproj" />
+    <ProjectReference Include="..\Hagalaz.Services.Characters\Hagalaz.Services.Characters.csproj" />
     <ProjectReference Include="..\Hagalaz.Services.Common\Hagalaz.Services.Common.csproj" />
   </ItemGroup>
 

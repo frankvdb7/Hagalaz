@@ -54,6 +54,14 @@
           "Asp.Versioning.Http": "10.0.0"
         }
       },
+      "AutoMapper": {
+        "type": "Transitive",
+        "resolved": "16.2.0",
+        "contentHash": "PE8HgPc5BZJnAFwjvDTE72gWL6YrYib+V7+vxtLXDYz0CH/fFgbVcwLUC9UHk5ALwspZ6Vbmoo6PHvseIk/0ZA==",
+        "dependencies": {
+          "Microsoft.IdentityModel.JsonWebTokens": "8.14.0"
+        }
+      },
       "BouncyCastle.Cryptography": {
         "type": "Transitive",
         "resolved": "2.6.2",
@@ -63,6 +71,11 @@
         "type": "Transitive",
         "resolved": "5.2.1",
         "contentHash": "wHARzQA695jwwKreOzNsq54KiGqKP38tv8hi8e2FXDEC/sA6BtrX90tVPDkOfVu13PbEzr00TCV8coikl+D1Iw=="
+      },
+      "FluentResults": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "wKfdLvDnDVhXlSreU7u/NFNHH6EfoOhAloEID4ePAyk+ZliowKZJvX+aCL4hxhFc9Jj74t62amS4LyOYTjXGCg=="
       },
       "Google.Protobuf": {
         "type": "Transitive",
@@ -882,6 +895,11 @@
         "resolved": "2.16.16",
         "contentHash": "Ax0e0bIh+Upf92k1+pTBUom3e/kbpu20qsrDYmmS1NM721Eq2xF8c789x6IbiNrvW8WwySRzPv/icYYhb6idSg=="
       },
+      "SixLabors.ImageSharp": {
+        "type": "Transitive",
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+      },
       "System.Configuration.ConfigurationManager": {
         "type": "Transitive",
         "resolved": "10.0.8",
@@ -945,6 +963,21 @@
       "hagalaz.authorization.messages": {
         "type": "Project"
       },
+      "hagalaz.automapper": {
+        "type": "Project",
+        "dependencies": {
+          "AutoMapper": "[16.2.0, )"
+        }
+      },
+      "hagalaz.cache.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "SixLabors.ImageSharp": "[3.1.12, )"
+        }
+      },
+      "hagalaz.characters.messages": {
+        "type": "Project"
+      },
       "hagalaz.data": {
         "type": "Project",
         "dependencies": {
@@ -967,6 +1000,21 @@
       },
       "hagalaz.exceptions": {
         "type": "Project"
+      },
+      "hagalaz.fluentresults": {
+        "type": "Project",
+        "dependencies": {
+          "FluentResults": "[4.0.0, )"
+        }
+      },
+      "hagalaz.game.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "FluentResults": "[4.0.0, )",
+          "Hagalaz.Cache.Abstractions": "[1.0.0, )",
+          "Hagalaz.Utilities": "[1.0.0, )",
+          "Raido.Common": "[1.0.0, )"
+        }
       },
       "hagalaz.security": {
         "type": "Project"
@@ -1019,6 +1067,25 @@
           "System.Linq.Async": "[7.0.1, )"
         }
       },
+      "hagalaz.services.characters": {
+        "type": "Project",
+        "dependencies": {
+          "AutoMapper": "[16.2.0, )",
+          "FluentResults": "[4.0.0, )",
+          "Hagalaz.AutoMapper": "[1.0.0, )",
+          "Hagalaz.Characters.Messages": "[1.0.0, )",
+          "Hagalaz.Data.Extensions": "[1.0.0, )",
+          "Hagalaz.Exceptions": "[1.0.0, )",
+          "Hagalaz.FluentResults": "[1.0.0, )",
+          "Hagalaz.Game.Abstractions": "[1.0.0, )",
+          "Hagalaz.ServiceDefaults": "[1.0.0, )",
+          "Hagalaz.Services.Common": "[1.0.0, )",
+          "MassTransit": "[8.5.10, )",
+          "MassTransit.EntityFrameworkCore": "[8.5.10, )",
+          "MassTransit.RabbitMQ": "[8.5.10, )",
+          "OpenIddict.AspNetCore": "[7.6.0, )"
+        }
+      },
       "hagalaz.services.common": {
         "type": "Project",
         "dependencies": {
@@ -1026,6 +1093,12 @@
           "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": "[10.0.10, )",
           "Microsoft.EntityFrameworkCore": "[10.0.10, )"
         }
+      },
+      "hagalaz.utilities": {
+        "type": "Project"
+      },
+      "raido.common": {
+        "type": "Project"
       }
     }
   }
