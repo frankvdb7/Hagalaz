@@ -4,7 +4,6 @@ using Hagalaz.Database.Migrations.Seeding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using MySql.EntityFrameworkCore.Extensions;
 using Testcontainers.MySql;
 
 namespace Hagalaz.Database.Migrations.Tests;
@@ -16,25 +15,10 @@ public sealed class GameObjectLootSeederTests
     private static MySqlContainer? _database;
 
     [ClassInitialize]
-    public static async Task InitializeAsync(TestContext _)
-    {
-        _database = new MySqlBuilder("mysql:8.4")
-            .WithDatabase("hagalaz-barrows-seed-test")
-            .WithUsername("root")
-            .WithPassword("hagalaz-barrows-seed-test")
-            .WithCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci")
-            .Build();
-        await _database.StartAsync();
-    }
+    public static async Task InitializeAsync(TestContext _) => _database = await SeedTestDatabase.StartAsync("hagalaz-barrows-seed-test");
 
     [ClassCleanup]
-    public static async Task CleanupAsync()
-    {
-        if (_database != null)
-        {
-            await _database.DisposeAsync();
-        }
-    }
+    public static Task CleanupAsync() => SeedTestDatabase.StopAsync(_database);
 
     [TestInitialize]
     public async Task ResetAsync()
@@ -191,6 +175,5 @@ public sealed class GameObjectLootSeederTests
 
     private static IReadOnlyList<GameObjectLootSeedTable> BarrowsTables { get; } = new BarrowsLootSeedSource().Tables;
 
-    private static HagalazDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<HagalazDbContext>().UseMySQL(_database!.GetConnectionString()).Options);
+    private static HagalazDbContext CreateContext() => SeedTestDatabase.CreateContext(_database!);
 }
