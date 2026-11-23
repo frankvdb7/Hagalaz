@@ -1,0 +1,8 @@
+species,seed_item_id_742_db,required_level,planting_xp,health_check_xp,xp_per_fruit,source
+Apple,5283,27,22,1199.5,8.5,https://wiki.darkan.org/Fruit_tree
+Banana,5284,33,28,1750.5,10.5,https://wiki.darkan.org/Fruit_tree
+Orange,5285,39,35,2470,13.5,https://wiki.darkan.org/Fruit_tree
+Curry,5286,42,40,2907,15,https://wiki.darkan.org/Fruit_tree
+Pineapple,,51,57,4605.7,21.5,https://wiki.darkan.org/Fruit_tree
+Papaya,5288,57,72,6146.4,27,https://wiki.darkan.org/Fruit_tree
+Palm,5289,68,110.5,10150.1,41.5,https://wiki.darkan.org/Fruit_tree
