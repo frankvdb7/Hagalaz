@@ -7,8 +7,8 @@ namespace Hagalaz.Database.Migrations.Seeding;
 
 /// <summary>
 ///     Seeds the farming seed and patch definitions supplied by the registered sources. A definition is only created when
-///     its id is absent. An existing seed definition is never changed, except that a product experience of 0 (the value
-///     rows get when the column is added) is backfilled from the source.
+///     its id is absent. An existing seed definition is never changed, except that a product experience or regrow interval
+///     of 0 (the value rows get when the columns are added) is backfilled from the source.
 /// </summary>
 public sealed class FarmingSeedSeeder : IGameWorldSeeder
 {
@@ -40,12 +40,18 @@ public sealed class FarmingSeedSeeder : IGameWorldSeeder
                 continue;
             }
 
-            // Upgrade path: rows created before product_experience existed carry 0. Only that default is filled in;
-            // any non-zero (custom) value and every other column stays as the operator left it.
+            // Upgrade path: rows created before product_experience and product_regrow_ticks existed carry 0. Only those
+            // defaults are filled in; any non-zero (custom) value and every other column stays as the operator left it.
             if (definition.ProductExperience == 0m && seed.ProductExperience > 0m)
             {
                 definition.ProductExperience = seed.ProductExperience;
                 _logger.LogInformation("Backfilled product experience of farming seed definition {ItemId}.", seed.ItemId);
+            }
+
+            if (definition.ProductRegrowTicks == 0 && seed.ProductRegrowTicks > 0)
+            {
+                definition.ProductRegrowTicks = seed.ProductRegrowTicks;
+                _logger.LogInformation("Backfilled product regrow ticks of farming seed definition {ItemId}.", seed.ItemId);
             }
         }
 
