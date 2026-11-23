@@ -4,8 +4,8 @@ namespace Hagalaz.Database.Migrations.Seeding;
 ///     The seven fruit tree seeds planted in fruit tree patches. Seed and product item ids come from the 742 item
 ///     definitions. <c>VarpBitIndex</c> is the species slot in the layout of patch object 7965 in the pinned 742 cache
 ///     (6 growth stages and up to 6 fruit per species). XP values are from the 2012 Fruit tree reference; the 16000 tick
-///     growth cycle (160 minutes) and 6000 tick regrow interval come from the Farming reference and are not cache
-///     verified. See docs/revision-742/data/researched/farming-fruit-trees.csv.
+///     growth cycle (160 minutes) and 6000 tick regrow interval come from the Farming reference. The XP, levels and
+///     timings are historical wiki ESTIMATES pending 742 confirmation; they are not cache verified. See docs/revision-742/data/researched/farming-fruit-trees.csv.
 /// </summary>
 public sealed class FruitTreeSeedSource : IFarmingSeedSource
 {

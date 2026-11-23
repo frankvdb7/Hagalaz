@@ -6,8 +6,9 @@ using Microsoft.Extensions.Logging;
 namespace Hagalaz.Database.Migrations.Seeding;
 
 /// <summary>
-///     Seeds the farming seed definitions supplied by the registered sources. A seed is only created when its item id is
-///     absent: an existing definition, however it was edited, is never changed.
+///     Seeds the farming seed and patch definitions supplied by the registered sources. A definition is only created when
+///     its id is absent. An existing seed definition is never changed, except that a product experience of 0 (the value
+///     rows get when the column is added) is backfilled from the source.
 /// </summary>
 public sealed class FarmingSeedSeeder : IGameWorldSeeder
 {
@@ -26,16 +27,26 @@ public sealed class FarmingSeedSeeder : IGameWorldSeeder
     {
         var seeds = _sources.SelectMany(source => source.Seeds).ToList();
         var ids = seeds.Select(seed => seed.ItemId).ToArray();
-        var existing = (await _context.SkillsFarmingSeedDefinitions
-            .AsNoTracking()
+        var existing = await _context.SkillsFarmingSeedDefinitions
             .Where(seed => ids.Contains(seed.ItemId))
-            .Select(seed => seed.ItemId)
-            .ToListAsync(cancellationToken)).ToHashSet();
+            .ToDictionaryAsync(seed => seed.ItemId, cancellationToken);
 
-        foreach (var seed in seeds.Where(seed => !existing.Contains(seed.ItemId)))
+        foreach (var seed in seeds)
         {
-            _context.SkillsFarmingSeedDefinitions.Add(ToEntity(seed));
-            _logger.LogInformation("Seeded farming seed definition {ItemId} ({Type}).", seed.ItemId, seed.Type);
+            if (!existing.TryGetValue(seed.ItemId, out var definition))
+            {
+                _context.SkillsFarmingSeedDefinitions.Add(ToEntity(seed));
+                _logger.LogInformation("Seeded farming seed definition {ItemId} ({Type}).", seed.ItemId, seed.Type);
+                continue;
+            }
+
+            // Upgrade path: rows created before product_experience existed carry 0. Only that default is filled in;
+            // any non-zero (custom) value and every other column stays as the operator left it.
+            if (definition.ProductExperience == 0m && seed.ProductExperience > 0m)
+            {
+                definition.ProductExperience = seed.ProductExperience;
+                _logger.LogInformation("Backfilled product experience of farming seed definition {ItemId}.", seed.ItemId);
+            }
         }
 
         var patches = _sources.SelectMany(source => source.Patches).DistinctBy(patch => patch.ObjectId).ToList();

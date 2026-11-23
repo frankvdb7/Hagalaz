@@ -1,6 +1,8 @@
 using Hagalaz.Data;
 using Hagalaz.Database.Migrations.Seeding;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Logging.Abstractions;
 using Testcontainers.MySql;
 
@@ -81,10 +83,42 @@ public sealed class FarmingSeedSeederTests
         Assert.AreEqual(99m, (await verify.SkillsFarmingSeedDefinitions.SingleAsync(seed => seed.ItemId == 5283)).ProductExperience);
     }
 
+    [TestMethod]
+    [Timeout(240000)]
+    public async Task Upgrade_LegacyDefinitionsWithoutProductExperience_AreBackfilledAndCustomValuesKept()
+    {
+        const string beforeProductExperience = "20260818192702_RemoveObsoleteCharacterPreferences";
+        await using (var legacy = CreateContext())
+        {
+            // A database from before the product_experience column existed, holding hand-made fruit tree and bush rows.
+            await legacy.GetService<IMigrator>().MigrateAsync(beforeProductExperience);
+            await legacy.Database.ExecuteSqlRawAsync(
+                "INSERT INTO skills_farming_seed_definitions (item_id, product_id, minimum_product_count, maximum_product_count, required_level, planting_experience, harvest_experience, varpbit_index, max_cycles, cycle_ticks, type) VALUES " +
+                "(5283, 1955, 6, 6, 27, 1, 2, 0, 6, 16000, 'FruitTree'), (5101, 1951, 4, 4, 10, 1, 2, 0, 5, 2000, 'Bush')");
+        }
+
+        await using (var upgraded = CreateContext())
+        {
+            await upgraded.Database.MigrateAsync();
+            await upgraded.SkillsFarmingSeedDefinitions.Where(seed => seed.ItemId == 5101).ExecuteUpdateAsync(s => s.SetProperty(seed => seed.ProductExperience, 99m));
+            await upgraded.SkillsFarmingSeedDefinitions.Where(seed => seed.ItemId == 5283).ExecuteUpdateAsync(s => s.SetProperty(seed => seed.ProductExperience, 0m));
+        }
+
+        await SeedAsync();
+        await SeedAsync();
+
+        await using var verify = CreateContext();
+        var apple = await verify.SkillsFarmingSeedDefinitions.AsNoTracking().SingleAsync(seed => seed.ItemId == 5283);
+        Assert.AreEqual(8.5m, apple.ProductExperience);
+        Assert.AreEqual(1m, apple.PlantingExperience);
+        Assert.AreEqual(2m, apple.HarvestExperience);
+        Assert.AreEqual(99m, (await verify.SkillsFarmingSeedDefinitions.AsNoTracking().SingleAsync(seed => seed.ItemId == 5101)).ProductExperience);
+    }
+
     private static async Task SeedAsync()
     {
         await using var context = CreateContext();
-        await new FarmingSeedSeeder(context, [new FruitTreeSeedSource()], NullLogger<FarmingSeedSeeder>.Instance).SeedAsync();
+        await new FarmingSeedSeeder(context, [new FruitTreeSeedSource(), new BushSeedSource()], NullLogger<FarmingSeedSeeder>.Instance).SeedAsync();
     }
 
     private static HagalazDbContext CreateContext() => SeedTestDatabase.CreateContext(_database!);

@@ -4,7 +4,7 @@ namespace Hagalaz.Database.Migrations.Seeding;
 ///     The six bush seeds and the four bush patch objects (7577-7580). Seed and product item ids come from the 742 item
 ///     definitions. <c>VarpBitIndex</c> is the species slot in the layout of the bush patch objects in the pinned 742
 ///     cache, which also gives the growth stage counts (5-8, equal to the 20 minute stages of the Seeds reference) and
-///     the 4 berries per bush. Levels and XP are from the 2012 Seeds reference. The growth cycle is 2000 ticks (20
+///     the 4 berries per bush. Levels and XP are from the 2012 Seeds reference and are historical wiki ESTIMATES pending 742 confirmation. The growth cycle is 2000 ticks (20
 ///     minutes) per that reference. The reference gives no regrow time for farmed bushes, so the regrow interval is left
 ///     at 0, which uses the growth cycle. See docs/revision-742/data/researched/farming-bushes.csv.
 /// </summary>
