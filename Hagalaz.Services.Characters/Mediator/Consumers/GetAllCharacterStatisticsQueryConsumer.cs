@@ -31,7 +31,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
             var statsQuery = _characterUnitOfWork.CharacterStatisticsRepository.FindAll().AsNoTracking();
             IQueryable<CharacterStatisticCollectionDto> dtoQuery;
             var sort = message.Sort;
-            var paging = message.Paging;
+            var paging = message.Paging ?? new PagingModel(1, GetAllCharacterStatisticsRequest.FilterModel.MaxLimit);
             var filter = message.Filter;
             if (filter != null)
             {
@@ -39,7 +39,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
             }
             else
             {
-                dtoQuery = _mapper.ProjectTo<CharacterStatisticCollectionDto>(statsQuery);
+                dtoQuery = _mapper.ProjectTo<CharacterStatisticCollectionDto>(statsQuery.OrderBy(stats => stats.MasterId));
             }
 
             if (sort?.Experience != null)
@@ -47,17 +47,14 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                 //dtoQuery = sort.Experience.Value == SortType.Asc ? dtoQuery.OrderBy(s => s.Statistics.Count) : query.OrderByDescending(s => s.AgilityExp);
             }
 
-            if (paging != null)
-            {
-                dtoQuery = dtoQuery.Paging(paging.Page, paging.Limit);
-            }
+            dtoQuery = dtoQuery.Paging(paging.Page, paging.Limit);
 
             var dtos = await dtoQuery.ToListAsync(context.CancellationToken);
 
             await context.RespondAsync(new GetAllCharacterStatisticsResult
             {
                 Results = dtos,
-                MetaData = paging != null ? new PagingMetaDataModel(total, paging.Page, paging.Limit) : null
+                MetaData = new PagingMetaDataModel(total, paging.Page, paging.Limit)
             });
         }
 
