@@ -109,6 +109,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
 
             character.QueueAnimation(Animation.Create(2273));
             RsTickTask task = null!;
+            Action finish = null!;
             task = new RsTickTask(() =>
             {
                 if (task.TickCount % 2 != 0)
@@ -125,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                     {
                         patch.AddCondition(PatchCondition.Cleared);
                         patch.Refresh();
-                        task.Cancel();
+                        finish();
                         return;
                     }
 
@@ -134,14 +135,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
 
                 character.QueueAnimation(Animation.Create(2273));
             }); // can interrupt
-            EventHappened? @event = null;
-            @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
-            {
-                task.Cancel();
-                character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
-                return false;
-            });
-            character.QueueTask(task);
+            finish = QueueInterruptible(character, task);
         }
 
         /// <summary>
@@ -352,6 +346,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             character.QueueAnimation(Animation.Create(harvestAnimation));
             character.SendChatMessage("You begin to harvest the " + patch.PatchDefinition.Type.ToString().ToLower() + " patch.");
             RsTickTask task = null!;
+            Action finish = null!;
             task = new RsTickTask(() =>
             {
                 if (task.TickCount % 2 != 0)
@@ -365,20 +360,13 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                 if (!patch.HasCondition(PatchCondition.Planted))
                 {
                     character.SendChatMessage("The " + patch.PatchDefinition.Type.ToString().ToLower() + " patch is now empty.");
-                    task.Cancel();
+                    finish();
                     return;
                 }
 
                 character.QueueAnimation(Animation.Create(harvestAnimation));
             });
-            EventHappened @event = null;
-            @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
-            {
-                task.Cancel();
-                character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
-                return false;
-            });
-            character.QueueTask(task);
+            finish = QueueInterruptible(character, task);
         }
 
         /// <summary>
@@ -396,6 +384,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
 
             character.SendChatMessage("You start digging up the " + patch.PatchDefinition.Type.ToString().ToLower() + " patch.");
             RsTickTask task = null;
+            Action finish = null!;
             task = new RsTickTask(() =>
             {
                 if (task.TickCount % 2 != 0)
@@ -407,20 +396,13 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                 {
                     character.SendChatMessage("The " + patch.PatchDefinition.Type.ToString().ToLower() + " patch is now empty.");
                     patch.Clear();
-                    task.Cancel();
+                    finish();
                     return;
                 }
 
                 character.QueueAnimation(Animation.Create(830)); // shovel anim
             });
-            EventHappened @event = null;
-            @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
-            {
-                task.Cancel();
-                character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
-                return false;
-            });
-            character.QueueTask(task);
+            finish = QueueInterruptible(character, task);
         }
 
         /// <summary>
