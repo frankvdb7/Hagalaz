@@ -38,14 +38,15 @@ namespace Hagalaz.Services.Authorization.Tests
             await registration.RegisterIfMissingAsync();
 
             // Assert
-            Assert.AreEqual(3, createdDescriptors.Count);
+            Assert.AreEqual(4, createdDescriptors.Count);
             AssertClientDescriptor(createdDescriptors["storm-app"], "storm-app", HagalazScopes.CharactersApi);
             AssertClientDescriptor(
                 createdDescriptors["storm-admin"],
                 "storm-admin",
                 HagalazScopes.CharactersApi,
                 HagalazScopes.CacheApi);
-            AssertCacheServiceClientDescriptor(createdDescriptors["cache-service-1"]);
+            AssertIntrospectionClientDescriptor(createdDescriptors["cache-service-1"], "cache-service-test-secret");
+            AssertIntrospectionClientDescriptor(createdDescriptors["characters-service-1"], "characters-service-test-secret");
         }
 
         [TestMethod]
@@ -183,15 +184,64 @@ namespace Hagalaz.Services.Authorization.Tests
                 Times.Never);
         }
 
+        [TestMethod]
+        public async Task RegisterIfMissingAsync_WhenCharactersClientSecretChanged_UpdatesOnlyCharactersSecret()
+        {
+            var existingCharactersClient = new object();
+            var applicationManager = CreateManager(
+                new object(), new object(), new object(), cacheSecretMatches: true,
+                existingCharactersClient, charactersSecretMatches: false);
+            SetupPopulate(applicationManager, existingCharactersClient, descriptor =>
+            {
+                descriptor.ClientId = "characters-service-1";
+                descriptor.ClientType = OpenIddictConstants.ClientTypes.Confidential;
+                descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Introspection);
+            });
+            var updated = CaptureUpdate(applicationManager, existingCharactersClient);
+
+            await CreateRegistration(applicationManager.Object).RegisterIfMissingAsync();
+
+            var updatedDescriptor = updated();
+            Assert.IsNotNull(updatedDescriptor);
+            Assert.AreEqual("characters-service-test-secret", updatedDescriptor.ClientSecret);
+            CollectionAssert.AreEquivalent(
+                new[] { OpenIddictConstants.Permissions.Endpoints.Introspection },
+                updatedDescriptor.Permissions.ToArray());
+            applicationManager.Verify(
+                manager => manager.UpdateAsync(
+                    existingCharactersClient,
+                    It.IsAny<OpenIddictApplicationDescriptor>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [TestMethod]
+        public async Task RegisterIfMissingAsync_WhenCharactersSecretIsMissing_Throws()
+        {
+            var applicationManager = new Mock<IOpenIddictApplicationManager>();
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Security:Introspection:ClientSecret"] = "cache-service-test-secret"
+                })
+                .Build();
+            var registration = new FirstPartyClientRegistration(applicationManager.Object, configuration);
+
+            await Assert.ThrowsExactlyAsync<System.InvalidOperationException>(() => registration.RegisterIfMissingAsync());
+        }
+
         /// <summary>A manager that finds the given clients (null when missing) and checks the cache client's secret.</summary>
         private static Mock<IOpenIddictApplicationManager> CreateManager(
             object? existingNormalClient,
             object? existingAdminClient,
             object existingCacheServiceClient,
-            bool cacheSecretMatches)
+            bool cacheSecretMatches,
+            object? existingCharactersServiceClient = null,
+            bool charactersSecretMatches = true)
         {
+            existingCharactersServiceClient ??= new object();
             var applicationManager = new Mock<IOpenIddictApplicationManager>();
-            foreach (var (clientId, client) in new[] { ("storm-app", existingNormalClient), ("storm-admin", existingAdminClient), ("cache-service-1", (object?)existingCacheServiceClient) })
+            foreach (var (clientId, client) in new[] { ("storm-app", existingNormalClient), ("storm-admin", existingAdminClient), ("cache-service-1", (object?)existingCacheServiceClient), ("characters-service-1", existingCharactersServiceClient) })
             {
                 applicationManager
                     .Setup(manager => manager.FindByClientIdAsync(clientId, It.IsAny<CancellationToken>()))
@@ -203,6 +253,12 @@ namespace Hagalaz.Services.Authorization.Tests
                     "cache-service-test-secret",
                     It.IsAny<CancellationToken>()))
                 .Returns(() => ValueTask.FromResult(cacheSecretMatches));
+            applicationManager
+                .Setup(manager => manager.ValidateClientSecretAsync(
+                    existingCharactersServiceClient,
+                    "characters-service-test-secret",
+                    It.IsAny<CancellationToken>()))
+                .Returns(() => ValueTask.FromResult(charactersSecretMatches));
             return applicationManager;
         }
 
@@ -260,12 +316,11 @@ namespace Hagalaz.Services.Authorization.Tests
             CollectionAssert.AreEquivalent(expectedPermissions, descriptor.Permissions.ToArray());
         }
 
-        private static void AssertCacheServiceClientDescriptor(OpenIddictApplicationDescriptor descriptor)
+        private static void AssertIntrospectionClientDescriptor(OpenIddictApplicationDescriptor descriptor, string expectedSecret)
         {
             Assert.AreEqual(OpenIddictConstants.ApplicationTypes.Web, descriptor.ApplicationType);
-            Assert.AreEqual("cache-service-1", descriptor.ClientId);
             Assert.AreEqual(OpenIddictConstants.ClientTypes.Confidential, descriptor.ClientType);
-            Assert.AreEqual("cache-service-test-secret", descriptor.ClientSecret);
+            Assert.AreEqual(expectedSecret, descriptor.ClientSecret);
             CollectionAssert.AreEquivalent(
                 new[] { OpenIddictConstants.Permissions.Endpoints.Introspection },
                 descriptor.Permissions.ToArray());
@@ -276,7 +331,8 @@ namespace Hagalaz.Services.Authorization.Tests
             var configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Security:Introspection:ClientSecret"] = "cache-service-test-secret"
+                    ["Security:Introspection:ClientSecret"] = "cache-service-test-secret",
+                    ["Security:Introspection:CharactersClientSecret"] = "characters-service-test-secret"
                 })
                 .Build();
 

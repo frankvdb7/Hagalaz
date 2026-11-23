@@ -52,3 +52,26 @@ The authorization service SHALL register the Cache API as a confidential client 
 #### Scenario: Cache API validates a bearer token
 - **WHEN** Cache API sends a bearer token to the configured Authorization introspection endpoint using `client_id=cache-service-1` and the matching configured client secret
 - **THEN** Authorization authenticates the registered Cache API client and evaluates the token
+
+### Requirement: Characters API introspection client is registered
+
+The authorization service SHALL register the Characters API as a confidential, introspection-only client with its own secret, separate from the Cache API client.
+
+#### Scenario: Characters API introspection client is missing
+- **WHEN** the authorization service starts and no `characters-service-1` registration exists
+- **THEN** it creates a confidential client with the configured `Security:Introspection:CharactersClientSecret`
+- **AND** grants that client only the introspection endpoint permission
+- **AND** does not grant it token, password-grant, or refresh-token permissions
+
+#### Scenario: Characters API introspection secret changes
+- **WHEN** an existing `characters-service-1` registration does not validate against the configured `Security:Introspection:CharactersClientSecret`
+- **THEN** the authorization service updates the stored client secret
+- **AND** preserves the registration's other application settings and permissions
+
+#### Scenario: Introspection secret is not configured
+- **WHEN** the authorization service starts without `Security:Introspection:CharactersClientSecret`, or the Characters API starts without `Security:Introspection:ClientSecret`
+- **THEN** startup fails with a configuration error naming the missing setting
+
+#### Scenario: Characters API validates a bearer token
+- **WHEN** Characters API sends a bearer token to the Authorization introspection endpoint using `client_id=characters-service-1` and the matching configured secret
+- **THEN** Authorization authenticates the registered Characters API client and evaluates the token

@@ -8,6 +8,7 @@ public static class AppHostConfiguration
     public static void Configure(IDistributedApplicationBuilder builder, bool includeHealthChecks = true)
     {
         var cacheIntrospectionClientSecret = builder.AddParameter("cache-introspection-client-secret", secret: true);
+        var charactersIntrospectionClientSecret = builder.AddParameter("characters-introspection-client-secret", secret: true);
 
         var database = builder.AddMySql("mysql")
             .WithImage("mysql", "8.4")
@@ -83,6 +84,7 @@ public static class AppHostConfiguration
 
         authService.WithEnvironment("OpenIddict__Issuer", authService.GetEndpoint("https"));
         authService.WithEnvironment("Security__Introspection__ClientSecret", cacheIntrospectionClientSecret);
+        authService.WithEnvironment("Security__Introspection__CharactersClientSecret", charactersIntrospectionClientSecret);
 
         if (includeHealthChecks)
         {
@@ -108,6 +110,7 @@ public static class AppHostConfiguration
             .WithReference(authService)
             .WithReference(database)
             .WithReference(messaging)
+            .WithEnvironment("Security__Introspection__ClientSecret", charactersIntrospectionClientSecret)
             .WithScalarDocs();
 
         if (includeHealthChecks)

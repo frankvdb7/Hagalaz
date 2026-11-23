@@ -46,7 +46,11 @@ namespace Hagalaz.Services.Characters
 
                     // Configure the validation handler to use introspection and register the client
                     // credentials used when communicating with the remote introspection endpoint.
-                    var clientSecret = builder.Configuration.GetValue<string>("Security:Introspection:ClientSecret") ?? string.Empty;
+                    var clientSecret = builder.Configuration.GetValue<string>("Security:Introspection:ClientSecret");
+                    if (string.IsNullOrWhiteSpace(clientSecret))
+                    {
+                        throw new InvalidOperationException("The Security:Introspection:ClientSecret setting must be configured for the Characters API introspection client.");
+                    }
                     options.UseIntrospection().SetClientId("characters-service-1").SetClientSecret(clientSecret);
 
                     // Register the System.Net.Http integration.

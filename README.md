@@ -74,20 +74,23 @@ The easiest way to get the entire application running is by using the .NET Aspir
     cd hagalaz
     ```
 
-2.  **Configure the Cache API introspection secret:**
+2.  **Configure the introspection secrets:**
 
-    The Authorization and Cache API services share the Aspire parameter
-    `cache-introspection-client-secret`. Set a local value in AppHost User Secrets
-    before starting the application. Use a long, random value and keep it private; do
-    not commit it to the repository.
+    Authorization registers one introspection client per API service, each with its
+    own Aspire parameter: `cache-introspection-client-secret` (Cache API) and
+    `characters-introspection-client-secret` (Characters API). Set local values in
+    AppHost User Secrets before starting the application. Use long, random, distinct
+    values and keep them private; do not commit them to the repository.
 
     ```bash
     dotnet user-secrets set "Parameters:cache-introspection-client-secret" "<your-random-secret>" --project Hagalaz.AppHost/Hagalaz.AppHost.csproj
+    dotnet user-secrets set "Parameters:characters-introspection-client-secret" "<another-random-secret>" --project Hagalaz.AppHost/Hagalaz.AppHost.csproj
     ```
 
-    The same parameter is passed to both services automatically. For other hosting
-    environments, configure the same value as `Security:Introspection:ClientSecret`
-    for both Authorization and Cache API.
+    The parameters are passed to the services automatically. For other hosting
+    environments, configure `Security:Introspection:ClientSecret` (Cache) and
+    `Security:Introspection:CharactersClientSecret` on Authorization, and the
+    matching `Security:Introspection:ClientSecret` on each API service.
 
 3.  **Run the AppHost:**
 
