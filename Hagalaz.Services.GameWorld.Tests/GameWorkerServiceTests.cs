@@ -553,6 +553,83 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecuteTickAsync_WhenMajorUpdateFails_ResetsEveryRegionAndPropagates()
+    {
+        var logger = new TestLogger<GameWorkerService>();
+        var failingRegion = Substitute.For<IMapRegion>();
+        var otherRegion = Substitute.For<IMapRegion>();
+        var failure = new InvalidOperationException("region major update failed");
+        failingRegion.When(region => region.MajorUpdateTick()).Do(_ => throw failure);
+
+        using var worker = CreateWorker(new[] { failingRegion, otherRegion }, TimeSpan.Zero, logger: logger).Worker;
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
+
+        Assert.AreSame(failure, actual);
+        otherRegion.DidNotReceive().MajorUpdateTick();
+        failingRegion.DidNotReceive().MajorClientPrepareUpdateTick();
+        failingRegion.Received(1).MajorClientUpdateResetTick();
+        otherRegion.Received(1).MajorClientUpdateResetTick();
+        Assert.AreEqual(0, logger.ErrorCount);
+    }
+
+    [TestMethod]
+    public async Task ExecuteTickAsync_WhenOneResetFails_ResetsRemainingRegionsAndPropagatesResetFailure()
+    {
+        var logger = new TestLogger<GameWorkerService>();
+        var failingRegion = Substitute.For<IMapRegion>();
+        var otherRegion = Substitute.For<IMapRegion>();
+        var failure = new InvalidOperationException("region reset failed");
+        failingRegion.When(region => region.MajorClientUpdateResetTick()).Do(_ => throw failure);
+
+        using var worker = CreateWorker(new[] { failingRegion, otherRegion }, TimeSpan.Zero, logger: logger).Worker;
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
+
+        Assert.AreSame(failure, actual);
+        otherRegion.Received(1).MajorClientUpdateResetTick();
+        Assert.AreEqual(1, logger.ErrorCount);
+    }
+
+    [TestMethod]
+    public async Task ExecuteTickAsync_WhenMultipleResetsFail_ResetsEveryRegionAndAggregatesFailures()
+    {
+        var firstFailingRegion = Substitute.For<IMapRegion>();
+        var secondFailingRegion = Substitute.For<IMapRegion>();
+        var healthyRegion = Substitute.For<IMapRegion>();
+        var firstFailure = new InvalidOperationException("first reset failed");
+        var secondFailure = new InvalidOperationException("second reset failed");
+        firstFailingRegion.When(region => region.MajorClientUpdateResetTick()).Do(_ => throw firstFailure);
+        secondFailingRegion.When(region => region.MajorClientUpdateResetTick()).Do(_ => throw secondFailure);
+
+        using var worker = CreateWorker(new[] { firstFailingRegion, secondFailingRegion, healthyRegion }, TimeSpan.Zero).Worker;
+        var actual = await Assert.ThrowsExactlyAsync<AggregateException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
+
+        CollectionAssert.AreEqual(new Exception[] { firstFailure, secondFailure }, actual.InnerExceptions.ToArray());
+        firstFailingRegion.Received(1).MajorClientUpdateResetTick();
+        secondFailingRegion.Received(1).MajorClientUpdateResetTick();
+        healthyRegion.Received(1).MajorClientUpdateResetTick();
+    }
+
+    [TestMethod]
+    public async Task ExecuteTickAsync_WhenSimulationAndResetBothFail_PropagatesSimulationFailure()
+    {
+        var failingRegion = Substitute.For<IMapRegion>();
+        var otherRegion = Substitute.For<IMapRegion>();
+        var simulationFailure = new InvalidOperationException("region major update failed");
+        failingRegion.When(region => region.MajorUpdateTick()).Do(_ => throw simulationFailure);
+        failingRegion.When(region => region.MajorClientUpdateResetTick()).Do(_ => throw new InvalidOperationException("region reset failed"));
+
+        using var worker = CreateWorker(new[] { failingRegion, otherRegion }, TimeSpan.Zero).Worker;
+        var actual = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
+
+        Assert.AreSame(simulationFailure, actual);
+        otherRegion.Received(1).MajorClientUpdateResetTick();
+    }
+
+    [TestMethod]
     public async Task ExecuteTickAsync_ProcessesOnlyReadyRegions()
     {
         var initializingRegion = Substitute.For<IMapRegion>();
