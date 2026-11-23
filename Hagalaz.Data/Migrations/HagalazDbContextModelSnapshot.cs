@@ -3859,6 +3859,13 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("decimal(11,2)")
                         .HasColumnName("planting_experience");
 
+                    b.Property<decimal>("ProductExperience")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(11, 2)
+                        .HasColumnType("decimal(11,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("product_experience");
+
                     b.Property<ushort>("ProductId")
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("product_id");

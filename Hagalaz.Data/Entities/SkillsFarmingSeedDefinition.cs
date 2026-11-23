@@ -16,6 +16,7 @@ namespace Hagalaz.Data.Entities
         public byte RequiredLevel { get; set; }
         public decimal PlantingExperience { get; set; }
         public decimal HarvestExperience { get; set; }
+        public decimal ProductExperience { get; set; }
         public sbyte VarpbitIndex { get; set; }
         public byte MaxCycles { get; set; }
         public uint CycleTicks { get; set; }

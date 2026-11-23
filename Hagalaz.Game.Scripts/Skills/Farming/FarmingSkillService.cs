@@ -10,6 +10,7 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Scripts.Skills.Woodcutting;
 
 namespace Hagalaz.Game.Scripts.Skills.Farming
 {
@@ -28,6 +29,11 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
         ///     The spade identifier.
         /// </summary>
         private const int _spadeID = 952;
+
+        /// <summary>
+        ///     The number of ticks spent swinging the hatchet before a grown tree falls.
+        /// </summary>
+        private const int _treeFellingTicks = 4;
 
         public FarmingSkillService(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
@@ -153,8 +159,10 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                     {
                         HandlePatchCheckHealth(character, patch);
                     }
-                    /*else if (patch.HasCondition(PatchCondition.Mature) && patch.HasCondition(PatchCondition.Checked))
-                        Woodcutting.Woodcutting.StartCuttingAsync(character, ) TODO: Insert actual woodcutting. */
+                    else if (patch.HasCondition(PatchCondition.Mature))
+                    {
+                        HandleCheckedPlantClick(character, patch);
+                    }
                     else if (patch.HasCondition(PatchCondition.Dead))
                     {
                         HandlePatchClear(character, patch);
@@ -181,6 +189,115 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
 
                     break;
             }
+        }
+
+        /// <summary>
+        ///     Handles the click on a mature plant whose health has already been checked.
+        ///     Ordinary trees are felled and then dug up; fruit trees and bushes are picked without being cleared.
+        /// </summary>
+        private void HandleCheckedPlantClick(ICharacter character, IFarmingPatch patch)
+        {
+            switch (patch.PatchDefinition.Type)
+            {
+                case PatchType.Tree when patch.HasCondition(PatchCondition.Empty): HandlePatchClear(character, patch); break;
+                case PatchType.Tree: HandleTreeFelling(character, patch); break;
+                default: HandleProductPicking(character, patch); break;
+            }
+        }
+
+        /// <summary>
+        ///     Fells a grown tree with the character's best usable hatchet, leaving the stump.
+        /// </summary>
+        private void HandleTreeFelling(ICharacter character, IFarmingPatch patch) =>
+            character.QueueTask(async cancellationToken =>
+            {
+                var woodcuttingService = character.ServiceProvider.GetRequiredService<IWoodcuttingService>();
+                var hatchet = WoodcuttingSkillService.FindHatchet(character, await woodcuttingService.FindAllHatchets());
+                cancellationToken.ThrowIfCancellationRequested();
+                if (hatchet == null)
+                {
+                    character.SendChatMessage(WoodcuttingSkillService.NoHatchetFound);
+                    return;
+                }
+
+                character.SendChatMessage(WoodcuttingSkillService.SwingAxe);
+                character.QueueAnimation(Animation.Create(hatchet.ChopAnimationId));
+                RsTickTask task = null!;
+                task = new RsTickTask(() =>
+                {
+                    if (task.TickCount < _treeFellingTicks)
+                    {
+                        return;
+                    }
+
+                    task.Cancel();
+                    if (patch.Seed == null || !patch.FellTree())
+                    {
+                        return;
+                    }
+
+                    character.QueueAnimation(Animation.Create(-1));
+                    character.Inventory.TryAddItems(character, [(patch.Seed.ProductID, 1)], out _);
+                });
+                EventHappened? @event = null;
+                @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+                {
+                    task.Cancel();
+                    character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
+                    return false;
+                });
+                character.QueueTask(task);
+            });
+
+        /// <summary>
+        ///     Picks the fruit or berries of a mature fruit tree or bush. The plant stays in the patch and replenishes.
+        /// </summary>
+        private void HandleProductPicking(ICharacter character, IFarmingPatch patch)
+        {
+            var type = patch.PatchDefinition.Type.ToString().ToLower();
+            if (patch.Seed == null || patch.ProductCount <= 0)
+            {
+                character.SendChatMessage("There is nothing left to pick from this " + type + " yet.");
+                return;
+            }
+
+            var pickAnimation = GetHarvestAnimation(patch.PatchDefinition.Type);
+            character.QueueAnimation(Animation.Create(pickAnimation));
+            RsTickTask task = null!;
+            task = new RsTickTask(() =>
+            {
+                if (task.TickCount % 2 != 0)
+                {
+                    return;
+                }
+
+                if (patch.Seed == null || patch.ProductCount <= 0)
+                {
+                    task.Cancel();
+                    return;
+                }
+
+                // The product is committed first; experience and the patch's yield follow the committed item.
+                character.Inventory.TryAddItems(character, [(patch.Seed.ProductID, 1)], out _);
+                character.Statistics.AddExperience(StatisticsConstants.Farming, patch.Seed.ProductExperience);
+                patch.Harvest();
+                if (patch.ProductCount <= 0)
+                {
+                    character.SendChatMessage("There is nothing left to pick from this " + type + " yet.");
+                    task.Cancel();
+                    return;
+                }
+
+                character.QueueAnimation(Animation.Create(pickAnimation));
+            });
+            EventHappened? @event = null;
+            @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            {
+                task.Cancel();
+                character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
+                return false;
+            });
+            character.QueueTask(task);
         }
 
         /// <summary>

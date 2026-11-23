@@ -52,6 +52,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         public int CurrentCycle { get; private set; }
 
         /// <summary>
+        /// Gets the number of products that can currently be taken from the mature plant.
+        /// </summary>
+        public int ProductCount => _productCount;
+
+        /// <summary>
         /// Contains the seed definition.
         /// </summary>
         public SeedDto? Seed { get; private set; }
@@ -116,11 +121,65 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
 
         /// <summary>
         /// Harvests a single product from this patch.
+        /// Fruit trees and bushes keep their plant and replenish; every other crop is cleared once empty.
         /// </summary>
         public void Harvest()
         {
-            if (--_productCount == 0)
+            if (ReplenishesProducts)
+            {
+                if (_productCount >= Seed!.MaximumProductCount)
+                    Reset(); // a full plant only starts regrowing once something is picked.
+                if (_productCount > 0)
+                    _productCount--;
+                return;
+            }
+
+            if (--_productCount <= 0)
                 Clear();
+        }
+
+        /// <summary>
+        /// Fells a mature, health-checked tree, leaving its stump until the patch is dug up.
+        /// </summary>
+        /// <returns><c>true</c> if the tree was felled; <c>false</c> if the patch holds no standing checked tree.</returns>
+        public bool FellTree()
+        {
+            if (PatchDefinition.Type != PatchType.Tree
+                || !HasCondition(PatchCondition.Mature)
+                || !HasCondition(PatchCondition.Checked)
+                || HasCondition(PatchCondition.Empty))
+            {
+                return false;
+            }
+
+            _productCount = 0;
+            AddCondition(PatchCondition.Empty);
+            Refresh();
+            return true;
+        }
+
+        private bool ReplenishesProducts =>
+            Seed != null
+            && HasCondition(PatchCondition.Planted)
+            && HasCondition(PatchCondition.Mature)
+            && PatchDefinition.Type is PatchType.FruitTree or PatchType.Bush;
+
+        /// <summary>
+        /// Regrows one fruit or berry per growth cycle until the plant holds its maximum yield.
+        /// </summary>
+        private void Replenish()
+        {
+            if (_productCount >= Seed!.MaximumProductCount || Seed.CycleTicks <= 0)
+            {
+                Reset();
+                return;
+            }
+
+            if (TickCount < Seed.CycleTicks)
+                return;
+
+            _productCount++;
+            Reset();
         }
 
         /// <summary>
@@ -137,6 +196,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             RemoveCondition(PatchCondition.SuperFertilized);
             RemoveCondition(PatchCondition.Watered);
             RemoveCondition(PatchCondition.Planted);
+            RemoveCondition(PatchCondition.Checked);
+            RemoveCondition(PatchCondition.Empty);
+            _productCount = 0;
             Refresh();
             Reset();
         }
@@ -367,6 +429,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             // growing of plants
             if (HasCondition(PatchCondition.Mature))
             {
+                if (ReplenishesProducts)
+                    Replenish();
                 return;
             }
 
@@ -407,9 +471,15 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             var cycleLength = HasCondition(PatchCondition.Planted) && Seed != null
                 ? Seed.CycleTicks
                 : _weedGrowTicks;
-            if (cycleLength <= 0 || HasCondition(PatchCondition.Mature) || HasCondition(PatchCondition.Dead))
+            if (cycleLength <= 0 || HasCondition(PatchCondition.Dead))
             {
                 TickCount = 0;
+                return;
+            }
+
+            if (HasCondition(PatchCondition.Mature))
+            {
+                HydrateReplenishment(hydration, now, cycleLength);
                 return;
             }
 
@@ -417,11 +487,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             // Only retain the legacy counter's within-cycle remainder; replaying its
             // quotient would advance the persisted crop state a second time.
             var ticksPassed = Math.Max(0L, hydration.CurrentCycleTicks) % cycleLength;
-            var offlineElapsed = (now - _owner.LastLogin).Ticks;
-            if (offlineElapsed > 0)
-            {
-                ticksPassed += offlineElapsed / (TimeSpan.TicksPerMillisecond * 600L);
-            }
+            ticksPassed += GetOfflineTicks(now);
 
             while (ticksPassed >= cycleLength)
             {
@@ -445,6 +511,30 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             }
 
             TickCount = checked((int)ticksPassed);
+        }
+
+        private long GetOfflineTicks(DateTimeOffset now)
+        {
+            var offlineElapsed = (now - _owner.LastLogin).Ticks;
+            return offlineElapsed > 0 ? offlineElapsed / (TimeSpan.TicksPerMillisecond * 600L) : 0L;
+        }
+
+        /// <summary>
+        /// Regrows fruit and berries for the cycles that elapsed while the plant was saved or the owner was offline.
+        /// Other mature crops hold their yield and need no catch-up.
+        /// </summary>
+        private void HydrateReplenishment(HydratedFarmingDto.PatchDto hydration, DateTimeOffset now, int cycleLength)
+        {
+            if (!ReplenishesProducts || _productCount >= Seed!.MaximumProductCount)
+            {
+                TickCount = 0;
+                return;
+            }
+
+            var ticksPassed = Math.Max(0L, hydration.CurrentCycleTicks) % cycleLength + GetOfflineTicks(now);
+            var regrown = Math.Min(Seed.MaximumProductCount - _productCount, ticksPassed / cycleLength);
+            _productCount += (int)regrown;
+            TickCount = _productCount >= Seed.MaximumProductCount ? 0 : (int)(ticksPassed % cycleLength);
         }
 
         public HydratedFarmingDto.PatchDto Dehydrate() => new HydratedFarmingDto.PatchDto()

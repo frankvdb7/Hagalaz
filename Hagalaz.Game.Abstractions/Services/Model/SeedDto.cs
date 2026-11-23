@@ -43,6 +43,11 @@ namespace Hagalaz.Game.Abstractions.Services.Model
         public required double HarvestExperience;
 
         /// <summary>
+        /// The Farming experience gained for each fruit or berry picked from a fruit tree or bush.
+        /// </summary>
+        public double ProductExperience;
+
+        /// <summary>
         /// The client variable bit index used to track the state of this plant type.
         /// </summary>
         public required int VarpBitIndex;

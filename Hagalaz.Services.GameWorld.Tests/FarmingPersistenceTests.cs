@@ -412,6 +412,130 @@ public sealed class FarmingPersistenceTests
         Assert.AreEqual(0, task.Dehydrate().CurrentCycleTicks);
     }
 
+    private static FarmingPatchTickTask CreateMaturePatch(
+        PatchType type,
+        PatchCondition extraConditions,
+        int productCount,
+        int maximumProductCount = 6,
+        int cycleTicks = 100,
+        int offlineTicks = 0,
+        int savedProgress = 0)
+    {
+        var now = new DateTimeOffset(2026, 9, 23, 20, 0, 0, TimeSpan.Zero);
+        var seed = CreateSeed(5374, cycleTicks: cycleTicks, maxCycles: 4, type: type, minimumProductCount: 1, maximumProductCount: maximumProductCount);
+        var task = CreatePatchTask(8389, seed, now.AddMilliseconds(-(offlineTicks * 600L)));
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 8389,
+            SeedId = 5374,
+            Condition = PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Cleared | extraConditions,
+            CurrentCycle = 4,
+            CurrentCycleTicks = savedProgress,
+            ProductCount = productCount
+        }, now);
+        return task;
+    }
+
+    [TestMethod]
+    public void FellTree_CheckedMatureTree_LeavesStumpOnceAndClearEmptiesPatch()
+    {
+        var task = CreateMaturePatch(PatchType.Tree, PatchCondition.Checked, productCount: 1);
+
+        Assert.IsTrue(task.FellTree());
+        Assert.IsTrue(task.HasCondition(PatchCondition.Empty));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Planted));
+        Assert.AreEqual(0, task.ProductCount);
+        Assert.IsFalse(task.FellTree());
+
+        task.Clear();
+
+        Assert.IsFalse(task.HasCondition(PatchCondition.Planted));
+        Assert.IsFalse(task.HasCondition(PatchCondition.Checked));
+        Assert.IsFalse(task.HasCondition(PatchCondition.Empty));
+    }
+
+    [TestMethod]
+    public void FellTree_UncheckedTreeOrOtherCrop_IsRejected()
+    {
+        var unchecked_ = CreateMaturePatch(PatchType.Tree, 0, productCount: 1);
+        var fruitTree = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 3);
+
+        Assert.IsFalse(unchecked_.FellTree());
+        Assert.IsFalse(fruitTree.FellTree());
+        Assert.IsFalse(fruitTree.HasCondition(PatchCondition.Empty));
+        Assert.AreEqual(3, fruitTree.ProductCount);
+    }
+
+    [TestMethod]
+    public void Clear_AfterCheckedTree_RequiresANewHealthCheckForTheNextCrop()
+    {
+        var task = CreateMaturePatch(PatchType.Tree, PatchCondition.Checked, productCount: 1);
+
+        task.Clear();
+        task.Plant(CreateSeed(5374, type: PatchType.Tree));
+        task.AddCondition(PatchCondition.Mature);
+
+        Assert.IsFalse(task.HasCondition(PatchCondition.Checked));
+    }
+
+    [TestMethod]
+    public void Harvest_FruitTreeEmptied_KeepsMaturePlantInPatch()
+    {
+        var task = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 2);
+
+        task.Harvest();
+        task.Harvest();
+
+        Assert.AreEqual(0, task.ProductCount);
+        Assert.IsTrue(task.HasCondition(PatchCondition.Planted));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Mature));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Checked));
+
+        task.Harvest();
+        Assert.AreEqual(0, task.ProductCount);
+    }
+
+    [TestMethod]
+    public void Harvest_AllotmentEmptied_ClearsPatch()
+    {
+        var task = CreateMaturePatch(PatchType.Allotment, 0, productCount: 1);
+
+        task.Harvest();
+
+        Assert.IsFalse(task.HasCondition(PatchCondition.Planted));
+        Assert.IsTrue(task.HasCondition(PatchCondition.Cleared));
+    }
+
+    [TestMethod]
+    public void Tick_EmptiedBush_RegrowsOneBerryPerCycleUpToTheMaximum()
+    {
+        var task = CreateMaturePatch(PatchType.Bush, PatchCondition.Checked, productCount: 1, maximumProductCount: 2, cycleTicks: 10);
+        task.Harvest();
+        Assert.AreEqual(0, task.ProductCount);
+
+        for (var i = 0; i < 10; i++)
+            task.Tick();
+        Assert.AreEqual(1, task.ProductCount);
+
+        for (var i = 0; i < 30; i++)
+            task.Tick();
+        Assert.AreEqual(2, task.ProductCount);
+        Assert.AreEqual(0, task.TickCount);
+    }
+
+    [TestMethod]
+    public void Hydrate_MatureFruitTree_ReplenishesElapsedCyclesWithoutExceedingMaximum()
+    {
+        var partial = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 1, cycleTicks: 100, offlineTicks: 250);
+        var capped = CreateMaturePatch(PatchType.FruitTree, PatchCondition.Checked, productCount: 1, maximumProductCount: 3, cycleTicks: 100, offlineTicks: 100_000);
+
+        Assert.AreEqual(3, partial.ProductCount);
+        Assert.AreEqual(50, partial.TickCount);
+        Assert.AreEqual(3, capped.ProductCount);
+        Assert.AreEqual(0, capped.TickCount);
+        Assert.AreEqual(3, capped.Dehydrate().ProductCount);
+    }
+
     private static Farming CreateFarming(
         IReadOnlyList<PatchDto> patchDefinitions,
         IReadOnlyList<SeedDto> seeds,

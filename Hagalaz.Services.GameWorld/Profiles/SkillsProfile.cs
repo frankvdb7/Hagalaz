@@ -181,6 +181,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
                 .ForMember(dest => dest.PlantingExperience, opt => opt.MapFrom(src => (double)src.PlantingExperience))
                 .ForMember(dest => dest.HarvestExperience, opt => opt.MapFrom(src => (double)src.HarvestExperience))
+                .ForMember(dest => dest.ProductExperience, opt => opt.MapFrom(src => (double)src.ProductExperience))
                 .ForMember(dest => dest.VarpBitIndex, opt => opt.MapFrom(src => (int)src.VarpbitIndex))
                 .ForMember(dest => dest.MaxCycles, opt => opt.MapFrom(src => (int)src.MaxCycles))
                 .ForMember(dest => dest.CycleTicks, opt => opt.MapFrom(src => (int)src.CycleTicks))

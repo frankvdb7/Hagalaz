@@ -59,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             _rsTaskService = rsTaskService;
         }
 
-        private static HatchetDto? FindHatchet(ICharacter character, IReadOnlyList<HatchetDto> hatchets)
+        internal static HatchetDto? FindHatchet(ICharacter character, IReadOnlyList<HatchetDto> hatchets)
         {
             var wcLevel = character.Statistics.GetSkillLevel(StatisticsConstants.Woodcutting);
             return hatchets
