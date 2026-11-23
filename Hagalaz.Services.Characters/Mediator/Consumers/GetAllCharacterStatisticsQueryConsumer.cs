@@ -67,6 +67,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                               dto.FletchingExp + dto.HerbloreExp + dto.HunterExp + dto.MagicExp + dto.MiningExp + dto.PrayerExp + dto.RangeExp +
                                               dto.RunecraftingExp + dto.SlayerExp + dto.SmithingExp + dto.StrengthExp + dto.SummoningExp + dto.ThievingExp +
                                               dto.WoodcuttingExp)
+                    .ThenBy(dto => dto.MasterId)
                     .Select(dto => new CharacterStatisticCollectionDto
                     {
                         DisplayName = dto.DisplayName,
@@ -75,7 +76,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new CharacterStatisticDetailDto { Type = CharacterStatisticType.Overall, Level = dto.OverallLevel, Experience = dto.OverallExperience }
                         }
                     }),
-                CharacterStatisticType.Agility => statsQuery.OrderByDescending(stats => stats.AgilityExp)
+                CharacterStatisticType.Agility => statsQuery.OrderByDescending(stats => stats.AgilityExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -84,7 +85,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.AgilityLevel, Experience = stats.AgilityExp }
                         }
                     }),
-                CharacterStatisticType.Attack => statsQuery.OrderByDescending(stats => stats.AttackExp)
+                CharacterStatisticType.Attack => statsQuery.OrderByDescending(stats => stats.AttackExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -93,7 +94,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.AttackLevel, Experience = stats.AttackExp }
                         }
                     }),
-                CharacterStatisticType.Constitution => statsQuery.OrderByDescending(stats => stats.ConstitutionExp)
+                CharacterStatisticType.Constitution => statsQuery.OrderByDescending(stats => stats.ConstitutionExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -102,7 +103,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.ConstitutionLevel, Experience = stats.ConstitutionExp }
                         }
                     }),
-                CharacterStatisticType.Construction => statsQuery.OrderByDescending(stats => stats.ConstructionExp)
+                CharacterStatisticType.Construction => statsQuery.OrderByDescending(stats => stats.ConstructionExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -111,7 +112,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.ConstructionLevel, Experience = stats.ConstructionExp }
                         }
                     }),
-                CharacterStatisticType.Cooking => statsQuery.OrderByDescending(stats => stats.CookingExp)
+                CharacterStatisticType.Cooking => statsQuery.OrderByDescending(stats => stats.CookingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -120,7 +121,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.CookingLevel, Experience = stats.CookingExp }
                         }
                     }),
-                CharacterStatisticType.Crafting => statsQuery.OrderByDescending(stats => stats.CraftingExp)
+                CharacterStatisticType.Crafting => statsQuery.OrderByDescending(stats => stats.CraftingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -129,7 +130,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.CraftingLevel, Experience = stats.CraftingExp }
                         }
                     }),
-                CharacterStatisticType.Defence => statsQuery.OrderByDescending(stats => stats.DefenceExp)
+                CharacterStatisticType.Defence => statsQuery.OrderByDescending(stats => stats.DefenceExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -138,7 +139,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.DefenceLevel, Experience = stats.DefenceExp }
                         }
                     }),
-                CharacterStatisticType.Dungeoneering => statsQuery.OrderByDescending(stats => stats.DungeoneeringExp)
+                CharacterStatisticType.Dungeoneering => statsQuery.OrderByDescending(stats => stats.DungeoneeringExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -147,7 +148,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.DungeoneeringLevel, Experience = stats.DungeoneeringExp }
                         }
                     }),
-                CharacterStatisticType.Farming => statsQuery.OrderByDescending(stats => stats.FarmingExp)
+                CharacterStatisticType.Farming => statsQuery.OrderByDescending(stats => stats.FarmingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -156,7 +157,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.FarmingLevel, Experience = stats.FarmingExp }
                         }
                     }),
-                CharacterStatisticType.Firemaking => statsQuery.OrderByDescending(stats => stats.FiremakingExp)
+                CharacterStatisticType.Firemaking => statsQuery.OrderByDescending(stats => stats.FiremakingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -165,7 +166,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.FiremakingLevel, Experience = stats.FiremakingExp }
                         }
                     }),
-                CharacterStatisticType.Fishing => statsQuery.OrderByDescending(stats => stats.FishingExp)
+                CharacterStatisticType.Fishing => statsQuery.OrderByDescending(stats => stats.FishingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -174,7 +175,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.FishingLevel, Experience = stats.FishingExp }
                         }
                     }),
-                CharacterStatisticType.Fletching => statsQuery.OrderByDescending(stats => stats.FletchingExp)
+                CharacterStatisticType.Fletching => statsQuery.OrderByDescending(stats => stats.FletchingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -183,7 +184,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.FletchingLevel, Experience = stats.FletchingExp }
                         }
                     }),
-                CharacterStatisticType.Herblore => statsQuery.OrderByDescending(stats => stats.HerbloreExp)
+                CharacterStatisticType.Herblore => statsQuery.OrderByDescending(stats => stats.HerbloreExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -192,7 +193,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.HerbloreLevel, Experience = stats.HerbloreExp }
                         }
                     }),
-                CharacterStatisticType.Hunter => statsQuery.OrderByDescending(stats => stats.HunterExp)
+                CharacterStatisticType.Hunter => statsQuery.OrderByDescending(stats => stats.HunterExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -201,7 +202,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.HunterLevel, Experience = stats.HunterExp }
                         }
                     }),
-                CharacterStatisticType.Magic => statsQuery.OrderByDescending(stats => stats.MagicExp)
+                CharacterStatisticType.Magic => statsQuery.OrderByDescending(stats => stats.MagicExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -210,7 +211,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.MagicLevel, Experience = stats.MagicExp }
                         }
                     }),
-                CharacterStatisticType.Mining => statsQuery.OrderByDescending(stats => stats.MiningExp)
+                CharacterStatisticType.Mining => statsQuery.OrderByDescending(stats => stats.MiningExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -219,7 +220,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.MiningLevel, Experience = stats.MiningExp }
                         }
                     }),
-                CharacterStatisticType.Prayer => statsQuery.OrderByDescending(stats => stats.PrayerExp)
+                CharacterStatisticType.Prayer => statsQuery.OrderByDescending(stats => stats.PrayerExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -228,7 +229,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.PrayerLevel, Experience = stats.PrayerExp }
                         }
                     }),
-                CharacterStatisticType.Range => statsQuery.OrderByDescending(stats => stats.RangeExp)
+                CharacterStatisticType.Range => statsQuery.OrderByDescending(stats => stats.RangeExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -237,7 +238,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.RangeLevel, Experience = stats.RangeExp }
                         }
                     }),
-                CharacterStatisticType.Runecrafting => statsQuery.OrderByDescending(stats => stats.RunecraftingExp)
+                CharacterStatisticType.Runecrafting => statsQuery.OrderByDescending(stats => stats.RunecraftingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -246,7 +247,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.RunecraftingLevel, Experience = stats.RunecraftingExp }
                         }
                     }),
-                CharacterStatisticType.Slayer => statsQuery.OrderByDescending(stats => stats.SlayerExp)
+                CharacterStatisticType.Slayer => statsQuery.OrderByDescending(stats => stats.SlayerExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -255,7 +256,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.SlayerLevel, Experience = stats.SlayerExp }
                         }
                     }),
-                CharacterStatisticType.Smithing => statsQuery.OrderByDescending(stats => stats.SmithingExp)
+                CharacterStatisticType.Smithing => statsQuery.OrderByDescending(stats => stats.SmithingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -264,7 +265,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.SmithingLevel, Experience = stats.SmithingExp }
                         }
                     }),
-                CharacterStatisticType.Strength => statsQuery.OrderByDescending(stats => stats.StrengthExp)
+                CharacterStatisticType.Strength => statsQuery.OrderByDescending(stats => stats.StrengthExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -273,7 +274,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.StrengthLevel, Experience = stats.StrengthExp }
                         }
                     }),
-                CharacterStatisticType.Summoning => statsQuery.OrderByDescending(stats => stats.SummoningExp)
+                CharacterStatisticType.Summoning => statsQuery.OrderByDescending(stats => stats.SummoningExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -282,7 +283,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.SummoningLevel, Experience = stats.SummoningExp }
                         }
                     }),
-                CharacterStatisticType.Thieving => statsQuery.OrderByDescending(stats => stats.ThievingExp)
+                CharacterStatisticType.Thieving => statsQuery.OrderByDescending(stats => stats.ThievingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,
@@ -291,7 +292,7 @@ namespace Hagalaz.Services.Characters.Mediator.Consumers
                                 new() { Type = type, Level = stats.ThievingLevel, Experience = stats.ThievingExp }
                         }
                     }),
-                CharacterStatisticType.Woodcutting => statsQuery.OrderByDescending(stats => stats.WoodcuttingExp)
+                CharacterStatisticType.Woodcutting => statsQuery.OrderByDescending(stats => stats.WoodcuttingExp).ThenBy(stats => stats.MasterId)
                     .Select(stats => new CharacterStatisticCollectionDto
                     {
                         DisplayName = stats.Master.DisplayName,

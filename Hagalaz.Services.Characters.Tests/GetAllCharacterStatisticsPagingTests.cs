@@ -91,6 +91,27 @@ public sealed class GetAllCharacterStatisticsPagingTests
         Assert.IsEmpty(beyond.Results);
     }
 
+    [TestMethod]
+    [DataRow(CharacterStatisticType.Overall)]
+    [DataRow(CharacterStatisticType.Attack)]
+    [DataRow(CharacterStatisticType.Woodcutting)]
+    [Timeout(60000)]
+    public async Task Consume_TiedExperience_PagesDoNotOverlapAndCoverAllRows(CharacterStatisticType type)
+    {
+        // Every seeded character has identical (zero) experience, so only the MasterId tiebreaker defines order.
+        var filter = new GetAllCharacterStatisticsQuery.FilterModel(type);
+        var first = await QueryAsync(new GetAllCharacterStatisticsQuery { Filter = filter, Paging = new PagingModel(1, 100) });
+        var second = await QueryAsync(new GetAllCharacterStatisticsQuery { Filter = filter, Paging = new PagingModel(2, 100) });
+
+        var page1 = first.Results.Select(r => r.DisplayName).ToList();
+        var page2 = second.Results.Select(r => r.DisplayName).ToList();
+
+        Assert.HasCount(100, page1);
+        Assert.HasCount(SeededCharacters - 100, page2);
+        Assert.IsEmpty(page1.Intersect(page2));
+        Assert.HasCount(SeededCharacters, page1.Concat(page2).Distinct().ToList());
+    }
+
     private static async Task<GetAllCharacterStatisticsResult> QueryAsync(GetAllCharacterStatisticsQuery query)
     {
         var databaseName = Guid.NewGuid().ToString();
