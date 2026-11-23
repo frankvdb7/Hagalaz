@@ -598,11 +598,32 @@ public sealed class FarmingPersistenceTests
         configurations.Received(1).SendBitConfiguration(707, expectedBase);
     }
 
-    private static FarmingPatchTickTask CreateFruitTreeRefreshTask(int slot, out IConfigurations configurations)
+    [TestMethod]
+    [DataRow(0, 5, PatchCondition.Planted, 0, 3, 5 + 3)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Mature, 4, 5, 250)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Checked, 4, 5, 5 + 5 + 4)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Diseased, 0, 2, 70 + 2)]
+    [DataRow(0, 5, PatchCondition.Planted | PatchCondition.Dead, 0, 1, 134 + 1)]
+    [DataRow(5, 8, PatchCondition.Planted | PatchCondition.Mature, 4, 8, 255)]
+    [DataRow(5, 8, PatchCondition.Planted | PatchCondition.Mature | PatchCondition.Checked, 2, 8, 197 + 8 + 2)]
+    public void Refresh_Bush_SendsCacheVarbitStateForPlantStage(int slot, int maxCycles, PatchCondition condition, int productCount, int cycle, int expected)
     {
-        var seed = CreateSeed(5283, cycleTicks: 16000, maxCycles: 6, type: PatchType.FruitTree, minimumProductCount: 6, maximumProductCount: 6, varpBitIndex: slot);
+        var task = CreateFruitTreeRefreshTask(slot, out var configurations, PatchType.Bush, maxCycles);
+        task.Hydrate(new HydratedFarmingDto.PatchDto
+        {
+            Id = 7965, SeedId = 5283, Condition = condition, CurrentCycle = cycle, CurrentCycleTicks = 0, ProductCount = productCount
+        }, DateTimeOffset.Now);
+
+        task.Refresh();
+
+        configurations.Received(1).SendBitConfiguration(707, expected);
+    }
+
+    private static FarmingPatchTickTask CreateFruitTreeRefreshTask(int slot, out IConfigurations configurations, PatchType type = PatchType.FruitTree, int maxCycles = 6)
+    {
+        var seed = CreateSeed(5283, cycleTicks: 16000, maxCycles: maxCycles, type: type, minimumProductCount: 4, maximumProductCount: 6, varpBitIndex: slot);
         var farmingService = Substitute.For<IFarmingService>();
-        farmingService.FindPatchById(7965).Returns(Task.FromResult<PatchDto?>(CreatePatchDefinition(7965, PatchType.FruitTree)));
+        farmingService.FindPatchById(7965).Returns(Task.FromResult<PatchDto?>(CreatePatchDefinition(7965, type)));
         farmingService.FindSeedById(5283).Returns(Task.FromResult<SeedDto?>(seed));
         var objectService = Substitute.For<IGameObjectService>();
         var definition = Substitute.For<IGameObjectDefinition>();

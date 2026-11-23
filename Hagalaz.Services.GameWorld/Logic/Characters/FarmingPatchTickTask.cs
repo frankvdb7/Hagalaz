@@ -333,6 +333,19 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         }
 
         /// <summary>
+        /// The varp bit values of each bush species in the bush patch objects of the 742 cache, indexed by the seed's species slot.
+        /// </summary>
+        private static readonly (int Growth, int Diseased, int Dead, int CheckHealth)[] _bushLayouts =
+        [
+            (5, 70, 134, 250), // redberry
+            (15, 80, 144, 251), // cadavaberry
+            (26, 91, 155, 252), // dwellberry
+            (38, 103, 167, 253), // jangerberry
+            (51, 116, 180, 254), // whiteberry
+            (197, 210, 217, 255) // poison ivy
+        ];
+
+        /// <summary>
         /// Gets the base varp bit value.
         /// </summary>
         /// <returns></returns>
@@ -352,6 +365,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                 case PatchType.FruitTree:
                     // Cache layout of patch object 7965: 27 states per species, plus a 10 state gap after every second species.
                     return 8 + Seed.VarpBitIndex * 27 + Seed.VarpBitIndex / 2 * 10;
+                case PatchType.Bush:
+                    return _bushLayouts[Seed.VarpBitIndex].Growth;
                 case PatchType.Flower:
                     return 8 + Seed.VarpBitIndex * 5;
                 case PatchType.Hop:
@@ -406,6 +421,18 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                         if (!HasCondition(PatchCondition.Mature))
                             return baseValue + CurrentCycle;
                         return baseValue + (HasCondition(PatchCondition.Checked) ? 6 + _productCount : 26);
+                    }
+                case PatchType.Bush:
+                    {
+                        // Berry counts 0-4 follow the growth stages; diseased, dead and check-health states are stored apart.
+                        var layout = _bushLayouts[Seed!.VarpBitIndex];
+                        if (HasCondition(PatchCondition.Dead))
+                            return layout.Dead + CurrentCycle;
+                        if (HasCondition(PatchCondition.Diseased))
+                            return layout.Diseased + CurrentCycle;
+                        if (!HasCondition(PatchCondition.Mature))
+                            return layout.Growth + CurrentCycle;
+                        return HasCondition(PatchCondition.Checked) ? layout.Growth + Seed.MaxCycles + _productCount : layout.CheckHealth;
                     }
                 case PatchType.Flower:
                 case PatchType.Hop:

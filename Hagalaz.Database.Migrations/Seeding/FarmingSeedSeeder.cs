@@ -38,6 +38,20 @@ public sealed class FarmingSeedSeeder : IGameWorldSeeder
             _logger.LogInformation("Seeded farming seed definition {ItemId} ({Type}).", seed.ItemId, seed.Type);
         }
 
+        var patches = _sources.SelectMany(source => source.Patches).DistinctBy(patch => patch.ObjectId).ToList();
+        var patchIds = patches.Select(patch => patch.ObjectId).ToArray();
+        var existingPatches = (await _context.SkillsFarmingPatchDefinitions
+            .AsNoTracking()
+            .Where(patch => patchIds.Contains(patch.ObjectId))
+            .Select(patch => patch.ObjectId)
+            .ToListAsync(cancellationToken)).ToHashSet();
+
+        foreach (var patch in patches.Where(patch => !existingPatches.Contains(patch.ObjectId)))
+        {
+            _context.SkillsFarmingPatchDefinitions.Add(new SkillsFarmingPatchDefinition { ObjectId = patch.ObjectId, Type = patch.Type });
+            _logger.LogInformation("Seeded farming patch definition {ObjectId} ({Type}).", patch.ObjectId, patch.Type);
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
     }
 

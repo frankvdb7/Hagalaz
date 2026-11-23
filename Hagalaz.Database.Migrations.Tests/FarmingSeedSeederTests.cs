@@ -39,7 +39,8 @@ public sealed class FarmingSeedSeederTests
     {
         await using var context = CreateContext();
         await context.Database.MigrateAsync();
-        await context.SkillsFarmingSeedDefinitions.Where(seed => seed.Type == "FruitTree").ExecuteDeleteAsync();
+        await context.SkillsFarmingSeedDefinitions.Where(seed => seed.Type == "FruitTree" || seed.Type == "Bush").ExecuteDeleteAsync();
+        await context.SkillsFarmingPatchDefinitions.Where(patch => patch.ObjectId >= 7577 && patch.ObjectId <= 7580).ExecuteDeleteAsync();
     }
 
     [TestMethod]
@@ -57,6 +58,27 @@ public sealed class FarmingSeedSeederTests
         Assert.AreEqual(27, apple.RequiredLevel);
         Assert.AreEqual(1199.5m, apple.HarvestExperience);
         Assert.AreEqual(8.5m, apple.ProductExperience);
+    }
+
+    [TestMethod]
+    [Timeout(180000)]
+    public async Task Seed_CreatesEveryBushWithItsPatchObjects()
+    {
+        await using (var context = CreateContext())
+        {
+            await new FarmingSeedSeeder(context, [new BushSeedSource()], NullLogger<FarmingSeedSeeder>.Instance).SeedAsync();
+            await new FarmingSeedSeeder(context, [new BushSeedSource()], NullLogger<FarmingSeedSeeder>.Instance).SeedAsync();
+        }
+
+        await using var verify = CreateContext();
+        var seeds = await verify.SkillsFarmingSeedDefinitions.Where(seed => seed.Type == "Bush").ToListAsync();
+        Assert.HasCount(6, seeds);
+        Assert.IsTrue(seeds.All(seed => seed.ProductExperience > 0 && seed.MaximumProductCount == 4));
+        Assert.AreEqual(4.5m, seeds.Single(seed => seed.ItemId == 5101).ProductExperience);
+        Assert.AreEqual(5, seeds.Single(seed => seed.ItemId == 5101).MaxCycles);
+        var patches = await verify.SkillsFarmingPatchDefinitions.Where(patch => patch.ObjectId >= 7577 && patch.ObjectId <= 7580).ToListAsync();
+        Assert.HasCount(4, patches);
+        Assert.IsTrue(patches.All(patch => patch.Type == "Bush"));
     }
 
     [TestMethod]

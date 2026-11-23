@@ -13,6 +13,7 @@ public static class GameWorldSeeding
         services.AddScoped<IGameObjectLootSeedSource, BarrowsLootSeedSource>();
         services.AddScoped<IGameWorldSeeder, GameObjectLootSeeder>();
         services.AddScoped<IFarmingSeedSource, FruitTreeSeedSource>();
+        services.AddScoped<IFarmingSeedSource, BushSeedSource>();
         services.AddScoped<IGameWorldSeeder, FarmingSeedSeeder>();
         return services;
     }

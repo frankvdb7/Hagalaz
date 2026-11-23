@@ -7,7 +7,17 @@ namespace Hagalaz.Database.Migrations.Seeding;
 public interface IFarmingSeedSource
 {
     IReadOnlyList<FarmingSeedSeed> Seeds { get; }
+
+    /// <summary>
+    ///     The farming patch objects the seeds are planted in, when the patch table does not know them yet.
+    /// </summary>
+    IReadOnlyList<FarmingPatchSeed> Patches => [];
 }
+
+/// <summary>
+///     One farming patch object to seed.
+/// </summary>
+public sealed record FarmingPatchSeed(uint ObjectId, string Type);
 
 /// <summary>
 ///     One farming seed definition to seed. <see cref="VarpBitIndex" /> is interpreted per patch type by the game world.
