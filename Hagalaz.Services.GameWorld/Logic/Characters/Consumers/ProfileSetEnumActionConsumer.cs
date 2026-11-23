@@ -27,7 +27,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters.Consumers
                 return;
             }
             character.Profile.SetValue(message.Key, (int)(object)newValue);
-            var valueChangedMessage = Activator.CreateInstance(typeof(ProfileValueChanged<>).MakeGenericType(message.Value.GetType()), message.Key, newValue, oldValue);
+            var valueChangedMessage = Activator.CreateInstance(typeof(ProfileValueChanged<>).MakeGenericType(message.Value.GetType()), message.Key, newValue, Enum.ToObject(message.Value.GetType(), oldValue));
             await context.Publish(valueChangedMessage!, context.CancellationToken);
         }
     }

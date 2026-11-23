@@ -28,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
         {
             var character = _characterContextAccessor.Context.Character;
             var message = context.Message;
-            if (message.Key == ProfileConstants.ChatSettingsPrivateFilter) 
+            if (message.Key == ProfileConstants.ChatSettingsFriendsFilter) 
             {
                 character.Session.SendMessage(new SetChatFilterMessage
                 {

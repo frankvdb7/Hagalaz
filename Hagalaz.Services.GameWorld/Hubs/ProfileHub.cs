@@ -27,7 +27,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
         public Task SetChatFilter(SetChatFilterMessage message)
         {
             _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsPublicFilter, message.PublicFilter ?? Availability.Everyone));
-            _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsPrivateFilter, message.PrivateFilter ?? Availability.Everyone));
+            _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsFriendsFilter, message.PrivateFilter ?? Availability.Everyone));
             _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsTradeFilter, message.TradeFilter ?? Availability.Everyone));
             return Task.CompletedTask;
         }
