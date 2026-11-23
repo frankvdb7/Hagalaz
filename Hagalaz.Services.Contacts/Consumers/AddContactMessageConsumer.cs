@@ -42,6 +42,17 @@ namespace Hagalaz.Services.Contacts.Consumers
                 throw new NotAllowedException(nameof(ignore));
             }
 
+            // Enforce the recipient's private-chat availability. Denials look like an unknown recipient so presence/privacy is not leaked.
+            var settings = await _contactService.FindContactSettingsAsync(receiver.MasterId);
+            if (settings != null)
+            {
+                if (settings.Availability.Off ||
+                    (settings.Availability.Friends && await _contactService.FindFriendByIdAsync(receiver.MasterId, message.MasterId) == null))
+                {
+                    throw new NotFoundException(nameof(receiver));
+                }
+            }
+
             var sender = await _characterService.FindCharacterByIdAsync(message.MasterId);
             if (sender == null)
             {
