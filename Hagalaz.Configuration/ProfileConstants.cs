@@ -189,10 +189,6 @@ namespace Hagalaz.Configuration
         /// </summary>
         public const string ChatSettingsPublicFilter = ChatSettings + ".public_filter";
         /// <summary>
-        /// The chat settings private filter
-        /// </summary>
-        public const string ChatSettingsPrivateFilter = ChatSettings + ".private_filter";
-        /// <summary>
         /// The report settings
         /// </summary>
         public const string ReportSettings = "report.settings";
