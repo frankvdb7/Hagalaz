@@ -461,6 +461,7 @@ public sealed class RaidoPhysicalConnectionTests
         var handler = fixture.Handler;
 
         initialReader.BeforeReturning = initial.Closed.Cancel;
+        initialReader.ReleaseFirstRead();
         var run = handler.ConnectAsync(context);
         await initialReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -506,6 +507,7 @@ public sealed class RaidoPhysicalConnectionTests
         try
         {
             inputReader.BeforeReturning = () => context.TcpConnection.OnPhysicalConnectionClosed(initial.Connection);
+            inputReader.ReleaseFirstRead();
             run = handler.ConnectAsync(context);
             await inputReader.ReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(1));
             Assert.AreEqual(0, dispatched.Count);
@@ -3505,6 +3507,12 @@ public sealed class RaidoPhysicalConnectionTests
 
         public Action? BeforeReturning { get; set; }
 
+        // The context's input pump starts reading as soon as the initial connection is attached, which is before a
+        // test can assign BeforeReturning. The first read waits here so the hook is always in place when it runs.
+        private readonly TaskCompletionSource _firstReadGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void ReleaseFirstRead() => _firstReadGate.TrySetResult();
+
         public override void AdvanceTo(SequencePosition consumed) { }
 
         public override void AdvanceTo(SequencePosition consumed, SequencePosition examined) { }
@@ -3513,16 +3521,17 @@ public sealed class RaidoPhysicalConnectionTests
 
         public override void Complete(Exception? exception = null) { }
 
-        public override ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
         {
             if (Interlocked.Exchange(ref _returned, 1) != 0)
             {
                 throw new OperationCanceledException(cancellationToken);
             }
 
+            await _firstReadGate.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
             BeforeReturning?.Invoke();
             ReadReturned.TrySetResult();
-            return new ValueTask<ReadResult>(_result);
+            return _result;
         }
 
         public override bool TryRead(out ReadResult result)
