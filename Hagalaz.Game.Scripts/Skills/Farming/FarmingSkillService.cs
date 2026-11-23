@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
@@ -223,6 +224,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                 character.SendChatMessage(WoodcuttingSkillService.SwingAxe);
                 character.QueueAnimation(Animation.Create(hatchet.ChopAnimationId));
                 RsTickTask task = null!;
+                Action finish = null!;
                 task = new RsTickTask(() =>
                 {
                     if (task.TickCount < _treeFellingTicks)
@@ -230,7 +232,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                         return;
                     }
 
-                    task.Cancel();
+                    finish();
                     if (patch.Seed == null || !patch.FellTree())
                     {
                         return;
@@ -239,14 +241,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                     character.QueueAnimation(Animation.Create(-1));
                     character.Inventory.TryAddItems(character, [(patch.Seed.ProductID, 1)], out _);
                 });
-                EventHappened? @event = null;
-                @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
-                {
-                    task.Cancel();
-                    character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
-                    return false;
-                });
-                character.QueueTask(task);
+                finish = QueueInterruptible(character, task);
             });
 
         /// <summary>
@@ -264,6 +259,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
             var pickAnimation = GetHarvestAnimation(patch.PatchDefinition.Type);
             character.QueueAnimation(Animation.Create(pickAnimation));
             RsTickTask task = null!;
+            Action finish = null!;
             task = new RsTickTask(() =>
             {
                 if (task.TickCount % 2 != 0)
@@ -273,7 +269,7 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
 
                 if (patch.Seed == null || patch.ProductCount <= 0)
                 {
-                    task.Cancel();
+                    finish();
                     return;
                 }
 
@@ -284,20 +280,44 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                 if (patch.ProductCount <= 0)
                 {
                     character.SendChatMessage("There is nothing left to pick from this " + type + " yet.");
-                    task.Cancel();
+                    finish();
                     return;
                 }
 
                 character.QueueAnimation(Animation.Create(pickAnimation));
             });
-            EventHappened? @event = null;
-            @event = character.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            finish = QueueInterruptible(character, task);
+        }
+
+        /// <summary>
+        ///     Queues the task and cancels it when the character is interrupted.
+        /// </summary>
+        /// <returns>
+        ///     An action that cancels the task and removes the interruption handler; call it on every completion path.
+        /// </returns>
+        private static Action QueueInterruptible(ICharacter character, RsTickTask task)
+        {
+            EventHappened? handler = null;
+
+            void Finish()
             {
                 task.Cancel();
-                character.UnregisterEventHandler<CreatureInterruptedEvent>(@event);
+                if (handler == null)
+                {
+                    return;
+                }
+
+                character.UnregisterEventHandler<CreatureInterruptedEvent>(handler);
+                handler = null;
+            }
+
+            handler = character.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
+            {
+                Finish();
                 return false;
             });
             character.QueueTask(task);
+            return Finish;
         }
 
         /// <summary>
