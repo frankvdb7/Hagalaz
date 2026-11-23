@@ -241,7 +241,7 @@ namespace Hagalaz.Services.Authorization.Tests
         {
             existingCharactersServiceClient ??= new object();
             var applicationManager = new Mock<IOpenIddictApplicationManager>();
-            foreach (var (clientId, client) in new[] { ("storm-app", existingNormalClient), ("storm-admin", existingAdminClient), ("cache-service-1", (object?)existingCacheServiceClient), ("characters-service-1", existingCharactersServiceClient) })
+            foreach (var (clientId, client) in new[] { ("storm-app", existingNormalClient), ("storm-admin", existingAdminClient), ("cache-service-1", existingCacheServiceClient), ("characters-service-1", existingCharactersServiceClient) })
             {
                 applicationManager
                     .Setup(manager => manager.FindByClientIdAsync(clientId, It.IsAny<CancellationToken>()))
