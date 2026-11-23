@@ -11,6 +11,7 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Skills.Woodcutting;
 
 namespace Hagalaz.Game.Scripts.Skills.Farming
@@ -215,6 +216,13 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                     return;
                 }
 
+                // Same capacity rule as woodcutting: a tree is never felled when the logs would not fit.
+                if (character.Inventory.Items.FreeSlots < 1)
+                {
+                    character.SendChatMessage(GameStrings.InventoryFull);
+                    return;
+                }
+
                 character.SendChatMessage(WoodcuttingSkillService.SwingAxe);
                 character.QueueAnimation(Animation.Create(hatchet.ChopAnimationId));
                 RsTickTask task = null!;
@@ -227,6 +235,13 @@ namespace Hagalaz.Game.Scripts.Skills.Farming
                     }
 
                     finish();
+                    if (character.Inventory.Items.FreeSlots < 1)
+                    {
+                        character.QueueAnimation(Animation.Create(-1));
+                        character.SendChatMessage(GameStrings.InventoryFull);
+                        return;
+                    }
+
                     if (patch.Seed == null || !patch.FellTree())
                     {
                         return;
