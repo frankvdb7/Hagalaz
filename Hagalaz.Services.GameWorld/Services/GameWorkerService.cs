@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -182,16 +184,17 @@ namespace Hagalaz.Services.GameWorld.Services
             var characters = await _characterStore.GetSnapshotAsync(stoppingToken);
 
             stoppingToken.ThrowIfCancellationRequested();
-            using (GameWorldMetrics.BeginTickPhase(TickPhase.MajorUpdate, _timeProvider))
-            {
-                foreach (var region in regions)
-                {
-                    region.MajorUpdateTick();
-                }
-            }
-
+            var simulationFailed = true;
             try
             {
+                using (GameWorldMetrics.BeginTickPhase(TickPhase.MajorUpdate, _timeProvider))
+                {
+                    foreach (var region in regions)
+                    {
+                        region.MajorUpdateTick();
+                    }
+                }
+
                 using (GameWorldMetrics.BeginTickPhase(TickPhase.ClientPrepare, _timeProvider))
                 {
                     foreach (var region in regions)
@@ -207,16 +210,12 @@ namespace Hagalaz.Services.GameWorld.Services
                         region.MajorClientUpdateTick(characters);
                     }
                 }
+
+                simulationFailed = false;
             }
             finally
             {
-                using (GameWorldMetrics.BeginTickPhase(TickPhase.ClientReset, _timeProvider))
-                {
-                    foreach (var region in regions)
-                    {
-                        region.MajorClientUpdateResetTick();
-                    }
-                }
+                ResetRegions(regions, simulationFailed);
             }
 
             using (GameWorldMetrics.BeginTickPhase(TickPhase.Housekeeping, _timeProvider))
@@ -224,6 +223,42 @@ namespace Hagalaz.Services.GameWorld.Services
                 await _regionHousekeeping.ProcessRegionsIfDueAsync(characters);
             }
 
+        }
+
+        /// <summary>
+        /// Resets every region's per-tick client state. A failing region never prevents the remaining regions from
+        /// being reset; reset failures are logged, and only surface when they would not mask a simulation failure.
+        /// </summary>
+        private void ResetRegions(IReadOnlyCollection<IMapRegion> regions, bool simulationFailed)
+        {
+            List<Exception>? failures = null;
+            using (GameWorldMetrics.BeginTickPhase(TickPhase.ClientReset, _timeProvider))
+            {
+                foreach (var region in regions)
+                {
+                    try
+                    {
+                        region.MajorClientUpdateResetTick();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error occurred while resetting a map region's client update state.");
+                        (failures ??= []).Add(ex);
+                    }
+                }
+            }
+
+            if (failures is null || simulationFailed)
+            {
+                return;
+            }
+
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            }
+
+            throw new AggregateException(failures);
         }
     }
 }
