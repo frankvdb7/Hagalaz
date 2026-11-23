@@ -4,7 +4,7 @@ namespace Hagalaz.Database.Migrations.Seeding;
 
 /// <summary>
 ///     Registers and runs the game-world seeders. To seed more data, register another <see cref="IGameWorldSeeder" />
-///     (or another <see cref="IGameObjectLootSeedSource" /> for loot tables) here.
+///     (or another <see cref="IGameObjectLootSeedSource" /> / <see cref="IFarmingSeedSource" /> for loot tables / farming seeds) here.
 /// </summary>
 public static class GameWorldSeeding
 {
@@ -12,6 +12,8 @@ public static class GameWorldSeeding
     {
         services.AddScoped<IGameObjectLootSeedSource, BarrowsLootSeedSource>();
         services.AddScoped<IGameWorldSeeder, GameObjectLootSeeder>();
+        services.AddScoped<IFarmingSeedSource, FruitTreeSeedSource>();
+        services.AddScoped<IGameWorldSeeder, FarmingSeedSeeder>();
         return services;
     }
 

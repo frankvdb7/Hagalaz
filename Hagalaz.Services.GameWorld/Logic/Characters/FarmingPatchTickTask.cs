@@ -131,6 +131,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                     Reset(); // a full plant only starts regrowing once something is picked.
                 if (_productCount > 0)
                     _productCount--;
+                Refresh();
                 return;
             }
 
@@ -158,6 +159,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             return true;
         }
 
+        private int RegrowTicks => Seed!.ProductRegrowTicks > 0 ? Seed.ProductRegrowTicks : Seed.CycleTicks;
+
         private bool ReplenishesProducts =>
             Seed != null
             && HasCondition(PatchCondition.Planted)
@@ -165,21 +168,22 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
             && PatchDefinition.Type is PatchType.FruitTree or PatchType.Bush;
 
         /// <summary>
-        /// Regrows one fruit or berry per growth cycle until the plant holds its maximum yield.
+        /// Regrows one fruit or berry per regrow interval until the plant holds its maximum yield.
         /// </summary>
         private void Replenish()
         {
-            if (_productCount >= Seed!.MaximumProductCount || Seed.CycleTicks <= 0)
+            if (_productCount >= Seed!.MaximumProductCount || RegrowTicks <= 0)
             {
                 Reset();
                 return;
             }
 
-            if (TickCount < Seed.CycleTicks)
+            if (TickCount < RegrowTicks)
                 return;
 
             _productCount++;
             Reset();
+            Refresh();
         }
 
         /// <summary>
@@ -276,7 +280,10 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
 
                 var minimumCount = Seed.MinimumProductCount;
                 var maximumCount = Seed.MaximumProductCount + 1;
-                if (HasCondition(PatchCondition.Fertilized))
+                // Fruit trees and bushes always bear their full yield; compost must not exceed what the client can render.
+                if (PatchDefinition.Type is PatchType.FruitTree or PatchType.Bush)
+                    maximumCount = minimumCount + 1;
+                else if (HasCondition(PatchCondition.Fertilized))
                     minimumCount = (int)(minimumCount * 1.33); // 33% more
                 else if (HasCondition(PatchCondition.SuperFertilized))
                     minimumCount = (int)(minimumCount * 1.66); // 66% more
@@ -342,6 +349,9 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                     return 6 + Seed.VarpBitIndex * 7;
                 case PatchType.Herb:
                     return 4 + Seed.VarpBitIndex * 7;
+                case PatchType.FruitTree:
+                    // Cache layout of patch object 7965: 27 states per species, plus a 10 state gap after every second species.
+                    return 8 + Seed.VarpBitIndex * 27 + Seed.VarpBitIndex / 2 * 10;
                 case PatchType.Flower:
                     return 8 + Seed.VarpBitIndex * 5;
                 case PatchType.Hop:
@@ -386,6 +396,17 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                             baseValue--;
                         return baseValue;
                     }
+                case PatchType.FruitTree:
+                    {
+                        // Offsets within a species block: growth 0-5, fruit count 6-12, diseased 13-18, dead 19-24, check-health 26.
+                        if (HasCondition(PatchCondition.Dead))
+                            return baseValue + 19 + CurrentCycle;
+                        if (HasCondition(PatchCondition.Diseased))
+                            return baseValue + 13 + CurrentCycle;
+                        if (!HasCondition(PatchCondition.Mature))
+                            return baseValue + CurrentCycle;
+                        return baseValue + (HasCondition(PatchCondition.Checked) ? 6 + _productCount : 26);
+                    }
                 case PatchType.Flower:
                 case PatchType.Hop:
                 case PatchType.Allotment:
@@ -421,16 +442,22 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                 }
             }
 
-            if (!HasCondition(PatchCondition.Planted) || TickCount < Seed?.CycleTicks)
+            if (!HasCondition(PatchCondition.Planted))
             {
                 return;
             }
 
-            // growing of plants
+            // mature plants only regrow their products
             if (HasCondition(PatchCondition.Mature))
             {
                 if (ReplenishesProducts)
                     Replenish();
+                return;
+            }
+
+            // growing of plants
+            if (TickCount < Seed?.CycleTicks)
+            {
                 return;
             }
 
@@ -531,10 +558,11 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
                 return;
             }
 
-            var ticksPassed = Math.Max(0L, hydration.CurrentCycleTicks) % cycleLength + GetOfflineTicks(now);
-            var regrown = Math.Min(Seed.MaximumProductCount - _productCount, ticksPassed / cycleLength);
+            var regrowTicks = RegrowTicks;
+            var ticksPassed = Math.Max(0L, hydration.CurrentCycleTicks) % regrowTicks + GetOfflineTicks(now);
+            var regrown = Math.Min(Seed.MaximumProductCount - _productCount, ticksPassed / regrowTicks);
             _productCount += (int)regrown;
-            TickCount = _productCount >= Seed.MaximumProductCount ? 0 : (int)(ticksPassed % cycleLength);
+            TickCount = _productCount >= Seed.MaximumProductCount ? 0 : (int)(ticksPassed % regrowTicks);
         }
 
         public HydratedFarmingDto.PatchDto Dehydrate() => new HydratedFarmingDto.PatchDto()

@@ -2562,6 +2562,8 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.ProductExperience).HasPrecision(11, 2).HasColumnName("product_experience").HasDefaultValue(0m);
 
+                entity.Property(e => e.ProductRegrowTicks).HasColumnType("int(11) unsigned").HasColumnName("product_regrow_ticks").HasDefaultValueSql("'0'");
+
                 entity.Property(e => e.MaxCycles).HasColumnType("tinyint(3) unsigned").HasColumnName("max_cycles").HasDefaultValueSql("'4'");
 
                 entity.Property(e => e.MaximumProductCount).HasColumnType("int(11) unsigned").HasColumnName("maximum_product_count").HasDefaultValueSql("'1'");

@@ -18,11 +18,22 @@ namespace Hagalaz.Data.Migrations
                 scale: 2,
                 nullable: false,
                 defaultValue: 0m);
+
+            migrationBuilder.AddColumn<uint>(
+                name: "product_regrow_ticks",
+                table: "skills_farming_seed_definitions",
+                type: "int(11) unsigned",
+                nullable: false,
+                defaultValueSql: "'0'");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropColumn(
+                name: "product_regrow_ticks",
+                table: "skills_farming_seed_definitions");
+
             migrationBuilder.DropColumn(
                 name: "product_experience",
                 table: "skills_farming_seed_definitions");

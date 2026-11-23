@@ -3866,6 +3866,12 @@ namespace Hagalaz.Data.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("product_experience");
 
+                    b.Property<uint>("ProductRegrowTicks")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(11) unsigned")
+                        .HasColumnName("product_regrow_ticks")
+                        .HasDefaultValueSql("'0'");
+
                     b.Property<ushort>("ProductId")
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("product_id");
