@@ -232,7 +232,8 @@ namespace Hagalaz.Services.Authorization.Tests
 
             public async Task<JsonResponse> PostFormAsync(string path, Dictionary<string, string> form)
             {
-                using var response = await _client.PostAsync(path, new FormUrlEncodedContent(form));
+                using var content = new FormUrlEncodedContent(form);
+                using var response = await _client.PostAsync(path, content);
                 var json = await response.Content.ReadAsStringAsync();
                 return new JsonResponse(response.StatusCode, JsonDocument.Parse(json));
             }
