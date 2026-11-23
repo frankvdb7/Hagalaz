@@ -17,9 +17,7 @@ Skills live under `.agents/skills/`. Select the relevant skill by task; do **not
 
 - **Architecture, non-trivial refactoring, ownership, concurrency, and cross-service design:** `hagalaz-engineering-design`.
 - **Pull-request reviews, production-reachability investigations, and review remediation:** `hagalaz-pr-review`. Findings must be based on real production paths, not synthetic test-only states.
-- **jscpd duplication remediation:** `dry-refactoring`, with attention to semantic rather than syntactic duplication.
 - **OpenSpec planning/implementation/verification/archiving:** use the specific existing `openspec-*` skill.
-- **Frontend design work:** `frontend-design`.
 
 ## Entry points
 

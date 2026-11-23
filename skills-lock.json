@@ -1,23 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
-    "dry-refactoring": {
-      "source": "kucherenko/jscpd",
-      "sourceType": "github",
-      "skillPath": "skills/dry-refactoring/SKILL.md",
-      "computedHash": "57deff6865d7bdb3f42990fefe9becf07d53ff7d5474610ed9ce80616c662b22"
-    },
-    "frontend-design": {
-      "source": "anthropics/skills",
-      "sourceType": "github",
-      "skillPath": "skills/frontend-design/SKILL.md",
-      "computedHash": "106acf230014cbb43ca34e6410371321b56ca742f9ee0442e8ec05bf02eb0384"
-    },
-    "unslop": {
-      "source": "cursor/plugins",
-      "sourceType": "github",
-      "skillPath": "harness/pstack/claude-code/skills/unslop/SKILL.md",
-      "computedHash": "4069ec6c10a0228152079f52706221dc469a9e30a3040398eefd1e9c18fe6cf2"
-    }
   }
 }
