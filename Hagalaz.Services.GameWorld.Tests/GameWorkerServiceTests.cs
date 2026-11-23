@@ -592,6 +592,27 @@ public sealed class GameWorkerServiceTests
     }
 
     [TestMethod]
+    public async Task ExecuteTickAsync_WhenMultipleResetsFail_ResetsEveryRegionAndAggregatesFailures()
+    {
+        var firstFailingRegion = Substitute.For<IMapRegion>();
+        var secondFailingRegion = Substitute.For<IMapRegion>();
+        var healthyRegion = Substitute.For<IMapRegion>();
+        var firstFailure = new InvalidOperationException("first reset failed");
+        var secondFailure = new InvalidOperationException("second reset failed");
+        firstFailingRegion.When(region => region.MajorClientUpdateResetTick()).Do(_ => throw firstFailure);
+        secondFailingRegion.When(region => region.MajorClientUpdateResetTick()).Do(_ => throw secondFailure);
+
+        using var worker = CreateWorker(new[] { firstFailingRegion, secondFailingRegion, healthyRegion }, TimeSpan.Zero).Worker;
+        var actual = await Assert.ThrowsExactlyAsync<AggregateException>(
+            () => worker.ExecuteTickAsync(CancellationToken.None));
+
+        CollectionAssert.AreEqual(new Exception[] { firstFailure, secondFailure }, actual.InnerExceptions.ToArray());
+        firstFailingRegion.Received(1).MajorClientUpdateResetTick();
+        secondFailingRegion.Received(1).MajorClientUpdateResetTick();
+        healthyRegion.Received(1).MajorClientUpdateResetTick();
+    }
+
+    [TestMethod]
     public async Task ExecuteTickAsync_WhenSimulationAndResetBothFail_PropagatesSimulationFailure()
     {
         var failingRegion = Substitute.For<IMapRegion>();
