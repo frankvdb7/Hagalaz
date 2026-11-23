@@ -2,6 +2,8 @@ namespace Hagalaz.Services.Characters.Model
 {
     public record CharactersStatisticsDto
     {
+        public uint MasterId { get; set; }
+
         public required string DisplayName { get; init; }
 
         public byte AttackLevel { get; set; }
