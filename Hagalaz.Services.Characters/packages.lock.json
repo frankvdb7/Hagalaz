@@ -4,9 +4,9 @@
     "net10.0": {
       "AutoMapper": {
         "type": "Direct",
-        "requested": "[16.2.0, )",
-        "resolved": "16.2.0",
-        "contentHash": "PE8HgPc5BZJnAFwjvDTE72gWL6YrYib+V7+vxtLXDYz0CH/fFgbVcwLUC9UHk5ALwspZ6Vbmoo6PHvseIk/0ZA==",
+        "requested": "[16.3.0, )",
+        "resolved": "16.3.0",
+        "contentHash": "wFTqA37e1I4AOEhTTYlxrqDE8BQ4OB3dqhlv2KwYmHv+a4tn7R1JW2n2bzXb8eTBhWVBSl7iTZ0VxEt0a57D4w==",
         "dependencies": {
           "Microsoft.IdentityModel.JsonWebTokens": "8.14.0"
         }
@@ -663,8 +663,8 @@
       },
       "SixLabors.ImageSharp": {
         "type": "Transitive",
-        "resolved": "3.1.12",
-        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+        "resolved": "3.2.0",
+        "contentHash": "TuT4QJUKO1xn6HPiH7dzadQg9eI9uin+sS+pJHAjHr0nN+k9mhgJc8XKe4WU9QJ7/mNvbK6+32d2ofUf30+bqQ=="
       },
       "System.Configuration.ConfigurationManager": {
         "type": "Transitive",
@@ -713,13 +713,13 @@
       "hagalaz.automapper": {
         "type": "Project",
         "dependencies": {
-          "AutoMapper": "[16.2.0, )"
+          "AutoMapper": "[16.3.0, )"
         }
       },
       "hagalaz.cache.abstractions": {
         "type": "Project",
         "dependencies": {
-          "SixLabors.ImageSharp": "[3.1.12, )"
+          "SixLabors.ImageSharp": "[3.2.0, )"
         }
       },
       "hagalaz.characters.messages": {
