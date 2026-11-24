@@ -35,8 +35,9 @@ internal static class TestFletchingRecipes
     private sealed class InMemoryFletchingService(IReadOnlyList<FletchingDto> recipes) : IFletchingService
     {
         public FletchingDto? FindRecipe(FletchingCategory category, int itemId, int otherItemId) =>
-            recipes.FirstOrDefault(recipe => recipe.Category == category &&
-                                             ((recipe.ResourceId == itemId && recipe.ToolId == otherItemId) || (recipe.ResourceId == otherItemId && recipe.ToolId == itemId)));
+            recipes.FirstOrDefault(recipe => recipe.Category == category && (IsMade(recipe, itemId, otherItemId) || IsMade(recipe, otherItemId, itemId)));
+
+        private static bool IsMade(FletchingDto recipe, int resourceId, int toolId) => recipe.ResourceId == resourceId && recipe.ToolId == toolId;
 
         public IReadOnlyList<FletchingDto> FindRecipes(FletchingCategory category) => recipes.Where(recipe => recipe.Category == category).ToArray();
     }
