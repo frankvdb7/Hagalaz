@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     }
                 });
                 clicker.QueueTask(task);
-                _agilitySkillService.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
+                _agilitySkillService.MakeNearbyNpcSpeak(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

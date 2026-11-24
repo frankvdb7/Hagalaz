@@ -51,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
         }
 
         /// <inheritdoc />
-        public void CheckGnomeCourseNpCs(ICharacter character, string npcSpeakText)
+        public void MakeNearbyNpcSpeak(ICharacter character, string npcSpeakText)
         {
             var npc = character.Viewport.VisibleNpcs.Where(n => n.SpeakingText == null && n.WithinRange(n, 5)).FirstOrDefault();
             if (npc != null)

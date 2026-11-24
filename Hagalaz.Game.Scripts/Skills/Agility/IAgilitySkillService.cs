@@ -23,8 +23,8 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
         void CheckCourseCompletion(ICharacter character);
 
         /// <summary>
-        ///     Makes a nearby NPC speak the given text while the character is on the Gnome course.
+        ///     Makes a visible NPC that is not already speaking say the given text (course trainer encouragement).
         /// </summary>
-        void CheckGnomeCourseNpCs(ICharacter character, string npcSpeakText);
+        void MakeNearbyNpcSpeak(ICharacter character, string npcSpeakText);
     }
 }
