@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using NSubstitute;
+using NSubstitute.ReturnsExtensions;
 using Hagalaz.Game.Scripts.Skills.Agility;
 using Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome;
 
@@ -69,7 +70,7 @@ public sealed class AgilitySkillServiceTests
     [TestMethod]
     public void CheckCourseCompletion_MissingCourseDefinition_ClearsStatesButGrantsNothing()
     {
-        _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).Returns((AgilityCourseDto?)null);
+        _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).ReturnsNull();
         GiveBasicCourseStates();
 
         _service.CheckCourseCompletion(_character);
@@ -92,7 +93,7 @@ public sealed class AgilitySkillServiceTests
     [TestMethod]
     public void AddObstacleExperience_UnknownObstacle_GrantsNothing()
     {
-        _agilityService.FindObstacleByObjectId(1).Returns((AgilityObstacleDto?)null);
+        _agilityService.FindObstacleByObjectId(1).ReturnsNull();
 
         _service.AddObstacleExperience(_character, 1);
 
