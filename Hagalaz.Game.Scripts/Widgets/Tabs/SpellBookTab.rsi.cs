@@ -93,6 +93,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IScopedGameMediator _gameMediator;
         private readonly IServiceProvider _serviceProvider;
         private readonly IMagicService _magicService;
+        private readonly ICombatSpellCatalog _combatSpellCatalog;
         private readonly IItemBuilder _itemBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
 
@@ -323,11 +324,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
         public SpellBookTab(
             ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator, IServiceProvider serviceProvider,
-            IMagicService magicService, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder) : base(characterContextAccessor)
+            IMagicService magicService, ICombatSpellCatalog combatSpellCatalog, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder) : base(characterContextAccessor)
         {
             _gameMediator = gameMediator;
             _serviceProvider = serviceProvider;
             _magicService = magicService;
+            _combatSpellCatalog = combatSpellCatalog;
             _itemBuilder = itemBuilder;
             _projectileBuilder = projectileBuilder;
         }
@@ -551,7 +553,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
-                        foreach (var definition in magicManager.FindAllCombatSpells().ConfigureAwait(false).GetAwaiter().GetResult()
+                        foreach (var definition in _combatSpellCatalog.CombatSpells
                                      .Where(spell => spell.SpellBook == MagicBook.StandardBook))
                         {
                             InterfaceInstance.AttachClickHandler(definition.ButtonId,
@@ -741,7 +743,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
-                        var ancientSpells = CreateAncientSpells(magicManager.FindAllCombatSpells().ConfigureAwait(false).GetAwaiter().GetResult());
+                        var ancientSpells = CreateAncientSpells(_combatSpellCatalog.CombatSpells);
                         foreach (var (buttonId, spell) in ancientSpells)
                         {
                             InterfaceInstance.AttachClickHandler(buttonId,

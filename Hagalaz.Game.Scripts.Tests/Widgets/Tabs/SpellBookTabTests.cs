@@ -92,6 +92,7 @@ public sealed class SpellBookTabTests
         services.AddSingleton(_ => Substitute.For<ICharacterContextAccessor>());
         services.AddSingleton(_ => Substitute.For<IScopedGameMediator>());
         services.AddSingleton(_ => Substitute.For<IMagicService>());
+        services.AddSingleton(_ => Substitute.For<ICombatSpellCatalog>());
         services.AddSingleton(_ => Substitute.For<IItemBuilder>());
         services.AddSingleton(_ => Substitute.For<IProjectileBuilder>());
         services.AddTransient<SpellBookTab>();

@@ -11,23 +11,18 @@ namespace Hagalaz.Services.GameWorld.Services
 {
     public class MagicService : IMagicService
     {
-        private readonly IMagicCombatSpellsRepository _combatSpellsRepository;
         private readonly IMagicEnchantingSpellsRepository _enchantingSpellsRepository;
         private readonly IMagicEnchantingSpellsProductRepository _enchantingSpellsProductRepository;
         private readonly IMapper _mapper;
 
         public MagicService(
-            IMagicCombatSpellsRepository combatSpellsRepository, IMagicEnchantingSpellsRepository enchantingSpellsRepository,
+            IMagicEnchantingSpellsRepository enchantingSpellsRepository,
             IMagicEnchantingSpellsProductRepository enchantingSpellsProductRepository, IMapper mapper)
         {
-            _combatSpellsRepository = combatSpellsRepository;
             _enchantingSpellsRepository = enchantingSpellsRepository;
             _enchantingSpellsProductRepository = enchantingSpellsProductRepository;
             _mapper = mapper;
         }
-
-        public async Task<IReadOnlyList<CombatSpellDto>> FindAllCombatSpells() =>
-            await _mapper.ProjectTo<CombatSpellDto>(_combatSpellsRepository.FindAll().AsNoTracking()).ToListAsync();
 
         public async Task<IReadOnlyList<EnchantingSpellDto>> FindAllEnchantingSpells() =>
             await _mapper.ProjectTo<EnchantingSpellDto>(_enchantingSpellsRepository.FindAll().AsNoTracking()).ToListAsync();
