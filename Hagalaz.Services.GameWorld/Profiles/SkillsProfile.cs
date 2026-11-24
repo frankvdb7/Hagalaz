@@ -93,7 +93,10 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.ExhaustRockId, opt => opt.MapFrom(src => (int)src.ExhaustRockId));
             CreateMap<SkillsMagicCombatDefinition, CombatSpellDto>()
                 .ForMember(dest => dest.ButtonId, opt => opt.MapFrom(src => (int)src.ButtonId))
-                .ForMember(dest => dest.SpellBook, opt => opt.MapFrom(src => src.SpellBook == "AncientBook" ? MagicBook.AncientBook : MagicBook.StandardBook))
+                .ForMember(dest => dest.SpellBook, opt => opt.MapFrom(src => src.SpellBook == "AncientBook" ? MagicBook.AncientBook
+                    : src.SpellBook == "LunarBook" ? MagicBook.LunarBook
+                    : src.SpellBook == "DungeoneeringBook" ? MagicBook.DungeoneeringBook
+                    : MagicBook.StandardBook))
                 .ForMember(dest => dest.BaseDamage, opt => opt.MapFrom(src => (int)src.BaseDamage))
                 .ForMember(dest => dest.BaseExperience, opt => opt.MapFrom(src => (double)src.BaseExperience))
                 .ForMember(dest => dest.ProjectileId, opt => opt.MapFrom(src => (int)src.ProjectileId))

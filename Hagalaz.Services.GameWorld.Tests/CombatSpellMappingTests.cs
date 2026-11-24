@@ -16,6 +16,8 @@ public sealed class CombatSpellMappingTests
     [TestMethod]
     [DataRow("StandartBook", MagicBook.StandardBook)]
     [DataRow("AncientBook", MagicBook.AncientBook)]
+    [DataRow("LunarBook", MagicBook.LunarBook)]
+    [DataRow("DungeoneeringBook", MagicBook.DungeoneeringBook)]
     public void Combat_definition_maps_the_spellbook(string persisted, MagicBook expected)
     {
         var dto = CreateMapper().Map<CombatSpellDto>(Create(persisted));

@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
@@ -28,26 +31,7 @@ public sealed class SpellBookTabTests
     }
 
     [TestMethod]
-    [DataRow(20, typeof(AncientIceCombatSpell), 0)]
-    [DataRow(21, typeof(AncientIceCombatSpell), 2)]
-    [DataRow(22, typeof(AncientIceCombatSpell), 1)]
-    [DataRow(23, typeof(AncientIceCombatSpell), 3)]
-    [DataRow(24, typeof(AncientBloodCombatSpell), 0)]
-    [DataRow(25, typeof(AncientBloodCombatSpell), 2)]
-    [DataRow(26, typeof(AncientBloodCombatSpell), 1)]
-    [DataRow(27, typeof(AncientBloodCombatSpell), 3)]
-    [DataRow(28, typeof(AncientSmokeCombatSpell), 0)]
-    [DataRow(29, typeof(AncientSmokeCombatSpell), 2)]
-    [DataRow(30, typeof(AncientSmokeCombatSpell), 1)]
-    [DataRow(31, typeof(AncientSmokeCombatSpell), 3)]
-    [DataRow(32, typeof(AncientShadowCombatSpell), 0)]
-    [DataRow(33, typeof(AncientShadowCombatSpell), 2)]
-    [DataRow(34, typeof(AncientShadowCombatSpell), 1)]
-    [DataRow(35, typeof(AncientShadowCombatSpell), 3)]
-    [DataRow(36, typeof(AncientMiasmicCombatSpell), 0)]
-    [DataRow(37, typeof(AncientMiasmicCombatSpell), 2)]
-    [DataRow(38, typeof(AncientMiasmicCombatSpell), 1)]
-    [DataRow(39, typeof(AncientMiasmicCombatSpell), 3)]
+    [DynamicData(nameof(AncientButtons))]
     public void CreateAncientSpells_MapsEachSpellbookButtonToItsFamilyAndSpellType(int buttonId, Type family, int spellType)
     {
         using var provider = CreateProvider();
@@ -83,16 +67,126 @@ public sealed class SpellBookTabTests
         Assert.IsFalse(spells.ContainsKey(31));
     }
 
+    /// <summary>
+    ///     Each Ancient spellbook button with the family and spell type it casts: a family occupies four consecutive buttons laid out as rush, blitz, burst, barrage.
+    /// </summary>
+    public static IEnumerable<object[]> AncientButtons
+    {
+        get
+        {
+            var families = new[] { typeof(AncientIceCombatSpell), typeof(AncientBloodCombatSpell), typeof(AncientSmokeCombatSpell), typeof(AncientShadowCombatSpell), typeof(AncientMiasmicCombatSpell) };
+            int[] typeByOffset = [0, 2, 1, 3];
+            for (var family = 0; family < families.Length; family++)
+            {
+                for (var offset = 0; offset < typeByOffset.Length; offset++)
+                {
+                    yield return [20 + family * 4 + offset, families[family], typeByOffset[offset]];
+                }
+            }
+        }
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(AncientButtons))]
+    public void OnOpen_AncientBook_AutocastAndCastHandlersSelectTheirOwnRow(int buttonId, Type family, int spellType)
+    {
+        var fixture = OpenSpellBook(MagicBook.AncientBook);
+
+        Assert.IsTrue(fixture.ClickHandlers[buttonId](buttonId, ComponentClickType.Option6Click, 0, 0));
+        var autocast = (AncientCombatSpell)fixture.Character.Magic.ReceivedCalls()
+            .Single(call => call.GetMethodInfo().Name == nameof(IMagic.SetAutoCastingSpell)).GetArguments()[0]!;
+        AssertAncientRow(autocast, buttonId, family, spellType);
+
+        Assert.IsTrue(fixture.UseOnCreatureHandlers[buttonId](buttonId, Substitute.For<ICreature>(), false, 0, 0));
+        AssertAncientRow((AncientCombatSpell)fixture.Character.Magic.SelectedSpell!, buttonId, family, spellType);
+    }
+
+    [TestMethod]
+    [DataRow(25)]
+    [DataRow(28)]
+    [DataRow(39)]
+    public void OnOpen_StandardBook_HandlersSelectTheStandardRowNotTheCollidingAncientOne(int buttonId)
+    {
+        var fixture = OpenSpellBook(MagicBook.StandardBook);
+
+        Assert.IsTrue(fixture.ClickHandlers[buttonId](buttonId, ComponentClickType.LeftClick, 0, 0));
+        var autocast = (StandardCombatSpell)fixture.Character.Magic.ReceivedCalls()
+            .Single(call => call.GetMethodInfo().Name == nameof(IMagic.SetAutoCastingSpell)).GetArguments()[0]!;
+        Assert.AreEqual(StandardRowLevel(buttonId), autocast.Dto.RequiredLevel);
+        Assert.AreEqual(MagicBook.StandardBook, autocast.Dto.SpellBook);
+
+        Assert.IsTrue(fixture.UseOnCreatureHandlers[buttonId](buttonId, Substitute.For<ICreature>(), false, 0, 0));
+        Assert.AreEqual(StandardRowLevel(buttonId), ((StandardCombatSpell)fixture.Character.Magic.SelectedSpell!).Dto.RequiredLevel);
+    }
+
+    private static int AncientRowLevel(int buttonId) => 1000 + buttonId;
+
+    private static int StandardRowLevel(int buttonId) => 2000 + buttonId;
+
+    private static void AssertAncientRow(AncientCombatSpell spell, int buttonId, Type family, int spellType)
+    {
+        Assert.IsInstanceOfType(spell, family);
+        Assert.AreEqual(spellType, spell.SpellType);
+        Assert.AreEqual(AncientRowLevel(buttonId), spell.Dto.RequiredLevel);
+        Assert.AreEqual(MagicBook.AncientBook, spell.Dto.SpellBook);
+    }
+
+    private sealed record OpenedSpellBook(
+        ICharacter Character, Dictionary<int, OnComponentClick> ClickHandlers, Dictionary<int, OnComponentUsedOnCreature> UseOnCreatureHandlers);
+
+    /// <summary>
+    ///     Opens the real tab for a character on the given book with Ancient rows 20-39 and standard rows that collide on some of those buttons.
+    ///     Each row carries a distinct level so the test can tell which row a handler selected.
+    /// </summary>
+    private static OpenedSpellBook OpenSpellBook(MagicBook book)
+    {
+        var character = Substitute.For<ICharacter>();
+        character.Profile.GetValue<MagicBook>(Arg.Any<string>(), Arg.Any<MagicBook>()).Returns(book);
+        character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true);
+        character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
+        var accessor = Substitute.For<ICharacterContextAccessor>();
+        accessor.Context.Character.Returns(character);
+
+        var definitions = Enumerable.Range(20, 20)
+            .Select(buttonId => CreateDefinition(buttonId, MagicBook.AncientBook, AncientRowLevel(buttonId)))
+            .Concat(new[] { 25, 28, 30, 32, 34, 36, 39 }.Select(buttonId => CreateDefinition(buttonId, MagicBook.StandardBook, StandardRowLevel(buttonId))))
+            .ToArray();
+        var catalog = Substitute.For<ICombatSpellCatalog>();
+        catalog.CombatSpells.Returns(definitions);
+
+        var clickHandlers = new Dictionary<int, OnComponentClick>();
+        var useOnCreatureHandlers = new Dictionary<int, OnComponentUsedOnCreature>();
+        var widget = Substitute.For<IWidget>();
+        widget.When(w => w.AttachClickHandler(Arg.Any<int>(), Arg.Any<OnComponentClick>())).Do(call => clickHandlers[call.ArgAt<int>(0)] = call.ArgAt<OnComponentClick>(1));
+        widget.When(w => w.AttachUseOnCreatureHandler(Arg.Any<int>(), Arg.Any<OnComponentUsedOnCreature>()))
+            .Do(call => useOnCreatureHandlers[call.ArgAt<int>(0)] = call.ArgAt<OnComponentUsedOnCreature>(1));
+
+        using var provider = CreateProvider(accessor, catalog);
+        var tab = provider.GetRequiredService<SpellBookTab>();
+        tab.Initialize(widget);
+        tab.OnOpen();
+        return new OpenedSpellBook(character, clickHandlers, useOnCreatureHandlers);
+    }
+
+    private static CombatSpellDto CreateDefinition(int buttonId, MagicBook book, int level) => new()
+    {
+        ButtonId = buttonId,
+        SpellBook = book,
+        RequiredLevel = level,
+        RequiredRunes = [],
+        RequiredRunesCounts = []
+    };
+
     private static CombatSpellDto[] CreateDefinitions() =>
         Enumerable.Range(20, 20).Select(buttonId => new CombatSpellDto { ButtonId = buttonId, SpellBook = MagicBook.AncientBook, RequiredLevel = buttonId }).ToArray();
 
-    private static ServiceProvider CreateProvider()
+    private static ServiceProvider CreateProvider(ICharacterContextAccessor? accessor = null, ICombatSpellCatalog? catalog = null)
     {
         var services = new ServiceCollection();
-        services.AddSingleton(_ => Substitute.For<ICharacterContextAccessor>());
+        services.AddSingleton(_ => accessor ?? Substitute.For<ICharacterContextAccessor>());
         services.AddSingleton(_ => Substitute.For<IScopedGameMediator>());
         services.AddSingleton(_ => Substitute.For<IMagicService>());
-        services.AddSingleton(_ => Substitute.For<ICombatSpellCatalog>());
+        services.AddSingleton(_ => catalog ?? Substitute.For<ICombatSpellCatalog>());
         services.AddSingleton(_ => Substitute.For<IItemBuilder>());
         services.AddSingleton(_ => Substitute.For<IProjectileBuilder>());
         services.AddTransient<SpellBookTab>();
