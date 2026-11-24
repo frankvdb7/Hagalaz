@@ -5,6 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Scripts.Skills.Agility;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome;
@@ -50,7 +51,7 @@ public sealed class SignpostTests
         ITaskItem? queuedTask = null;
         clicker.QueueTask(Arg.Do<ITaskItem>(task => queuedTask = task)).Returns(Substitute.For<IRsTaskHandle>());
 
-        var script = new TestSignpost(Substitute.For<IMovementBuilder>(), Substitute.For<IAgilityService>());
+        var script = new TestSignpost(Substitute.For<IMovementBuilder>(), Substitute.For<IAgilitySkillService>());
         script.Initialize(target);
         script.OnCharacterClick(clicker, GameObjectClickType.Option1Click, false);
 
@@ -61,7 +62,7 @@ public sealed class SignpostTests
         pathFinder.DidNotReceive().Find(clicker, target, true);
     }
 
-    private sealed class TestSignpost(IMovementBuilder movementBuilder, IAgilityService agilityService) : Signpost(movementBuilder, agilityService)
+    private sealed class TestSignpost(IMovementBuilder movementBuilder, IAgilitySkillService agilitySkillService) : Signpost(movementBuilder, agilitySkillService)
     {
         public bool InteractionPerformed { get; private set; }
 

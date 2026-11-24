@@ -2,7 +2,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Model.GameObjects;
@@ -14,9 +13,9 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69506])]
     public class Tree : GameObjectScript
     {
-        private readonly IAgilityService _agilityService;
+        private readonly IAgilitySkillService _agilitySkillService;
 
-        public Tree(IAgilityService agilityService) => _agilityService = agilityService;
+        public Tree(IAgilitySkillService agilitySkillService) => _agilitySkillService = agilitySkillService;
 
         /// <summary>
         ///     The speak texts
@@ -32,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                var requiredLevel = _agilityService.FindObstacleByObjectId(Owner.Id)?.RequiredLevel ?? 1;
+                var requiredLevel = _agilitySkillService.GetRequiredLevel(Owner.Id);
                 if (clicker.Statistics.GetSkillLevel(StatisticsConstants.Agility) < requiredLevel)
                 {
                     clicker.SendChatMessage($"You need an agility level of {requiredLevel} to climb even higher.");
@@ -47,11 +46,11 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.SendChatMessage("...to an even higher platform.");
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(clicker.Location.X, 3420, 3, clicker.Location.Dimension)));
-                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.AddState(new GnomeCourseTreeState());
                         clicker.Movement.Unlock(false);
                     }, 2));
-                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
+                _agilitySkillService.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

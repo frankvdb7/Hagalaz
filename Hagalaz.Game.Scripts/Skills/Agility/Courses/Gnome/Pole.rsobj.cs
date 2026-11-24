@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
@@ -16,12 +15,12 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     public class Pole : GameObjectScript
     {
         private readonly IMovementBuilder _movementBuilder;
-        private readonly IAgilityService _agilityService;
+        private readonly IAgilitySkillService _agilitySkillService;
 
-        public Pole(IMovementBuilder movementBuilder, IAgilityService agilityService)
+        public Pole(IMovementBuilder movementBuilder, IAgilitySkillService agilitySkillService)
         {
             _movementBuilder = movementBuilder;
-            _agilityService = agilityService;
+            _agilitySkillService = agilitySkillService;
         }
 
         /// <summary>
@@ -145,7 +144,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         // platform
                         clicker.Movement.Teleport(Teleport.Create(movement.EndLocation));
                         clicker.AddState(new GnomeCoursePoleState());
-                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.Movement.Unlock(false);
                         task.Cancel();
                     }

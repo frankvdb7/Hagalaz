@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
@@ -15,9 +14,9 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69377, 69378])]
     public class ObstaclePipe : GameObjectScript
     {
-        private readonly IAgilityService _agilityService;
+        private readonly IAgilitySkillService _agilitySkillService;
 
-        public ObstaclePipe(IAgilityService agilityService) => _agilityService = agilityService;
+        public ObstaclePipe(IAgilitySkillService agilitySkillService) => _agilitySkillService = agilitySkillService;
 
         /// <summary>
         ///     Called when [character click perform].
@@ -62,10 +61,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     else if (task.TickCount >= 8) // 8 ticks = 7 steps
                     {
                         clicker.Movement.Unlock(false);
-                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.ResetMovementType();
                         clicker.AddState(new GnomeCourseObstaclePipeState());
-                        Agility.CheckGnomeCourseCompletion(clicker, _agilityService);
+                        _agilitySkillService.CheckGnomeCourseCompletion(clicker);
                         task.Cancel();
                     }
                 });

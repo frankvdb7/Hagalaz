@@ -15,7 +15,7 @@
 
 ## 4. Scripts
 
-- [x] 4.1 Replace literals in Gnome obstacle scripts and `Agility.CheckGnomeCourseCompletion` with service lookups; verify tests from 1.1 pass against a substituted service
+- [x] 4.1 Replace literals in Gnome obstacle scripts and `AgilitySkillService` with service lookups; verify tests from 1.1 pass against a substituted service
 
 ## 5. Integration
 

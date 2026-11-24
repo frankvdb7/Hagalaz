@@ -8,27 +8,34 @@ using Hagalaz.Game.Abstractions.Services.Model;
 namespace Hagalaz.Game.Scripts.Skills.Agility
 {
     /// <summary>
+    ///     Functionality for the Agility skill.
     /// </summary>
-    public static class Agility
+    public class AgilitySkillService : IAgilitySkillService
     {
+        private readonly IAgilityService _agilityService;
+
+        public AgilitySkillService(IAgilityService agilityService) => _agilityService = agilityService;
+
+        /// <inheritdoc />
+        public int GetRequiredLevel(int objectId) => _agilityService.FindObstacleByObjectId(objectId)?.RequiredLevel ?? 1;
+
         /// <summary>
         ///     Grants the persisted experience of the obstacle with the given object id. Nothing is granted when the obstacle has no definition.
         /// </summary>
         /// <param name="character">The character.</param>
-        /// <param name="agilityService">The agility service.</param>
         /// <param name="objectId">The object id of the obstacle.</param>
-        public static void AddObstacleExperience(ICharacter character, IAgilityService agilityService, int objectId)
+        public void AddObstacleExperience(ICharacter character, int objectId)
         {
-            var obstacle = agilityService.FindObstacleByObjectId(objectId);
+            var obstacle = _agilityService.FindObstacleByObjectId(objectId);
             if (obstacle != null)
             {
                 character.Statistics.AddExperience(StatisticsConstants.Agility, obstacle.Experience);
             }
         }
 
-        private static void AddCourseCompletionExperience(ICharacter character, IAgilityService agilityService, AgilityCourseId courseId)
+        private void AddCourseCompletionExperience(ICharacter character, AgilityCourseId courseId)
         {
-            var course = agilityService.FindCourseById(courseId);
+            var course = _agilityService.FindCourseById(courseId);
             if (course != null)
             {
                 character.Statistics.AddExperience(StatisticsConstants.Agility, course.CompletionExperience);
@@ -39,8 +46,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
         ///     Checks the gnome course completion.
         /// </summary>
         /// <param name="character">The character.</param>
-        /// <param name="agilityService">The agility service.</param>
-        public static void CheckGnomeCourseCompletion(ICharacter character, IAgilityService agilityService)
+        public void CheckGnomeCourseCompletion(ICharacter character)
         {
             // check basic gnome course completion
             if (character.HasState<GnomeCourseLogBalanceState>() && character.HasState<GnomeCourseFirstObstacleNetState>()
@@ -55,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
                 character.RemoveState<GnomeCourseTreeBranchDownState>();
                 character.RemoveState<GnomeCourseSecondObstacleNetState>();
                 character.RemoveState<GnomeCourseObstaclePipeState>();
-                AddCourseCompletionExperience(character, agilityService, AgilityCourseId.GnomeBasic);
+                AddCourseCompletionExperience(character, AgilityCourseId.GnomeBasic);
             }
             // check advanced gnome course completion
             else if (character.HasState<GnomeCourseLogBalanceState>() && character.HasState<GnomeCourseFirstObstacleNetState>()
@@ -70,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
                 character.RemoveState<GnomeCourseSignpostState>();
                 character.RemoveState<GnomeCoursePoleState>();
                 character.RemoveState<GnomeCourseBarrierState>();
-                AddCourseCompletionExperience(character, agilityService, AgilityCourseId.GnomeAdvanced);
+                AddCourseCompletionExperience(character, AgilityCourseId.GnomeAdvanced);
             }
         }
 
@@ -79,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="npcSpeakText">The NPC speak text.</param>
-        public static void CheckGnomeCourseNpCs(ICharacter character, string npcSpeakText)
+        public void CheckGnomeCourseNpCs(ICharacter character, string npcSpeakText)
         {
             var npc = character.Viewport.VisibleNpcs.Where(n => n.SpeakingText == null && n.WithinRange(n, 5)).FirstOrDefault();
             if (npc != null)

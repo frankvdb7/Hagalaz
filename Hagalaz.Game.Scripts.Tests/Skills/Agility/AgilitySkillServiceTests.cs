@@ -3,14 +3,15 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using NSubstitute;
-using AgilityScripts = Hagalaz.Game.Scripts.Skills.Agility.Agility;
+using Hagalaz.Game.Scripts.Skills.Agility;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Agility;
 
 [TestClass]
-public sealed class AgilityTests
+public sealed class AgilitySkillServiceTests
 {
     private IAgilityService _agilityService = null!;
+    private AgilitySkillService _service = null!;
     private ICharacter _character = null!;
     private ICharacterStatistics _statistics = null!;
 
@@ -22,6 +23,7 @@ public sealed class AgilityTests
             .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeBasic, CompletionExperience = 39 });
         _agilityService.FindCourseById(AgilityCourseId.GnomeAdvanced)
             .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeAdvanced, CompletionExperience = 605 });
+        _service = new AgilitySkillService(_agilityService);
         _statistics = Substitute.For<ICharacterStatistics>();
         _character = Substitute.For<ICharacter>();
         _character.Statistics.Returns(_statistics);
@@ -32,7 +34,7 @@ public sealed class AgilityTests
     {
         GiveBasicCourseStates();
 
-        AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
+        _service.CheckGnomeCourseCompletion(_character);
 
         _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 39);
         _statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
@@ -45,7 +47,7 @@ public sealed class AgilityTests
     {
         GiveAdvancedCourseStates();
 
-        AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
+        _service.CheckGnomeCourseCompletion(_character);
 
         _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 605);
         _statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
@@ -58,7 +60,7 @@ public sealed class AgilityTests
     {
         _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
 
-        AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
+        _service.CheckGnomeCourseCompletion(_character);
 
         _statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
@@ -69,7 +71,7 @@ public sealed class AgilityTests
         _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).Returns((AgilityCourseDto?)null);
         GiveBasicCourseStates();
 
-        AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
+        _service.CheckGnomeCourseCompletion(_character);
 
         _statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
         _character.Received(1).RemoveState<GnomeCourseObstaclePipeState>();
@@ -81,7 +83,7 @@ public sealed class AgilityTests
         _agilityService.FindObstacleByObjectId(69526)
             .Returns(new AgilityObstacleDto { ObjectId = 69526, Experience = 7.5, RequiredLevel = 1 });
 
-        AgilityScripts.AddObstacleExperience(_character, _agilityService, 69526);
+        _service.AddObstacleExperience(_character, 69526);
 
         _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 7.5);
     }
@@ -91,7 +93,7 @@ public sealed class AgilityTests
     {
         _agilityService.FindObstacleByObjectId(1).Returns((AgilityObstacleDto?)null);
 
-        AgilityScripts.AddObstacleExperience(_character, _agilityService, 1);
+        _service.AddObstacleExperience(_character, 1);
 
         _statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
