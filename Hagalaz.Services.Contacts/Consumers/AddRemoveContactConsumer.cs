@@ -70,6 +70,7 @@ namespace Hagalaz.Services.Contacts.Consumers
             var characterSession = _contactSessions.GetOrDefault(message.MasterId);
             var masterDto = _mapper.Map<ContactDto>(character) with
             {
+                AreMutualFriends = contactFriend != null,
                 WorldId = characterSession?.WorldId,
                 WorldName = characterSession?.WorldName,
                 SessionGeneration = characterSession?.SessionGeneration,
@@ -80,7 +81,10 @@ namespace Hagalaz.Services.Contacts.Consumers
                 MasterId = message.MasterId,
                 Contact = contactDto
             });
-            var publishTask = context.Publish(new ContactAddedMessage(masterDto, contactDto));
+            // Ignore adds are not friendships: the other party must not be told, nor treated as mutual.
+            var publishTask = message.Ignore
+                ? Task.CompletedTask
+                : context.Publish(new ContactAddedMessage(masterDto, contactDto));
             await Task.WhenAll(responseTask, publishTask);
         }
 

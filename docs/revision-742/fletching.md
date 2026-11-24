@@ -10,7 +10,7 @@ Bow shafts/stringing, arrow and bolt creation, material/tool requirements, batch
 
 - `Hagalaz.Game.Scripts/Skills/Fletching/FletchingSkillService.cs`
 - `Hagalaz.Game.Scripts/Skills/Fletching/FletchingTask.cs`
-- `Hagalaz.Game.Scripts/Skills/Fletching/FletchingDefinition.cs`
+- `Hagalaz.Services.GameWorld/Services/FletchingService.cs` (persisted recipes, issue #374)
 - `Hagalaz.Game.Scripts.Tests/Skills/Fletching/FletchingCallbackRegressionTests.cs`
 
 ## Implementation path

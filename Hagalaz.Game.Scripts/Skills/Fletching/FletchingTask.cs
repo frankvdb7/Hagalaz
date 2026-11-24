@@ -2,6 +2,7 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
 
@@ -20,7 +21,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="totalFletchCount">The total cook count.</param>
         /// <param name="onFletchPerformCallback">The on fletch perform callback.</param>
         /// <param name="tickDelay">The tick delay.</param>
-        public FletchingTask(ICharacter performer, FletchingDefinition definition, int productIndex, int totalFletchCount, Func<int, bool> onFletchPerformCallback, int tickDelay)
+        public FletchingTask(ICharacter performer, FletchingDto definition, int productIndex, int totalFletchCount, Func<int, bool> onFletchPerformCallback, int tickDelay)
         {
             Performer = performer;
             Definition = definition;
@@ -51,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <summary>
         ///     The definition.
         /// </summary>
-        private FletchingDefinition Definition { get; }
+        private FletchingDto Definition { get; }
 
         /// <summary>
         ///     The times performed.

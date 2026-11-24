@@ -4136,9 +4136,13 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("resource_id");
 
-                    b.Property<ushort>("AnimationId")
+                    b.Property<ushort?>("AnimationId")
                         .HasColumnType("smallint(6) unsigned")
                         .HasColumnName("animation_id");
+
+                    b.Property<byte>("Category")
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasColumnName("category");
 
                     b.Property<string>("ProductCounts")
                         .IsRequired()

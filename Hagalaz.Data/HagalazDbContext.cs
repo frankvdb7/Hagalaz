@@ -2746,6 +2746,8 @@ namespace Hagalaz.Data
 
                 entity.Property(e => e.AnimationId).HasColumnType("smallint(6) unsigned").HasColumnName("animation_id");
 
+                entity.Property(e => e.Category).HasColumnType("tinyint(3) unsigned").HasColumnName("category");
+
                 entity.Property(e => e.ProductCounts).HasMaxLength(255).HasColumnName("product_counts").HasDefaultValueSql("'1,1,1,1'");
 
                 entity.Property(e => e.ProductExperiences).HasMaxLength(255).HasColumnName("product_experiences").HasDefaultValueSql("'0,0,0,0'");
