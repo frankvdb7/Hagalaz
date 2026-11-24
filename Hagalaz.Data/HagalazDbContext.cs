@@ -78,6 +78,8 @@ namespace Hagalaz.Data
         public virtual DbSet<Quest> Quests { get; set; } = null!;
         public virtual DbSet<ReservedName> ReservedNames { get; set; } = null!;
         public virtual DbSet<Shop> Shops { get; set; } = null!;
+        public virtual DbSet<SkillsAgilityCourseDefinition> SkillsAgilityCourseDefinitions { get; set; } = null!;
+        public virtual DbSet<SkillsAgilityObstacleDefinition> SkillsAgilityObstacleDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsCookingFoodDefinition> SkillsCookingFoodDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsCookingRawFoodDefinition> SkillsCookingRawFoodDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsCraftingGemDefinition> SkillsCraftingGemDefinitions { get; set; } = null!;
@@ -2579,6 +2581,34 @@ namespace Hagalaz.Data
                 entity.Property(e => e.Type).HasColumnType("enum('Herb','Bush','FruitTree','Flower','Hop','Tree','Allotment')").HasColumnName("type");
 
                 entity.Property(e => e.VarpbitIndex).HasColumnType("tinyint(3)").HasColumnName("varpbit_index");
+            });
+
+            modelBuilder.Entity<SkillsAgilityCourseDefinition>(entity =>
+            {
+                entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+                entity.ToTable("skills_agility_course_definitions");
+
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
+
+                entity.Property(e => e.Id).HasColumnType("tinyint(3) unsigned").ValueGeneratedNever().HasColumnName("id");
+
+                entity.Property(e => e.CompletionExperience).HasPrecision(11, 2).HasColumnName("completion_experience");
+            });
+
+            modelBuilder.Entity<SkillsAgilityObstacleDefinition>(entity =>
+            {
+                entity.HasKey(e => e.ObjectId).HasName("PRIMARY");
+
+                entity.ToTable("skills_agility_obstacle_definitions");
+
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
+
+                entity.Property(e => e.ObjectId).HasColumnType("int(11) unsigned").ValueGeneratedNever().HasColumnName("object_id");
+
+                entity.Property(e => e.Experience).HasPrecision(11, 2).HasColumnName("experience");
+
+                entity.Property(e => e.RequiredLevel).HasColumnType("tinyint(3) unsigned").HasColumnName("required_level").HasDefaultValueSql("'1'");
             });
 
             modelBuilder.Entity<SkillsFiremakingDefinition>(entity =>

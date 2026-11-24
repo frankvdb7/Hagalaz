@@ -2,6 +2,7 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Model.GameObjects;
@@ -13,6 +14,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69383])]
     public class FirstObstacleNet : GameObjectScript
     {
+        private readonly IAgilityService _agilityService;
+
+        public FirstObstacleNet(IAgilityService agilityService) => _agilityService = agilityService;
+
         /// <summary>
         ///     The speak texts
         /// </summary>
@@ -34,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 clicker.QueueTask(new RsTask(() =>
                     {
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(clicker.Location.X, 3423, 1, clicker.Location.Dimension)));
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 7.5);
+                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
                         clicker.AddState(new GnomeCourseFirstObstacleNetState());
                         clicker.Movement.Unlock(false);
                     }, 2));

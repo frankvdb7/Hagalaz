@@ -18,13 +18,18 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     public class Signpost : GameObjectScript
     {
         private readonly IMovementBuilder _movementBuilder;
+        private readonly IAgilityService _agilityService;
 
         /// <summary>
         ///     The speak texts
         /// </summary>
         private static readonly string[] _speakTexts = ["Come on! I'd be over there by now"];
 
-        public Signpost(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
+        public Signpost(IMovementBuilder movementBuilder, IAgilityService agilityService)
+        {
+            _movementBuilder = movementBuilder;
+            _agilityService = agilityService;
+        }
 
         /// <summary>
         ///     Called when [character click].
@@ -90,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 clicker.QueueTask(new RsTask(() =>
                     {
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(2484, 3418, 3, clicker.Location.Dimension)));
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 25);
+                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
                         clicker.AddState(new GnomeCourseSignpostState());
                         clicker.Movement.Unlock(false);
                     }, 4));

@@ -2,6 +2,7 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Model.GameObjects;
@@ -13,6 +14,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69508])]
     public class FirstTreeBranch : GameObjectScript
     {
+        private readonly IAgilityService _agilityService;
+
+        public FirstTreeBranch(IAgilityService agilityService) => _agilityService = agilityService;
+
         /// <summary>
         ///     The speak texts
         /// </summary>
@@ -35,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.SendChatMessage("...to the platform above.");
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(2473, 3420, 2, clicker.Location.Dimension)));
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 5);
+                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
                         clicker.AddState(new GnomeCourseFirstTreeBranchState());
                         clicker.Movement.Unlock(false);
                     }, 2));

@@ -2,6 +2,8 @@
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility
 {
@@ -10,10 +12,35 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
     public static class Agility
     {
         /// <summary>
+        ///     Grants the persisted experience of the obstacle with the given object id. Nothing is granted when the obstacle has no definition.
+        /// </summary>
+        /// <param name="character">The character.</param>
+        /// <param name="agilityService">The agility service.</param>
+        /// <param name="objectId">The object id of the obstacle.</param>
+        public static void AddObstacleExperience(ICharacter character, IAgilityService agilityService, int objectId)
+        {
+            var obstacle = agilityService.FindObstacleByObjectId(objectId).Result;
+            if (obstacle != null)
+            {
+                character.Statistics.AddExperience(StatisticsConstants.Agility, obstacle.Experience);
+            }
+        }
+
+        private static void AddCourseCompletionExperience(ICharacter character, IAgilityService agilityService, AgilityCourseId courseId)
+        {
+            var course = agilityService.FindCourseById(courseId).Result;
+            if (course != null)
+            {
+                character.Statistics.AddExperience(StatisticsConstants.Agility, course.CompletionExperience);
+            }
+        }
+
+        /// <summary>
         ///     Checks the gnome course completion.
         /// </summary>
         /// <param name="character">The character.</param>
-        public static void CheckGnomeCourseCompletion(ICharacter character)
+        /// <param name="agilityService">The agility service.</param>
+        public static void CheckGnomeCourseCompletion(ICharacter character, IAgilityService agilityService)
         {
             // check basic gnome course completion
             if (character.HasState<GnomeCourseLogBalanceState>() && character.HasState<GnomeCourseFirstObstacleNetState>()
@@ -28,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
                 character.RemoveState<GnomeCourseTreeBranchDownState>();
                 character.RemoveState<GnomeCourseSecondObstacleNetState>();
                 character.RemoveState<GnomeCourseObstaclePipeState>();
-                character.Statistics.AddExperience(StatisticsConstants.Agility, 39);
+                AddCourseCompletionExperience(character, agilityService, AgilityCourseId.GnomeBasic);
             }
             // check advanced gnome course completion
             else if (character.HasState<GnomeCourseLogBalanceState>() && character.HasState<GnomeCourseFirstObstacleNetState>()
@@ -43,7 +70,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
                 character.RemoveState<GnomeCourseSignpostState>();
                 character.RemoveState<GnomeCoursePoleState>();
                 character.RemoveState<GnomeCourseBarrierState>();
-                character.Statistics.AddExperience(StatisticsConstants.Agility, 605);
+                AddCourseCompletionExperience(character, agilityService, AgilityCourseId.GnomeAdvanced);
             }
         }
 

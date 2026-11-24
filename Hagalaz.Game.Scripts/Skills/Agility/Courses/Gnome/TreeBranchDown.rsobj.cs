@@ -2,6 +2,7 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
@@ -12,6 +13,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69507])]
     public class TreeBranchDown : GameObjectScript
     {
+        private readonly IAgilityService _agilityService;
+
+        public TreeBranchDown(IAgilityService agilityService) => _agilityService = agilityService;
+
         /// <summary>
         ///     Called when [character click perform].
         /// </summary>
@@ -29,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.SendChatMessage("...you land on the ground.");
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(2487, 3421, 0, clicker.Location.Dimension)));
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 5);
+                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
                         clicker.AddState(new GnomeCourseTreeBranchDownState());
                         clicker.Movement.Unlock(false);
                     }, 2));

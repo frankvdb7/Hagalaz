@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Model.GameObjects;
@@ -14,6 +15,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([2312, 4059])]
     public class BalancingRope : GameObjectScript
     {
+        private readonly IAgilityService _agilityService;
+
+        public BalancingRope(IAgilityService agilityService) => _agilityService = agilityService;
+
         /// <summary>
         ///     The speak texts
         /// </summary>
@@ -54,7 +59,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.Movement.Unlock(false);
                         clicker.Appearance.ResetRenderID();
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 7.5);
+                        Agility.AddObstacleExperience(clicker, _agilityService, Owner.Id);
                         clicker.AddState(new GnomeCourseBalancingRopeState());
                         clicker.ResetMovementType();
                         task.Cancel();

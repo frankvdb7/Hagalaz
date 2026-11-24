@@ -50,7 +50,7 @@ public sealed class SignpostTests
         ITaskItem? queuedTask = null;
         clicker.QueueTask(Arg.Do<ITaskItem>(task => queuedTask = task)).Returns(Substitute.For<IRsTaskHandle>());
 
-        var script = new TestSignpost(Substitute.For<IMovementBuilder>());
+        var script = new TestSignpost(Substitute.For<IMovementBuilder>(), Substitute.For<IAgilityService>());
         script.Initialize(target);
         script.OnCharacterClick(clicker, GameObjectClickType.Option1Click, false);
 
@@ -61,7 +61,7 @@ public sealed class SignpostTests
         pathFinder.DidNotReceive().Find(clicker, target, true);
     }
 
-    private sealed class TestSignpost(IMovementBuilder movementBuilder) : Signpost(movementBuilder)
+    private sealed class TestSignpost(IMovementBuilder movementBuilder, IAgilityService agilityService) : Signpost(movementBuilder, agilityService)
     {
         public bool InteractionPerformed { get; private set; }
 

@@ -394,6 +394,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICraftingTanDefinitionRepository, CraftingTanDefinitionRepository>();
             services.AddScoped<ICraftingSpinDefinitionRepository, CraftingSpinDefinitionRepository>();
             services.AddScoped<ICraftingService, CraftingService>();
+            services.AddScoped<IAgilityObstacleDefinitionRepository, AgilityObstacleDefinitionRepository>();
+            services.AddScoped<IAgilityCourseDefinitionRepository, AgilityCourseDefinitionRepository>();
+            services.AddScoped<IAgilityService, AgilityService>();
             services.AddScoped<IFiremakingRepository, FiremakingRepository>();
             services.AddScoped<IFiremakingService, FiremakingService>();
             services.AddScoped<IHerbloreService, HerbloreService>();
