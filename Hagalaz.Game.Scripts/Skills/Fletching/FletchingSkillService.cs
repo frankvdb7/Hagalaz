@@ -1,9 +1,10 @@
 using System;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
+using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
@@ -12,143 +13,18 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
     public class FletchingSkillService : IFletchingSkillService
     {
         private readonly IItemBuilder _itemBuilder;
+        private readonly IFletchingService _fletchingService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FletchingSkillService"/> class.
         /// </summary>
         /// <param name="itemBuilder">The item builder to create new items.</param>
-        public FletchingSkillService(IItemBuilder itemBuilder)
+        /// <param name="fletchingService">The service providing the persisted Fletching recipes.</param>
+        public FletchingSkillService(IItemBuilder itemBuilder, IFletchingService fletchingService)
         {
             _itemBuilder = itemBuilder;
+            _fletchingService = fletchingService;
         }
-
-        /// <summary>
-        ///     The wood
-        /// </summary>
-        public static readonly FletchingDefinition[] Wood =
-        [
-            new(1511, 946, [52, 50, 48, 9440], [1, 5, 10, 9], [0.33, 5.0, 10.0, 6.0], [15, 1, 1, 1], 6702), // normal bow
-            new(1521, 946, [54, 56, 9442], [20, 25, 24], [16.5, 25.0, 16.0], 6702), // oak bow
-            new(1519, 946, [60, 58, 9444], [35, 40, 39], [33.3, 41.5, 22.0], 6702), // willow bow
-            new(1517, 946, [64, 62, 9448], [50, 55, 54], [50.0, 58.3, 32.0], 6702), // maple bow
-            new(1515, 946, [68, 66, 9452], [65, 70, 69], [67.5, 75.0, 50.0], 6702), // yew bow
-            new(1513, 946, [72, 70], [80, 85], [83.25, 91.5], 6702) // magic bow
-        ];
-
-        /// <summary>
-        ///     The bows
-        /// </summary>
-        public static readonly FletchingDefinition[] Bows =
-        [
-            /*
-             * Bows
-             */ new(50, 1777, [841], [5], [5.0], 6678), // unstrung short bow
-            new(48, 1777, [839], [10], [10.0], 6684), // unstrung long bow
-
-            new(54, 1777, [843], [20], [16.5], 6679), // unstrung oak short bow
-            new(56, 1777, [845], [25], [25.0], 6685), // unstrung oak long bow
-
-            new(60, 1777, [849], [35], [33.3], 6680), // unstrung willow short bow
-            new(58, 1777, [847], [40], [41.5], 6686), // unstrung willow long bow
-
-            new(64, 1777, [853], [50], [50.0], 6681), // unstrung maple short bow
-            new(62, 1777, [851], [55], [58.3], 6687), // unstrung maple long bow
-
-            new(68, 1777, [857], [65], [67.5], 6682), // unstrung yew short bow
-            new(66, 1777, [855], [70], [75.0], 6688), // unstrung yew long bow
-
-            new(72, 1777, [861], [80], [83.25], 6683), // unstrung magic short bow
-            new(70, 1777, [859], [85], [91.5], 6689), // unstrung magic long bow
-
-            /*
-             * Crossbows
-             */ new(9440, 9420, [9454], [9], [6.0]), // bronze cbow (u)
-            new(9442, 9422, [9456], [24], [16.0]), // blurite cbow (u)
-            new(9444, 9423, [9457], [39], [22.0]), // iron cbow (u)
-            new(9446, 9425, [9459], [46], [27.0]), // steel cbow (u)
-            new(9448, 9427, [9461], [54], [32.0]), // mithril cbow (u)
-            new(9450, 9429, [9463], [61], [41.0]), // adamant cbow (u)
-            new(9452, 9431, [9465], [69], [50.0]), // rune cbow (u)
-
-            new(9454, 9438, [9174], [9], [6.0], 6671), // bronze cbow
-            new(9456, 9438, [9176], [24], [16.0], 6672), // blurite cbow
-            new(9457, 9438, [9177], [39], [22.0], 6673), // iron cbow
-            new(9459, 9438, [9179], [46], [27.0], 6674), // steel cbow
-            new(9461, 9438, [9181], [54], [32.0], 6675), // mithril cbow
-            new(9463, 9438, [9183], [61], [41.0], 6676), // adamant cbow
-            new(9465, 9438, [9185], [69], [50.0], 6677) // rune cbow
-        ];
-
-        /// <summary>
-        ///     The ammo
-        /// </summary>
-        public static readonly FletchingDefinition[] Ammo =
-        [
-            /*
-             * Arrows
-             */ new(52, 314, [53], [1], [1.0], [15]), // headless arrows
-            new(39, 53, [882], [1], [2.6], [15]), // bronze arrows
-            new(40, 53, [884], [15], [3.8], [15]), // iron arrows
-            new(41, 53, [886], [30], [6.3], [15]), // steel arrows
-            new(42, 53, [888], [45], [8.8], [15]), // mithril arrows
-            new(43, 53, [890], [60], [10.0], [15]), // adamant arrows
-            new(44, 53, [892], [75], [13.8], [15]), // rune arrows
-            new(11237, 53, [11212], [90], [16.3], [15]), // dragon arrows
-
-            /*
-             * Bolts
-             */ new(9375, 314, [877], [9], [0.5], [10]), // bronze bolts
-            new(9376, 314, [9139], [24], [1.0], [10]), // blurite bolts
-            new(9337, 314, [9140], [39], [1.5], [10]), // iron bolts
-            new(9382, 314, [9145], [43], [2.5], [10]), // silver bolts
-            new(9339, 314, [9141], [46], [3.5], [10]), // steel bolts
-            new(3979, 314, [9142], [54], [5.0], [10]), // mithril bolts
-            new(9380, 314, [9143], [61], [7.0], [10]), // adamant bolts
-            new(9381, 314, [9144], [69], [10.0], [10]), // rune bolts
-
-            new(45, 877, [879], [11], [1.6], [10]), // opal bolts
-            new(9187, 9376, [9335], [26], [2.4], [10]), // jade bolts
-            new(46, 9140, [880], [41], [3.2], [10]), // pearl bolts
-            new(9188, 9141, [9336], [48], [3.9], [10]), // red topaz bolts
-            new(47, 877, [881], [51], [9.5], [10]), // barbed bolts
-            new(9189, 9142, [9337], [56], [4.7], [10]), // sapphire bolts
-            new(9190, 9376, [9335], [58], [5.5], [10]), // emerald bolts
-            new(9191, 9143, [9339], [63], [6.3], [10]), // ruby bolts
-            new(9192, 9143, [9340], [65], [7.0], [10]), // diamond bolts
-            new(9193, 9144, [9341], [71], [8.2], [10]), // dragon bolts
-            new(9194, 9144, [9342], [73], [9.4], [10]), // onyx bolts
-
-            /*
-             * Darts
-             */ new(819, 314, [806], [1], [18.0], [10]), // bronze darts
-            new(820, 314, [807], [22], [32.0], [10]), // iron darts
-            new(821, 314, [808], [37], [75.0], [10]), // steel darts
-            new(822, 314, [809], [52], [112.0], [10]), // mithril darts
-            new(823, 314, [810], [67], [150.0], [10]), // adamant darts
-            new(824, 314, [811], [81], [188.0], [10]), // rune darts
-            new(11232, 314, [11230], [95], [250.0], [10]), // dragon darts
-
-            /*
-             * Misc
-             */ new(9416, 954, [9418], [59], [59.0]) // mithril grapple
-        ];
-
-        /// <summary>
-        ///     The tips
-        /// </summary>
-        public static readonly FletchingDefinition[] Tips =
-        [
-            new(1609, 1755, [45], [11], [1.5], [12]), new(1611, 1755, [9187], [26], [2.4], [12]), // jade bolt tips
-            new(413, 1755, [46], [41], [3.2], [24]), // 24 pearl bolt tips
-            new(411, 1755, [46], [41], [3.2], [6]), // 6 pearl bolt tips
-            new(1613, 1755, [9188], [48], [3.9], [12]), // topaz bolt tips
-            new(1607, 1755, [9189], [56], [4.7], [12]), // sapphire bolt tips
-            new(1605, 1755, [9190], [58], [5.5], [12]), // emerald bolt tips
-            new(1603, 1755, [9191], [63], [6.3], [12]), // ruby bolt tips
-            new(1601, 1755, [9192], [65], [7.0], [12]), // diamond bolt tips
-            new(1615, 1755, [9193], [71], [8.2], [12]), // dragon bolt tips
-            new(6573, 1755, [9194], [73], [9.4], [24]) // onyx bolt tips
-        ];
 
         /// <summary>
         ///     Tries the make strung bow.
@@ -157,59 +33,15 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The item.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public bool TryFletchWood(ICharacter character, IItem used, IItem usedWith)
-        {
-            var definitionId = GetWoodDefinitionId(used, usedWith);
-            if (definitionId == -1)
-            {
-                definitionId = GetWoodDefinitionId(usedWith, used);
-                if (definitionId == -1)
-                {
-                    return false;
-                }
-            }
+        public bool TryFletchWood(ICharacter character, IItem used, IItem usedWith) =>
+            TryOpenDialogue(character, used, usedWith, FletchingCategory.Wood, 3, definition => CreateFletchWoodCallback(character, definition));
 
-            // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
-            {
-                return false;
-            }
-
-            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
-            {
-                return false;
-            }
-
-            var definition = Wood[definitionId];
-            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
-            dialogue.ProductIds = definition.ProductIDs;
-            dialogue.Options = InteractiveDialogueOptions.Make;
-            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
-            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
-            {
-                if (currentCount > 0)
-                {
-                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
-                    TryStartFletching(character, definition, CreateFletchWoodCallback(character, definition), productIndex, 3, currentCount);
-                }
-
-                return true;
-            };
-
-
-            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
-            dialogue.SetMaxCount(count, false);
-            dialogue.SetCurrentCount(count, false);
-
-            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
-        }
-
-        private Func<int, bool> CreateFletchWoodCallback(ICharacter character, FletchingDefinition definition)
+        private Func<int, bool> CreateFletchWoodCallback(ICharacter character, FletchingDto definition)
         {
             return productIndex =>
             {
                 var amount = 1;
-                var resource = character.Inventory.Items.GetById(definition.ResourceID);
+                var resource = character.Inventory.Items.GetById(definition.ResourceId);
                 if (resource == null)
                 {
                     return true;
@@ -227,8 +59,8 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                amount = definition.ProductAmounts[productIndex];
-                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
+                amount = definition.ProductCounts[productIndex];
+                var product = _itemBuilder.Create().WithId(definition.ProductIds[productIndex]).WithCount(amount).Build();
                 character.Inventory.AddItem(product);
                 if (amount > 1)
                 {
@@ -239,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     character.SendChatMessage("You carefully cut the wood into a " + product.Name.ToLower() + ".");
                 }
 
-                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
+                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.ProductExperiences[productIndex] * amount);
                 return false;
             };
         }
@@ -251,54 +83,10 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public bool TryFletchBow(ICharacter character, IItem used, IItem usedWith)
-        {
-            var definitionId = GetBowDefinitionId(used, usedWith);
-            if (definitionId == -1)
-            {
-                definitionId = GetBowDefinitionId(usedWith, used);
-                if (definitionId == -1)
-                {
-                    return false;
-                }
-            }
+        public bool TryFletchBow(ICharacter character, IItem used, IItem usedWith) =>
+            TryOpenDialogue(character, used, usedWith, FletchingCategory.Bow, 2, definition => CreateFletchBowCallback(character, definition));
 
-            // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
-            {
-                return false;
-            }
-
-            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
-            {
-                return false;
-            }
-
-            var definition = Bows[definitionId];
-            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
-            dialogue.ProductIds = definition.ProductIDs;
-            dialogue.Options = InteractiveDialogueOptions.Make;
-            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
-            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
-            {
-                if (currentCount > 0)
-                {
-                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
-                    TryStartFletching(character, definition, CreateFletchBowCallback(character, definition), productIndex, 2, currentCount);
-                }
-
-                return true;
-            };
-
-
-            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
-            dialogue.SetMaxCount(count, false);
-            dialogue.SetCurrentCount(count, false);
-
-            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
-        }
-
-        private Func<int, bool> CreateFletchBowCallback(ICharacter character, FletchingDefinition definition)
+        private Func<int, bool> CreateFletchBowCallback(ICharacter character, FletchingDto definition)
         {
             return productIndex =>
             {
@@ -316,75 +104,31 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).Build();
+                var product = _itemBuilder.Create().WithId(definition.ProductIds[productIndex]).Build();
                 character.Inventory.AddItem(resourceSlot, product);
                 character.SendChatMessage("You add a " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
-                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex]);
+                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.ProductExperiences[productIndex]);
                 return false;
             };
         }
 
         /// <summary>
-        ///     Tries the fletch a bow (u) to a bow.
+        ///     Tries the fletch ammunition.
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public bool TryFletchAmmo(ICharacter character, IItem used, IItem usedWith)
-        {
-            var definitionId = GetAmmoDefinitionId(used, usedWith);
-            if (definitionId == -1)
-            {
-                definitionId = GetAmmoDefinitionId(usedWith, used);
-                if (definitionId == -1)
-                {
-                    return false;
-                }
-            }
+        public bool TryFletchAmmo(ICharacter character, IItem used, IItem usedWith) =>
+            TryOpenDialogue(character, used, usedWith, FletchingCategory.Ammo, 1, definition => CreateFletchAmmoCallback(character, definition));
 
-            // check if the instances do exist, this is merely a check to prevent 'fake' items.
-            if (character.Inventory.Items.GetInstanceSlot(used) == -1)
-            {
-                return false;
-            }
-
-            if (character.Inventory.Items.GetInstanceSlot(usedWith) == -1)
-            {
-                return false;
-            }
-
-            var definition = Ammo[definitionId];
-            var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
-            dialogue.ProductIds = definition.ProductIDs;
-            dialogue.Options = InteractiveDialogueOptions.Make;
-            dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
-            dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
-            {
-                if (currentCount > 0)
-                {
-                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
-                    TryStartFletching(character, definition, CreateFletchAmmoCallback(character, definition), productIndex, 1, currentCount);
-                }
-
-                return true;
-            };
-
-
-            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
-            dialogue.SetMaxCount(count, false);
-            dialogue.SetCurrentCount(count, false);
-
-            return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
-        }
-
-        private Func<int, bool> CreateFletchAmmoCallback(ICharacter character, FletchingDefinition definition)
+        private Func<int, bool> CreateFletchAmmoCallback(ICharacter character, FletchingDto definition)
         {
             return productIndex =>
             {
                 if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out var toolSlot)) return true;
 
-                var amount = definition.ProductAmounts[productIndex];
+                var amount = definition.ProductCounts[productIndex];
 
                 var itemAmount = character.Inventory.Items.GetCount(resource);
                 if (itemAmount < amount)
@@ -415,10 +159,10 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                     return true;
                 }
 
-                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
+                var product = _itemBuilder.Create().WithId(definition.ProductIds[productIndex]).WithCount(amount).Build();
                 character.Inventory.AddItem(product);
                 character.SendChatMessage("You attach " + tool.Name.ToLower() + " to the " + product.Name.ToLower() + ".");
-                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
+                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.ProductExperiences[productIndex] * amount);
                 return false;
             };
         }
@@ -430,16 +174,41 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="used">The used.</param>
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
-        public bool TryFletchTips(ICharacter character, IItem used, IItem usedWith)
+        public bool TryFletchTips(ICharacter character, IItem used, IItem usedWith) =>
+            TryOpenDialogue(character, used, usedWith, FletchingCategory.Tips, 3, definition => CreateFletchTipsCallback(character, definition));
+
+        private Func<int, bool> CreateFletchTipsCallback(ICharacter character, FletchingDto definition)
         {
-            var definitionId = GetTipsDefinitionId(used, usedWith);
-            if (definitionId == -1)
+            return productIndex =>
             {
-                definitionId = GetTipsDefinitionId(usedWith, used);
-                if (definitionId == -1)
+                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out _)) return true;
+
+                var amount = definition.ProductCounts[productIndex];
+
+                var removed = character.Inventory.RemoveItem(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
+                if (removed <= 0)
                 {
-                    return false;
+                    return true;
                 }
+
+                var product = _itemBuilder.Create().WithId(definition.ProductIds[productIndex]).WithCount(amount).Build();
+                character.Inventory.AddItem(product);
+                character.SendChatMessage("You cut the " + resource.Name.ToLower() + " to " + amount + " x " + product.Name.ToLower() + ".");
+                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.ProductExperiences[productIndex] * amount);
+                return false;
+            };
+        }
+
+        /// <summary>
+        ///     Opens the make dialogue when the used items form a recipe of the category.
+        /// </summary>
+        private bool TryOpenDialogue(
+            ICharacter character, IItem used, IItem usedWith, FletchingCategory category, int tickDelay, Func<FletchingDto, Func<int, bool>> createCallback)
+        {
+            var definition = _fletchingService.FindRecipe(category, used.Id, usedWith.Id);
+            if (definition == null)
+            {
+                return false;
             }
 
             // check if the instances do exist, this is merely a check to prevent 'fake' items.
@@ -453,61 +222,38 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
                 return false;
             }
 
-            var definition = Tips[definitionId];
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
-            dialogue.ProductIds = definition.ProductIDs;
+            dialogue.ProductIds = definition.ProductIds;
             dialogue.Options = InteractiveDialogueOptions.Make;
             dialogue.Info = "Choose how many you wish to make, <br>then click on the item to begin.";
             dialogue.PerformMakeProductCallback = (selectedItemID, currentCount) =>
             {
                 if (currentCount > 0)
                 {
-                    var productIndex = Array.IndexOf(definition.ProductIDs, selectedItemID);
-                    TryStartFletching(character, definition, CreateFletchTipsCallback(character, definition), productIndex, 3, currentCount);
+                    var productIndex = Array.IndexOf(definition.ProductIds, selectedItemID);
+                    TryStartFletching(character, definition, createCallback(definition), productIndex, tickDelay, currentCount);
                 }
 
                 return true;
             };
 
 
-            var count = character.Inventory.Items.GetCountById(definition.ResourceID);
+            var count = character.Inventory.Items.GetCountById(definition.ResourceId);
             dialogue.SetMaxCount(count, false);
             dialogue.SetCurrentCount(count, false);
 
             return InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 
-        private Func<int, bool> CreateFletchTipsCallback(ICharacter character, FletchingDefinition definition)
-        {
-            return productIndex =>
-            {
-                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out _)) return true;
-
-                var amount = definition.ProductAmounts[productIndex];
-
-                var removed = character.Inventory.RemoveItem(_itemBuilder.Create().WithId(resource.Id).Build(), resourceSlot);
-                if (removed <= 0)
-                {
-                    return true;
-                }
-
-                var product = _itemBuilder.Create().WithId(definition.ProductIDs[productIndex]).WithCount(amount).Build();
-                character.Inventory.AddItem(product);
-                character.SendChatMessage("You cut the " + resource.Name.ToLower() + " to " + amount + " x " + product.Name.ToLower() + ".");
-                character.Statistics.AddExperience(StatisticsConstants.Fletching, definition.Experience[productIndex] * amount);
-                return false;
-            };
-        }
-
         private static bool TryGetFletchingItems(
             ICharacter character,
-            FletchingDefinition definition,
+            FletchingDto definition,
             out IItem resource,
             out int resourceSlot,
             out IItem tool,
             out int toolSlot)
         {
-            resource = character.Inventory.Items.GetById(definition.ResourceID)!;
+            resource = character.Inventory.Items.GetById(definition.ResourceId)!;
             if (resource == null)
             {
                 tool = null!;
@@ -534,17 +280,8 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             return toolSlot != -1;
         }
 
-        /// <summary>
-        ///     Tries to start fletching.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="onFletchingPerformCallback">The on fletching perform callback.</param>
-        /// <param name="productIndex">Index of the product.</param>
-        /// <param name="tickDelay">The tick delay.</param>
-        /// <param name="count">The count.</param>
-        public void TryStartFletching(
-            ICharacter character, FletchingDefinition definition, Func<int, bool> onFletchingPerformCallback, int productIndex, int tickDelay, int count)
+        private static void TryStartFletching(
+            ICharacter character, FletchingDto definition, Func<int, bool> onFletchingPerformCallback, int productIndex, int tickDelay, int count)
         {
             var levelRequired = definition.RequiredLevels[productIndex];
             if (character.Statistics.GetSkillLevel(StatisticsConstants.Fletching) < levelRequired)
@@ -555,73 +292,5 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
 
             character.QueueTask(new FletchingTask(character, definition, productIndex, count, onFletchingPerformCallback, tickDelay));
         }
-
-        /// <summary>
-        ///     Gets the bow(u) definition id.
-        /// </summary>
-        /// <param name="used">The used.</param>
-        /// <param name="usedWith">The used with.</param>
-        /// <returns></returns>
-        private int GetBowDefinitionId(IItem used, IItem usedWith) =>
-            Bows.Select((bow, index) => new
-                {
-                    bow, index
-                })
-                .Where(x => (used.Id == x.bow.ResourceID && usedWith.Id == x.bow.ToolId) ||
-                            (usedWith.Id == x.bow.ResourceID && used.Id == x.bow.ToolId))
-                .Select(x => x.index)
-                .DefaultIfEmpty(-1)
-                .First();
-
-        /// <summary>
-        ///     Gets the wood definition identifier.
-        /// </summary>
-        /// <param name="used">The used.</param>
-        /// <param name="usedWith">The used with.</param>
-        /// <returns></returns>
-        private int GetWoodDefinitionId(IItem used, IItem usedWith) =>
-            Wood.Select((wood, index) => new
-                {
-                    wood, index
-                })
-                .Where(x => (used.Id == x.wood.ResourceID && usedWith.Id == x.wood.ToolId) ||
-                            (usedWith.Id == x.wood.ResourceID && used.Id == x.wood.ToolId))
-                .Select(x => x.index)
-                .DefaultIfEmpty(-1)
-                .First();
-
-        /// <summary>
-        ///     Gets the ammo definition identifier.
-        /// </summary>
-        /// <param name="used">The used.</param>
-        /// <param name="usedWith">The used with.</param>
-        /// <returns></returns>
-        private int GetAmmoDefinitionId(IItem used, IItem usedWith) =>
-            Ammo.Select((ammo, index) => new
-                {
-                    ammo, index
-                })
-                .Where(x => (used.Id == x.ammo.ResourceID && usedWith.Id == x.ammo.ToolId) ||
-                            (usedWith.Id == x.ammo.ResourceID && used.Id == x.ammo.ToolId))
-                .Select(x => x.index)
-                .DefaultIfEmpty(-1)
-                .First();
-
-        /// <summary>
-        ///     Gets the tips definition identifier.
-        /// </summary>
-        /// <param name="used">The used.</param>
-        /// <param name="usedWith">The used with.</param>
-        /// <returns></returns>
-        private int GetTipsDefinitionId(IItem used, IItem usedWith) =>
-            Tips.Select((tip, index) => new
-                {
-                    tip, index
-                })
-                .Where(x => (used.Id == x.tip.ResourceID && usedWith.Id == x.tip.ToolId) ||
-                            (usedWith.Id == x.tip.ResourceID && used.Id == x.tip.ToolId))
-                .Select(x => x.index)
-                .DefaultIfEmpty(-1)
-                .First();
     }
 }

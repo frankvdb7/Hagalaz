@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Fletching
@@ -41,17 +40,5 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         /// <param name="usedWith">The used with.</param>
         /// <returns></returns>
         bool TryFletchTips(ICharacter character, IItem used, IItem usedWith);
-
-        /// <summary>
-        ///     Tries to start fletching.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="onFletchingPerformCallback">The on fletching perform callback.</param>
-        /// <param name="productIndex">Index of the product.</param>
-        /// <param name="tickDelay">The tick delay.</param>
-        /// <param name="count">The count.</param>
-        void TryStartFletching(
-            ICharacter character, FletchingDefinition definition, Func<int, bool> onFletchingPerformCallback, int productIndex, int tickDelay, int count);
     }
 }

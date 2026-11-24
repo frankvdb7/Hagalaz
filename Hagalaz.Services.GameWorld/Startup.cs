@@ -398,6 +398,9 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IAgilityCourseDefinitionRepository, AgilityCourseDefinitionRepository>();
             services.AddSingleton<AgilityService>();
             services.AddSingleton<IAgilityService>(provider => provider.GetRequiredService<AgilityService>());
+            services.AddScoped<IFletchingDefinitionRepository, FletchingDefinitionRepository>();
+            services.AddSingleton<FletchingService>();
+            services.AddSingleton<IFletchingService>(provider => provider.GetRequiredService<FletchingService>());
             services.AddScoped<IFiremakingRepository, FiremakingRepository>();
             services.AddScoped<IFiremakingService, FiremakingService>();
             services.AddScoped<IHerbloreService, HerbloreService>();
@@ -764,6 +767,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddStartupTaskLoader();
 
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AgilityService>());
+            // Startup services run in registration order: the Fletching recipes must load before ItemScriptProvider, whose script factories enumerate them.
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FletchingService>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<EquipmentStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemStore>());

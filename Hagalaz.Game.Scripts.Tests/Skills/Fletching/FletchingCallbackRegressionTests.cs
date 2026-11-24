@@ -128,6 +128,89 @@ public sealed class FletchingCallbackRegressionTests
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(45));
     }
 
+    [TestMethod]
+    public void WoodRecipe_CutsOneLogIntoTheDefinitionAmountAndGrantsScaledExperience()
+    {
+        var scenario = CreateScenario((1511, 1), (946, 1));
+        Assert.IsTrue(scenario.Service.TryFletchWood(scenario.Character, scenario.Items[0], scenario.Items[1]));
+        scenario.Dialogue.PerformMakeProductCallback(52, 1);
+
+        for (var tick = 0; tick < 3; tick++) scenario.QueuedTasks.Single().Tick();
+
+        Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(1511));
+        Assert.AreEqual(15, scenario.Inventory.Items.GetCountById(52));
+        scenario.Character.Statistics.Received(1).AddExperience(StatisticsConstants.Fletching, 0.33 * 15);
+    }
+
+    [TestMethod]
+    public void WoodRecipe_WhenUsedInReverseOrder_StillOpensTheDialogue()
+    {
+        var scenario = CreateScenario((946, 1), (1511, 1));
+        Assert.IsTrue(scenario.Service.TryFletchWood(scenario.Character, scenario.Items[0], scenario.Items[1]));
+    }
+
+    [TestMethod]
+    public void CrossbowRecipe_HasNoAnimationAndAddsTheProduct()
+    {
+        var scenario = CreateScenario((9440, 1), (9420, 1));
+        Assert.IsTrue(scenario.Service.TryFletchBow(scenario.Character, scenario.Items[0], scenario.Items[1]));
+        scenario.Dialogue.PerformMakeProductCallback(9454, 1);
+
+        var task = scenario.QueuedTasks.Single();
+        task.Tick();
+        task.Tick();
+
+        scenario.Character.DidNotReceive().QueueAnimation(Arg.Any<Hagalaz.Game.Abstractions.Model.IAnimation>());
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(9454));
+    }
+
+    [TestMethod]
+    public void DartRecipe_MakesTheDefinitionAmountPerFeatherAndGrantsScaledExperience()
+    {
+        var scenario = CreateScenario((819, 10), (314, 10));
+        Assert.IsTrue(scenario.Service.TryFletchAmmo(scenario.Character, scenario.Items[0], scenario.Items[1]));
+        scenario.Dialogue.PerformMakeProductCallback(806, 1);
+
+        scenario.QueuedTasks.Single().Tick();
+
+        Assert.AreEqual(10, scenario.Inventory.Items.GetCountById(806));
+        scenario.Character.Statistics.Received(1).AddExperience(StatisticsConstants.Fletching, 18.0 * 10);
+    }
+
+    [TestMethod]
+    public void GrappleRecipe_IsFletchedThroughTheAmmoCategory()
+    {
+        var scenario = CreateScenario((9416, 1), (954, 1));
+        Assert.IsTrue(scenario.Service.TryFletchAmmo(scenario.Character, scenario.Items[0], scenario.Items[1]));
+        scenario.Dialogue.PerformMakeProductCallback(9418, 1);
+
+        scenario.QueuedTasks.Single().Tick();
+
+        Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(9418));
+    }
+
+    [TestMethod]
+    public void Fletch_WhenThePairBelongsToAnotherCategory_ReturnsFalse()
+    {
+        var scenario = CreateScenario((50, 1), (1777, 1));
+
+        Assert.IsFalse(scenario.Service.TryFletchAmmo(scenario.Character, scenario.Items[0], scenario.Items[1]));
+        Assert.IsFalse(scenario.Service.TryFletchWood(scenario.Character, scenario.Items[0], scenario.Items[1]));
+        Assert.IsFalse(scenario.Service.TryFletchTips(scenario.Character, scenario.Items[0], scenario.Items[1]));
+    }
+
+    [TestMethod]
+    public void Fletch_WhenTheLevelIsTooLow_SendsMessageAndQueuesNoTask()
+    {
+        var scenario = CreateScenario((819, 10), (314, 10));
+        scenario.Character.Statistics.GetSkillLevel(StatisticsConstants.Fletching).Returns(0);
+        scenario.Service.TryFletchAmmo(scenario.Character, scenario.Items[0], scenario.Items[1]);
+
+        scenario.Dialogue.PerformMakeProductCallback(806, 1);
+
+        Assert.AreEqual(0, scenario.QueuedTasks.Count);
+    }
+
     private static Scenario CreateScenario(params (int Id, int Count)[] itemSpecs)
     {
         var inventory = new ComposedTestContainer(8);
@@ -157,7 +240,7 @@ public sealed class FletchingCallbackRegressionTests
         var tasks = new List<ITaskItem>();
         character.QueueTask(Arg.Do<ITaskItem>(tasks.Add)).Returns(Substitute.For<IRsTaskHandle>());
         var builder = new TestItemBuilder((id, count) => CreateItem(id, count));
-        return new Scenario(character, inventory, items, dialogue, tasks, new FletchingSkillService(builder));
+        return new Scenario(character, inventory, items, dialogue, tasks, new FletchingSkillService(builder, TestFletchingRecipes.Service));
     }
 
     private static IItem CreateItem(int id, int count)
