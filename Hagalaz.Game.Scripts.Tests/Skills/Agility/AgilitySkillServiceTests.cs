@@ -22,9 +22,9 @@ public sealed class AgilitySkillServiceTests
     {
         _agilityService = Substitute.For<IAgilityService>();
         _agilityService.FindCourseById(AgilityCourseId.GnomeBasic)
-            .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeBasic, CompletionExperience = 39 });
+            .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeBasic, CompletionExperience = 77.5 });
         _agilityService.FindCourseById(AgilityCourseId.GnomeAdvanced)
-            .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeAdvanced, CompletionExperience = 605 });
+            .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeAdvanced, CompletionExperience = 912.25 });
         _service = new AgilitySkillService(_agilityService, [new GnomeBasicCourse(), new GnomeAdvancedCourse()]);
         _statistics = Substitute.For<ICharacterStatistics>();
         _character = Substitute.For<ICharacter>();
@@ -38,7 +38,7 @@ public sealed class AgilitySkillServiceTests
 
         _service.CheckCourseCompletion(_character);
 
-        _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 39);
+        _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 77.5);
         _statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
         _character.Received(1).RemoveState<GnomeCourseObstaclePipeState>();
         _character.DidNotReceive().RemoveState<GnomeCourseBarrierState>();
@@ -51,7 +51,7 @@ public sealed class AgilitySkillServiceTests
 
         _service.CheckCourseCompletion(_character);
 
-        _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 605);
+        _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 912.25);
         _statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
         _character.Received(1).RemoveState<GnomeCourseBarrierState>();
         _character.DidNotReceive().RemoveState<GnomeCourseObstaclePipeState>();
@@ -83,11 +83,11 @@ public sealed class AgilitySkillServiceTests
     public void AddObstacleExperience_KnownObstacle_GrantsPersistedExperience()
     {
         _agilityService.FindObstacleByObjectId(69526)
-            .Returns(new AgilityObstacleDto { ObjectId = 69526, Experience = 7.5, RequiredLevel = 1 });
+            .Returns(new AgilityObstacleDto { ObjectId = 69526, Experience = 13.25, RequiredLevel = 7 });
 
         _service.AddObstacleExperience(_character, 69526);
 
-        _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 7.5);
+        _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 13.25);
     }
 
     [TestMethod]
