@@ -20,15 +20,7 @@ public sealed class SpellBookTabTests
     [TestMethod]
     public void ResolveThroughDependencyInjection_WithExplicitProjectileBuilder_DoesNotRequireGlobalInitialization()
     {
-        var services = new ServiceCollection();
-        services.AddSingleton(_ => Substitute.For<ICharacterContextAccessor>());
-        services.AddSingleton(_ => Substitute.For<IScopedGameMediator>());
-        services.AddSingleton(_ => Substitute.For<IMagicService>());
-        services.AddSingleton(_ => Substitute.For<IItemBuilder>());
-        services.AddSingleton(_ => Substitute.For<IProjectileBuilder>());
-        services.AddTransient<SpellBookTab>();
-
-        using var provider = services.BuildServiceProvider();
+        using var provider = CreateProvider();
 
         var script = provider.GetRequiredService<SpellBookTab>();
 

@@ -73,20 +73,22 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             return spells;
         }
 
+        private static readonly (Dictionary<int, ITeleportSpellScript> Normal, Dictionary<int, ITeleportSpellScript> Ancient, Dictionary<int, ITeleportSpellScript> Lunar) _teleports = CreateTeleports();
+
         /// <summary>
         ///     Contains normal teleports.
         /// </summary>
-        private static readonly Dictionary<int, ITeleportSpellScript> _normalTeleports = CreateNormalTeleports();
+        private static Dictionary<int, ITeleportSpellScript> _normalTeleports => _teleports.Normal;
 
         /// <summary>
         ///     Contains ancient teleports.
         /// </summary>
-        private static readonly Dictionary<int, ITeleportSpellScript> _ancientTeleports = CreateAncientTeleports();
+        private static Dictionary<int, ITeleportSpellScript> _ancientTeleports => _teleports.Ancient;
 
         /// <summary>
         ///     Contains lunar teleports.
         /// </summary>
-        private static readonly Dictionary<int, ITeleportSpellScript> _lunarTeleports = CreateLunarTeleports();
+        private static Dictionary<int, ITeleportSpellScript> _lunarTeleports => _teleports.Lunar;
 
         private readonly IScopedGameMediator _gameMediator;
         private readonly IServiceProvider _serviceProvider;
@@ -94,10 +96,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private readonly IItemBuilder _itemBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
 
-        private static Dictionary<int, ITeleportSpellScript> CreateNormalTeleports()
+        private static (Dictionary<int, ITeleportSpellScript> Normal, Dictionary<int, ITeleportSpellScript> Ancient, Dictionary<int, ITeleportSpellScript> Lunar) CreateTeleports()
         {
-            var teleports = new Dictionary<int, ITeleportSpellScript>();
-            teleports.Add(37,
+            var normalTeleports = new Dictionary<int, ITeleportSpellScript>();
+            var ancientTeleports = new Dictionary<int, ITeleportSpellScript>();
+            var lunarTeleports = new Dictionary<int, ITeleportSpellScript>();
+            normalTeleports.Add(37,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     2413,
                     2840,
@@ -109,7 +113,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 1
                     ])); // Mobilising armies teleport
-            teleports.Add(40,
+            normalTeleports.Add(40,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     3213,
                     3428,
@@ -121,7 +125,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 3
                     ])); // Varrock teleport
-            teleports.Add(43,
+            normalTeleports.Add(43,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     3222,
                     3218,
@@ -133,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 3
                     ])); // Lumbridge teleport
-            teleports.Add(46,
+            normalTeleports.Add(46,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     2965,
                     3380,
@@ -145,22 +149,16 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 3
                     ])); // Falador teleport
-            teleports.Add(51,
+            normalTeleports.Add(51,
                 new StandardTeleportScript(MagicBook.StandardBook, 2757, 3478, 0, 3, 45, 55.5, [RuneType.Law, RuneType.Air], [1, 5])); // Camelot teleport
-            teleports.Add(57,
+            normalTeleports.Add(57,
                 new StandardTeleportScript(MagicBook.StandardBook, 2662, 3307, 0, 6, 51, 61, [RuneType.Law, RuneType.Water], [2, 2])); // Ardougne teleport
-            teleports.Add(62,
+            normalTeleports.Add(62,
                 new StandardTeleportScript(MagicBook.StandardBook, 2931, 4711, 0, 3, 58, 68, [RuneType.Law, RuneType.Earth], [2, 2])); // Watchtower teleport
-            teleports.Add(69,
+            normalTeleports.Add(69,
                 new StandardTeleportScript(MagicBook.StandardBook, 2891, 3678, 0, 3, 61, 71, [RuneType.Law, RuneType.Fire], [2, 2])); // Trollheim teleport
 
-            return teleports;
-        }
-
-        private static Dictionary<int, ITeleportSpellScript> CreateAncientTeleports()
-        {
-            var teleports = new Dictionary<int, ITeleportSpellScript>();
-            teleports.Add(40,
+            ancientTeleports.Add(40,
                 new StandardTeleportScript(MagicBook.AncientBook,
                     3097,
                     9869,
@@ -172,13 +170,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 1
                     ])); // Paddewwa teleport
-            teleports.Add(41,
+            ancientTeleports.Add(41,
                 new StandardTeleportScript(MagicBook.AncientBook, 3308, 3332, 0, 1, 60, 70, [RuneType.Law, RuneType.Soul], [2, 1])); // Senntisten teleport
-            teleports.Add(42,
+            ancientTeleports.Add(42,
                 new StandardTeleportScript(MagicBook.AncientBook, 3494, 3477, 0, 2, 66, 76, [RuneType.Law, RuneType.Blood], [2, 1])); // Kharyrll  teleport
-            teleports.Add(43,
+            ancientTeleports.Add(43,
                 new StandardTeleportScript(MagicBook.AncientBook, 3003, 3470, 0, 2, 72, 82, [RuneType.Law, RuneType.Water], [2, 4])); // Lassar  teleport
-            teleports.Add(44,
+            ancientTeleports.Add(44,
                 new StandardTeleportScript(MagicBook.AncientBook,
                     2966,
                     3696,
@@ -190,20 +188,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 3, 2
                     ])); // Dareeyak  teleport
-            teleports.Add(45,
+            ancientTeleports.Add(45,
                 new StandardTeleportScript(MagicBook.AncientBook, 3185, 3664, 0, 3, 84, 94, [RuneType.Law, RuneType.Soul], [2, 2])); // Carrallangar  teleport
-            teleports.Add(46,
+            ancientTeleports.Add(46,
                 new StandardTeleportScript(MagicBook.AncientBook, 3287, 3883, 0, 2, 90, 100, [RuneType.Law, RuneType.Blood], [2, 2])); // Annakarl  teleport
-            teleports.Add(47,
+            ancientTeleports.Add(47,
                 new StandardTeleportScript(MagicBook.AncientBook, 2972, 3873, 0, 2, 96, 106, [RuneType.Law, RuneType.Water], [2, 8])); // Ghorrock  teleport
 
-            return teleports;
-        }
-
-        private static Dictionary<int, ITeleportSpellScript> CreateLunarTeleports()
-        {
-            var teleports = new Dictionary<int, ITeleportSpellScript>();
-            teleports.Add(43,
+            lunarTeleports.Add(43,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2110,
                     3915,
@@ -215,7 +207,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 2
                     ])); // Moonclan teleport
-            teleports.Add(54,
+            lunarTeleports.Add(54,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2455,
                     3234,
@@ -227,7 +219,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 6
                     ])); // Ourania teleport
-            teleports.Add(67,
+            lunarTeleports.Add(67,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     3007,
                     3321,
@@ -239,7 +231,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 2
                     ])); // South Falador teleport
-            teleports.Add(47,
+            lunarTeleports.Add(47,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2541,
                     3760,
@@ -251,7 +243,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 1
                     ])); // Waterbirth teleport
-            teleports.Add(22,
+            lunarTeleports.Add(22,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2519,
                     3571,
@@ -263,7 +255,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 2, 3
                     ])); // Barbarian teleport
-            teleports.Add(69,
+            lunarTeleports.Add(69,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2636,
                     3340,
@@ -275,7 +267,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 5
                     ])); // North Ardougne teleport
-            teleports.Add(41,
+            lunarTeleports.Add(41,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2660,
                     3157,
@@ -287,7 +279,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 2, 4
                     ])); // Khazard teleport
-            teleports.Add(40,
+            lunarTeleports.Add(40,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2613,
                     3381,
@@ -299,7 +291,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         3, 3, 8
                     ])); // Fishing guild teleport
-            teleports.Add(44,
+            lunarTeleports.Add(44,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2805,
                     3434,
@@ -311,7 +303,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         3, 3, 10
                     ])); // Catherby teleport
-            teleports.Add(51,
+            lunarTeleports.Add(51,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2952,
                     3931,
@@ -323,7 +315,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         3, 3, 8
                     ])); // Ice plateau teleport
-            return teleports;
+            return (normalTeleports, ancientTeleports, lunarTeleports);
         }
 
         private IGameConnectHandle _settingsChanged = default!;
