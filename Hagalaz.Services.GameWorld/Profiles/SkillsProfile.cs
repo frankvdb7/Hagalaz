@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using AutoMapper;
 using Hagalaz.Data.Entities;
 using System.Linq;
@@ -31,6 +32,15 @@ namespace Hagalaz.Services.GameWorld.Profiles
             CreateMap<SkillsAgilityCourseDefinition, AgilityCourseDto>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (AgilityCourseId)src.Id))
                 .ForMember(dest => dest.CompletionExperience, opt => opt.MapFrom(src => (double)src.CompletionExperience));
+            CreateMap<SkillsFletchingDefinition, FletchingDto>()
+                .ForMember(dest => dest.ResourceId, opt => opt.MapFrom(src => (int)src.ResourceId))
+                .ForMember(dest => dest.ToolId, opt => opt.MapFrom(src => (int)src.ToolId))
+                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => (FletchingCategory)src.Category))
+                .ForMember(dest => dest.ProductIds, opt => opt.MapFrom(src => ParseInts(src.ProductIds)))
+                .ForMember(dest => dest.ProductCounts, opt => opt.MapFrom(src => ParseInts(src.ProductCounts)))
+                .ForMember(dest => dest.ProductExperiences, opt => opt.MapFrom(src => ParseDoubles(src.ProductExperiences)))
+                .ForMember(dest => dest.RequiredLevels, opt => opt.MapFrom(src => ParseInts(src.RequiredLevels)))
+                .ForMember(dest => dest.AnimationId, opt => opt.MapFrom(src => src.AnimationId.HasValue ? (int)src.AnimationId.Value : -1));
             CreateMap<SkillsFiremakingDefinition, FiremakingDto>()
                 .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
@@ -261,6 +271,12 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.CastAnimationId, opt => opt.MapFrom(src => src.CastAnimationId.HasValue ? (int)src.CastAnimationId.Value : -1))
                 .ForMember(dest => dest.FishAnimationId, opt => opt.MapFrom(src => (int)src.FishAnimationId));
         }
+
+        private static int[] ParseInts(string list) => Split(list).Select(value => int.Parse(value, CultureInfo.InvariantCulture)).ToArray();
+
+        private static double[] ParseDoubles(string list) => Split(list).Select(value => double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture)).ToArray();
+
+        private static string[] Split(string list) => list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         private static Location ToLocation(int[] coordinates) => Location.Create(coordinates[0], coordinates[1], coordinates[2]);
     }
