@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.ResetMovementType();
                         clicker.AddState(new GnomeCourseObstaclePipeState());
-                        _agilitySkillService.CheckGnomeCourseCompletion(clicker);
+                        _agilitySkillService.CheckCourseCompletion(clicker);
                         task.Cancel();
                     }
                 });

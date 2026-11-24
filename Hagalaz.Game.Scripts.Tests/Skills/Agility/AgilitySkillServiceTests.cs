@@ -4,6 +4,7 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using NSubstitute;
 using Hagalaz.Game.Scripts.Skills.Agility;
+using Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Agility;
 
@@ -23,18 +24,18 @@ public sealed class AgilitySkillServiceTests
             .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeBasic, CompletionExperience = 39 });
         _agilityService.FindCourseById(AgilityCourseId.GnomeAdvanced)
             .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeAdvanced, CompletionExperience = 605 });
-        _service = new AgilitySkillService(_agilityService);
+        _service = new AgilitySkillService(_agilityService, [new GnomeBasicCourse(), new GnomeAdvancedCourse()]);
         _statistics = Substitute.For<ICharacterStatistics>();
         _character = Substitute.For<ICharacter>();
         _character.Statistics.Returns(_statistics);
     }
 
     [TestMethod]
-    public void CheckGnomeCourseCompletion_BasicCourse_GrantsPersistedExperienceAndClearsStates()
+    public void CheckCourseCompletion_BasicCourse_GrantsPersistedExperienceAndClearsStates()
     {
         GiveBasicCourseStates();
 
-        _service.CheckGnomeCourseCompletion(_character);
+        _service.CheckCourseCompletion(_character);
 
         _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 39);
         _statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
@@ -43,11 +44,11 @@ public sealed class AgilitySkillServiceTests
     }
 
     [TestMethod]
-    public void CheckGnomeCourseCompletion_AdvancedCourse_GrantsPersistedExperienceAndClearsStates()
+    public void CheckCourseCompletion_AdvancedCourse_GrantsPersistedExperienceAndClearsStates()
     {
         GiveAdvancedCourseStates();
 
-        _service.CheckGnomeCourseCompletion(_character);
+        _service.CheckCourseCompletion(_character);
 
         _statistics.Received(1).AddExperience(StatisticsConstants.Agility, 605);
         _statistics.Received(1).AddExperience(Arg.Any<int>(), Arg.Any<double>());
@@ -56,22 +57,22 @@ public sealed class AgilitySkillServiceTests
     }
 
     [TestMethod]
-    public void CheckGnomeCourseCompletion_IncompleteCourse_GrantsNothing()
+    public void CheckCourseCompletion_IncompleteCourse_GrantsNothing()
     {
         _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
 
-        _service.CheckGnomeCourseCompletion(_character);
+        _service.CheckCourseCompletion(_character);
 
         _statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
 
     [TestMethod]
-    public void CheckGnomeCourseCompletion_MissingCourseDefinition_ClearsStatesButGrantsNothing()
+    public void CheckCourseCompletion_MissingCourseDefinition_ClearsStatesButGrantsNothing()
     {
         _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).Returns((AgilityCourseDto?)null);
         GiveBasicCourseStates();
 
-        _service.CheckGnomeCourseCompletion(_character);
+        _service.CheckCourseCompletion(_character);
 
         _statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
         _character.Received(1).RemoveState<GnomeCourseObstaclePipeState>();
