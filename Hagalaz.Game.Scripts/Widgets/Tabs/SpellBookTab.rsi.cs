@@ -724,42 +724,9 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 return true;
                             });
 
-                        InterfaceInstance.AttachClickHandler(5,
-                            (componentID, clickType, extra1, extra2) =>
-                            {
-                                if (clickType != ComponentClickType.LeftClick)
-                                {
-                                    return false;
-                                }
-
-                                _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.MagicSettingsHideCombatSpells));
-                                return true;
-                            });
-
-                        InterfaceInstance.AttachClickHandler(7,
-                            (componentID, clickType, extra1, extra2) =>
-                            {
-                                if (clickType != ComponentClickType.LeftClick)
-                                {
-                                    return false;
-                                }
-
-                                _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.MagicSettingsHideTeleportSpells));
-                                return true;
-                            });
-
-                        InterfaceInstance.AttachClickHandler(18,
-                            (componentID, clickType, extra1, extra2) =>
-                            {
-                                if (clickType != ComponentClickType.LeftClick)
-                                {
-                                    return false;
-                                }
-
-
-                                _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.CombatSettingsMagicDefensiveCasting));
-                                return true;
-                            });
+                        AttachToggleHandler(5, ProfileConstants.MagicSettingsHideCombatSpells);
+                        AttachToggleHandler(7, ProfileConstants.MagicSettingsHideTeleportSpells);
+                        AttachToggleHandler(18, ProfileConstants.CombatSettingsMagicDefensiveCasting);
 
                         foreach (var childID in _ancientTeleports.Keys)
                         {
@@ -806,6 +773,22 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             Refresh();
         }
+
+        /// <summary>
+        ///     Attaches a left-click handler that toggles a boolean profile setting.
+        /// </summary>
+        private void AttachToggleHandler(int componentId, string profileKey) =>
+            InterfaceInstance.AttachClickHandler(componentId,
+                (componentID, clickType, extra1, extra2) =>
+                {
+                    if (clickType != ComponentClickType.LeftClick)
+                    {
+                        return false;
+                    }
+
+                    _gameMediator.Publish(new ProfileToggleBoolAction(profileKey));
+                    return true;
+                });
 
         public async Task<bool> CastEnchant(
             ICharacter character,

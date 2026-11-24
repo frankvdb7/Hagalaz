@@ -13,14 +13,13 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
     ///     (spell types 0 = rush, 1 = burst, 2 = blitz, 3 = barrage). Types 1 and 3 hit every creature around the victim
     ///     in multi-combat areas. Requirements, experience, damage and autocast config come from the persisted definition; a family supplies the effects that differ.
     /// </summary>
-    public abstract class AncientCombatSpell : ICombatSpell
+    public abstract class AncientCombatSpell : DefinedCombatSpell
     {
         private const int SpellDelay = 51;
 
-        protected AncientCombatSpell(int spellType, CombatSpellDto dto, IProjectileBuilder projectileBuilder)
+        protected AncientCombatSpell(int spellType, CombatSpellDto dto, IProjectileBuilder projectileBuilder) : base(dto)
         {
             SpellType = spellType;
-            Dto = dto;
             ProjectileBuilder = projectileBuilder;
         }
 
@@ -32,11 +31,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         protected IProjectileBuilder ProjectileBuilder { get; }
 
         /// <summary>
-        ///     The persisted definition (requirements, experience, damage, autocast config) of this spell.
-        /// </summary>
-        public CombatSpellDto Dto { get; }
-
-        /// <summary>
         ///     Whether additional multi-hit targets get the skull check. True unless the family opts out.
         /// </summary>
         protected virtual bool SkullsAdditionalTargets => true;
@@ -44,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     Performs the attack on the target.
         /// </summary>
-        public void PerformAttack(ICharacter caster, ICreature victim)
+        public override void PerformAttack(ICharacter caster, ICreature victim)
         {
             var multiHit = SpellType is 1 or 3;
             RenderCast(caster);
@@ -161,47 +155,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 
             projectile.Send();
         }
-
-        /// <summary>
-        ///     Determines whether this instance can attack the specified caster.
-        /// </summary>
-        public bool CanAttack(ICharacter caster, ICreature victim) => true;
-
-        /// <summary>
-        ///     Check's requirements for this spell.
-        /// </summary>
-        public virtual bool CheckRequirements(ICharacter caster) =>
-            caster.Magic.CheckMagicLevel(Dto.RequiredLevel) && caster.Magic.CheckRunes(Dto.RequiredRunes, Dto.RequiredRunesCounts);
-
-        /// <summary>
-        ///     Removes required items from actor.
-        /// </summary>
-        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(Dto.RequiredRunes, Dto.RequiredRunesCounts);
-
-        /// <summary>
-        ///     Get's called when autocasting is set to this spell.
-        /// </summary>
-        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, Dto.AutoCastConfig);
-
-        /// <summary>
-        ///     Get's called when autocasting is unset to this spell.
-        /// </summary>
-        public void OnAutoCastingDeactivation(ICharacter deactivatedOn) => deactivatedOn.Configurations.SendStandardConfiguration(108, -1);
-
-        /// <summary>
-        ///     Get's speed of this spell.
-        /// </summary>
-        public int GetCastingSpeed(ICharacter caster) => 5;
-
-        /// <summary>
-        ///     Get's combat distance of this spell.
-        /// </summary>
-        public int GetCombatDistance(ICharacter caster) => 8;
-
-        /// <summary>
-        ///     Get's amount of magic experience this spell gives.
-        /// </summary>
-        public double GetMagicExperience() => Dto.BaseExperience;
 
         private static int GetTravelDuration(ICharacter caster, ICreature target) =>
             Math.Abs(caster.Location.X - target.Location.X) * 5 + Math.Abs(caster.Location.Y - target.Location.Y) * 5;
