@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
         /// <param name="objectId">The object id of the obstacle.</param>
         public static void AddObstacleExperience(ICharacter character, IAgilityService agilityService, int objectId)
         {
-            var obstacle = agilityService.FindObstacleByObjectId(objectId).Result;
+            var obstacle = agilityService.FindObstacleByObjectId(objectId);
             if (obstacle != null)
             {
                 character.Statistics.AddExperience(StatisticsConstants.Agility, obstacle.Experience);
@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility
 
         private static void AddCourseCompletionExperience(ICharacter character, IAgilityService agilityService, AgilityCourseId courseId)
         {
-            var course = agilityService.FindCourseById(courseId).Result;
+            var course = agilityService.FindCourseById(courseId);
             if (course != null)
             {
                 character.Statistics.AddExperience(StatisticsConstants.Agility, course.CompletionExperience);

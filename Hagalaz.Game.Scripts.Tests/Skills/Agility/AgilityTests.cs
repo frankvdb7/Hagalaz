@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
@@ -20,9 +19,9 @@ public sealed class AgilityTests
     {
         _agilityService = Substitute.For<IAgilityService>();
         _agilityService.FindCourseById(AgilityCourseId.GnomeBasic)
-            .Returns(Task.FromResult<AgilityCourseDto?>(new AgilityCourseDto { Id = AgilityCourseId.GnomeBasic, CompletionExperience = 39 }));
+            .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeBasic, CompletionExperience = 39 });
         _agilityService.FindCourseById(AgilityCourseId.GnomeAdvanced)
-            .Returns(Task.FromResult<AgilityCourseDto?>(new AgilityCourseDto { Id = AgilityCourseId.GnomeAdvanced, CompletionExperience = 605 }));
+            .Returns(new AgilityCourseDto { Id = AgilityCourseId.GnomeAdvanced, CompletionExperience = 605 });
         _statistics = Substitute.For<ICharacterStatistics>();
         _character = Substitute.For<ICharacter>();
         _character.Statistics.Returns(_statistics);
@@ -67,7 +66,7 @@ public sealed class AgilityTests
     [TestMethod]
     public void CheckGnomeCourseCompletion_MissingCourseDefinition_ClearsStatesButGrantsNothing()
     {
-        _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).Returns(Task.FromResult<AgilityCourseDto?>(null));
+        _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).Returns((AgilityCourseDto?)null);
         GiveBasicCourseStates();
 
         AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
@@ -80,7 +79,7 @@ public sealed class AgilityTests
     public void AddObstacleExperience_KnownObstacle_GrantsPersistedExperience()
     {
         _agilityService.FindObstacleByObjectId(69526)
-            .Returns(Task.FromResult<AgilityObstacleDto?>(new AgilityObstacleDto { ObjectId = 69526, Experience = 7.5, RequiredLevel = 1 }));
+            .Returns(new AgilityObstacleDto { ObjectId = 69526, Experience = 7.5, RequiredLevel = 1 });
 
         AgilityScripts.AddObstacleExperience(_character, _agilityService, 69526);
 
@@ -90,7 +89,7 @@ public sealed class AgilityTests
     [TestMethod]
     public void AddObstacleExperience_UnknownObstacle_GrantsNothing()
     {
-        _agilityService.FindObstacleByObjectId(1).Returns(Task.FromResult<AgilityObstacleDto?>(null));
+        _agilityService.FindObstacleByObjectId(1).Returns((AgilityObstacleDto?)null);
 
         AgilityScripts.AddObstacleExperience(_character, _agilityService, 1);
 

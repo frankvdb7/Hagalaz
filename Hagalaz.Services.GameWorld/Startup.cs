@@ -396,7 +396,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<ICraftingService, CraftingService>();
             services.AddScoped<IAgilityObstacleDefinitionRepository, AgilityObstacleDefinitionRepository>();
             services.AddScoped<IAgilityCourseDefinitionRepository, AgilityCourseDefinitionRepository>();
-            services.AddScoped<IAgilityService, AgilityService>();
+            services.AddSingleton<AgilityService>();
+            services.AddSingleton<IAgilityService>(provider => provider.GetRequiredService<AgilityService>());
             services.AddScoped<IFiremakingRepository, FiremakingRepository>();
             services.AddScoped<IFiremakingService, FiremakingService>();
             services.AddScoped<IHerbloreService, HerbloreService>();
@@ -762,6 +763,7 @@ namespace Hagalaz.Services.GameWorld
             // startup tasks
             services.AddStartupTaskLoader();
 
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AgilityService>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<EquipmentStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemStore>());

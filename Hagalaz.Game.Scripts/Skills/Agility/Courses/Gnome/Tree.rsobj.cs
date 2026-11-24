@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                var requiredLevel = _agilityService.FindObstacleByObjectId(Owner.Id).Result?.RequiredLevel ?? 1;
+                var requiredLevel = _agilityService.FindObstacleByObjectId(Owner.Id)?.RequiredLevel ?? 1;
                 if (clicker.Statistics.GetSkillLevel(StatisticsConstants.Agility) < requiredLevel)
                 {
                     clicker.SendChatMessage($"You need an agility level of {requiredLevel} to climb even higher.");

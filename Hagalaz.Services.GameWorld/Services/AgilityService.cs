@@ -1,36 +1,46 @@
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
+using Hagalaz.Services.Abstractions;
 using Hagalaz.Services.GameWorld.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Services
 {
-    public class AgilityService : IAgilityService
+    /// <summary>
+    /// Serves Agility definitions from an in-memory read model loaded once at startup, so obstacle callbacks on the game loop never wait on the database.
+    /// </summary>
+    public class AgilityService : IAgilityService, IStartupService
     {
-        private readonly IAgilityObstacleDefinitionRepository _obstacleRepository;
-        private readonly IAgilityCourseDefinitionRepository _courseRepository;
-        private readonly IMapper _mapper;
+        private readonly IServiceProvider _serviceProvider;
+        private FrozenDictionary<int, AgilityObstacleDto> _obstacles = FrozenDictionary<int, AgilityObstacleDto>.Empty;
+        private FrozenDictionary<AgilityCourseId, AgilityCourseDto> _courses = FrozenDictionary<AgilityCourseId, AgilityCourseDto>.Empty;
 
-        public AgilityService(IAgilityObstacleDefinitionRepository obstacleRepository, IAgilityCourseDefinitionRepository courseRepository, IMapper mapper)
-        {
-            _obstacleRepository = obstacleRepository;
-            _courseRepository = courseRepository;
-            _mapper = mapper;
-        }
+        public AgilityService(IServiceProvider serviceProvider) => _serviceProvider = serviceProvider;
 
-        public Task<AgilityObstacleDto?> FindObstacleByObjectId(int objectId)
-        {
-            var id = (uint)objectId;
-            return _mapper.ProjectTo<AgilityObstacleDto>(_obstacleRepository.FindAll().Where(o => o.ObjectId == id)).FirstOrDefaultAsync();
-        }
+        public AgilityObstacleDto? FindObstacleByObjectId(int objectId) => _obstacles.GetValueOrDefault(objectId);
 
-        public Task<AgilityCourseDto?> FindCourseById(AgilityCourseId courseId)
+        public AgilityCourseDto? FindCourseById(AgilityCourseId courseId) => _courses.GetValueOrDefault(courseId);
+
+        public async Task LoadAsync(CancellationToken cancellationToken = default)
         {
-            var id = (byte)courseId;
-            return _mapper.ProjectTo<AgilityCourseDto>(_courseRepository.FindAll().Where(c => c.Id == id)).FirstOrDefaultAsync();
+            using var scope = _serviceProvider.CreateScope();
+            var mapper = scope.ServiceProvider.GetRequiredService<IMapper>();
+            var obstacles = await mapper
+                .ProjectTo<AgilityObstacleDto>(scope.ServiceProvider.GetRequiredService<IAgilityObstacleDefinitionRepository>().FindAll())
+                .ToListAsync(cancellationToken);
+            var courses = await mapper
+                .ProjectTo<AgilityCourseDto>(scope.ServiceProvider.GetRequiredService<IAgilityCourseDefinitionRepository>().FindAll())
+                .ToListAsync(cancellationToken);
+            _obstacles = obstacles.ToFrozenDictionary(o => o.ObjectId);
+            _courses = courses.ToFrozenDictionary(c => c.Id);
         }
     }
 }
