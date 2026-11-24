@@ -3,6 +3,7 @@
     public partial class SkillsMagicCombatDefinition
     {
         public ushort ButtonId { get; set; }
+        public string SpellBook { get; set; } = null!;
         public uint BaseDamage { get; set; }
         public byte RequiredLevel { get; set; }
         public decimal BaseExperience { get; set; }

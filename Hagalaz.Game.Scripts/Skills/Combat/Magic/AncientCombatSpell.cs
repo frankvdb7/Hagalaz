@@ -4,32 +4,23 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
     /// <summary>
-    ///     Per-type data tables of an Ancient spell family; each array is indexed by spell type.
-    /// </summary>
-    public sealed record AncientSpellData(
-        RuneType[][] RuneRequirements,
-        int[][] RuneAmounts,
-        int[] LevelRequirements,
-        int[] ConfigIds,
-        double[] Experience,
-        int[] BaseDamage);
-
-    /// <summary>
     ///     Shared casting flow of the Ancient blitz/burst/barrage/rush spell families
     ///     (spell types 0 = rush, 1 = burst, 2 = blitz, 3 = barrage). Types 1 and 3 hit every creature around the victim
-    ///     in multi-combat areas. A family supplies its data tables and the effects that differ.
+    ///     in multi-combat areas. Requirements, experience, damage and autocast config come from the persisted definition; a family supplies the effects that differ.
     /// </summary>
     public abstract class AncientCombatSpell : ICombatSpell
     {
         private const int SpellDelay = 51;
 
-        protected AncientCombatSpell(int spellType, IProjectileBuilder projectileBuilder)
+        protected AncientCombatSpell(int spellType, CombatSpellDto dto, IProjectileBuilder projectileBuilder)
         {
             SpellType = spellType;
+            Dto = dto;
             ProjectileBuilder = projectileBuilder;
         }
 
@@ -41,9 +32,9 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         protected IProjectileBuilder ProjectileBuilder { get; }
 
         /// <summary>
-        ///     Per-type (rush, burst, blitz, barrage) requirements, experience and damage of the family.
+        ///     The persisted definition (requirements, experience, damage, autocast config) of this spell.
         /// </summary>
-        protected abstract AncientSpellData Data { get; }
+        public CombatSpellDto Dto { get; }
 
         /// <summary>
         ///     Whether additional multi-hit targets get the skull check. True unless the family opts out.
@@ -59,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
             RenderCast(caster);
             var combat = (ICharacterCombat)caster.Combat;
 
-            caster.Statistics.AddExperience(StatisticsConstants.Magic, Data.Experience[SpellType]);
+            caster.Statistics.AddExperience(StatisticsConstants.Magic, Dto.BaseExperience);
 
             RenderCastEffects(caster, victim, GetTravelDuration(caster, victim));
 
@@ -90,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                     combat.CheckSkullConditions(c);
                 }
 
-                var maxDamage = combat.GetMagicMaxHit(c, Data.BaseDamage[SpellType]);
+                var maxDamage = combat.GetMagicMaxHit(c, Dto.BaseDamage);
                 var damage = combat.GetMagicDamage(c, maxDamage);
                 var delay = SpellDelay + GetTravelDuration(caster, c);
 
@@ -180,17 +171,17 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         ///     Check's requirements for this spell.
         /// </summary>
         public virtual bool CheckRequirements(ICharacter caster) =>
-            caster.Magic.CheckMagicLevel(Data.LevelRequirements[SpellType]) && caster.Magic.CheckRunes(Data.RuneRequirements[SpellType], Data.RuneAmounts[SpellType]);
+            caster.Magic.CheckMagicLevel(Dto.RequiredLevel) && caster.Magic.CheckRunes(Dto.RequiredRunes, Dto.RequiredRunesCounts);
 
         /// <summary>
         ///     Removes required items from actor.
         /// </summary>
-        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(Data.RuneRequirements[SpellType], Data.RuneAmounts[SpellType]);
+        public void RemoveRequirements(ICharacter caster) => caster.Magic.RemoveRunes(Dto.RequiredRunes, Dto.RequiredRunesCounts);
 
         /// <summary>
         ///     Get's called when autocasting is set to this spell.
         /// </summary>
-        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, Data.ConfigIds[SpellType]);
+        public void OnAutoCastingActivation(ICharacter activatedOn) => activatedOn.Configurations.SendStandardConfiguration(108, Dto.AutoCastConfig);
 
         /// <summary>
         ///     Get's called when autocasting is unset to this spell.
@@ -210,7 +201,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <summary>
         ///     Get's amount of magic experience this spell gives.
         /// </summary>
-        public double GetMagicExperience() => Data.Experience[SpellType];
+        public double GetMagicExperience() => Dto.BaseExperience;
 
         private static int GetTravelDuration(ICharacter caster, ICreature target) =>
             Math.Abs(caster.Location.X - target.Location.X) * 5 + Math.Abs(caster.Location.Y - target.Location.Y) * 5;

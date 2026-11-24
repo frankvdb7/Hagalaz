@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
 {
@@ -11,81 +12,9 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
     /// </summary>
     public class AncientIceCombatSpell : AncientCombatSpell
     {
-        public AncientIceCombatSpell(int spellType, IProjectileBuilder projectileBuilder) : base(spellType, projectileBuilder)
+        public AncientIceCombatSpell(int spellType, CombatSpellDto dto, IProjectileBuilder projectileBuilder) : base(spellType, dto, projectileBuilder)
         {
         }
-
-        /// <summary>
-        ///     The RUN e_ REQUIREMENTS
-        /// </summary>
-        private static readonly RuneType[][] _runeRequirements =
-        [
-            [
-                RuneType.Chaos, RuneType.Death, RuneType.Water
-            ],
-            [
-                RuneType.Chaos, RuneType.Death, RuneType.Water
-            ],
-            [
-                RuneType.Death, RuneType.Blood, RuneType.Water
-            ],
-            [
-                RuneType.Death, RuneType.Blood, RuneType.Water
-            ]
-        ];
-
-        /// <summary>
-        ///     The RUN e_ AMOUNTS
-        /// </summary>
-        private static readonly int[][] _runeAmounts =
-        [
-            [
-                2, 2, 2
-            ],
-            [
-                4, 2, 4
-            ],
-            [
-                2, 2, 3
-            ],
-            [
-                4, 2, 6
-            ]
-        ];
-
-        /// <summary>
-        ///     The LEVE l_ REQUIREMENTS
-        /// </summary>
-        private static readonly int[] _levelRequirements =
-        [
-            58, 70, 82, 94
-        ];
-
-        /// <summary>
-        ///     The CONFI g_ IDS
-        /// </summary>
-        private static readonly int[] _configIds =
-        [
-            69, 77, 85, 93
-        ];
-
-        /// <summary>
-        ///     The EXP
-        /// </summary>
-        private static readonly double[] _exp =
-        [
-            34.0, 40.0, 46.0, 52.0
-        ];
-
-        /// <summary>
-        ///     The BAS e_ DAMAGE
-        /// </summary>
-        private static readonly int[] _baseDamage =
-        [
-            180, 220, 260, 300
-        ];
-
-        protected override AncientSpellData Data { get; } = new(_runeRequirements, _runeAmounts, _levelRequirements, _configIds, _exp, _baseDamage);
 
         protected override void RenderCastEffects(ICharacter caster, ICreature victim, int duration)
         {

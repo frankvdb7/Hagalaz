@@ -4273,8 +4273,15 @@ namespace Hagalaz.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("required_runes_counts");
 
-                    b.HasKey("ButtonId")
-                        .HasName("PRIMARY");
+                    b.Property<string>("SpellBook")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("enum('StandartBook','AncientBook','LunarBook','DungeoneeringBook')")
+                        .HasColumnName("spell_book")
+                        .HasDefaultValueSql("'StandartBook'");
+
+                    b.HasKey("ButtonId", "SpellBook")
+                        .HasName("PRIMARY")
+                        .HasAnnotation("MySQL:IndexPrefixLength", new[] { 0, 0 });
 
                     b.ToTable("skills_magic_combat_definitions", (string)null);
 
