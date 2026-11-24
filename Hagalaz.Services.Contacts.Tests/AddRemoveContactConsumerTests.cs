@@ -84,6 +84,49 @@ namespace Hagalaz.Services.Contacts.Tests
         }
 
         [TestMethod]
+        [DataRow(true, true)]
+        [DataRow(false, false)]
+        public async Task Consume_AddContactRequest_PublishesMasterMutualStatusFromReciprocalFriendship(bool reciprocal, bool expectedMutual)
+        {
+            uint masterId = 100;
+            uint contactId = 200;
+            string contactName = "ContactUser";
+            SetupCharacters(masterId, contactId, contactName);
+            _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Success);
+            _contactServiceMock.Setup(x => x.FindFriendByIdAsync(contactId, masterId))
+                .ReturnsAsync(reciprocal ? new ContactDto { MasterId = contactId, DisplayName = contactName } : null);
+
+            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+
+            await _consumer.Consume(contextMock.Object);
+
+            contextMock.Verify(x => x.Publish(It.Is<ContactAddedMessage>(m =>
+                m.Master.AreMutualFriends == expectedMutual &&
+                m.Contact.AreMutualFriends == expectedMutual), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task Consume_AddContactRequest_IgnoreAdd_RespondsButDoesNotPublishFriendNotification()
+        {
+            uint masterId = 100;
+            uint contactId = 200;
+            string contactName = "ContactUser";
+            SetupCharacters(masterId, contactId, contactName);
+            _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, true)).ReturnsAsync(Hagalaz.Services.Common.Model.Result.Success);
+            _contactServiceMock.Setup(x => x.FindFriendByIdAsync(contactId, masterId))
+                .ReturnsAsync(new ContactDto { MasterId = contactId, DisplayName = contactName });
+
+            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = true });
+
+            await _consumer.Consume(contextMock.Object);
+
+            contextMock.Verify(x => x.RespondAsync(It.IsAny<AddContactResponse>()), Times.Once);
+            contextMock.Verify(x => x.Publish(It.IsAny<ContactAddedMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task Consume_AddContactRequest_FailedResult_RespondsWithFailureAndDoesNotPublish()
         {
             uint masterId = 100;

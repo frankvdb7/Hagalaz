@@ -81,7 +81,10 @@ namespace Hagalaz.Services.Contacts.Consumers
                 MasterId = message.MasterId,
                 Contact = contactDto
             });
-            var publishTask = context.Publish(new ContactAddedMessage(masterDto, contactDto));
+            // Ignore adds are not friendships: the other party must not be told, nor treated as mutual.
+            var publishTask = message.Ignore
+                ? Task.CompletedTask
+                : context.Publish(new ContactAddedMessage(masterDto, contactDto));
             await Task.WhenAll(responseTask, publishTask);
         }
 

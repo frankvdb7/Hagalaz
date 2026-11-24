@@ -53,6 +53,43 @@ public sealed class ContactAddedConsumerTests
     }
 
     [TestMethod]
+    [DataRow(Availability.Nobody, true, false)]
+    [DataRow(Availability.Friends, false, false)]
+    [DataRow(Availability.Friends, true, true)]
+    [DataRow(Availability.Everyone, false, true)]
+    public async Task ReverseAdd_Revision742PacketRevealsWorldOnlyWhenEligible(Availability availability, bool publisherMutual, bool expectVisible)
+    {
+        var (connectionService, connection) = CreateConnection(CreateFriend(availability));
+        FriendsListMessage? sent = null;
+        await connection.SendMessage(Arg.Do<RaidoMessage>(m => sent = m as FriendsListMessage));
+
+        await new ContactAddedConsumer(connectionService, CreateMapper())
+            .Consume(CreateContext(CreateMessage(publisherMutual)));
+
+        Assert.IsNotNull(sent);
+        var packet = Encode(sent);
+        var worldName = System.Text.Encoding.ASCII.GetBytes("World 3");
+        Assert.AreEqual(expectVisible, packet.AsSpan().IndexOf(worldName) >= 0);
+        if (!expectVisible)
+        {
+            var hidden = Encode(new FriendsListMessage
+            {
+                Notify = true,
+                Friends = [new ContactDto { MasterId = (int)AdderId, DisplayName = "Adder" }]
+            });
+            CollectionAssert.AreEqual(hidden, packet);
+        }
+    }
+
+    private static byte[] Encode(FriendsListMessage message)
+    {
+        using var buffer = Raido.Common.Buffers.MemoryBufferWriter.Get();
+        new Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders.FriendsListMessageEncoder()
+            .EncodeMessage(message, new RaidoMessageBinaryWriter(buffer));
+        return buffer.ToArray();
+    }
+
+    [TestMethod]
     public async Task ReverseAdd_UsesPublishedMutualStatusForReceiversFriendRecord()
     {
         var friend = new Friend
