@@ -32,6 +32,17 @@ namespace Hagalaz.Services.GameWorld.Network.Consumers
                 return;
             }
             masterFriend.AreMutualFriends = message.Master.AreMutualFriends;
+            if (message.Master.SessionGeneration is { } sessionGeneration &&
+                message.Master.SessionConnectionId is { } connectionId)
+            {
+                // Generation-fenced: a stale observation cannot revive an older signed-out owner.
+                contacts.TryApplySignIn(
+                    message.Master.MasterId,
+                    sessionGeneration,
+                    connectionId,
+                    message.Master.WorldId,
+                    message.Master.WorldName);
+            }
             var masterContact = ContactSnapshotApplicator.ReconcileFriendContact(
                 masterFriend,
                 _mapper.Map<ContactDto>(message.Master),

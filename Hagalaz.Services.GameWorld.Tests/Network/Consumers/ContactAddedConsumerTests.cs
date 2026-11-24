@@ -4,6 +4,7 @@ using Hagalaz.Contacts.Messages;
 using Hagalaz.Game.Abstractions.Features.Chat;
 using Hagalaz.Game.Abstractions.Features.FriendsChat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Game.Messages.Protocol.Model;
 using Hagalaz.Services.GameWorld.Features;
@@ -82,13 +83,75 @@ public sealed class ContactAddedConsumerTests
         var (connectionService, connection) = CreateConnection(friend, signedIn: false);
 
         var consumer = new ContactAddedConsumer(connectionService, CreateMapper());
-        await consumer.Consume(CreateContext(CreateMessage(publisherMutual: true)));
+        var offline = CreateMessage(publisherMutual: true);
+        offline = offline with
+        {
+            Master = offline.Master with { WorldId = null, WorldName = null, SessionGeneration = null, SessionConnectionId = null }
+        };
+        await consumer.Consume(CreateContext(offline));
 
         await connection.Received(1).SendMessage(Arg.Is<FriendsListMessage>(m =>
             m.Friends[0].WorldId == null && m.Friends[0].WorldName == null));
     }
 
-    private static (IGameConnectionService Service, IGameConnection Connection) CreateConnection(Friend friend, bool signedIn = true)
+    [TestMethod]
+    public async Task ReverseAdd_AfterInitialSnapshotWithoutSessionIdentity_ShowsPublishedSession()
+    {
+        var friend = CreateFriend(Availability.Everyone);
+        var feature = CreateFeature(friend, signedIn: false);
+        ApplyInitialSnapshot(feature, friend);
+        Assert.IsFalse(feature.GetPresence(AdderId).IsOnline);
+        var (connectionService, connection) = CreateConnection(feature);
+
+        await new ContactAddedConsumer(connectionService, CreateMapper())
+            .Consume(CreateContext(CreateMessage(publisherMutual: true)));
+
+        await connection.Received(1).SendMessage(Arg.Is<FriendsListMessage>(m =>
+            m.Friends[0].WorldId == 3 && m.Friends[0].WorldName == "World 3"));
+        Assert.IsTrue(feature.GetPresence(AdderId).IsOnline);
+    }
+
+    [TestMethod]
+    public async Task ReverseAdd_AfterInitialSnapshotWithFriendsOnlyNonMutual_BecomesVisibleOnceMutual()
+    {
+        var friend = CreateFriend(Availability.Friends);
+        var feature = CreateFeature(friend, signedIn: false);
+        ApplyInitialSnapshot(feature, friend);
+        var (connectionService, connection) = CreateConnection(feature);
+
+        await new ContactAddedConsumer(connectionService, CreateMapper())
+            .Consume(CreateContext(CreateMessage(publisherMutual: true)));
+
+        await connection.Received(1).SendMessage(Arg.Is<FriendsListMessage>(m =>
+            m.Friends[0].WorldId == 3 && m.Friends[0].WorldName == "World 3"));
+    }
+
+    [TestMethod]
+    public async Task ReverseAdd_WithStaleSessionDoesNotReviveSignedOutOwner()
+    {
+        var friend = CreateFriend(Availability.Everyone);
+        var feature = CreateFeature(friend, signedIn: false);
+        feature.TryApplySignIn(AdderId, 2, "newer", 4, "World 4");
+        feature.TryApplySignOut(AdderId, 2, "newer");
+        var (connectionService, connection) = CreateConnection(feature);
+
+        await new ContactAddedConsumer(connectionService, CreateMapper())
+            .Consume(CreateContext(CreateMessage(publisherMutual: true)));
+
+        await connection.Received(1).SendMessage(Arg.Is<FriendsListMessage>(m =>
+            m.Friends[0].WorldId == null && m.Friends[0].WorldName == null));
+        Assert.IsFalse(feature.GetPresence(AdderId).IsOnline);
+    }
+
+    private static Friend CreateFriend(Availability availability) => new()
+    {
+        MasterId = (int)AdderId,
+        Rank = FriendsChatRank.Friend,
+        Availability = availability,
+        AreMutualFriends = false
+    };
+
+    private static ContactsFeature CreateFeature(Friend friend, bool signedIn)
     {
         var contacts = new ContactList<Friend>();
         contacts.Add(friend);
@@ -101,6 +164,41 @@ public sealed class ContactAddedConsumerTests
             feature.TryApplySignIn(AdderId, 1, "conn", 3, "World 3");
         }
 
+        return feature;
+    }
+
+    // Mirrors ContactService.MapContactsAsync omitting the session identity of a non-mutual friend.
+    private static void ApplyInitialSnapshot(ContactsFeature feature, Friend friend)
+    {
+        var snapshotContact = new Hagalaz.Contacts.Messages.Model.ContactDto { MasterId = AdderId, DisplayName = "Adder" };
+        var response = new Hagalaz.Contacts.Messages.GetContactsResponse
+        {
+            MasterId = ReceiverId,
+            SessionGeneration = 1,
+            ConnectionId = "receiver",
+            Friends = [snapshotContact],
+            Ignores = []
+        };
+        var session = Substitute.For<IGameSession>();
+        session.MasterId.Returns(ReceiverId);
+        session.SessionGeneration.Returns(1);
+        session.ConnectionId.Returns("receiver");
+        var mapper = Substitute.For<IMapper>();
+        mapper.Map<System.Collections.Generic.IEnumerable<Friend>>(Arg.Any<object>()).Returns(new[] { friend });
+        mapper.Map<System.Collections.Generic.IEnumerable<Ignore>>(Arg.Any<object>()).Returns(System.Array.Empty<Ignore>());
+        mapper.Map<System.Collections.Generic.List<ContactDto>>(Arg.Any<object>())
+            .Returns(call => new System.Collections.Generic.List<ContactDto>());
+        mapper.Map<System.Collections.Generic.List<ContactDto>>(response.Friends)
+            .Returns(new System.Collections.Generic.List<ContactDto> { new() { MasterId = (int)AdderId, DisplayName = "Adder" } });
+
+        Assert.IsTrue(ContactSnapshotApplicator.TryApply(response, session, feature, mapper));
+    }
+
+    private static (IGameConnectionService Service, IGameConnection Connection) CreateConnection(Friend friend, bool signedIn = true) =>
+        CreateConnection(CreateFeature(friend, signedIn));
+
+    private static (IGameConnectionService Service, IGameConnection Connection) CreateConnection(ContactsFeature feature)
+    {
         var features = new FeatureCollection();
         features.Set<IContactsFeature>(feature);
         var connection = Substitute.For<IGameConnection>();
@@ -119,6 +217,8 @@ public sealed class ContactAddedConsumerTests
             DisplayName = "Adder",
             WorldId = 3,
             WorldName = "World 3",
+            SessionGeneration = 1,
+            SessionConnectionId = "conn",
             AreMutualFriends = publisherMutual
         },
         new Hagalaz.Contacts.Messages.Model.ContactDto { MasterId = ReceiverId, DisplayName = "Receiver" });
