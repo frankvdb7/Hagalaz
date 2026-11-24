@@ -14,6 +14,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([2312, 4059])]
     public class BalancingRope : GameObjectScript
     {
+        private readonly IAgilitySkillService _agilitySkillService;
+
+        public BalancingRope(IAgilitySkillService agilitySkillService) => _agilitySkillService = agilitySkillService;
+
         /// <summary>
         ///     The speak texts
         /// </summary>
@@ -54,14 +58,14 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.Movement.Unlock(false);
                         clicker.Appearance.ResetRenderID();
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 7.5);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.AddState(new GnomeCourseBalancingRopeState());
                         clicker.ResetMovementType();
                         task.Cancel();
                     }
                 });
                 clicker.QueueTask(task);
-                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
+                _agilitySkillService.MakeNearbyNpcSpeak(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

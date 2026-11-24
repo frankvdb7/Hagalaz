@@ -13,6 +13,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69384])]
     public class SecondObstacleNet : GameObjectScript
     {
+        private readonly IAgilitySkillService _agilitySkillService;
+
+        public SecondObstacleNet(IAgilitySkillService agilitySkillService) => _agilitySkillService = agilitySkillService;
+
         /// <summary>
         ///     The speak texts
         /// </summary>
@@ -44,11 +48,11 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 clicker.QueueTask(new RsTask(() =>
                     {
                         clicker.Movement.Teleport(Teleport.Create(destination));
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 7.5);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.AddState(new GnomeCourseSecondObstacleNetState());
                         clicker.Movement.Unlock(false);
                     }, 2));
-                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
+                _agilitySkillService.MakeNearbyNpcSpeak(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

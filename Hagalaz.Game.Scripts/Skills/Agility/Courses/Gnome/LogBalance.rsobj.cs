@@ -14,6 +14,10 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     [GameObjectScriptMetaData([69526])]
     public class LogBalance : GameObjectScript
     {
+        private readonly IAgilitySkillService _agilitySkillService;
+
+        public LogBalance(IAgilitySkillService agilitySkillService) => _agilitySkillService = agilitySkillService;
+
         /// <summary>
         ///     The speak texts
         /// </summary>
@@ -44,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.Movement.Unlock(false);
                         clicker.Appearance.ResetRenderID();
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 7.5);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.SendChatMessage("...and make it safely to the other side.");
                         clicker.AddState(new GnomeCourseLogBalanceState());
                         clicker.ResetMovementType();
@@ -52,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     }
                 });
                 clicker.QueueTask(task);
-                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
+                _agilitySkillService.MakeNearbyNpcSpeak(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

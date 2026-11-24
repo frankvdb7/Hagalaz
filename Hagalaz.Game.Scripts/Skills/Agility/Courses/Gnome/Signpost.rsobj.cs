@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events.Character;
@@ -18,13 +17,18 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     public class Signpost : GameObjectScript
     {
         private readonly IMovementBuilder _movementBuilder;
+        private readonly IAgilitySkillService _agilitySkillService;
 
         /// <summary>
         ///     The speak texts
         /// </summary>
         private static readonly string[] _speakTexts = ["Come on! I'd be over there by now"];
 
-        public Signpost(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
+        public Signpost(IMovementBuilder movementBuilder, IAgilitySkillService agilitySkillService)
+        {
+            _movementBuilder = movementBuilder;
+            _agilitySkillService = agilitySkillService;
+        }
 
         /// <summary>
         ///     Called when [character click].
@@ -90,11 +94,11 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 clicker.QueueTask(new RsTask(() =>
                     {
                         clicker.Movement.Teleport(Teleport.Create(Location.Create(2484, 3418, 3, clicker.Location.Dimension)));
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 25);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.AddState(new GnomeCourseSignpostState());
                         clicker.Movement.Unlock(false);
                     }, 4));
-                Agility.CheckGnomeCourseNpCs(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
+                _agilitySkillService.MakeNearbyNpcSpeak(clicker, _speakTexts[RandomStatic.Generator.Next(0, _speakTexts.Length)]);
             }
             else
             {

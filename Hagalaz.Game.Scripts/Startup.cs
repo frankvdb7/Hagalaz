@@ -28,6 +28,8 @@ using Hagalaz.Game.Scripts.Skills.Cooking;
 using Hagalaz.Game.Scripts.Skills.Crafting;
 using Hagalaz.Game.Scripts.Skills.Farming;
 using Hagalaz.Game.Scripts.Skills.Fishing;
+using Hagalaz.Game.Scripts.Skills.Agility;
+using Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome;
 using Hagalaz.Game.Scripts.Skills.Fletching;
 using Hagalaz.Game.Scripts.Skills.Herblore.Herbs;
 using Hagalaz.Game.Scripts.Skills.Herblore.Potions;
@@ -66,6 +68,9 @@ namespace Hagalaz.Game.Scripts
             services.AddSingleton<ICraftingSkillService, CraftingSkillService>();
             services.AddSingleton<IFarmingSkillService, FarmingSkillService>();
             services.AddSingleton<IFletchingSkillService, FletchingSkillService>();
+            services.AddSingleton<IAgilityCourse, GnomeBasicCourse>();
+            services.AddSingleton<IAgilityCourse, GnomeAdvancedCourse>();
+            services.AddSingleton<IAgilitySkillService, AgilitySkillService>();
 
             services.AddSingleton<INpcAttackService, NpcAttackService>();
             services.AddSingleton<IAviansieFlightRule, AviansieFlightRule>();

@@ -15,8 +15,13 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     public class Pole : GameObjectScript
     {
         private readonly IMovementBuilder _movementBuilder;
+        private readonly IAgilitySkillService _agilitySkillService;
 
-        public Pole(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
+        public Pole(IMovementBuilder movementBuilder, IAgilitySkillService agilitySkillService)
+        {
+            _movementBuilder = movementBuilder;
+            _agilitySkillService = agilitySkillService;
+        }
 
         /// <summary>
         ///     Called when [character click].
@@ -139,7 +144,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                         // platform
                         clicker.Movement.Teleport(Teleport.Create(movement.EndLocation));
                         clicker.AddState(new GnomeCoursePoleState());
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 25);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
                         clicker.Movement.Unlock(false);
                         task.Cancel();
                     }

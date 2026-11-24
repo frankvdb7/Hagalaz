@@ -24,6 +24,13 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
                 .ForMember(dest => dest.Experience, opt => opt.MapFrom(src => (double)src.Experience))
                 .ForMember(dest => dest.Type, opt => opt.MapFrom(src => Enum.Parse<PrayerDtoType>(src.Type)));
+            CreateMap<SkillsAgilityObstacleDefinition, AgilityObstacleDto>()
+                .ForMember(dest => dest.ObjectId, opt => opt.MapFrom(src => (int)src.ObjectId))
+                .ForMember(dest => dest.Experience, opt => opt.MapFrom(src => (double)src.Experience))
+                .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel));
+            CreateMap<SkillsAgilityCourseDefinition, AgilityCourseDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (AgilityCourseId)src.Id))
+                .ForMember(dest => dest.CompletionExperience, opt => opt.MapFrom(src => (double)src.CompletionExperience));
             CreateMap<SkillsFiremakingDefinition, FiremakingDto>()
                 .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))

@@ -3486,6 +3486,54 @@ namespace Hagalaz.Data.Migrations
                     MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "latin1");
                 });
 
+            modelBuilder.Entity("Hagalaz.Data.Entities.SkillsAgilityCourseDefinition", b =>
+                {
+                    b.Property<byte>("Id")
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("CompletionExperience")
+                        .HasPrecision(11, 2)
+                        .HasColumnType("decimal(11,2)")
+                        .HasColumnName("completion_experience");
+
+                    b.HasKey("Id")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("skills_agility_course_definitions", (string)null);
+
+                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
+
+                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
+                });
+
+            modelBuilder.Entity("Hagalaz.Data.Entities.SkillsAgilityObstacleDefinition", b =>
+                {
+                    b.Property<uint>("ObjectId")
+                        .HasColumnType("int(11) unsigned")
+                        .HasColumnName("object_id");
+
+                    b.Property<decimal>("Experience")
+                        .HasPrecision(11, 2)
+                        .HasColumnType("decimal(11,2)")
+                        .HasColumnName("experience");
+
+                    b.Property<byte>("RequiredLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasColumnName("required_level")
+                        .HasDefaultValueSql("'1'");
+
+                    b.HasKey("ObjectId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("skills_agility_obstacle_definitions", (string)null);
+
+                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
+
+                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
+                });
+
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsCookingFoodDefinition", b =>
                 {
                     b.Property<ushort>("ItemId")

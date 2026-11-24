@@ -12,8 +12,13 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
     public class Barrier : GameObjectScript
     {
         private readonly IMovementBuilder _movementBuilder;
+        private readonly IAgilitySkillService _agilitySkillService;
 
-        public Barrier(IMovementBuilder movementBuilder) => _movementBuilder = movementBuilder;
+        public Barrier(IMovementBuilder movementBuilder, IAgilitySkillService agilitySkillService)
+        {
+            _movementBuilder = movementBuilder;
+            _agilitySkillService = agilitySkillService;
+        }
 
         /// <summary>
         ///     Called when [character click perform].
@@ -81,8 +86,8 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                     {
                         clicker.Movement.Unlock(false);
                         clicker.AddState(new GnomeCourseBarrierState());
-                        clicker.Statistics.AddExperience(StatisticsConstants.Agility, 25);
-                        Agility.CheckGnomeCourseCompletion(clicker);
+                        _agilitySkillService.AddObstacleExperience(clicker, Owner.Id);
+                        _agilitySkillService.CheckCourseCompletion(clicker);
                     } 
                     else if (task.TickCount > 7)
                     {
