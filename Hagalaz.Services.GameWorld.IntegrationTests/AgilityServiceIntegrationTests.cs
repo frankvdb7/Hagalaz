@@ -27,16 +27,8 @@ public sealed class AgilityServiceIntegrationTests
     [ClassInitialize]
     public static async Task InitializeAsync(TestContext _)
     {
-        _database = new MySqlBuilder("mysql:8.4")
-            .WithDatabase("hagalaz-gameworld-agility-test")
-            .WithUsername("root")
-            .WithPassword("hagalaz-gameworld-agility-test")
-            .WithCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci")
-            .Build();
-        await _database.StartAsync();
-
-        await using var context = CreateContext();
-        await context.Database.MigrateAsync();
+        _database = await GameWorldTestDatabase.StartAsync("hagalaz-gameworld-agility-test");
+        await using var context = GameWorldTestDatabase.CreateContext(_database);
         context.SkillsAgilityObstacleDefinitions.AddRange(
             new SkillsAgilityObstacleDefinition { ObjectId = 880001, Experience = 13.25m, RequiredLevel = 7 },
             new SkillsAgilityObstacleDefinition { ObjectId = 880002, Experience = 41.5m, RequiredLevel = 63 });
@@ -47,13 +39,7 @@ public sealed class AgilityServiceIntegrationTests
     }
 
     [ClassCleanup]
-    public static async Task CleanupAsync()
-    {
-        if (_database != null)
-        {
-            await _database.DisposeAsync();
-        }
-    }
+    public static Task CleanupAsync() => GameWorldTestDatabase.StopAsync(_database);
 
     [TestMethod]
     [Timeout(120000)]
@@ -125,18 +111,10 @@ public sealed class AgilityServiceIntegrationTests
         statistics.Received(2).AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
 
-    private static ServiceProvider CreateServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddDbContext<HagalazDbContext>(options => options.UseMySQL(_database!.GetConnectionString()));
-        services.AddScoped<IAgilityObstacleDefinitionRepository, AgilityObstacleDefinitionRepository>();
-        services.AddScoped<IAgilityCourseDefinitionRepository, AgilityCourseDefinitionRepository>();
-        services.AddSingleton<IMapper>(provider =>
-            new MapperConfiguration(expression => expression.AddProfile<SkillsProfile>(), provider.GetRequiredService<ILoggerFactory>()).CreateMapper());
-        return services.BuildServiceProvider();
-    }
-
-    private static HagalazDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<HagalazDbContext>().UseMySQL(_database!.GetConnectionString()).Options);
+    private static ServiceProvider CreateServiceProvider() =>
+        GameWorldTestDatabase.CreateServiceProvider(_database!, services =>
+        {
+            services.AddScoped<IAgilityObstacleDefinitionRepository, AgilityObstacleDefinitionRepository>();
+            services.AddScoped<IAgilityCourseDefinitionRepository, AgilityCourseDefinitionRepository>();
+        });
 }

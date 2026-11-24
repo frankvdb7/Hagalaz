@@ -3,6 +3,7 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
@@ -12,55 +13,14 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
     /// </summary>
     public class AncientMiasmicCombatSpell : AncientCombatSpell
     {
-        public AncientMiasmicCombatSpell(int spellType, IProjectileBuilder projectileBuilder) : base(spellType, projectileBuilder)
+        public AncientMiasmicCombatSpell(int spellType, CombatSpellDto dto, IProjectileBuilder projectileBuilder) : base(spellType, dto, projectileBuilder)
         {
-        }
-
-        /// <summary>
-        ///     The RUN e_ REQUIREMENTS
-        /// </summary>
-        private static readonly RuneType[][] _runeRequirements =
-        [
-            [RuneType.Chaos, RuneType.Earth, RuneType.Soul], [RuneType.Chaos, RuneType.Earth, RuneType.Soul], [RuneType.Blood, RuneType.Earth, RuneType.Soul],
-            [RuneType.Blood, RuneType.Earth, RuneType.Soul]
-        ];
-
-        /// <summary>
-        ///     The RUN e_ AMOUNTS
-        /// </summary>
-        private static readonly int[][] _runeAmounts = [[2, 1, 1], [4, 2, 2], [2, 3, 3], [4, 4, 4]];
-
-        /// <summary>
-        ///     The LEVE l_ REQUIREMENTS
-        /// </summary>
-        private static readonly int[] _levelRequirements = [61, 73, 85, 97];
-
-        /// <summary>
-        ///     The CONFI g_ IDS
-        /// </summary>
-        private static readonly int[] _configIds = [95, 97, 99, 101];
-
-        /// <summary>
-        ///     The EXP
-        /// </summary>
-        private static readonly double[] _exp = [36.0, 42.0, 48.0, 54.0];
-
-        /// <summary>
-        ///     The BAS e_ DAMAGE
-        /// </summary>
-        private static int[] _baseDamage;
-
-        static AncientMiasmicCombatSpell()
-        {
-            _baseDamage = new int[] { 180, 240, 280, 352 };
         }
 
         /// <summary>
         ///     The STAF f_ IDS
         /// </summary>
         private static readonly int[] _staffIds = [13867, 13869, 13941, 13943];
-
-        protected override AncientSpellData Data { get; } = new(_runeRequirements, _runeAmounts, _levelRequirements, _configIds, _exp, _baseDamage);
 
         /// <summary>
         ///     Check's requirements for this spell. Zuriel's staff must be equipped.

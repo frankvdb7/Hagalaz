@@ -2778,13 +2778,27 @@ namespace Hagalaz.Data
 
             modelBuilder.Entity<SkillsMagicCombatDefinition>(entity =>
             {
-                entity.HasKey(e => e.ButtonId).HasName("PRIMARY");
+                entity.HasKey(e => new
+                    {
+                        e.ButtonId, e.SpellBook
+                    })
+                    .HasName("PRIMARY")
+                    .HasAnnotation("MySQL:IndexPrefixLength",
+                        new[]
+                        {
+                            0, 0
+                        });
 
                 entity.ToTable("skills_magic_combat_definitions");
 
                 entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
 
                 entity.Property(e => e.ButtonId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("button_id");
+
+                entity.Property(e => e.SpellBook)
+                    .HasColumnType("enum('StandartBook','AncientBook','LunarBook','DungeoneeringBook')")
+                    .HasColumnName("spell_book")
+                    .HasDefaultValueSql("'StandartBook'");
 
                 entity.Property(e => e.AutocastConfig).HasColumnType("int(11) unsigned").HasColumnName("autocast_config");
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Mediator;
@@ -36,92 +37,72 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         private static readonly Dictionary<int, ICombatSpell> _normalCombatSpells = new();
 
         /// <summary>
-        ///     Initializes the <see cref="SpellBookTab" /> class.
+        ///     The Ancient spell families: the first spellbook button of each family and its spell factory. A family occupies four
+        ///     consecutive buttons laid out as rush, blitz, burst, barrage, which are spell types 0, 2, 1 and 3.
         /// </summary>
-        static SpellBookTab() => LoadTeleports();
+        private static readonly (int FirstButtonId, Func<int, CombatSpellDto, IProjectileBuilder, ICombatSpell> Create)[] _ancientFamilies =
+        [
+            (20, (type, dto, builder) => new AncientIceCombatSpell(type, dto, builder)),
+            (24, (type, dto, builder) => new AncientBloodCombatSpell(type, dto, builder)),
+            (28, (type, dto, builder) => new AncientSmokeCombatSpell(type, dto, builder)),
+            (32, (type, dto, builder) => new AncientShadowCombatSpell(type, dto, builder)),
+            (36, (type, dto, builder) => new AncientMiasmicCombatSpell(type, dto, builder))
+        ];
 
-        private ICombatSpell[] GetSmokeSpells()
+        private static readonly int[] _ancientSpellTypeByButtonOffset = [0, 2, 1, 3];
+
+        /// <summary>
+        ///     Builds the Ancient combat spells from their persisted definitions, keyed by spellbook button id.
+        ///     A button without a persisted definition is not castable.
+        /// </summary>
+        internal Dictionary<int, ICombatSpell> CreateAncientSpells(IEnumerable<CombatSpellDto> definitions)
         {
-            return
-            [
-                new AncientSmokeCombatSpell(0, _projectileBuilder),
-                new AncientSmokeCombatSpell(1, _projectileBuilder),
-                new AncientSmokeCombatSpell(2, _projectileBuilder),
-                new AncientSmokeCombatSpell(3, _projectileBuilder)
-            ];
+            var byButton = definitions.Where(definition => definition.SpellBook == MagicBook.AncientBook).ToDictionary(definition => definition.ButtonId);
+            var spells = new Dictionary<int, ICombatSpell>();
+            foreach (var (firstButtonId, create) in _ancientFamilies)
+            {
+                for (var offset = 0; offset < _ancientSpellTypeByButtonOffset.Length; offset++)
+                {
+                    if (byButton.TryGetValue(firstButtonId + offset, out var definition))
+                    {
+                        spells.Add(definition.ButtonId, create(_ancientSpellTypeByButtonOffset[offset], definition, _projectileBuilder));
+                    }
+                }
+            }
+
+            return spells;
         }
 
-        private ICombatSpell[] GetShadowSpells()
-        {
-            return
-            [
-                new AncientShadowCombatSpell(0, _projectileBuilder),
-                new AncientShadowCombatSpell(1, _projectileBuilder),
-                new AncientShadowCombatSpell(2, _projectileBuilder),
-                new AncientShadowCombatSpell(3, _projectileBuilder)
-            ];
-        }
-
-        private ICombatSpell[] GetBloodSpells()
-        {
-            return
-            [
-                new AncientBloodCombatSpell(0, _projectileBuilder),
-                new AncientBloodCombatSpell(1, _projectileBuilder),
-                new AncientBloodCombatSpell(2, _projectileBuilder),
-                new AncientBloodCombatSpell(3, _projectileBuilder)
-            ];
-        }
-
-        private ICombatSpell[] GetIceSpells()
-        {
-            return
-            [
-                new AncientIceCombatSpell(0, _projectileBuilder),
-                new AncientIceCombatSpell(1, _projectileBuilder),
-                new AncientIceCombatSpell(2, _projectileBuilder),
-                new AncientIceCombatSpell(3, _projectileBuilder)
-            ];
-        }
-
-        private ICombatSpell[] GetMiasmicSpells()
-        {
-            return
-            [
-                new AncientMiasmicCombatSpell(0, _projectileBuilder),
-                new AncientMiasmicCombatSpell(1, _projectileBuilder),
-                new AncientMiasmicCombatSpell(2, _projectileBuilder),
-                new AncientMiasmicCombatSpell(3, _projectileBuilder)
-            ];
-        }
+        private static readonly (Dictionary<int, ITeleportSpellScript> Normal, Dictionary<int, ITeleportSpellScript> Ancient, Dictionary<int, ITeleportSpellScript> Lunar) _teleports = CreateTeleports();
 
         /// <summary>
         ///     Contains normal teleports.
         /// </summary>
-        private static readonly Dictionary<int, ITeleportSpellScript> _normalTeleports = new();
+        private static Dictionary<int, ITeleportSpellScript> _normalTeleports => _teleports.Normal;
 
         /// <summary>
         ///     Contains ancient teleports.
         /// </summary>
-        private static readonly Dictionary<int, ITeleportSpellScript> _ancientTeleports = new();
+        private static Dictionary<int, ITeleportSpellScript> _ancientTeleports => _teleports.Ancient;
 
         /// <summary>
         ///     Contains lunar teleports.
         /// </summary>
-        private static readonly Dictionary<int, ITeleportSpellScript> _lunarTeleports = new();
+        private static Dictionary<int, ITeleportSpellScript> _lunarTeleports => _teleports.Lunar;
 
         private readonly IScopedGameMediator _gameMediator;
         private readonly IServiceProvider _serviceProvider;
         private readonly IMagicService _magicService;
+        private readonly ICombatSpellCatalog _combatSpellCatalog;
         private readonly IItemBuilder _itemBuilder;
         private readonly IProjectileBuilder _projectileBuilder;
 
-        /// <summary>
-        ///     Loads the teleports.
-        /// </summary>
-        private static void LoadTeleports()
+        private static (Dictionary<int, ITeleportSpellScript> Normal, Dictionary<int, ITeleportSpellScript> Ancient, Dictionary<int, ITeleportSpellScript> Lunar) CreateTeleports()
         {
-            _normalTeleports.Add(37,
+            var normalTeleports = new Dictionary<int, ITeleportSpellScript>();
+            var ancientTeleports = new Dictionary<int, ITeleportSpellScript>();
+            var lunarTeleports = new Dictionary<int, ITeleportSpellScript>();
+            normalTeleports.Add(37,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     2413,
                     2840,
@@ -133,7 +114,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 1
                     ])); // Mobilising armies teleport
-            _normalTeleports.Add(40,
+            normalTeleports.Add(40,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     3213,
                     3428,
@@ -145,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 3
                     ])); // Varrock teleport
-            _normalTeleports.Add(43,
+            normalTeleports.Add(43,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     3222,
                     3218,
@@ -157,7 +138,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 3
                     ])); // Lumbridge teleport
-            _normalTeleports.Add(46,
+            normalTeleports.Add(46,
                 new StandardTeleportScript(MagicBook.StandardBook,
                     2965,
                     3380,
@@ -169,16 +150,16 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         1, 1, 3
                     ])); // Falador teleport
-            _normalTeleports.Add(51,
+            normalTeleports.Add(51,
                 new StandardTeleportScript(MagicBook.StandardBook, 2757, 3478, 0, 3, 45, 55.5, [RuneType.Law, RuneType.Air], [1, 5])); // Camelot teleport
-            _normalTeleports.Add(57,
+            normalTeleports.Add(57,
                 new StandardTeleportScript(MagicBook.StandardBook, 2662, 3307, 0, 6, 51, 61, [RuneType.Law, RuneType.Water], [2, 2])); // Ardougne teleport
-            _normalTeleports.Add(62,
+            normalTeleports.Add(62,
                 new StandardTeleportScript(MagicBook.StandardBook, 2931, 4711, 0, 3, 58, 68, [RuneType.Law, RuneType.Earth], [2, 2])); // Watchtower teleport
-            _normalTeleports.Add(69,
+            normalTeleports.Add(69,
                 new StandardTeleportScript(MagicBook.StandardBook, 2891, 3678, 0, 3, 61, 71, [RuneType.Law, RuneType.Fire], [2, 2])); // Trollheim teleport
 
-            _ancientTeleports.Add(40,
+            ancientTeleports.Add(40,
                 new StandardTeleportScript(MagicBook.AncientBook,
                     3097,
                     9869,
@@ -190,13 +171,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 1
                     ])); // Paddewwa teleport
-            _ancientTeleports.Add(41,
+            ancientTeleports.Add(41,
                 new StandardTeleportScript(MagicBook.AncientBook, 3308, 3332, 0, 1, 60, 70, [RuneType.Law, RuneType.Soul], [2, 1])); // Senntisten teleport
-            _ancientTeleports.Add(42,
+            ancientTeleports.Add(42,
                 new StandardTeleportScript(MagicBook.AncientBook, 3494, 3477, 0, 2, 66, 76, [RuneType.Law, RuneType.Blood], [2, 1])); // Kharyrll  teleport
-            _ancientTeleports.Add(43,
+            ancientTeleports.Add(43,
                 new StandardTeleportScript(MagicBook.AncientBook, 3003, 3470, 0, 2, 72, 82, [RuneType.Law, RuneType.Water], [2, 4])); // Lassar  teleport
-            _ancientTeleports.Add(44,
+            ancientTeleports.Add(44,
                 new StandardTeleportScript(MagicBook.AncientBook,
                     2966,
                     3696,
@@ -208,14 +189,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 3, 2
                     ])); // Dareeyak  teleport
-            _ancientTeleports.Add(45,
+            ancientTeleports.Add(45,
                 new StandardTeleportScript(MagicBook.AncientBook, 3185, 3664, 0, 3, 84, 94, [RuneType.Law, RuneType.Soul], [2, 2])); // Carrallangar  teleport
-            _ancientTeleports.Add(46,
+            ancientTeleports.Add(46,
                 new StandardTeleportScript(MagicBook.AncientBook, 3287, 3883, 0, 2, 90, 100, [RuneType.Law, RuneType.Blood], [2, 2])); // Annakarl  teleport
-            _ancientTeleports.Add(47,
+            ancientTeleports.Add(47,
                 new StandardTeleportScript(MagicBook.AncientBook, 2972, 3873, 0, 2, 96, 106, [RuneType.Law, RuneType.Water], [2, 8])); // Ghorrock  teleport
 
-            _lunarTeleports.Add(43,
+            lunarTeleports.Add(43,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2110,
                     3915,
@@ -227,7 +208,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 2
                     ])); // Moonclan teleport
-            _lunarTeleports.Add(54,
+            lunarTeleports.Add(54,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2455,
                     3234,
@@ -239,7 +220,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 6
                     ])); // Ourania teleport
-            _lunarTeleports.Add(67,
+            lunarTeleports.Add(67,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     3007,
                     3321,
@@ -251,7 +232,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 2
                     ])); // South Falador teleport
-            _lunarTeleports.Add(47,
+            lunarTeleports.Add(47,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2541,
                     3760,
@@ -263,7 +244,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 1
                     ])); // Waterbirth teleport
-            _lunarTeleports.Add(22,
+            lunarTeleports.Add(22,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2519,
                     3571,
@@ -275,7 +256,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 2, 3
                     ])); // Barbarian teleport
-            _lunarTeleports.Add(69,
+            lunarTeleports.Add(69,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2636,
                     3340,
@@ -287,7 +268,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 1, 5
                     ])); // North Ardougne teleport
-            _lunarTeleports.Add(41,
+            lunarTeleports.Add(41,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2660,
                     3157,
@@ -299,7 +280,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         2, 2, 4
                     ])); // Khazard teleport
-            _lunarTeleports.Add(40,
+            lunarTeleports.Add(40,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2613,
                     3381,
@@ -311,7 +292,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         3, 3, 8
                     ])); // Fishing guild teleport
-            _lunarTeleports.Add(44,
+            lunarTeleports.Add(44,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2805,
                     3434,
@@ -323,7 +304,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         3, 3, 10
                     ])); // Catherby teleport
-            _lunarTeleports.Add(51,
+            lunarTeleports.Add(51,
                 new StandardTeleportScript(MagicBook.LunarBook,
                     2952,
                     3931,
@@ -335,6 +316,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     [
                         3, 3, 8
                     ])); // Ice plateau teleport
+            return (normalTeleports, ancientTeleports, lunarTeleports);
         }
 
         private IGameConnectHandle _settingsChanged = default!;
@@ -342,11 +324,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
         public SpellBookTab(
             ICharacterContextAccessor characterContextAccessor, IScopedGameMediator gameMediator, IServiceProvider serviceProvider,
-            IMagicService magicService, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder) : base(characterContextAccessor)
+            IMagicService magicService, ICombatSpellCatalog combatSpellCatalog, IItemBuilder itemBuilder, IProjectileBuilder projectileBuilder) : base(characterContextAccessor)
         {
             _gameMediator = gameMediator;
             _serviceProvider = serviceProvider;
             _magicService = magicService;
+            _combatSpellCatalog = combatSpellCatalog;
             _itemBuilder = itemBuilder;
             _projectileBuilder = projectileBuilder;
         }
@@ -570,7 +553,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
-                        foreach (var definition in magicManager.FindAllCombatSpells().ConfigureAwait(false).GetAwaiter().GetResult())
+                        foreach (var definition in _combatSpellCatalog.CombatSpells
+                                     .Where(spell => spell.SpellBook == MagicBook.StandardBook))
                         {
                             InterfaceInstance.AttachClickHandler(definition.ButtonId,
                                 (componentID, clickType, extra1, extra2) =>
@@ -740,42 +724,9 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 return true;
                             });
 
-                        InterfaceInstance.AttachClickHandler(5,
-                            (componentID, clickType, extra1, extra2) =>
-                            {
-                                if (clickType != ComponentClickType.LeftClick)
-                                {
-                                    return false;
-                                }
-
-                                _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.MagicSettingsHideCombatSpells));
-                                return true;
-                            });
-
-                        InterfaceInstance.AttachClickHandler(7,
-                            (componentID, clickType, extra1, extra2) =>
-                            {
-                                if (clickType != ComponentClickType.LeftClick)
-                                {
-                                    return false;
-                                }
-
-                                _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.MagicSettingsHideTeleportSpells));
-                                return true;
-                            });
-
-                        InterfaceInstance.AttachClickHandler(18,
-                            (componentID, clickType, extra1, extra2) =>
-                            {
-                                if (clickType != ComponentClickType.LeftClick)
-                                {
-                                    return false;
-                                }
-
-
-                                _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.CombatSettingsMagicDefensiveCasting));
-                                return true;
-                            });
+                        AttachToggleHandler(5, ProfileConstants.MagicSettingsHideCombatSpells);
+                        AttachToggleHandler(7, ProfileConstants.MagicSettingsHideTeleportSpells);
+                        AttachToggleHandler(18, ProfileConstants.CombatSettingsMagicDefensiveCasting);
 
                         foreach (var childID in _ancientTeleports.Keys)
                         {
@@ -792,157 +743,28 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
-                        var bloodSpells = GetBloodSpells();
-                        var smokeSpells = GetSmokeSpells();
-                        var shadowSpells = GetShadowSpells();
-                        var iceSpells = GetIceSpells();
-                        var miasmicSpells = GetMiasmicSpells();
-
-                        OnComponentClick autoCastClickHandler = (componentID, clickType, extra1, extra2) =>
+                        var ancientSpells = CreateAncientSpells(_combatSpellCatalog.CombatSpells);
+                        foreach (var (buttonId, spell) in ancientSpells)
                         {
-                            if (clickType != ComponentClickType.Option6Click)
-                            {
-                                return false;
-                            }
+                            InterfaceInstance.AttachClickHandler(buttonId,
+                                (componentID, clickType, extra1, extra2) =>
+                                {
+                                    if (clickType != ComponentClickType.Option6Click)
+                                    {
+                                        return false;
+                                    }
 
-                            switch (componentID)
-                            {
-                                case 20: AutoCast(iceSpells[0]); break;
-                                case 21: AutoCast(iceSpells[2]); break;
-                                case 22: AutoCast(iceSpells[1]); break;
-                                case 23: AutoCast(iceSpells[3]); break;
-                                case 24: AutoCast(bloodSpells[0]); break;
-                                case 25: AutoCast(bloodSpells[2]); break;
-                                case 26: AutoCast(bloodSpells[1]); break;
-                                case 27: AutoCast(bloodSpells[3]); break;
-                                case 28: AutoCast(smokeSpells[0]); break;
-                                case 29: AutoCast(smokeSpells[2]); break;
-                                case 30: AutoCast(smokeSpells[1]); break;
-                                case 31: AutoCast(smokeSpells[3]); break;
-                                case 32: AutoCast(shadowSpells[0]); break;
-                                case 33: AutoCast(shadowSpells[2]); break;
-                                case 34: AutoCast(shadowSpells[1]); break;
-                                case 35: AutoCast(shadowSpells[3]); break;
-                                case 36: AutoCast(miasmicSpells[0]); break;
-                                case 37: AutoCast(miasmicSpells[2]); break;
-                                case 38: AutoCast(miasmicSpells[1]); break;
-                                case 39: AutoCast(miasmicSpells[3]); break;
-                            }
+                                    AutoCast(spell);
+                                    return true;
+                                });
 
-                            return true;
-                        };
-
-
-                        OnComponentUsedOnCreature castUseHandler = (componentID, usedOn, shouldRun, extra1, extra2) =>
-                        {
-                            Owner.Interrupt(this);
-                            if (componentID == 20)
-                            {
-                                Cast(iceSpells[0], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 21)
-                            {
-                                Cast(iceSpells[2], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 22)
-                            {
-                                Cast(iceSpells[1], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 23)
-                            {
-                                Cast(iceSpells[3], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 24)
-                            {
-                                Cast(bloodSpells[0], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 25)
-                            {
-                                Cast(bloodSpells[2], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 26)
-                            {
-                                Cast(bloodSpells[1], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 27)
-                            {
-                                Cast(bloodSpells[3], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 28)
-                            {
-                                Cast(smokeSpells[0], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 29)
-                            {
-                                Cast(smokeSpells[2], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 30)
-                            {
-                                Cast(smokeSpells[1], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 21)
-                            {
-                                Cast(smokeSpells[3], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 32)
-                            {
-                                Cast(shadowSpells[0], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 33)
-                            {
-                                Cast(shadowSpells[2], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 34)
-                            {
-                                Cast(shadowSpells[1], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 35)
-                            {
-                                Cast(shadowSpells[3], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 36)
-                            {
-                                Cast(miasmicSpells[0], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 37)
-                            {
-                                Cast(miasmicSpells[2], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 38)
-                            {
-                                Cast(miasmicSpells[1], usedOn, shouldRun);
-                            }
-
-                            if (componentID == 39)
-                            {
-                                Cast(miasmicSpells[3], usedOn, shouldRun);
-                            }
-
-                            return true;
-                        };
-
-                        for (var i = 20; i < 40; i++)
-                        {
-                            InterfaceInstance.AttachClickHandler(i, autoCastClickHandler);
-                            InterfaceInstance.AttachUseOnCreatureHandler(i, castUseHandler);
+                            InterfaceInstance.AttachUseOnCreatureHandler(buttonId,
+                                (componentID, usedOn, shouldRun, extra1, extra2) =>
+                                {
+                                    Owner.Interrupt(this);
+                                    Cast(spell, usedOn, shouldRun);
+                                    return true;
+                                });
                         }
 
                         break;
@@ -951,6 +773,22 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             Refresh();
         }
+
+        /// <summary>
+        ///     Attaches a left-click handler that toggles a boolean profile setting.
+        /// </summary>
+        private void AttachToggleHandler(int componentId, string profileKey) =>
+            InterfaceInstance.AttachClickHandler(componentId,
+                (componentID, clickType, extra1, extra2) =>
+                {
+                    if (clickType != ComponentClickType.LeftClick)
+                    {
+                        return false;
+                    }
+
+                    _gameMediator.Publish(new ProfileToggleBoolAction(profileKey));
+                    return true;
+                });
 
         public async Task<bool> CastEnchant(
             ICharacter character,

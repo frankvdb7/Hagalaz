@@ -431,6 +431,8 @@ namespace Hagalaz.Services.GameWorld
             services.AddScoped<IMagicCombatSpellsRepository, MagicCombatSpellsRepository>();
             services.AddScoped<IMagicEnchantingSpellsRepository, MagicEnchantingSpellsRepository>();
             services.AddScoped<IMagicService, MagicService>();
+            services.AddSingleton<CombatSpellCatalog>();
+            services.AddSingleton<ICombatSpellCatalog>(provider => provider.GetRequiredService<CombatSpellCatalog>());
             services.AddScoped<ILodestoneRepository, LodestoneRepository>();
             services.AddScoped<ILodestoneService, LodestoneService>();
             services.AddScoped<IFarmingPatchDefinitionRepository, FarmingPatchDefinitionRepository>();
@@ -767,6 +769,7 @@ namespace Hagalaz.Services.GameWorld
             services.AddStartupTaskLoader();
 
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AgilityService>());
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<CombatSpellCatalog>());
             // Startup services run in registration order: the Fletching recipes must load before ItemScriptProvider, whose script factories enumerate them.
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FletchingService>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaStore>());

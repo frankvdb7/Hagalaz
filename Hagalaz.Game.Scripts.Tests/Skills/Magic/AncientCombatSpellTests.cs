@@ -9,6 +9,7 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Skills.Combat.Magic;
 using NSubstitute;
@@ -123,7 +124,7 @@ public sealed class AncientCombatSpellTests
         var scenario = new Scenario { MultiCombat = false };
         scenario.AddBystander(victimX: 12, x: 13, y: 10);
 
-        new AncientIceCombatSpell(1, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientIceCombatSpell(1, Definition("ice", 1), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         Assert.AreEqual(scenario.Victim.Handle, scenario.Attacks.Single().Target);
     }
@@ -133,7 +134,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
         var caster = scenario.Caster;
-        var spell = new AncientBloodCombatSpell(2, scenario.Projectiles);
+        var spell = new AncientBloodCombatSpell(2, Definition("blood", 2), scenario.Projectiles);
 
         Assert.AreEqual(5, spell.GetCastingSpeed(caster));
         Assert.AreEqual(8, spell.GetCombatDistance(caster));
@@ -176,7 +177,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientIceCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientIceCombatSpell(type, Definition("ice", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         CollectionAssert.AreEqual(new[] { projectile }, scenario.ProjectileGraphics);
     }
@@ -186,7 +187,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientIceCombatSpell(2, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientIceCombatSpell(2, Definition("ice", 2), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         Assert.IsEmpty(scenario.ProjectileGraphics);
         Assert.IsTrue(scenario.CasterGraphics.Any(g => g is { Id: 366, Delay: 0, Height: 124 }));
@@ -201,7 +202,7 @@ public sealed class AncientCombatSpellTests
         var scenario = new Scenario();
         scenario.Victim.Freeze(ticks, immunity).Returns(true);
 
-        new AncientIceCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientIceCombatSpell(type, Definition("ice", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 10);
 
         scenario.Victim.Received(1).Freeze(ticks, immunity);
@@ -216,7 +217,7 @@ public sealed class AncientCombatSpellTests
         var scenario = new Scenario();
         scenario.Victim.Freeze(36, 43).Returns(frozen);
 
-        new AncientIceCombatSpell(3, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientIceCombatSpell(3, Definition("ice", 3), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 10);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g.Id == graphic && g.Delay == 61 && g.Height == height));
@@ -227,7 +228,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientIceCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientIceCombatSpell(0, Definition("ice", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 0, succeeded: false);
 
         scenario.Victim.DidNotReceive().Freeze(Arg.Any<int>(), Arg.Any<int>());
@@ -243,7 +244,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientShadowCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientShadowCombatSpell(type, Definition("shadow", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         CollectionAssert.AreEqual(new[] { projectile }, scenario.ProjectileGraphics);
     }
@@ -255,7 +256,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientShadowCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientShadowCombatSpell(type, Definition("shadow", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         Assert.IsEmpty(scenario.ProjectileGraphics);
     }
@@ -272,7 +273,7 @@ public sealed class AncientCombatSpellTests
         victim.Statistics.LevelForExperience(StatisticsConstants.Attack).Returns(99);
         victim.Statistics.GetSkillLevel(StatisticsConstants.Attack).Returns(99);
 
-        new AncientShadowCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, victim);
+        new AncientShadowCombatSpell(type, Definition("shadow", type), scenario.Projectiles).PerformAttack(scenario.Caster, victim);
         scenario.Resolve(0, damage: 10);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g.Id == graphic && g.Delay == 0));
@@ -287,12 +288,12 @@ public sealed class AncientCombatSpellTests
         var victim = (ICharacter)character.Victim;
         victim.Statistics.LevelForExperience(StatisticsConstants.Attack).Returns(99);
         victim.Statistics.GetSkillLevel(StatisticsConstants.Attack).Returns(80);
-        new AncientShadowCombatSpell(0, character.Projectiles).PerformAttack(character.Caster, victim);
+        new AncientShadowCombatSpell(0, Definition("shadow", 0), character.Projectiles).PerformAttack(character.Caster, victim);
         character.Resolve(0, damage: 10);
         victim.Statistics.DidNotReceive().DamageSkill(Arg.Any<int>(), Arg.Any<int>());
 
         var npc = new Scenario();
-        new AncientShadowCombatSpell(0, npc.Projectiles).PerformAttack(npc.Caster, npc.Victim);
+        new AncientShadowCombatSpell(0, Definition("shadow", 0), npc.Projectiles).PerformAttack(npc.Caster, npc.Victim);
         npc.Resolve(0, damage: 10);
         Assert.IsTrue(npc.VictimGraphics.Any(g => g.Id == 379));
     }
@@ -302,7 +303,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientShadowCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientShadowCombatSpell(0, Definition("shadow", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 0, succeeded: false);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g is { Id: 85, Delay: 0, Height: 150 }));
@@ -319,7 +320,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientSmokeCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientSmokeCombatSpell(type, Definition("smoke", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         CollectionAssert.AreEqual(new[] { projectile }, scenario.ProjectileGraphics);
     }
@@ -333,7 +334,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientSmokeCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientSmokeCombatSpell(type, Definition("smoke", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 10);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g is { Delay: 0, Height: 124 } && g.Id == graphic));
@@ -344,7 +345,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientSmokeCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientSmokeCombatSpell(0, Definition("smoke", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 0, succeeded: false);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g is { Id: 85, Delay: 0, Height: 150 }));
@@ -361,7 +362,7 @@ public sealed class AncientCombatSpellTests
         for (var attempt = 0; attempt < 200; attempt++)
         {
             var scenario = new Scenario();
-            new AncientSmokeCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+            new AncientSmokeCombatSpell(type, Definition("smoke", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
             if (scenario.Victim.ReceivedCalls().Any(c => c.GetMethodInfo().Name == nameof(ICreature.Poison)))
             {
                 scenario.Victim.Received(1).Poison(poison);
@@ -378,13 +379,13 @@ public sealed class AncientCombatSpellTests
     public void Blood_Rush_SendsProjectile374_OthersNone()
     {
         var rush = new Scenario();
-        new AncientBloodCombatSpell(2, rush.Projectiles).PerformAttack(rush.Caster, rush.Victim);
+        new AncientBloodCombatSpell(2, Definition("blood", 2), rush.Projectiles).PerformAttack(rush.Caster, rush.Victim);
         CollectionAssert.AreEqual(new[] { 374 }, rush.ProjectileGraphics);
 
         foreach (var type in new[] { 0, 1, 3 })
         {
             var other = new Scenario();
-            new AncientBloodCombatSpell(type, other.Projectiles).PerformAttack(other.Caster, other.Victim);
+            new AncientBloodCombatSpell(type, Definition("blood", type), other.Projectiles).PerformAttack(other.Caster, other.Victim);
             Assert.IsEmpty(other.ProjectileGraphics);
         }
     }
@@ -398,7 +399,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientBloodCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientBloodCombatSpell(type, Definition("blood", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g.Id == graphic && g.Delay == 61 && g.Height == 0));
     }
@@ -408,7 +409,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario { MagicDamage = _ => -1 };
 
-        new AncientBloodCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientBloodCombatSpell(0, Definition("blood", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g is { Id: 85, Delay: 61, Height: 150 }));
         Assert.IsFalse(scenario.VictimGraphics.Any(g => g.Id == 373));
@@ -422,7 +423,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientBloodCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientBloodCombatSpell(type, Definition("blood", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 41);
 
         scenario.Victim.Received(1).Freeze(ticks, immunity);
@@ -437,7 +438,7 @@ public sealed class AncientCombatSpellTests
         var scenario = new Scenario();
         scenario.Victim.Freeze(36, 43).Returns(frozen);
 
-        new AncientBloodCombatSpell(3, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientBloodCombatSpell(3, Definition("blood", 3), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 10);
 
         Assert.AreEqual(expectedCount, scenario.VictimGraphics.Count(g => g.Id == 378 && g.Delay == 61));
@@ -448,7 +449,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientBloodCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientBloodCombatSpell(0, Definition("blood", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 0, succeeded: false);
 
         scenario.Victim.DidNotReceive().Freeze(Arg.Any<int>(), Arg.Any<int>());
@@ -467,7 +468,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientMiasmicCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientMiasmicCombatSpell(type, Definition("miasmic", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
 
         Assert.IsTrue(scenario.CasterGraphics.Any(g => g.Id == casterGraphic && g.Delay == 0 && g.Height == 0));
         CollectionAssert.AreEqual(projectile is { } p ? new[] { p } : Array.Empty<int>(), scenario.ProjectileGraphics);
@@ -482,7 +483,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario(victimIsCharacter: true);
 
-        new AncientMiasmicCombatSpell(type, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientMiasmicCombatSpell(type, Definition("miasmic", type), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 10);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g.Id == graphic && g.Delay == 0));
@@ -495,7 +496,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientMiasmicCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientMiasmicCombatSpell(0, Definition("miasmic", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 10);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g.Id == 1847));
@@ -507,7 +508,7 @@ public sealed class AncientCombatSpellTests
     {
         var scenario = new Scenario();
 
-        new AncientMiasmicCombatSpell(0, scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
+        new AncientMiasmicCombatSpell(0, Definition("miasmic", 0), scenario.Projectiles).PerformAttack(scenario.Caster, scenario.Victim);
         scenario.Resolve(0, damage: 0, succeeded: false);
 
         Assert.IsTrue(scenario.VictimGraphics.Any(g => g is { Id: 85, Delay: 0, Height: 150 }));
@@ -517,7 +518,7 @@ public sealed class AncientCombatSpellTests
     public void Miasmic_RequiresEquippedZurielsStaff()
     {
         var scenario = new Scenario();
-        var spell = new AncientMiasmicCombatSpell(0, scenario.Projectiles);
+        var spell = new AncientMiasmicCombatSpell(0, Definition("miasmic", 0), scenario.Projectiles);
         scenario.Caster.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true);
         scenario.Caster.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
 
@@ -531,13 +532,52 @@ public sealed class AncientCombatSpellTests
         Assert.IsTrue(spell.CheckRequirements(scenario.Caster));
     }
 
+    /// <summary>
+    ///     The persisted definition of a spell as the database seeds it; values are the ones the spell classes used to hard-code.
+    /// </summary>
+    private static CombatSpellDto Definition(string family, int type)
+    {
+        var (firstButton, runes, counts, levels, configs, experience, damage) = Families[family];
+        return new CombatSpellDto
+        {
+            ButtonId = firstButton + Array.IndexOf(ButtonTypeOrder, type),
+            SpellBook = MagicBook.AncientBook,
+            RequiredLevel = levels[type],
+            RequiredRunes = runes[type],
+            RequiredRunesCounts = counts[type],
+            BaseExperience = experience[type],
+            BaseDamage = damage[type],
+            AutoCastConfig = configs[type],
+            CastAnimationId = -1,
+            CastGraphicId = -1,
+            EndGraphicId = -1,
+            ProjectileId = -1
+        };
+    }
+
+    private static readonly int[] ButtonTypeOrder = [0, 2, 1, 3];
+
+    private static readonly Dictionary<string, (int FirstButton, RuneType[][] Runes, int[][] Counts, int[] Levels, int[] Configs, double[] Experience, int[] Damage)> Families = new()
+    {
+        ["ice"] = (20, [[RuneType.Chaos, RuneType.Death, RuneType.Water], [RuneType.Chaos, RuneType.Death, RuneType.Water], [RuneType.Death, RuneType.Blood, RuneType.Water], [RuneType.Death, RuneType.Blood, RuneType.Water]],
+            [[2, 2, 2], [4, 2, 4], [2, 2, 3], [4, 2, 6]], [58, 70, 82, 94], [69, 77, 85, 93], [34, 40, 46, 52], [180, 220, 260, 300]),
+        ["blood"] = (24, [[RuneType.Chaos, RuneType.Death, RuneType.Blood], [RuneType.Chaos, RuneType.Death, RuneType.Blood], [RuneType.Death, RuneType.Blood], [RuneType.Death, RuneType.Blood, RuneType.Soul]],
+            [[2, 2, 1], [4, 2, 2], [2, 4], [4, 2, 1]], [56, 68, 80, 92], [67, 75, 83, 91], [33, 39, 45, 51], [150, 210, 250, 290]),
+        ["smoke"] = (28, [[RuneType.Chaos, RuneType.Death, RuneType.Fire, RuneType.Air], [RuneType.Chaos, RuneType.Death, RuneType.Fire, RuneType.Air], [RuneType.Death, RuneType.Blood, RuneType.Fire, RuneType.Air], [RuneType.Death, RuneType.Blood, RuneType.Fire, RuneType.Air]],
+            [[2, 2, 1, 1], [4, 2, 2, 2], [2, 2, 2, 2], [4, 2, 4, 4]], [50, 62, 74, 86], [63, 71, 79, 87], [30, 36, 42, 48], [130, 170, 264, 270]),
+        ["shadow"] = (32, [[RuneType.Chaos, RuneType.Death, RuneType.Air, RuneType.Soul], [RuneType.Chaos, RuneType.Death, RuneType.Air, RuneType.Soul], [RuneType.Death, RuneType.Blood, RuneType.Air, RuneType.Soul], [RuneType.Death, RuneType.Blood, RuneType.Air, RuneType.Soul]],
+            [[2, 2, 1, 1], [4, 2, 1, 2], [2, 2, 2, 2], [4, 2, 4, 3]], [52, 64, 76, 88], [65, 73, 81, 89], [31, 37, 43, 49], [140, 180, 240, 280]),
+        ["miasmic"] = (36, [[RuneType.Chaos, RuneType.Earth, RuneType.Soul], [RuneType.Chaos, RuneType.Earth, RuneType.Soul], [RuneType.Blood, RuneType.Earth, RuneType.Soul], [RuneType.Blood, RuneType.Earth, RuneType.Soul]],
+            [[2, 1, 1], [4, 2, 2], [2, 3, 3], [4, 4, 4]], [61, 73, 85, 97], [95, 97, 99, 101], [36, 42, 48, 54], [180, 240, 280, 352])
+    };
+
     private static ICombatSpell Create(string family, int type, Scenario scenario) => family switch
     {
-        "ice" => new AncientIceCombatSpell(type, scenario.Projectiles),
-        "shadow" => new AncientShadowCombatSpell(type, scenario.Projectiles),
-        "smoke" => new AncientSmokeCombatSpell(type, scenario.Projectiles),
-        "blood" => new AncientBloodCombatSpell(type, scenario.Projectiles),
-        "miasmic" => new AncientMiasmicCombatSpell(type, scenario.Projectiles),
+        "ice" => new AncientIceCombatSpell(type, Definition("ice", type), scenario.Projectiles),
+        "shadow" => new AncientShadowCombatSpell(type, Definition("shadow", type), scenario.Projectiles),
+        "smoke" => new AncientSmokeCombatSpell(type, Definition("smoke", type), scenario.Projectiles),
+        "blood" => new AncientBloodCombatSpell(type, Definition("blood", type), scenario.Projectiles),
+        "miasmic" => new AncientMiasmicCombatSpell(type, Definition("miasmic", type), scenario.Projectiles),
         _ => throw new ArgumentOutOfRangeException(nameof(family))
     };
 

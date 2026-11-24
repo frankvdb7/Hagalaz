@@ -17,6 +17,7 @@ public static class GameWorldSeeding
         services.AddScoped<IGameWorldSeeder, FarmingSeedSeeder>();
         services.AddScoped<IGameWorldSeeder, GnomeAgilityCourseSeeder>();
         services.AddScoped<IGameWorldSeeder, FletchingDefinitionSeeder>();
+        services.AddScoped<IGameWorldSeeder, AncientCombatSpellSeeder>();
         return services;
     }
 

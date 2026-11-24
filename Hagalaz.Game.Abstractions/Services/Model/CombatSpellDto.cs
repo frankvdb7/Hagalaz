@@ -13,6 +13,11 @@ namespace Hagalaz.Game.Abstractions.Services.Model
         public int ButtonId { get; init; }
 
         /// <summary>
+        /// Gets the spellbook this spell belongs to. Button ids are only unique within a spellbook.
+        /// </summary>
+        public MagicBook SpellBook { get; init; }
+
+        /// <summary>
         /// Gets the base damage of the spell.
         /// </summary>
         public int BaseDamage { get; init; }

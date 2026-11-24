@@ -37,24 +37,8 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
         /// <param name="victim"></param>
         public override void PerformAttack(ICharacter caster, ICreature victim)
         {
-            caster.QueueAnimation(Animation.Create(Dto.CastAnimationId));
-            caster.QueueGraphic(Graphic.Create(Dto.CastGraphicId));
-
             var combat = (ICharacterCombat)caster.Combat;
-
-            caster.Statistics.AddExperience(StatisticsConstants.Magic, Dto.BaseExperience);
-
-            var deltaX = caster.Location.X - victim.Location.X;
-            var deltaY = caster.Location.Y - victim.Location.Y;
-            if (deltaX < 0)
-            {
-                deltaX = -deltaX;
-            }
-
-            if (deltaY < 0)
-            {
-                deltaY = -deltaY;
-            }
+            var delay = BeginCast(caster, victim);
 
             var boost = (caster.Statistics.LevelForExperience(StatisticsConstants.Magic) - Dto.RequiredLevel) * 5;
             var max = combat.GetMagicMaxHit(victim, Dto.BaseDamage + boost);
@@ -64,7 +48,6 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Magic
                 damage += boost;
             }
 
-            var delay = 51 + deltaX * 5 + deltaY * 5;
             RenderProjectile(caster, victim, delay);
 
             if (damage == -1)
