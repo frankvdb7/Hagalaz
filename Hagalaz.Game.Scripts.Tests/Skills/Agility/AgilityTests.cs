@@ -31,13 +31,7 @@ public sealed class AgilityTests
     [TestMethod]
     public void CheckGnomeCourseCompletion_BasicCourse_GrantsPersistedExperienceAndClearsStates()
     {
-        _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
-        _character.HasState<GnomeCourseFirstObstacleNetState>().Returns(true);
-        _character.HasState<GnomeCourseFirstTreeBranchState>().Returns(true);
-        _character.HasState<GnomeCourseBalancingRopeState>().Returns(true);
-        _character.HasState<GnomeCourseTreeBranchDownState>().Returns(true);
-        _character.HasState<GnomeCourseSecondObstacleNetState>().Returns(true);
-        _character.HasState<GnomeCourseObstaclePipeState>().Returns(true);
+        GiveBasicCourseStates();
 
         AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
 
@@ -50,13 +44,7 @@ public sealed class AgilityTests
     [TestMethod]
     public void CheckGnomeCourseCompletion_AdvancedCourse_GrantsPersistedExperienceAndClearsStates()
     {
-        _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
-        _character.HasState<GnomeCourseFirstObstacleNetState>().Returns(true);
-        _character.HasState<GnomeCourseFirstTreeBranchState>().Returns(true);
-        _character.HasState<GnomeCourseTreeState>().Returns(true);
-        _character.HasState<GnomeCourseSignpostState>().Returns(true);
-        _character.HasState<GnomeCoursePoleState>().Returns(true);
-        _character.HasState<GnomeCourseBarrierState>().Returns(true);
+        GiveAdvancedCourseStates();
 
         AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
 
@@ -80,13 +68,7 @@ public sealed class AgilityTests
     public void CheckGnomeCourseCompletion_MissingCourseDefinition_ClearsStatesButGrantsNothing()
     {
         _agilityService.FindCourseById(AgilityCourseId.GnomeBasic).Returns(Task.FromResult<AgilityCourseDto?>(null));
-        _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
-        _character.HasState<GnomeCourseFirstObstacleNetState>().Returns(true);
-        _character.HasState<GnomeCourseFirstTreeBranchState>().Returns(true);
-        _character.HasState<GnomeCourseBalancingRopeState>().Returns(true);
-        _character.HasState<GnomeCourseTreeBranchDownState>().Returns(true);
-        _character.HasState<GnomeCourseSecondObstacleNetState>().Returns(true);
-        _character.HasState<GnomeCourseObstaclePipeState>().Returns(true);
+        GiveBasicCourseStates();
 
         AgilityScripts.CheckGnomeCourseCompletion(_character, _agilityService);
 
@@ -113,5 +95,27 @@ public sealed class AgilityTests
         AgilityScripts.AddObstacleExperience(_character, _agilityService, 1);
 
         _statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
+    }
+
+    private void GiveBasicCourseStates()
+    {
+        _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
+        _character.HasState<GnomeCourseFirstObstacleNetState>().Returns(true);
+        _character.HasState<GnomeCourseFirstTreeBranchState>().Returns(true);
+        _character.HasState<GnomeCourseBalancingRopeState>().Returns(true);
+        _character.HasState<GnomeCourseTreeBranchDownState>().Returns(true);
+        _character.HasState<GnomeCourseSecondObstacleNetState>().Returns(true);
+        _character.HasState<GnomeCourseObstaclePipeState>().Returns(true);
+    }
+
+    private void GiveAdvancedCourseStates()
+    {
+        _character.HasState<GnomeCourseLogBalanceState>().Returns(true);
+        _character.HasState<GnomeCourseFirstObstacleNetState>().Returns(true);
+        _character.HasState<GnomeCourseFirstTreeBranchState>().Returns(true);
+        _character.HasState<GnomeCourseTreeState>().Returns(true);
+        _character.HasState<GnomeCourseSignpostState>().Returns(true);
+        _character.HasState<GnomeCoursePoleState>().Returns(true);
+        _character.HasState<GnomeCourseBarrierState>().Returns(true);
     }
 }
