@@ -70,6 +70,7 @@ namespace Hagalaz.Services.Contacts.Consumers
             var characterSession = _contactSessions.GetOrDefault(message.MasterId);
             var masterDto = _mapper.Map<ContactDto>(character) with
             {
+                AreMutualFriends = contactFriend != null,
                 WorldId = characterSession?.WorldId,
                 WorldName = characterSession?.WorldName,
                 SessionGeneration = characterSession?.SessionGeneration,
