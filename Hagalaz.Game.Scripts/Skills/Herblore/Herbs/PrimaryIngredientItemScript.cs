@@ -10,9 +10,14 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     /// </summary>
     public class PrimaryIngredientItemScript : ItemScript
     {
+        private readonly IHerbloreService _herbloreService;
         private readonly IHerbloreSkillService _herbloreSkillService;
 
-        public PrimaryIngredientItemScript(IHerbloreSkillService herbloreSkillService) => _herbloreSkillService = herbloreSkillService;
+        public PrimaryIngredientItemScript(IHerbloreService herbloreService, IHerbloreSkillService herbloreSkillService)
+        {
+            _herbloreService = herbloreService;
+            _herbloreSkillService = herbloreSkillService;
+        }
 
         /// <summary>
         ///     Uses the item.
@@ -27,14 +32,14 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         {
             if (used.Id == HerbloreConstants.FilledVial || usedWith.Id == HerbloreConstants.FilledVial)
             {
-                var potion = _herbloreSkillService.GetPotionByPrimaryItemId(used.Id);
+                var potion = _herbloreService.FindPotionByPrimaryItemId(used.Id);
                 if (potion != null)
                 {
                     character.Interrupt(this);
                     return _herbloreSkillService.MakePotion(character, usedWith, used, potion, true);
                 }
 
-                potion = _herbloreSkillService.GetPotionByPrimaryItemId(usedWith.Id);
+                potion = _herbloreService.FindPotionByPrimaryItemId(usedWith.Id);
                 if (potion != null)
                 {
                     character.Interrupt(this);

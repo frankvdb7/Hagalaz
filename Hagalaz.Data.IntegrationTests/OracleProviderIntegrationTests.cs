@@ -88,7 +88,7 @@ public sealed class OracleProviderIntegrationTests
         await using var context = CreateContext();
         var applied = await context.Database.GetAppliedMigrationsAsync();
         await context.Database.OpenConnectionAsync();
-        Assert.HasCount(13, applied);
+        Assert.HasCount(14, applied);
         Assert.Contains("20240316233038_InitialCreate", applied);
         Assert.Contains("20250721222703_UpdateOpenIddict7", applied);
         Assert.Contains("20251119194916_UpdateStateId", applied);
@@ -102,6 +102,7 @@ public sealed class OracleProviderIntegrationTests
         Assert.Contains("20261124175324_AddAgilityDefinitions", applied);
         Assert.Contains("20261124210752_AddFletchingCategory", applied);
         Assert.Contains("20261124221258_AddCombatSpellBook", applied);
+        Assert.Contains("20261125183754_AddHerblorePotionDefinitions", applied);
         Assert.IsTrue(await TableExistsAsync(context, "aspnetroles"));
         Assert.IsTrue(await TableExistsAsync(context, "aspnetuserroles"));
     }

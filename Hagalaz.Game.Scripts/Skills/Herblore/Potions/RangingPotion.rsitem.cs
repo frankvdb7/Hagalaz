@@ -11,11 +11,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [2444, 169, 171, 173])]
     public class RangingPotion : IngredientPotion
     {
-        public RangingPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
+        public RangingPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IHerbloreService herbloreService)
+            : base(potionSkillService, herbloreSkillService, herbloreService)
         {
         }
-
-        protected override int Ingredient => Herbs.HerbloreConstants.Grenwallspikes;
 
         /// <summary>
         ///     Applies the effect.

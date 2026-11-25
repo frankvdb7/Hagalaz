@@ -98,6 +98,7 @@ namespace Hagalaz.Data
         public virtual DbSet<SkillsFishingToolDefinition> SkillsFishingToolDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsFletchingDefinition> SkillsFletchingDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsHerbloreHerbDefinition> SkillsHerbloreHerbDefinitions { get; set; } = null!;
+        public virtual DbSet<SkillsHerblorePotionDefinition> SkillsHerblorePotionDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsMagicCombatDefinition> SkillsMagicCombatDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsMagicEnchantDefinition> SkillsMagicEnchantDefinitions { get; set; } = null!;
         public virtual DbSet<SkillsMagicEnchantProduct> SkillsMagicEnchantProducts { get; set; } = null!;
@@ -2774,6 +2775,31 @@ namespace Hagalaz.Data
                 entity.Property(e => e.Experience).HasPrecision(11, 2).HasColumnName("experience");
 
                 entity.Property(e => e.RequiredLevel).HasColumnType("tinyint(3) unsigned").HasColumnName("required_level").HasDefaultValueSql("'1'");
+            });
+
+            modelBuilder.Entity<SkillsHerblorePotionDefinition>(entity =>
+            {
+                entity.HasKey(e => e.PotionId).HasName("PRIMARY");
+
+                entity.ToTable("skills_herblore_potion_definitions");
+
+                entity.ForMySQLHasCharset("utf8").ForMySQLHasCollation("utf8_general_ci");
+
+                entity.Property(e => e.PotionId).HasColumnType("smallint(6) unsigned").ValueGeneratedNever().HasColumnName("potion_id");
+
+                entity.Property(e => e.Kind).HasColumnType("tinyint(3) unsigned").HasColumnName("kind");
+
+                entity.Property(e => e.UnfinishedPotionId).HasColumnType("smallint(6) unsigned").HasColumnName("unfinished_potion_id");
+
+                entity.Property(e => e.RequiredLevel).HasColumnType("tinyint(3) unsigned").HasColumnName("required_level").HasDefaultValueSql("'1'");
+
+                entity.Property(e => e.Experience).HasPrecision(11, 2).HasColumnName("experience");
+
+                entity.Property(e => e.PrimaryItemIds).HasMaxLength(255).HasColumnName("primary_item_ids");
+
+                entity.Property(e => e.SecondaryItemIds).HasMaxLength(255).HasColumnName("secondary_item_ids");
+
+                entity.Property(e => e.SecondaryItemCount).HasColumnType("tinyint(3) unsigned").HasColumnName("secondary_item_count").HasDefaultValueSql("'1'");
             });
 
             modelBuilder.Entity<SkillsMagicCombatDefinition>(entity =>

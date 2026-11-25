@@ -16,6 +16,15 @@ namespace Hagalaz.Services.GameWorld.Profiles
     {
         public SkillsProfile()
         {
+            CreateMap<SkillsHerblorePotionDefinition, PotionDto>()
+                .ForMember(dest => dest.PotionId, opt => opt.MapFrom(src => (int)src.PotionId))
+                .ForMember(dest => dest.Kind, opt => opt.MapFrom(src => (PotionKind)src.Kind))
+                .ForMember(dest => dest.UnfinishedPotionId, opt => opt.MapFrom(src => (int)src.UnfinishedPotionId))
+                .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
+                .ForMember(dest => dest.Experience, opt => opt.MapFrom(src => (double)src.Experience))
+                .ForMember(dest => dest.PrimaryItemIds, opt => opt.MapFrom(src => ParseInts(src.PrimaryItemIds)))
+                .ForMember(dest => dest.SecondaryItemIds, opt => opt.MapFrom(src => ParseInts(src.SecondaryItemIds)))
+                .ForMember(dest => dest.SecondaryItemCount, opt => opt.MapFrom(src => (int)src.SecondaryItemCount));
             CreateMap<SkillsHerbloreHerbDefinition, HerbDto>()
                 .ForMember(dest => dest.CleanHerbId, opt => opt.MapFrom(src => (int)src.CleanItemId))
                 .ForMember(dest => dest.GrimyHerbId, opt => opt.MapFrom(src => (int)src.GrimyItemId))

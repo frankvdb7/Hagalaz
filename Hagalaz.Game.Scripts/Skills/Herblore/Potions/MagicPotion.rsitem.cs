@@ -10,11 +10,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [3040, 3042, 3044, 3046])]
     public class MagicPotion : IngredientPotion
     {
-        public MagicPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
+        public MagicPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IHerbloreService herbloreService)
+            : base(potionSkillService, herbloreSkillService, herbloreService)
         {
         }
-
-        protected override int Ingredient => Herbs.HerbloreConstants.Groundmudrunes;
 
         /// <summary>
         ///     Applies the effect.

@@ -403,8 +403,10 @@ namespace Hagalaz.Services.GameWorld
             services.AddSingleton<IFletchingService>(provider => provider.GetRequiredService<FletchingService>());
             services.AddScoped<IFiremakingRepository, FiremakingRepository>();
             services.AddScoped<IFiremakingService, FiremakingService>();
-            services.AddScoped<IHerbloreService, HerbloreService>();
             services.AddScoped<IHerbloreRepository, HerbloreRepository>();
+            services.AddScoped<IHerblorePotionDefinitionRepository, HerblorePotionDefinitionRepository>();
+            services.AddSingleton<HerbloreService>();
+            services.AddSingleton<IHerbloreService>(provider => provider.GetRequiredService<HerbloreService>());
             services.AddScoped<IPrayerService, PrayerService>();
             services.AddScoped<IPrayerRepository, PrayerRepository>();
             services.AddScoped<IRunecraftingService, RunecraftingService>();
@@ -770,8 +772,9 @@ namespace Hagalaz.Services.GameWorld
 
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AgilityService>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<CombatSpellCatalog>());
-            // Startup services run in registration order: the Fletching recipes must load before ItemScriptProvider, whose script factories enumerate them.
+            // Startup services run in registration order: the Fletching recipes and Herblore potions must load before ItemScriptProvider, whose script factories enumerate them.
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<FletchingService>());
+            services.AddTransient<IStartupService>(provider => provider.GetRequiredService<HerbloreService>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<AreaStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<EquipmentStore>());
             services.AddTransient<IStartupService>(provider => provider.GetRequiredService<ItemStore>());

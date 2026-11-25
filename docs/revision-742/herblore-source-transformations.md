@@ -4,9 +4,9 @@
 
 ## Source constants
 
-[Herblore numeric constants](data/catalogs/herblore-source-constants.csv) records **eight scalar definitions**, with source line evidence: filled vial 227, avantoe 261, dwarfweed 267, lantadyme 2481, ground mud runes 9594, grenwall spikes 12539, torstol 269, and potion-making animation 363.
+[Herblore numeric constants](data/catalogs/herblore-source-constants.csv) records **eight scalar values**, with source line evidence: filled vial 227 and potion-making animation 363 remain in `HerbloreConstants`; avantoe 261, dwarfweed 267, lantadyme 2481, ground mud runes 9594, grenwall spikes 12539 and torstol 269 are now recipe data in the `skills_herblore_potion_definitions` seed (`HerblorePotionDefinitionSeeder`).
 
-The same source file also defines a five-ID OverloadPotions array: **15309, 15313, 15317, 15321, 15325**. The configured overload output in HerbloreSkillService is **15333**. These are repository-source IDs only, not cache-verified identities.
+The overload recipe is a seeded definition of kind overload: torstol 269 plus the five extreme (3) potions **15309, 15313, 15317, 15321, 15325**, output **15333**, level 96, 1,000 XP. These are repository-source IDs only, not cache-verified identities.
 
 ## Interaction flow and authoritative code owners
 
@@ -15,16 +15,16 @@ The same source file also defines a five-ID OverloadPotions array: **15309, 1531
 | Clean herb | HerbloreSkillService.TryCleanHerb -> CleanHerbTask | Validate herb and level, replace grimy herb slot with clean herb, award configured cleaning XP |
 | Mix unfinished potion | HerbloreSkillService.MakePotion, unfinished branch | Consume source ingredient and replace vial; no completion XP in this branch |
 | Finish potion | HerbloreSkillService.MakePotion, finished branch | Consume secondary ingredient, replace vial, award configured XP |
-| Create overload | HerbloreSkillService.MakeOverload | Level 96; consume five extra potions; replace clean herb slot with output 15333; award 1,000 XP |
+| Create overload | ExtremePotion -> HerbloreSkillService.MakeOverload | Definition level (96); consume every secondary potion; replace clean herb slot with the definition output (15333); award definition XP (1,000) |
 | Drink potion | PotionSkillService.DrinkPotion | Replace current slot with next dose, queue drinking state and animation 829, then parse dose text and invoke effect |
 | Combine doses | PotionSkillService.CombinePotions | Apply explicit four-ID dose transition table to two source slots, possibly returning an empty vial |
 | Empty potion | PotionSkillService.EmptyPotion | Replace potion slot with empty vial |
 
-The existing recipe definitions live in the Herblore service DTOs; the consumption, potion effects and decanting paths must not be collapsed into a new recipe mechanism. A dialogue selection is not a reservation of ingredients across task ticks.
+The recipe definitions are persisted in `skills_herblore_potion_definitions` and served by the startup-loaded `IHerbloreService`; the consumption, potion effects and decanting paths must not be collapsed into a new recipe mechanism. A dialogue selection is not a reservation of ingredients across task ticks.
 
 ## Confirmed five-ingredient consumption defect
 
-The completion callback in HerbloreSkillService.MakePotion checks only that the secondary ingredient is present. If its item ID equals **HerbloreConstants.Grenwallspikes (12539)**, the callback requests a removal of **five**. It does not inspect the actual quantity removed, then replaces the source potion slot and grants Herblore XP.
+The completion callback in HerbloreSkillService.MakePotion checks only that the secondary ingredient is present. For grenwall spikes (12539) the extreme ranging definition's secondary count requests a removal of **five**. It does not inspect the actual quantity removed, then replaces the source potion slot and grants Herblore XP.
 
 The current IItemContainer.Remove operation supports partial consumption; with only one to four spikes, the task can still create the product after removing insufficient material. This is a concrete path that does not require an artificial inventory-capacity failure.
 

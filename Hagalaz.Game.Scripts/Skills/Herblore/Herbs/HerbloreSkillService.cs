@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
@@ -18,14 +16,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     public class HerbloreSkillService : IHerbloreSkillService
     {
         private readonly IItemBuilder _itemBuilder;
-        private readonly IHerbloreService _herbloreService;
-        private static readonly int[] _productIds = [15333];
 
-        public HerbloreSkillService(IServiceProvider serviceProvider, IItemBuilder itemBuilder)
-        {
-            _itemBuilder = itemBuilder;
-            _herbloreService = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IHerbloreService>();
-        }
+        public HerbloreSkillService(IItemBuilder itemBuilder) => _itemBuilder = itemBuilder;
 
         /// <summary>
         /// 
@@ -67,51 +59,22 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         }
 
         /// <summary>
-        ///     Gets the potion id by the primary item.
-        /// </summary>
-        /// <returns></returns>
-        public PotionDto? GetPotionByPrimaryItemId(int id)
-        {
-            var potions = _herbloreService.FindAllPotions().Result;
-            return potions.FirstOrDefault(p => p.PrimaryItemIds.Contains(id));
-        }
-
-        /// <summary>
-        ///     Gets the potion id by the secondary item.
-        /// </summary>
-        /// <returns></returns>
-        public PotionDto? GetPotionBySecondaryItemId(int unfinishedPotionId, int secondaryItemId)
-        {
-            var potions = _herbloreService.FindAllPotions().Result;
-            return potions.FirstOrDefault(p => p.UnfinishedPotionId == unfinishedPotionId && p.SecondaryItemIds.Contains(secondaryItemId));
-        }
-
-        /// <summary>
-        ///     Gets the unfinished potion id.
-        /// </summary>
-        /// <returns></returns>
-        public PotionDto? GetPotionByUnfinishedPotionId(int unfinishedPotionId)
-        {
-            var potions = _herbloreService.FindAllPotions().Result;
-            return potions.FirstOrDefault(p => p.UnfinishedPotionId == unfinishedPotionId);
-        }
-
-        /// <summary>
         ///     Makes the overload.
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="herb">The herb.</param>
+        /// <param name="overload">The overload definition.</param>
         /// <returns></returns>
-        public bool MakeOverload(ICharacter character, IItem herb)
+        public bool MakeOverload(ICharacter character, IItem herb, PotionDto overload)
         {
-            if (character.Statistics.GetSkillLevel(StatisticsConstants.Herblore) < 96)
+            if (character.Statistics.GetSkillLevel(StatisticsConstants.Herblore) < overload.RequiredLevel)
             {
-                character.SendChatMessage("You need herblore level of 96 to make this potion.");
+                character.SendChatMessage("You need herblore level of " + overload.RequiredLevel + " to make this potion.");
                 return true;
             }
 
             var resourceCount = character.Inventory.Items.GetCountById(herb.Id);
-            foreach (var t in HerbloreConstants.OverloadPotions)
+            foreach (var t in overload.SecondaryItemIds)
             {
                 var characterCount = character.Inventory.Items.GetCountById(t);
                 if (characterCount > 0 && characterCount < resourceCount)
@@ -122,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
             var service = character.ServiceProvider.GetRequiredService<IItemService>();
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
-            dialogue.ProductIds = _productIds;
+            dialogue.ProductIds = [overload.PotionId];
             dialogue.PerformMakeProductCallback = (itemID, count) =>
             {
                 // the character has selected an amount, we then queue an task that will create all products
@@ -136,7 +99,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                             return true;
                         }
 
-                        foreach (var t in HerbloreConstants.OverloadPotions)
+                        foreach (var t in overload.SecondaryItemIds)
                         {
                             if (character.Inventory.Items.Contains(t))
                             {
@@ -147,14 +110,14 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                             return true;
                         }
 
-                        foreach (var t in HerbloreConstants.OverloadPotions)
+                        foreach (var t in overload.SecondaryItemIds)
                         {
                             character.Inventory.RemoveItem(_itemBuilder.Create().WithId(t).Build());
                         }
 
-                        character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(15333).Build());
+                        character.Inventory.ReplaceItem(slot, _itemBuilder.Create().WithId(overload.PotionId).Build());
                         character.QueueAnimation(Animation.Create(HerbloreConstants.MakePotionAnimation));
-                        character.Statistics.AddExperience(StatisticsConstants.Herblore, 1000);
+                        character.Statistics.AddExperience(StatisticsConstants.Herblore, overload.Experience);
                         return false;
                     }));
                 return true;
@@ -201,7 +164,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         }
 
         /// <summary>
-        ///     Completes one potion iteration. The ingredient (all five spikes for extreme ranging) and the vial are
+        ///     Completes one potion iteration. The ingredient (the definition's secondary count, e.g. five spikes for extreme ranging) and the vial are
         ///     committed together; nothing changes and no experience is granted when any part is missing.
         /// </summary>
         /// <returns><c>true</c> when the potion was made; <c>false</c> when the task should stop.</returns>
@@ -221,8 +184,9 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
                 return false;
             }
 
-            var required = inventoryResource.Id == HerbloreConstants.Grenwallspikes
-                ? _itemBuilder.Create().WithId(HerbloreConstants.Grenwallspikes).WithCount(HerbloreConstants.GrenwallspikesRequired).Build()
+            var requiredCount = makeUnfinished ? 1 : potion.SecondaryItemCount;
+            var required = requiredCount > 1
+                ? _itemBuilder.Create().WithId(inventoryResource.Id).WithCount(requiredCount).Build()
                 : inventoryResource;
 
             using (var transaction = ItemContainerTransaction.Begin(character.Inventory))
