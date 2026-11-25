@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using AutoMapper;
 using Hagalaz.Data.Entities;
 using System.Linq;

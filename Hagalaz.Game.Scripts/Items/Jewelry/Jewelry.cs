@@ -1,6 +1,5 @@
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;

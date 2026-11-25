@@ -88,7 +88,6 @@ public sealed class CommandGameLoopOwnershipTests
     {
         var searchStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseSearch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var searchCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var definition = Substitute.For<IItemDefinition>();
         definition.Name.Returns("Test Item");
         var itemService = Substitute.For<IItemService>();
@@ -98,11 +97,7 @@ public sealed class CommandGameLoopOwnershipTests
             releaseSearch.Task.Wait(TestTimeout);
             return 1;
         });
-        itemService.FindItemDefinitionById(0).Returns(_ =>
-        {
-            searchCompleted.SetResult(true);
-            return definition;
-        });
+        itemService.FindItemDefinitionById(0).Returns(definition);
 
         var area = Substitute.For<IArea>();
         area.IsPvP.Returns(false);
@@ -121,23 +116,37 @@ public sealed class CommandGameLoopOwnershipTests
         var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
-        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        using var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
-        scheduler.Tick();
-        await searchStarted.Task.WaitAsync(TestTimeout);
+        try
+        {
+            scheduler.Tick();
+            await searchStarted.Task.WaitAsync(TestTimeout);
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
-        widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
-        releaseSearch.SetResult(true);
-        await searchCompleted.Task.WaitAsync(TestTimeout);
-        character.Destroy();
+            character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+            widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
+            character.Destroy();
+        }
+        finally
+        {
+            releaseSearch.TrySetResult(true);
+        }
 
-        scheduler.Tick();
-        await queuedContinuation.Task.WaitAsync(TestTimeout);
+        using var timeout = new CancellationTokenSource(TestTimeout);
+        while (!task.IsCompleted && !task.IsFaulted)
+        {
+            scheduler.Tick();
+            if (!task.IsCompleted && !task.IsFaulted)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(1), timeout.Token);
+            }
+        }
         scheduler.Tick();
         scheduler.Tick();
 
+        Assert.IsTrue(task.IsCompleted);
+        Assert.IsTrue(queuedContinuation.Task.IsCompletedSuccessfully);
         character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         configurations.DidNotReceiveWithAnyArgs().SendCs2Script(default, default!);

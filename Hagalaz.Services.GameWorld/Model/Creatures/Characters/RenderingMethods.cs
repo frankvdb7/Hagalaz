@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -10,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Contains methods for managing character regions.
     /// </summary>
-    public partial class Character : Creature
+    public partial class Character
     {
         /// <summary>
         /// Informs character that it's movement type have been changed.

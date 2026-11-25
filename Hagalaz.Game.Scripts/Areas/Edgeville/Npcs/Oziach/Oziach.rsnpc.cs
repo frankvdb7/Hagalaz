@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach

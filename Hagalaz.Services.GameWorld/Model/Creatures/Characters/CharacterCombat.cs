@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.Animation;
@@ -7,7 +6,6 @@ using Hagalaz.Game.Abstractions.Builders.Graphic;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -19,12 +17,9 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Extensions;
-using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -51,6 +46,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// character.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="entityService">Resolves entity handles.</param>
+        /// <param name="animationBuilder">Builds animations.</param>
+        /// <param name="graphicBuilder">Builds graphics.</param>
+        /// <param name="projectileBuilder">Builds combat projectiles.</param>
+        /// <param name="mapRegionService">Provides map regions used in combat.</param>
+        /// <param name="groundItemBuilder">Builds items placed on the ground.</param>
+        /// <param name="hitSplatBuilder">Builds hitsplats for damage updates.</param>
+        /// <param name="projectilePathFinder">Checks projectile routes.</param>
+        /// <param name="smartPathFinder">Finds routes for combat movement.</param>
+        /// <param name="combatOptions">Provides combat settings.</param>
+        /// <param name="combatRules">Provides shared combat calculations.</param>
         public CharacterCombat(
             ICharacter owner,
             IEntityService entityService,
@@ -209,7 +215,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Set's ( Attacks ) the specified target ('target')
         /// </summary>
-        /// <param name="target">Creature which should be attacked.</param>
+        /// <param name="targetHandle">The handle of the prospective combat target.</param>
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
@@ -227,7 +233,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Determines whether this instance [can set target] the specified target.
         /// </summary>
-        /// <param name="target">The target.</param>
+        /// <param name="targetHandle">The handle of the prospective combat target.</param>
         /// <returns><c>true</c> if this instance [can set target] the specified target; otherwise, <c>false</c>.</returns>
         public override bool CanSetTarget(EntityHandle<ICreature> targetHandle)
         {

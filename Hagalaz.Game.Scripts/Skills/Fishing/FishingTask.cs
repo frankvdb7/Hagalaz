@@ -3,13 +3,10 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Fishing
 {

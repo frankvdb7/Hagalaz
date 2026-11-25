@@ -5,7 +5,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
     /// <summary>
     /// Contains region related methods for npc.
     /// </summary>
-    public partial class Npc : Creature
+    public partial class Npc
     {
         /// <summary>
         /// Happens when npc region changes.
@@ -15,7 +15,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Informs npc that it must add itself to given region.
         /// </summary>
-        /// <param name="newRegion"></param>
         protected override IMapRegion AddToRegion() => MapRegionService.AttachNpc(this);
 
         /// <summary>

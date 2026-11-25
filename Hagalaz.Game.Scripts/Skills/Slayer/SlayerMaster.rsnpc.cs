@@ -1,6 +1,4 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 

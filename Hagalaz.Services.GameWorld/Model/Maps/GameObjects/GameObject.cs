@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model;
+﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Services.GameWorld.Store;
 

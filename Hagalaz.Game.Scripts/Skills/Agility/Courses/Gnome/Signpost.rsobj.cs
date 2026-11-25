@@ -9,7 +9,6 @@ using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.GameObjects;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
 {

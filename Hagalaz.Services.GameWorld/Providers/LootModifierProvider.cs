@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Logic.Random;
+﻿using Hagalaz.Game.Abstractions.Logic.Random;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Loot;
 

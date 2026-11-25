@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using Hagalaz.Utilities;
+﻿using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
 {

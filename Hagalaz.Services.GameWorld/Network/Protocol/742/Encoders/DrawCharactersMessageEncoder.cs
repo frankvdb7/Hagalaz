@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -267,6 +265,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
         /// <param name="updatable">The character which is being global updated.</param>
         /// <param name="updateType">Type of global updating.</param>
         /// <param name="updateRequests">The update requests.</param>
+        /// <param name="writer">The bit writer for the update message.</param>
         private void UpdateGlobalPlayer(ICharacter writingFor, ICharacter updatable, int updateType, LinkedList<ICharacter> updateRequests, IRaidoMessageBitWriter writer)
         {
             writer.WriteBits(1, 1);
@@ -322,6 +321,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
         /// </summary>
         /// <param name="skip">The amount of indexes to skip.</param>
         /// <exception cref="System.Exception"></exception>
+        /// <param name="writer">The bit writer for the update message.</param>
         private static void WriteSkip(int skip, IRaidoMessageBitWriter writer)
         {
             if (skip > -1)
@@ -419,6 +419,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Encoders
         ///     walking update required
         ///     2 means running update required , 3 means teleport update required.
         /// </returns>
+        /// <param name="allCharacters">The characters indexed by their protocol slot.</param>
         private static int GetLocalUpdateType(ICharacter owner, ICharacter checkable, IReadOnlyDictionary<int, ICharacter> allCharacters)
         {
             allCharacters.TryGetValue(checkable.Index, out var character);

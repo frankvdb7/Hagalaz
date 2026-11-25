@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;

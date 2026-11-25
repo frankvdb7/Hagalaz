@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;

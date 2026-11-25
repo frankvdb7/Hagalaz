@@ -2,7 +2,6 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Items

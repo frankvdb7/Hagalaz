@@ -3,16 +3,13 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Dialogues.Items;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Model.Items
 {

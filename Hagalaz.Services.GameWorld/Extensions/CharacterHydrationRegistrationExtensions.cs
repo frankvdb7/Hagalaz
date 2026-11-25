@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Logic.Characters.StateMachines;
 using Hagalaz.Services.GameWorld.Logic.Characters.States;

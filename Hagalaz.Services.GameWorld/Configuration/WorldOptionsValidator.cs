@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
 using Hagalaz.Game.Configuration;
 using Microsoft.Extensions.Options;

@@ -1,7 +1,5 @@
-using System;
 using System.Buffers;
 using System.IO;
-using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Handshake;
@@ -10,7 +8,6 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Raido.Common.Messages;
 using Raido.Common.Protocol;
 using Raido.Server;
 

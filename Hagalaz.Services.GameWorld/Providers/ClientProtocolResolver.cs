@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Services.GameWorld.Network.Protocol;
 
 namespace Hagalaz.Services.GameWorld.Providers

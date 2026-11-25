@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -341,7 +339,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     Notifies creature that it must add itself
         ///     to new MapRegion.
         /// </summary>
-        /// <param name="newRegion">The new region.</param>
         protected abstract IMapRegion AddToRegion();
 
         /// <summary>
@@ -534,7 +531,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         ///     this method does no effect and returns false.
         /// </summary>
         /// <param name="state">State which should be applied.</param>
-        /// <param name="immunityType">Type of the immunity.</param>
+        /// <param name="immunityStateType">The state type that grants immunity.</param>
         /// <returns><c>true</c> if XXXX, <c>false</c> otherwise</returns>
         public bool ApplyStandardState(IState state, Type immunityStateType)
         {

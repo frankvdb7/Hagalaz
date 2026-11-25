@@ -33,6 +33,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Construct's new appearance class.
         /// </summary>
         /// <param name="owner"></param>
+        /// <param name="npcService">Provides NPC definitions.</param>
         public NpcAppearance(INpc owner, INpcService npcService)
         {
             _owner = owner;

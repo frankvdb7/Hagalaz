@@ -1,4 +1,3 @@
-using System;
 
 namespace Hagalaz.Services.GameWorld.Network.Handshake.Messages
 {

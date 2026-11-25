@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
 using Hagalaz.Game.Scripts.Model.Widgets;

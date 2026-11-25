@@ -8,6 +8,25 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class WorldOptionsValidatorTests
 {
     [TestMethod]
+    [DataRow(0, false)]
+    [DataRow(29, true)]
+    [DataRow(30, false)]
+    [DataRow(31, false)]
+    public void Validate_RequiresRenewalBeforeLeaseExpiry(int renewalSeconds, bool succeeds)
+    {
+        var options = CreateValidOptions();
+        options.RegistrationRenewalInterval = TimeSpan.FromSeconds(renewalSeconds);
+
+        var result = new WorldOptionsValidator().Validate(null, options);
+
+        Assert.AreEqual(succeeds, result.Succeeded);
+        if (!succeeds)
+        {
+            StringAssert.Contains(result.FailureMessage, "World.RegistrationRenewalInterval");
+        }
+    }
+
+    [TestMethod]
     public void Validate_MissingIdentity_FailsWithoutDefaultingToWorldOne()
     {
         var options = CreateValidOptions();

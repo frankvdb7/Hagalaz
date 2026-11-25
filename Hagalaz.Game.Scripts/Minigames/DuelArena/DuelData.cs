@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;

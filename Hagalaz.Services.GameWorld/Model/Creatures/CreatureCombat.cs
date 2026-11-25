@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -11,7 +9,6 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
-using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
 using Microsoft.Extensions.Options;
 

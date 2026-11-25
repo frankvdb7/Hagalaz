@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Model;
 
 namespace Hagalaz.Services.GameWorld.Services

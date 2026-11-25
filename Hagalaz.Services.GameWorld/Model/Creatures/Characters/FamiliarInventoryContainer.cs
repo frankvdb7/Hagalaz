@@ -1,15 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -36,6 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <param name="owner">The owner of the container.</param>
         /// <param name="type">The type of container.</param>
         /// <param name="capacity">The capacity of the container.</param>
+        /// <param name="itemBuilder">Builds items for the container.</param>
         public FamiliarInventoryContainer(ICharacter owner, StorageType type, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);
@@ -132,7 +125,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
         void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();

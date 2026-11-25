@@ -1,18 +1,13 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Cache.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Builders.Audio;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Game.Extensions;
 
@@ -21,7 +16,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Contains game methods.
     /// </summary>
-    public partial class Character : Creature
+    public partial class Character
     {
         /// <summary>
         /// Registers the characters option handler.

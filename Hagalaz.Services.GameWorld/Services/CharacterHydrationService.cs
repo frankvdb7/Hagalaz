@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Logic.Hydrators;
 using Hagalaz.Services.GameWorld.Services.Model;

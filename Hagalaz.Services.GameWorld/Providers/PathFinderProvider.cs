@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
+﻿using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Microsoft.Extensions.DependencyInjection;
 

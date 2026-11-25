@@ -28,10 +28,5 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
             return true;
         }
 
-        /// <summary>
-        /// Gets the interaction.
-        /// </summary>
-        /// <returns></returns>
-        //public abstract Interaction GetInteraction(ICreature creature, ICreature target);
     }
 }

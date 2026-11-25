@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Model.Sound;
 using Hagalaz.Services.GameWorld.Model.Audio;

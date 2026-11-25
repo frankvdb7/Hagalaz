@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Features.Clans;
+﻿using Hagalaz.Game.Abstractions.Features.Clans;
 
 namespace Hagalaz.Services.GameWorld.Services
 {

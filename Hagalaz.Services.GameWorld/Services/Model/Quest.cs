@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Quests;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Utilities;

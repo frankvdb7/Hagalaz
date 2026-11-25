@@ -45,6 +45,35 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena;
 public sealed class DuelArenaInteractionRegressionTests
 {
     [TestMethod]
+    [DataRow(30, DuelRules.Rule.NoRanged)]
+    [DataRow(28, DuelRules.Rule.NoAmmo)]
+    [DataRow(27, DuelRules.Rule.NoRing)]
+    public void DuelRuleClick_TogglesRuleAndClosingNotifiesOtherParticipant(int component, DuelRules.Rule rule)
+    {
+        var duel = CreateDuel(1, 1);
+        var widget = duel.Self.Widgets.GetOpenWidget(1367);
+        Assert.IsNotNull(widget);
+        var screen = (DuelScreenScript)widget.Script;
+        OnComponentClick? click = null;
+        widget.When(x => x.AttachClickHandler(component, Arg.Any<OnComponentClick>()))
+            .Do(call => click = call.ArgAt<OnComponentClick>(1));
+
+        screen.Initialize(widget);
+        screen.OnOpen();
+        Assert.IsNotNull(click);
+        var initial = duel.SessionScript.CurrentRules[rule];
+        Assert.IsTrue(click(component, ComponentClickType.LeftClick, 0, 0));
+        Assert.AreEqual(!initial, duel.SessionScript.CurrentRules[rule]);
+        Assert.IsTrue(click(component, ComponentClickType.LeftClick, 0, 0));
+        Assert.AreEqual(initial, duel.SessionScript.CurrentRules[rule]);
+
+        screen.OnClose();
+
+        Assert.IsFalse(duel.SessionScript.IsBusy());
+        duel.Target.Received(1).SendChatMessage("The other player declined the duel.");
+    }
+
+    [TestMethod]
     public void InventoryStake_PostCommitPublicationFailureInvalidatesPriorAcceptance()
     {
         var duel = CreateDuel(1, 1);

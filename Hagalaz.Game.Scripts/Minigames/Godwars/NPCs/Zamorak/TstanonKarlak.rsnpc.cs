@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zamorak
 {

@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;

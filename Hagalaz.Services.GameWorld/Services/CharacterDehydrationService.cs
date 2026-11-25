@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Logic.Dehydrators;
 using Hagalaz.Services.GameWorld.Services.Model;
 

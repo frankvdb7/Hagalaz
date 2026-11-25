@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Model.Creatures;

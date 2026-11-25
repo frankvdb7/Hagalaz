@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics.CodeAnalysis;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Logic.Characters;
@@ -31,6 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         /// <param name="capacity">The capacity of the container.</param>
+        /// <param name="itemBuilder">Builds items for the container.</param>
         public BankContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
         {
             _owner = owner;
@@ -43,7 +41,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
         void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();

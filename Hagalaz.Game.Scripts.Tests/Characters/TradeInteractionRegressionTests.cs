@@ -18,6 +18,28 @@ namespace Hagalaz.Game.Scripts.Tests.Characters;
 public sealed class TradeInteractionRegressionTests
 {
     [TestMethod]
+    public void CancelTrade_ClearsParticipantInputAndRejectsPreviouslyRegisteredCallbacks()
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.SelfPouch!(53, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(session.TargetPouch!(53, ComponentClickType.LeftClick, 0, 0));
+        var selfInput = session.Self.Widgets.IntInputHandler;
+        var targetInput = session.Target.Widgets.IntInputHandler;
+        Assert.IsNotNull(selfInput);
+        Assert.IsNotNull(targetInput);
+
+        session.SelfScript.CancelTradeSession();
+        selfInput(5);
+        targetInput(5);
+
+        Assert.IsNull(session.Self.Widgets.IntInputHandler);
+        Assert.IsNull(session.Target.Widgets.IntInputHandler);
+        Assert.AreEqual(100, session.Self.MoneyPouch.Count);
+        Assert.AreEqual(100, session.Target.MoneyPouch.Count);
+        Assert.IsFalse(session.SelfScript.TradeSession);
+    }
+
+    [TestMethod]
     public void SelfAndTargetOfferHandlers_MoveItemsFromTheirOwnInventories()
     {
         var session = CreateSession(20, 20);

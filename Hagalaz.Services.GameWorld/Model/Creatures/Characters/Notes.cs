@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -115,7 +110,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Deletes the specified note.
         /// </summary>
-        /// <param name="note">The note.</param>
+        /// <param name="id">The ID of the note.</param>
         public void Delete(int id)
         {
             var note = _notes.FirstOrDefault(n => n.Id == id);
@@ -144,7 +139,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Refreshes the note.
         /// </summary>
-        /// <param name="note">The note.</param>
+        /// <param name="id">The ID of the note.</param>
+        /// <param name="text">The replacement note text.</param>
         public void SetText(int id, string text)
         {
             var note = _notes.FirstOrDefault(n => n.Id == id);
@@ -159,7 +155,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Refreshes the colour.
         /// </summary>
-        /// <param name="note">The note.</param>
+        /// <param name="id">The ID of the note.</param>
+        /// <param name="color">The replacement note color.</param>
         public void SetColor(int id, int color)
         {
             var note = _notes.FirstOrDefault(n => n.Id == id);

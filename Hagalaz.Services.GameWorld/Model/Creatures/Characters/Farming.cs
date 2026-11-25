@@ -1,11 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Logic.Characters;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -30,6 +26,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Initializes a new instance of the <see cref="Farming"/> class.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="gameObjectService">Provides the game objects used by farming patches.</param>
+        /// <param name="farmingService">Provides farming patch definitions.</param>
         public Farming(ICharacter owner, IFarmingService farmingService, IGameObjectService gameObjectService)
         {
             _owner = owner;

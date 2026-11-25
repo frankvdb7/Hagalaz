@@ -6,7 +6,7 @@ Use Rider's semantic tools for C# instead of grep, `dotnet build` or `dotnet tes
 |---|---|
 | Where is a symbol declared | `search_symbol` (skill `rider-skills:navigating-code`) |
 | Who uses / implements a symbol | `find_usages`, `find_implementations` (`rider-skills:navigating-code`) — run before changing a type or member |
-| Existing tests for a class/method | `findTests` (`rider-skills:finding-tests`) — run before writing or editing C# tests |
+| Existing tests for a class/method | Search the relevant test projects with `rg`. Rider's `findTests` coverage lookup has launched unrelated Hagalaz suites and left test hosts running. |
 | Rename, move, change signature, extract, delete | `rename_refactoring`, `move_type_to_namespace`, `change_api_signature`, `extract_*`, `safe_delete` (`rider-skills:refactoring-code`) |
 | Compile errors / warnings in edited files | `get_file_problems`, `build_solution_start` / `build_solution_state` |
 | Run tests | `test_run_start` / `test_run_state` |

@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;

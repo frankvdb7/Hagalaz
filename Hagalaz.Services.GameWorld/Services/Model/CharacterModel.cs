@@ -1,5 +1,4 @@
-﻿using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-
+﻿
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 
 namespace Hagalaz.Services.GameWorld.Services.Model

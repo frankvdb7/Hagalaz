@@ -1,20 +1,14 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Authorization;
-using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
 

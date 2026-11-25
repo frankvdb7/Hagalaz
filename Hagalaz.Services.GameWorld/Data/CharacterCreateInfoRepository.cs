@@ -1,8 +1,6 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Data;
 using Hagalaz.Data.Entities;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.Common.Data;

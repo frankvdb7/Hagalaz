@@ -1,14 +1,9 @@
-﻿using System;
-using System.Text;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
+﻿using System.Text;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
-using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Logic.Characters
 {
@@ -71,6 +66,8 @@ namespace Hagalaz.Services.GameWorld.Logic.Characters
         /// </summary>
         /// <param name="owner">The owner.</param>
         /// <param name="patchObjectID">The patch object identifier.</param>
+        /// <param name="farmingService">Provides farming patch definitions.</param>
+        /// <param name="gameObjectService">Provides the game objects used by farming patches.</param>
         public FarmingPatchTickTask(
             ICharacter owner,
             int patchObjectID,

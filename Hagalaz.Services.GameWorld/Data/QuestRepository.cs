@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Services.GameWorld.Data.Model;

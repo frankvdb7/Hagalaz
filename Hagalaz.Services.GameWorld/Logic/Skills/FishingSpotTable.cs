@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Logic.Skills;
+﻿using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Services.GameWorld.Logic.Loot;

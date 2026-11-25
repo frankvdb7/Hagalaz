@@ -6,7 +6,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Common.Events.Character;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -48,6 +47,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new prayers component.
         /// </summary>
         /// <param name="owner"></param>
+        /// <param name="graphicBuilder">Builds graphics.</param>
+        /// <param name="animationBuilder">Builds animations.</param>
         public Prayers(ICharacter owner, IAnimationBuilder animationBuilder, IGraphicBuilder graphicBuilder)
         {
             _owner = owner;

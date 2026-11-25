@@ -1,20 +1,14 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Game.Resources;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
 using Microsoft.Extensions.Options;
 using Hagalaz.Game.Extensions;
@@ -260,6 +254,10 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Constructs new statistics class.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="combatOptions">Provides combat settings.</param>
+        /// <param name="skillOptions">Provides skill settings.</param>
+        /// <param name="hitSplatBuilder">Builds hitsplats for damage updates.</param>
+        /// <param name="combatRules">Provides shared combat calculations.</param>
         public CharacterStatistics(
             ICharacter owner,
             IOptions<CombatOptions> combatOptions,

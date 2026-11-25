@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
 using Microsoft.Extensions.Options;
 

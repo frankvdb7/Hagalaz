@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using Hagalaz.Game.Extensions;
+﻿using Hagalaz.Game.Extensions;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Factories;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
@@ -215,6 +209,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new appearance class.
         /// </summary>
         /// <param name="owner"></param>
+        /// <param name="npcDefinitionRepository">Provides NPC definitions.</param>
+        /// <param name="bodyDataRepository">Provides character body model data.</param>
+        /// <param name="characterNpcScriptProvider">Finds scripts for NPC transformations.</param>
+        /// <param name="characterNpcScriptActivator">Creates scripts for NPC transformations.</param>
+        /// <param name="itemPartFactory">Creates item model parts for the appearance.</param>
         public CharacterAppearance(
             ICharacter owner,
             INpcService npcDefinitionRepository,

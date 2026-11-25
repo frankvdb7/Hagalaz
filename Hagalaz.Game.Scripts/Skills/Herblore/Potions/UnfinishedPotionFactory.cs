@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Factories;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions

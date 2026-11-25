@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Slayer

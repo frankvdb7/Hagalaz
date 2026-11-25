@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Common.Events.Character;
 
 namespace Hagalaz.Services.GameWorld.Logic.Shops
 {
@@ -80,7 +75,6 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
         void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();

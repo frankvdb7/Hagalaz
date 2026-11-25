@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Mining
 {

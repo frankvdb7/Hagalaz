@@ -3,7 +3,6 @@ using Hagalaz.Services.GameWorld.Model;
 using Raido.Common.Protocol;
 using Raido.Server;
 
-using System;
 
 namespace Hagalaz.Services.GameWorld.Network.Model
 {

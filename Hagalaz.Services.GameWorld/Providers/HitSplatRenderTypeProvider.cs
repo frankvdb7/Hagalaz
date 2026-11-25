@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Providers;
 
 namespace Hagalaz.Services.GameWorld.Providers

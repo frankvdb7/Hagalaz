@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;

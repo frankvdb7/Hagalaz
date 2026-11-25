@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Utilities;

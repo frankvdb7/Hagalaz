@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Collections;
 
 namespace Hagalaz.Game.Scripts.Items;
 

@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Text;
+﻿using System.Text;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Resources;

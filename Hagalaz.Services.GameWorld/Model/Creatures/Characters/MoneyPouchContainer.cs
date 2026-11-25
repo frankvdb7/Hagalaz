@@ -58,6 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character inventories.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
+        /// <param name="itemBuilder">Builds items for the container.</param>
         public MoneyPouchContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
@@ -321,7 +322,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
+        /// <param name="moneyPouch">The persisted coin stack for slot zero, or an empty list.</param>
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {
             if (moneyPouch.Any(item => item.ItemId != CoinsItemId))

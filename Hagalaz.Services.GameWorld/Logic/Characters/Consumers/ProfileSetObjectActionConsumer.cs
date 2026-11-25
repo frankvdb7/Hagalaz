@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
 using Hagalaz.Game.Abstractions.Providers;

@@ -8,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
     /// <summary>
     /// Contains game methods for npc.
     /// </summary>
-    public partial class Npc : Creature
+    public partial class Npc
     {
         /// <summary>
         /// Get's called when npc is spawned.

@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions

@@ -1,18 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Logic.Characters;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -48,6 +40,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         /// <param name="capacity">The capacity of the container.</param>
+        /// <param name="itemBuilder">Builds items for the container.</param>
         public EquipmentContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
         {
             (_owner, _itemBuilder) = (owner, itemBuilder);

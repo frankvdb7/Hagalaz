@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Authorization;
+﻿using Hagalaz.Game.Abstractions.Authorization;
 
 namespace Hagalaz.Services.GameWorld.Services.Model
 {

@@ -1,12 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Events.Creatures;
 using Hagalaz.Game.Abstractions.Model.Items;

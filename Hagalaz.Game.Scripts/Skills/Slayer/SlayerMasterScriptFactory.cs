@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Hagalaz.Game.Abstractions.Factories;
-using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Game.Scripts.Skills.Slayer
 {

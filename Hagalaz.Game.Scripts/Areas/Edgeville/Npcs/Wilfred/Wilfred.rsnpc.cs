@@ -1,6 +1,4 @@
-using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue;
 
 namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Wilfred

@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;

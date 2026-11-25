@@ -1,10 +1,7 @@
 using System;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Projectile;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Features.States.Effects;

@@ -3,7 +3,6 @@ using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Features.Chat;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
 using Microsoft.AspNetCore.Authorization;
