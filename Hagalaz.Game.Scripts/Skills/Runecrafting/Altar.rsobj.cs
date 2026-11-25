@@ -45,6 +45,7 @@ namespace Hagalaz.Game.Scripts.Skills.Runecrafting
         ///     Crafts the runes.
         /// </summary>
         /// <param name="character">The character.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task CraftRunes(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var altarId = Owner.Id;

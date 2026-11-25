@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
-using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Bank
 {

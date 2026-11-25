@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Mediator;
@@ -13,7 +12,6 @@ using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Widgets.EquipmentTab;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
-using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Bank
 {
@@ -560,12 +558,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             return 8; // main
         }
 
-        /// <summary>
-        ///     Insert's item into given tab.
-        /// </summary>
-        /// <param name="tab"></param>
-        /// <param name="slot"></param>
-        /// <returns></returns>
+        /// <summary>Maps a bank menu option to its item quantity.</summary>
+        /// <param name="type">The clicked bank menu option.</param>
+        /// <param name="amount">The quantity for a supported option.</param>
+        /// <returns>Whether the option specifies a quantity.</returns>
         private bool TryGetBankAmount(ComponentClickType type, out int amount)
         {
             switch (type)

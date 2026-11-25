@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;

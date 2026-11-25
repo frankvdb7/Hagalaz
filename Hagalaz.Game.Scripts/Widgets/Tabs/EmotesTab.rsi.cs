@@ -1,8 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;

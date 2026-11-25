@@ -113,6 +113,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the bake pottery.
         /// </summary>
         /// <param name="character">The character.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task TryBakePottery(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
@@ -228,6 +229,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the form pottery.
         /// </summary>
         /// <param name="character">The character.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         /// <returns></returns>
         public async Task TryFormPottery(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
@@ -389,6 +391,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the spin.
         /// </summary>
         /// <param name="character">The character.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task TrySpin(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
@@ -524,6 +527,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         ///     Tries the tan.
         /// </summary>
         /// <param name="character">The character.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task TryTan(ICharacter character, System.Threading.CancellationToken cancellationToken = default)
         {
             var craftingManager = character.ServiceProvider.GetRequiredService<ICraftingService>();
@@ -563,13 +567,11 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             InteractiveDialogueScript.OpenInteractiveDialogue(character, dialogue);
         }
 
-        /// <summary>
-        ///     Tans the specified character.
-        /// </summary>
-        /// <param name="character">The character.</param>
-        /// <param name="definition">The definition.</param>
-        /// <param name="count">The count.</param>
-        /// <returns></returns>
+        /// <summary>Appends the product name in red when requirements are unmet.</summary>
+        /// <param name="builder">The product list being built.</param>
+        /// <param name="itemManager">The source of item definitions.</param>
+        /// <param name="productID">The ID of the product item.</param>
+        /// <param name="hasRequirements">Whether the character meets the requirements.</param>
         private static void AppendProductName(StringBuilder builder, IItemService itemManager, int productID, bool hasRequirements)
         {
             if (!hasRequirements)

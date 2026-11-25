@@ -458,9 +458,5 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Bows
             character.RemoveState<ArrowsEquippedState>();
         }
 
-        /// <summary>
-        ///     Get's items suitable for this equipment script.
-        /// </summary>
-        /// <returns></returns>
     }
 }

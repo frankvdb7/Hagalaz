@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;

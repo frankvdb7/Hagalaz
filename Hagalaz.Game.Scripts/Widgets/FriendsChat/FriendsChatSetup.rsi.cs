@@ -284,6 +284,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
         ///     Set a rank in database.
         /// </summary>
         /// <param name="profileKey'">The name of the rank database column.</param>
+        /// <param name="profileKey">The profile setting that stores the rank.</param>
         /// <param name="rank">The rank to be set.</param>
         public void SetRank(string profileKey, FriendsChatRank rank) => _gameMediator.Publish(new ProfileSetEnumAction(profileKey, rank));
 

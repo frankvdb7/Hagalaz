@@ -1,11 +1,9 @@
-using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 
 namespace Hagalaz.Game.Scripts.Commands
 {

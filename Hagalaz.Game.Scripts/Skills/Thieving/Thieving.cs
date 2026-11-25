@@ -126,6 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <param name="clicker">The clicker.</param>
         /// <param name="obj">The obj.</param>
         /// <param name="stall">The stall.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public static async Task Steal(
             ICharacter clicker,
             IGameObject obj,
@@ -177,6 +178,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
         /// <param name="clicker">The clicker.</param>
         /// <param name="npc">The NPC.</param>
         /// <param name="definition">The definition.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public static async Task PickPocket(
             ICharacter clicker,
             INpc npc,

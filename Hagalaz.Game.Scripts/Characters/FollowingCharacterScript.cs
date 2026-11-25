@@ -1,7 +1,6 @@
 ﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 

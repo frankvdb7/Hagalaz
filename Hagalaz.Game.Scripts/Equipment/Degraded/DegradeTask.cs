@@ -1,5 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;

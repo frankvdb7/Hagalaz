@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
@@ -12,7 +11,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Combat.Magic;

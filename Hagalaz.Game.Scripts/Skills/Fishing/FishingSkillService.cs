@@ -36,6 +36,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fishing
         /// <param name="character">The character.</param>
         /// <param name="fishingSpotHandle">The fishing spot identity.</param>
         /// <param name="table">The definition.</param>
+        /// <param name="characterCount">The world player count used to scale respawn time.</param>
         /// <returns></returns>
         public bool TryFish(ICharacter character, EntityHandle<ICreature> fishingSpotHandle, IFishingSpotTable? table, int characterCount)
         {

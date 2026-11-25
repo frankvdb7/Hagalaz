@@ -1,8 +1,5 @@
 ﻿namespace Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Zaros
 {
-    /// <summary>
-    /// </summary>
-    /// <seealso cref="NpcScriptBase" />
     // [NpcScriptMetaData([13447])]
     // public class Nex : NpcScriptBase
     // {

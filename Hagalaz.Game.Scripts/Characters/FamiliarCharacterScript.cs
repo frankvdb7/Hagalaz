@@ -1,10 +1,8 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
 
 namespace Hagalaz.Game.Scripts.Characters

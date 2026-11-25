@@ -1,12 +1,8 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.ExceptionServices;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -1548,7 +1544,6 @@ namespace Hagalaz.Game.Scripts.Characters
             /// <summary>
             ///     Happens when trade container get's updated.
             /// </summary>
-            /// <param name="slots"></param>
             public void PublishChanges()
             {
                 var slots = _items.ChangeTracker.GetSlots();

@@ -21,6 +21,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         /// </summary>
         /// <param name="character"></param>
         /// <param name="item"></param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task TryCleanHerb(
             ICharacter character,
             IItem item,

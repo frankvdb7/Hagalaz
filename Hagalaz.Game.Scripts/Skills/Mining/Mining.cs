@@ -14,8 +14,9 @@ namespace Hagalaz.Game.Scripts.Skills.Mining
         ///     Attempts to find a pickaxe in the specified character's inventory or equipped items.
         /// </summary>
         /// <param name="character">The character to find pickaxe for.</param>
+        /// <param name="pickaxes">The pickaxe definitions to consider.</param>
         /// <returns>
-        ///     Returns the pickaxe type if found; Returns Hatchet.Undefined otherwise.
+        ///     The highest-level usable owned pickaxe, or <c>null</c> if none qualifies.
         /// </returns>
         public static PickaxeDto? FindPickaxe(ICharacter character, IReadOnlyList<PickaxeDto> pickaxes)
         {

@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Dialogues.Generic

@@ -25,6 +25,34 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
     public sealed class MiningIdentityTests
     {
         [TestMethod]
+        [DataRow(0, 0)]
+        [DataRow(1, 1)]
+        [DataRow(5, 1)]
+        [DataRow(6, 2)]
+        public void FindPickaxe_SelectsHighestUsableOwnedPickaxe(int miningLevel, int expectedItemId)
+        {
+            var character = Substitute.For<ICharacter>();
+            character.Statistics.GetSkillLevel(StatisticsConstants.Mining).Returns(miningLevel);
+            var bronze = new PickaxeDto
+            {
+                Type = PickaxeType.Bronze, ItemId = 1, AnimationId = 1,
+                RequiredLevel = 1, BaseHarvestChance = 0.1,
+            };
+            var higherLevel = bronze with { ItemId = 2, RequiredLevel = 6 };
+            var unowned = bronze with { ItemId = 3, RequiredLevel = 3 };
+            character.Equipment.Items.GetById(bronze.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(higherLevel.ItemId).Returns((IItem?)null);
+            character.Inventory.Items.GetById(higherLevel.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(unowned.ItemId).Returns((IItem?)null);
+            character.Inventory.Items.GetById(unowned.ItemId).Returns((IItem?)null);
+
+            var selected = Hagalaz.Game.Scripts.Skills.Mining.Mining.FindPickaxe(character, [unowned, bronze, higherLevel]);
+
+            int? expectedPickaxe = expectedItemId == 0 ? null : expectedItemId;
+            Assert.AreEqual(expectedPickaxe, selected?.ItemId);
+        }
+
+        [TestMethod]
         public async Task MiningRocks_WhenTargetIsReplacedDuringSetup_DoesNotQueueMiningTask()
         {
             var miningService = Substitute.For<IMiningService>();

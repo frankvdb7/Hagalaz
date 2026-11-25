@@ -1,5 +1,4 @@
 using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;

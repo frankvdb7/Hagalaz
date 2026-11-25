@@ -126,6 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task SummonFamiliar(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken = default)
         {
             var pouchId = item.Id;

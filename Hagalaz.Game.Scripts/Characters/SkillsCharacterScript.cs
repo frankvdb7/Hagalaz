@@ -2,7 +2,6 @@ using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;

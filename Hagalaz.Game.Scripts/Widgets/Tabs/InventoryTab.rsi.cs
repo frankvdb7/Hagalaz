@@ -1,18 +1,13 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Widgets;
-using Hagalaz.Game.Scripts.Widgets;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Widgets.Tabs
 {

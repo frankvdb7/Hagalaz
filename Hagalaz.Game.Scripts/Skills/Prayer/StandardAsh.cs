@@ -52,6 +52,7 @@ namespace Hagalaz.Game.Scripts.Skills.Prayer
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         private async Task Scatter(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken)
         {
             if (character.HasState<BuryingBonesState>())
