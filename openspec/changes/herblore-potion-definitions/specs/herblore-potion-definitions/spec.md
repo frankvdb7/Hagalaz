@@ -17,6 +17,14 @@ The system SHALL persist every Herblore potion recipe (product, kind, base/unfin
 - **WHEN** a script looks up a (base item, secondary ingredient) pair of a kind
 - **THEN** the recipe of that kind is returned, and no recipe of another kind
 
+#### Scenario: Shared unfinished potion
+- **WHEN** several standard recipes share an unfinished potion and a script looks up that unfinished potion with one recipe's secondary ingredient
+- **THEN** exactly that recipe is returned
+
+#### Scenario: Final potion as base or ingredient
+- **WHEN** a script looks up a final potion as the base item of a standard recipe, or any final potion consumed by the overload recipe
+- **THEN** the recipe made from it is returned
+
 #### Scenario: Extreme ranging needs five spikes
 - **WHEN** an extreme ranging potion is made
 - **THEN** five grenwall spikes are consumed, or nothing changes when fewer are present
