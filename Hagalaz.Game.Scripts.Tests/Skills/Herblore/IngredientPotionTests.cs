@@ -2,21 +2,18 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Skills.Herblore.Potions;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Herblore;
 
 /// <summary>
-///     Pins the potions that are the base of an extreme potion (Super attack/strength/defence, Magic, Ranging): using the
-///     recipe's secondary ingredient on the potion makes the extreme potion in either item order, doses combine, and
-///     everything else is ignored.
+///     Pins the dose handling of the potions that are the base of an extreme potion (Super attack/strength/defence, Magic,
+///     Ranging). Making the extreme potion from the seeded pairs is covered by <see cref="ExtremePotionDispatchTests" />.
 /// </summary>
 [TestClass]
 public sealed class IngredientPotionTests
 {
-    private const int UnfinishedPotionId = 91;
     private const int UnrelatedId = 995;
     private const int Avantoe = 261;
     private const int GroundMudRunes = 9594;
@@ -34,33 +31,6 @@ public sealed class IngredientPotionTests
 
         Assert.AreEqual(fullDoseId, world.Create(potion).DoseIds[0]);
         Assert.HasCount(4, world.Create(potion).DoseIds);
-    }
-
-    [TestMethod]
-    [DataRow("superAttack", Avantoe)]
-    [DataRow("superStrength", 267)]
-    [DataRow("superDefence", 2481)]
-    [DataRow("magic", GroundMudRunes)]
-    [DataRow("ranging", 12539)]
-    public void IngredientUsedOnUnfinishedPotion_MakesThePotion(string potion, int ingredientId)
-    {
-        var world = new World();
-        var ingredient = world.Item(ingredientId);
-        var unfinished = world.Item(UnfinishedPotionId);
-        var recipe = new PotionDto
-        {
-            PotionId = 1, Kind = PotionKind.Standard, UnfinishedPotionId = UnfinishedPotionId, RequiredLevel = 1, Experience = 10,
-            PrimaryItemIds = [], SecondaryItemIds = [ingredientId], SecondaryItemCount = 1
-        };
-        world.Definitions.FindPotionBySecondaryItemId(PotionKind.Standard, UnfinishedPotionId, ingredientId).Returns(recipe);
-        world.Herblore.MakePotion(world.Character, unfinished, ingredient, recipe, false).Returns(true);
-
-        // either order of the two items works, and the unfinished potion is always passed first
-        Assert.IsTrue(world.Create(potion).UseItemOnItem(ingredient, unfinished, world.Character));
-        Assert.IsTrue(world.Create(potion).UseItemOnItem(unfinished, ingredient, world.Character));
-
-        world.Herblore.Received(2).MakePotion(world.Character, unfinished, ingredient, recipe, false);
-        world.Potions.DidNotReceiveWithAnyArgs().CombinePotions(default!, default!, default!, default!);
     }
 
     [TestMethod]

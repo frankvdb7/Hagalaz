@@ -10,14 +10,14 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Herblore;
 [TestClass]
 public sealed class HerbloreMakePotionTests
 {
-    private const int Vial = 3008;
+    private const int RangingPotion = 169;
     private const int Product = 15325;
     private const double Experience = 260;
     private const int Spikes = 12539;
 
     private static readonly PotionDto Potion = new()
     {
-        PotionId = Product, Kind = PotionKind.Standard, UnfinishedPotionId = Vial, RequiredLevel = 1, Experience = Experience,
+        PotionId = Product, Kind = PotionKind.Standard, UnfinishedPotionId = RangingPotion, RequiredLevel = 1, Experience = Experience,
         PrimaryItemIds = [], SecondaryItemIds = [Spikes], SecondaryItemCount = 5
     };
 
@@ -30,11 +30,11 @@ public sealed class HerbloreMakePotionTests
     {
         var (inventory, performer, service) = CreateScenarioWithSpikes(spikeCount);
 
-        var made = service.TryMakePotionOnce(performer, CreateItem(Vial, 1), CreateItem(Spikes, 1), Potion, false);
+        var made = service.TryMakePotionOnce(performer, CreateItem(RangingPotion, 1), CreateItem(Spikes, 1), Potion, false);
 
         Assert.IsFalse(made);
         Assert.AreEqual(spikeCount, inventory.Items.GetCountById(Spikes));
-        Assert.AreEqual(1, inventory.Items.GetCountById(Vial));
+        Assert.AreEqual(1, inventory.Items.GetCountById(RangingPotion));
         Assert.AreEqual(0, inventory.Items.GetCountById(Product));
         performer.Statistics.DidNotReceive().AddExperience(Arg.Any<int>(), Arg.Any<double>());
     }
@@ -44,28 +44,28 @@ public sealed class HerbloreMakePotionTests
     {
         var (inventory, performer, service) = CreateScenarioWithSpikes(5);
 
-        var made = service.TryMakePotionOnce(performer, CreateItem(Vial, 1), CreateItem(Spikes, 1), Potion, false);
+        var made = service.TryMakePotionOnce(performer, CreateItem(RangingPotion, 1), CreateItem(Spikes, 1), Potion, false);
 
         Assert.IsTrue(made);
         Assert.AreEqual(0, inventory.Items.GetCountById(Spikes));
-        Assert.AreEqual(0, inventory.Items.GetCountById(Vial));
+        Assert.AreEqual(0, inventory.Items.GetCountById(RangingPotion));
         Assert.AreEqual(1, inventory.Items.GetCountById(Product));
         performer.Statistics.Received(1).AddExperience(Arg.Any<int>(), Experience);
     }
 
     [TestMethod]
-    public void ExtremeRanging_WithSixSpikesAndTwoVials_OnlyFirstIterationSucceeds()
+    public void ExtremeRanging_WithSixSpikesAndTwoRangingPotions_OnlyFirstIterationSucceeds()
     {
         var (inventory, performer, service) = CreateScenarioWithSpikes(6);
-        inventory.Items.Add(CreateItem(Vial, 1));
+        inventory.Items.Add(CreateItem(RangingPotion, 1));
 
-        var first = service.TryMakePotionOnce(performer, CreateItem(Vial, 1), CreateItem(Spikes, 1), Potion, false);
-        var second = service.TryMakePotionOnce(performer, CreateItem(Vial, 1), CreateItem(Spikes, 1), Potion, false);
+        var first = service.TryMakePotionOnce(performer, CreateItem(RangingPotion, 1), CreateItem(Spikes, 1), Potion, false);
+        var second = service.TryMakePotionOnce(performer, CreateItem(RangingPotion, 1), CreateItem(Spikes, 1), Potion, false);
 
         Assert.IsTrue(first);
         Assert.IsFalse(second);
         Assert.AreEqual(1, inventory.Items.GetCountById(Spikes));
-        Assert.AreEqual(1, inventory.Items.GetCountById(Vial));
+        Assert.AreEqual(1, inventory.Items.GetCountById(RangingPotion));
         Assert.AreEqual(1, inventory.Items.GetCountById(Product));
         performer.Statistics.Received(1).AddExperience(Arg.Any<int>(), Experience);
     }
@@ -106,7 +106,7 @@ public sealed class HerbloreMakePotionTests
     private static (ComposedTestContainer Inventory, ICharacter Performer, HerbloreSkillService Service)
         CreateScenarioWithSpikes(int spikeCount)
     {
-        var (inventory, performer, itemBuilder, _) = CreateScenario(Vial);
+        var (inventory, performer, itemBuilder, _) = CreateScenario(RangingPotion);
         for (var i = 0; i < spikeCount; i++) inventory.Items.Add(CreateItem(Spikes, 1));
 
         return (inventory, performer, new HerbloreSkillService(itemBuilder));
