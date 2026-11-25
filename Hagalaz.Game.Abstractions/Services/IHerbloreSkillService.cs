@@ -22,34 +22,13 @@ namespace Hagalaz.Game.Abstractions.Services
             System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gets a potion definition by the ID of its primary ingredient.
-        /// </summary>
-        /// <param name="primaryItemId">The item ID of the primary ingredient.</param>
-        /// <returns>The <see cref="PotionDto"/> if found; otherwise, <c>null</c>.</returns>
-        PotionDto? GetPotionByPrimaryItemId(int primaryItemId);
-
-        /// <summary>
-        /// Gets a potion definition by the IDs of the unfinished potion and the secondary ingredient.
-        /// </summary>
-        /// <param name="unfinishedPotionId">The item ID of the unfinished potion.</param>
-        /// <param name="secondaryItemId">The item ID of the secondary ingredient.</param>
-        /// <returns>The <see cref="PotionDto"/> if found; otherwise, <c>null</c>.</returns>
-        PotionDto? GetPotionBySecondaryItemId(int unfinishedPotionId, int secondaryItemId);
-
-        /// <summary>
-        /// Gets a potion definition by the ID of the unfinished potion.
-        /// </summary>
-        /// <param name="unfinishedPotionId">The item ID of the unfinished potion.</param>
-        /// <returns>The <see cref="PotionDto"/> if found; otherwise, <c>null</c>.</returns>
-        PotionDto? GetPotionByUnfinishedPotionId(int unfinishedPotionId);
-
-        /// <summary>
         /// Attempts to make an overload potion.
         /// </summary>
         /// <param name="character">The character making the potion.</param>
         /// <param name="herb">The herb item being used.</param>
+        /// <param name="overload">The definition of the overload, whose secondary ingredients are all consumed.</param>
         /// <returns><c>true</c> if the action was successful; otherwise, <c>false</c>.</returns>
-        bool MakeOverload(ICharacter character, IItem herb);
+        bool MakeOverload(ICharacter character, IItem herb, PotionDto overload);
 
         /// <summary>
         /// Attempts to make a potion.

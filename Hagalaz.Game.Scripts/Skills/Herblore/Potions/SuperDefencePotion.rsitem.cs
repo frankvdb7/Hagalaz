@@ -11,11 +11,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [2442, 163, 165, 167])]
     public class SuperDefencePotion : IngredientPotion
     {
-        public SuperDefencePotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
+        public SuperDefencePotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IHerbloreService herbloreService)
+            : base(potionSkillService, herbloreSkillService, herbloreService)
         {
         }
-
-        protected override int Ingredient => Herbs.HerbloreConstants.Lantadyme;
 
         /// <summary>
         ///     Applies the effect.

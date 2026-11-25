@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 {
@@ -14,9 +16,9 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {
+            await Task.CompletedTask;
             var primaryIngredientType = typeof(PrimaryIngredientItemScript);
-            var allPotions = await _herbloreService.FindAllPotions();
-            foreach (var itemId in allPotions.SelectMany(p => p.PrimaryItemIds).Distinct())
+            foreach (var itemId in _herbloreService.FindPotions(PotionKind.Standard).SelectMany(p => p.PrimaryItemIds).Distinct())
             {
                 yield return (itemId, primaryIngredientType);
             }

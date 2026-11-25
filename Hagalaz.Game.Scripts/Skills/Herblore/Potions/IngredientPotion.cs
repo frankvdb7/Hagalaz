@@ -2,40 +2,35 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
     /// <summary>
-    ///     A potion made by adding a herb or ingredient to an unfinished potion. Using the ingredient on an unfinished
-    ///     potion makes this potion; using two doses of the potion together combines them.
+    ///     A potion that is the base of another potion: using the recipe's secondary ingredient on this potion makes the other potion
+    ///     (e.g. avantoe on super attack makes extreme attack); using two doses of the potion together combines them.
     /// </summary>
     public abstract class IngredientPotion : Potion
     {
-        protected IngredientPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
-        {
-        }
+        private readonly IHerbloreService _herbloreService;
 
-        /// <summary>
-        ///     The id of the item added to an unfinished potion to make this potion.
-        /// </summary>
-        protected abstract int Ingredient { get; }
+        protected IngredientPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IHerbloreService herbloreService)
+            : base(potionSkillService, herbloreSkillService) =>
+            _herbloreService = herbloreService;
 
         /// <inheritdoc />
         public override bool UseItemOnItem(IItem used, IItem usedWith, ICharacter character)
         {
-            if (used.Id == Ingredient || usedWith.Id == Ingredient)
+            var potion = _herbloreService.FindPotionBySecondaryItemId(PotionKind.Standard, used.Id, usedWith.Id);
+            if (potion != null)
             {
-                var potion = HerbloreSkillService.GetPotionByUnfinishedPotionId(used.Id);
-                if (potion != null)
-                {
-                    return HerbloreSkillService.MakePotion(character, used, usedWith, potion, false);
-                }
+                return HerbloreSkillService.MakePotion(character, used, usedWith, potion, false);
+            }
 
-                potion = HerbloreSkillService.GetPotionByUnfinishedPotionId(usedWith.Id);
-                if (potion != null)
-                {
-                    return HerbloreSkillService.MakePotion(character, usedWith, used, potion, false);
-                }
+            potion = _herbloreService.FindPotionBySecondaryItemId(PotionKind.Standard, usedWith.Id, used.Id);
+            if (potion != null)
+            {
+                return HerbloreSkillService.MakePotion(character, usedWith, used, potion, false);
             }
 
             if (PotionIds.Contains(usedWith.Id))

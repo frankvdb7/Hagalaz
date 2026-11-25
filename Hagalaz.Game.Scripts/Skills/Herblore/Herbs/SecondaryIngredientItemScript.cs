@@ -1,6 +1,7 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
@@ -10,9 +11,14 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
     /// </summary>
     public class SecondaryIngredientItemScript : ItemScript
     {
+        private readonly IHerbloreService _herbloreService;
         private readonly IHerbloreSkillService _herbloreSkillService;
 
-        public SecondaryIngredientItemScript(IHerbloreSkillService herbloreSkillService) => _herbloreSkillService = herbloreSkillService;
+        public SecondaryIngredientItemScript(IHerbloreService herbloreService, IHerbloreSkillService herbloreSkillService)
+        {
+            _herbloreService = herbloreService;
+            _herbloreSkillService = herbloreSkillService;
+        }
 
         /// <summary>
         ///     Uses the item.
@@ -25,13 +31,13 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         /// </returns>
         public override bool UseItemOnItem(IItem used, IItem usedWith, ICharacter character)
         {
-            var potion = _herbloreSkillService.GetPotionBySecondaryItemId(used.Id, usedWith.Id);
+            var potion = _herbloreService.FindPotionBySecondaryItemId(PotionKind.Standard, used.Id, usedWith.Id);
             if (potion != null)
             {
                 return _herbloreSkillService.MakePotion(character, used, usedWith, potion, false);
             }
 
-            potion = _herbloreSkillService.GetPotionBySecondaryItemId(usedWith.Id, used.Id);
+            potion = _herbloreService.FindPotionBySecondaryItemId(PotionKind.Standard, usedWith.Id, used.Id);
             if (potion != null)
             {
                 return _herbloreSkillService.MakePotion(character, usedWith, used, potion, false);

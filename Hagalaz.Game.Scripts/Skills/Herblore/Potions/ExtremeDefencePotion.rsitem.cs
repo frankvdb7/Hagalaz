@@ -11,7 +11,8 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [15316, 15317, 15318, 15319])]
     public class ExtremeDefencePotion : ExtremePotion
     {
-        public ExtremeDefencePotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
+        public ExtremeDefencePotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IHerbloreService herbloreService)
+            : base(potionSkillService, herbloreSkillService, herbloreService)
         {
         }
 

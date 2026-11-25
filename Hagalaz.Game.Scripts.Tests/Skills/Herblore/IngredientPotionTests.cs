@@ -2,22 +2,21 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Scripts.Skills.Herblore.Herbs;
 using Hagalaz.Game.Scripts.Skills.Herblore.Potions;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Herblore;
 
 /// <summary>
-///     Pins the potions made by adding a herb to an unfinished potion (Super attack/strength/defence, Magic, Ranging):
-///     making the potion in either item order, combining doses, and ignoring everything else.
+///     Pins the dose handling of the potions that are the base of an extreme potion (Super attack/strength/defence, Magic,
+///     Ranging). Making the extreme potion from the seeded pairs is covered by <see cref="ExtremePotionDispatchTests" />.
 /// </summary>
 [TestClass]
 public sealed class IngredientPotionTests
 {
-    private const int UnfinishedPotionId = 91;
     private const int UnrelatedId = 995;
+    private const int Avantoe = 261;
+    private const int GroundMudRunes = 9594;
 
     // potion, ingredient, doses
     [TestMethod]
@@ -35,36 +34,13 @@ public sealed class IngredientPotionTests
     }
 
     [TestMethod]
-    [DataRow("superAttack", nameof(HerbloreConstants.Avantoe))]
-    [DataRow("superStrength", nameof(HerbloreConstants.Dwarfweed))]
-    [DataRow("superDefence", nameof(HerbloreConstants.Lantadyme))]
-    [DataRow("magic", nameof(HerbloreConstants.Groundmudrunes))]
-    [DataRow("ranging", nameof(HerbloreConstants.Grenwallspikes))]
-    public void IngredientUsedOnUnfinishedPotion_MakesThePotion(string potion, string ingredientName)
-    {
-        var world = new World();
-        var ingredient = world.Item(Ingredient(ingredientName));
-        var unfinished = world.Item(UnfinishedPotionId);
-        var recipe = new PotionDto(1, UnfinishedPotionId, 1, 10, [], []);
-        world.Herblore.GetPotionByUnfinishedPotionId(UnfinishedPotionId).Returns(recipe);
-        world.Herblore.MakePotion(world.Character, unfinished, ingredient, recipe, false).Returns(true);
-
-        // either order of the two items works, and the unfinished potion is always passed first
-        Assert.IsTrue(world.Create(potion).UseItemOnItem(ingredient, unfinished, world.Character));
-        Assert.IsTrue(world.Create(potion).UseItemOnItem(unfinished, ingredient, world.Character));
-
-        world.Herblore.Received(2).MakePotion(world.Character, unfinished, ingredient, recipe, false);
-        world.Potions.DidNotReceiveWithAnyArgs().CombinePotions(default!, default!, default!, default!);
-    }
-
-    [TestMethod]
-    [DataRow("superAttack", nameof(HerbloreConstants.Avantoe))]
-    [DataRow("magic", nameof(HerbloreConstants.Groundmudrunes))]
-    public void IngredientWithoutAnUnfinishedPotion_DoesNothing(string potion, string ingredientName)
+    [DataRow("superAttack", Avantoe)]
+    [DataRow("magic", GroundMudRunes)]
+    public void IngredientWithoutAnUnfinishedPotion_DoesNothing(string potion, int ingredientId)
     {
         var world = new World();
 
-        var result = world.Create(potion).UseItemOnItem(world.Item(Ingredient(ingredientName)), world.Item(UnrelatedId), world.Character);
+        var result = world.Create(potion).UseItemOnItem(world.Item(ingredientId), world.Item(UnrelatedId), world.Character);
 
         Assert.IsFalse(result);
         world.Herblore.DidNotReceiveWithAnyArgs().MakePotion(default!, default!, default!, default!, default);
@@ -104,13 +80,11 @@ public sealed class IngredientPotionTests
         world.Potions.DidNotReceiveWithAnyArgs().CombinePotions(default!, default!, default!, default!);
     }
 
-    private static int Ingredient(string name) =>
-        (int)typeof(HerbloreConstants).GetField(name)!.GetValue(null)!;
-
     private sealed class World
     {
         public IPotionSkillService Potions { get; } = Substitute.For<IPotionSkillService>();
         public IHerbloreSkillService Herblore { get; } = Substitute.For<IHerbloreSkillService>();
+        public IHerbloreService Definitions { get; } = Substitute.For<IHerbloreService>();
         public ICharacter Character { get; } = Substitute.For<ICharacter>();
 
         public IItem Item(int id)
@@ -122,11 +96,11 @@ public sealed class IngredientPotionTests
 
         public ScriptView Create(string potion) => new(potion switch
         {
-            "superAttack" => new SuperAttackPotion(Potions, Herblore),
-            "superStrength" => new SuperStrengthPotion(Potions, Herblore),
-            "superDefence" => new SuperDefencePotion(Potions, Herblore),
-            "magic" => new MagicPotion(Potions, Herblore),
-            _ => new RangingPotion(Potions, Herblore)
+            "superAttack" => new SuperAttackPotion(Potions, Herblore, Definitions),
+            "superStrength" => new SuperStrengthPotion(Potions, Herblore, Definitions),
+            "superDefence" => new SuperDefencePotion(Potions, Herblore, Definitions),
+            "magic" => new MagicPotion(Potions, Herblore, Definitions),
+            _ => new RangingPotion(Potions, Herblore, Definitions)
         });
     }
 

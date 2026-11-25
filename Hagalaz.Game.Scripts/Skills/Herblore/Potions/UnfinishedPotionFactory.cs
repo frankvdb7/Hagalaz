@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Services;
+using Hagalaz.Game.Abstractions.Services.Model;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {
@@ -12,11 +14,15 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 
         public UnfinishedPotionFactory(IHerbloreService herbloreService) => _herbloreService = herbloreService;
 
+        /// <summary>
+        ///     Only recipes made from a primary ingredient have a real unfinished potion; the others (e.g. extreme potions) are made from a
+        ///     finished potion that has its own script.
+        /// </summary>
         public async IAsyncEnumerable<(int itemId, Type scriptType)> GetScripts()
         {
+            await Task.CompletedTask;
             var type = typeof(UnfinishedPotion);
-            var allPotions = await _herbloreService.FindAllPotions();
-            foreach (var potion in allPotions.DistinctBy(p => p.UnfinishedPotionId))
+            foreach (var potion in _herbloreService.FindPotions(PotionKind.Standard).Where(p => p.PrimaryItemIds.Length > 0).DistinctBy(p => p.UnfinishedPotionId))
             {
                 yield return (potion.UnfinishedPotionId, type);
             }

@@ -4218,6 +4218,59 @@ namespace Hagalaz.Data.Migrations
                     MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
                 });
 
+            modelBuilder.Entity("Hagalaz.Data.Entities.SkillsHerblorePotionDefinition", b =>
+                {
+                    b.Property<ushort>("PotionId")
+                        .HasColumnType("smallint(6) unsigned")
+                        .HasColumnName("potion_id");
+
+                    b.Property<decimal>("Experience")
+                        .HasPrecision(11, 2)
+                        .HasColumnType("decimal(11,2)")
+                        .HasColumnName("experience");
+
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("PrimaryItemIds")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("primary_item_ids");
+
+                    b.Property<byte>("RequiredLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasColumnName("required_level")
+                        .HasDefaultValueSql("'1'");
+
+                    b.Property<byte>("SecondaryItemCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasColumnName("secondary_item_count")
+                        .HasDefaultValueSql("'1'");
+
+                    b.Property<string>("SecondaryItemIds")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("secondary_item_ids");
+
+                    b.Property<ushort>("UnfinishedPotionId")
+                        .HasColumnType("smallint(6) unsigned")
+                        .HasColumnName("unfinished_potion_id");
+
+                    b.HasKey("PotionId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("skills_herblore_potion_definitions", (string)null);
+
+                    b.HasAnnotation("MySQL:Collation", "utf8_general_ci");
+
+                    MySQLPropertyBuilderExtensions.ForMySQLHasCharset(b, "utf8");
+                });
+
             modelBuilder.Entity("Hagalaz.Data.Entities.SkillsMagicCombatDefinition", b =>
                 {
                     b.Property<ushort>("ButtonId")

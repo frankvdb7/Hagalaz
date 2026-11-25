@@ -11,11 +11,10 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
     [ItemScriptMetaData(itemIds: [2436, 145, 147, 149])]
     public class SuperAttackPotion : IngredientPotion
     {
-        public SuperAttackPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService) : base(potionSkillService, herbloreSkillService)
+        public SuperAttackPotion(IPotionSkillService potionSkillService, IHerbloreSkillService herbloreSkillService, IHerbloreService herbloreService)
+            : base(potionSkillService, herbloreSkillService, herbloreService)
         {
         }
-
-        protected override int Ingredient => Herbs.HerbloreConstants.Avantoe;
 
         /// <summary>
         ///     Applies the effect.
