@@ -110,7 +110,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     else
                     {
                         amounts[a] -= left;
-                        left = 0;
                         break;
                     }
                 }

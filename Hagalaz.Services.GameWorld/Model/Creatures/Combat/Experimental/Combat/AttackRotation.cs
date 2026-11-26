@@ -25,7 +25,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <summary>
         /// Avalue indicating whether this <see cref="AttackRotation"/> is active.
         /// </summary>
-        private bool _active = false;
+        private bool _active;
 
         /// <summary>
         /// The probability function

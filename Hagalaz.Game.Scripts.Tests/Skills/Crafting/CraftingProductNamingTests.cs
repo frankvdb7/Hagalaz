@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Crafting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Crafting;

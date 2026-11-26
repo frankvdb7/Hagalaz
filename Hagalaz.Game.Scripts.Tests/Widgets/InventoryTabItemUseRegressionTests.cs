@@ -1,17 +1,14 @@
+using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Scripts.Widgets.Tabs;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Widgets;
@@ -19,6 +16,33 @@ namespace Hagalaz.Game.Scripts.Tests.Widgets;
 [TestClass]
 public sealed class InventoryTabItemUseRegressionTests
 {
+    [TestMethod]
+    public void DragHandler_SwapsInventorySlotsOnlyWithinTheInventoryWidget()
+    {
+        var inventory = Substitute.For<IInventoryContainer>();
+        inventory.Items.Capacity.Returns(2);
+        var character = Substitute.For<ICharacter>();
+        character.Inventory.Returns(inventory);
+        var context = Substitute.For<ICharacterContext>();
+        context.Character.Returns(character);
+        var accessor = Substitute.For<ICharacterContextAccessor>();
+        accessor.Context.Returns(context);
+        var widget = Substitute.For<IWidget>();
+        OnComponentDragged? drag = null;
+        widget.When(x => x.AttachDragHandler(0, Arg.Any<OnComponentDragged>()))
+            .Do(call => drag = call.ArgAt<OnComponentDragged>(1));
+        var tab = new InventoryTab(accessor);
+        tab.Initialize(widget);
+        tab.OnOpen();
+        Assert.IsNotNull(drag);
+
+        Assert.IsFalse(drag(0, 41, 0, Substitute.For<IWidget>(), 0, 42, 29));
+        inventory.DidNotReceive().SwapItems(Arg.Any<int>(), Arg.Any<int>());
+
+        Assert.IsTrue(drag(0, 41, 0, widget, 0, 42, 29));
+        inventory.Received(1).SwapItems(0, 1);
+    }
+
     [TestMethod]
     public void UseOnHandlers_RejectStaleItemsAndQueueDomainSpecificReachTasks()
     {

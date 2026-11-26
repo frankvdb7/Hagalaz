@@ -23,20 +23,20 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.PvPMaster
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 DefaultOptionDialogue("Talk", "Trade");
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Talk", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Talk", (_, _) =>
             {
                 var script = Owner.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
                 Owner.Widgets.OpenDialogue(script, true, Owner);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Trade", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Trade", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 25));

@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Options
                 }
             });
 
-            InterfaceInstance.AttachClickHandler(5, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(5, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Options
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(41, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(41, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

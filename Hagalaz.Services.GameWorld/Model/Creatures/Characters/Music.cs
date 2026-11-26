@@ -76,7 +76,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// The current play list index.
         /// </summary>
-        private int _currentPlayListIndex = 0;
+        private int _currentPlayListIndex;
 
         /// <summary>
         /// contains the index of the playing music.

@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -9,7 +7,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Characters;

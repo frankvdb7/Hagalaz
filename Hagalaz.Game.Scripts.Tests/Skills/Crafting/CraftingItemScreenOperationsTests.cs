@@ -1,7 +1,6 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Crafting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Crafting;

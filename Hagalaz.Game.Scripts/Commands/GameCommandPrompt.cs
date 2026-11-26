@@ -382,9 +382,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "mute",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
-                        var name = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Mute).Serialize());
                         return true;
@@ -394,14 +393,13 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "unmute",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         if (!character.Permissions.HasAtLeastXPermission(Permission.GameModerator))
                         {
                             return false;
                         }
 
-                        var name = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.UnMute).Serialize());
                         return true;
@@ -411,9 +409,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "ipban",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
-                        var cmsd = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, cmsd, SubmitOffenceType.IpBan).Serialize());
                         return true;
@@ -423,14 +420,13 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "unipban",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         if (!character.Permissions.HasAtLeastXPermission(Permission.GameModerator))
                         {
                             return false;
                         }
 
-                        var cfmd = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, cfmd, SubmitOffenceType.UnIpBan).Serialize());
                         return true;
@@ -440,9 +436,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "ban",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
-                        var name = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Ban).Serialize());
                         return true;
@@ -452,9 +447,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "unban",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
-                        var name = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.UnBan).Serialize());
                         return true;
@@ -464,9 +458,8 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "kick",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
-                        var name = string.Join(" ", arguments);
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Kick).Serialize());
                         return true;

@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Areas.DwarvenMine.GameObjects
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                ILocation? loc = null;
+                ILocation? loc;
                 if (Owner.Id == GetType().GetCustomAttribute<GameObjectScriptMetaDataAttribute>()!.ObjectIds[0])
                 {
                     loc = Location.Create(1041, 4575, 0, 0);

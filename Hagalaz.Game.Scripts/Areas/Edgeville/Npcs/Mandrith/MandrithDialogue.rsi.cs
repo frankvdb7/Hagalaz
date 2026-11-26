@@ -41,12 +41,12 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
         /// </summary>
         public void Setup()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Hello " + Owner.DisplayName + "!", "Where do you want to go?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 DefaultOptionDialogue("Training", "Skills", "Dungeons", "Minigames", "More Options");
                 _moreOptionsCallback = () =>
@@ -56,19 +56,19 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
                 };
                 return true;
             });
-            AttachDialogueOptionClickHandler("Training", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Training", (_, _) =>
             {
                 new TrainingTeleport().PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Skills", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Skills", (_, _) =>
             {
                 DefaultOptionDialogue("Agility", "Farming", "Slayer", "Thieving", "Back");
                 _backCallback = () => OnDialogueContinueClick(1, -1, -1);
                 return false;
             });
-            AttachDialogueOptionClickHandler("Dungeons", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Dungeons", (_, _) =>
             {
                 DefaultOptionDialogue("Godwars Dungeon", "Forinthry Dungeon", "Glacor Cave", "More Options", "Back");
                 _backCallback = () => OnDialogueContinueClick(1, -1, -1);
@@ -86,18 +86,18 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
                 };
                 return false;
             });
-            AttachDialogueOptionClickHandler("Minigames", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Minigames", (_, _) =>
             {
                 DefaultOptionDialogue("Barrows", "Tzhaar City", "Duel Arena", "Back");
                 _backCallback = () => OnDialogueContinueClick(1, -1, -1);
                 return false;
             });
-            AttachDialogueOptionClickHandler("Other", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Other", (_, _) =>
             {
                 DefaultOptionDialogue("", "Back");
                 return false;
             });
-            AttachDialogueOptionClickHandler("Back", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Back", (_, _) =>
             {
                 if (_backCallback != null)
                 {
@@ -106,7 +106,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
 
                 return false;
             });
-            AttachDialogueOptionClickHandler("More Options", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("More Options", (_, _) =>
             {
                 if (_moreOptionsCallback != null)
                 {
@@ -115,117 +115,117 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
 
                 return false;
             });
-            AttachDialogueOptionClickHandler("Agility", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Agility", (_, _) =>
             {
                 DefaultOptionDialogue("Gnome Agility Course", "Back");
                 return false;
             });
-            AttachDialogueOptionClickHandler("Farming", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Farming", (_, _) =>
             {
                 DefaultOptionDialogue("Falador Allotment", "Catherby Allotment", "Back");
                 return false;
             });
-            AttachDialogueOptionClickHandler("Slayer", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Slayer", (_, _) =>
             {
                 DefaultOptionDialogue("Slayer Tower", "Back");
                 return false;
             });
-            AttachDialogueOptionClickHandler("Thieving", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Thieving", (_, _) =>
             {
                 DefaultOptionDialogue("Rogue's Den", "Back");
                 return false;
             });
-            AttachDialogueOptionClickHandler("Gnome Agility Course", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Gnome Agility Course", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2470, 3438, 0, 2).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Godwars Dungeon", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Godwars Dungeon", (_, _) =>
             {
                 new GodwarsTeleport().PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Guilds", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Guilds", (_, _) =>
             {
                 DefaultOptionDialogue("Warrior Guild", "Crafting Guild", "Back");
                 _backCallback = () => OnDialogueContinueClick(1, -1, -1);
                 return false;
             });
-            AttachDialogueOptionClickHandler("Warrior Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Warrior Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2859, 3542, 2, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Rogue's Den", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Rogue's Den", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3047, 4971, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Ranging Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Ranging Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2656, 3440, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Mage Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Mage Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2600, 3087, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Crafting Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Crafting Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2933, 3291, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Heroes Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Heroes Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2906, 3511, 0, 3).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Champions Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Champions Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3191, 3368, 0, 3).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Legends Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Legends Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2728, 3347, 0, 2).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Fishing Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Fishing Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2614, 3382, 0, 3).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Mining Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Mining Guild", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3031, 3336, 0, 2).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Falador Allotment", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Falador Allotment", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3051, 3304, 0, 2).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Catherby Allotment", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Catherby Allotment", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2802, 3463, 0, 3).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Runecrafting Guild", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Runecrafting Guild", (_, _) =>
             {
                 if (Owner.Statistics.GetSkillLevel(StatisticsConstants.Runecrafting) >= 50)
                 {
@@ -239,95 +239,95 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
 
                 return false;
             });
-            AttachDialogueOptionClickHandler("Slayer Tower", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Slayer Tower", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3429, 3538, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("King Black Dragon", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("King Black Dragon", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3067, 10254, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Ancient Cavern", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Ancient Cavern", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 1763, 5365, 1, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Living Rock Cavern", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Living Rock Cavern", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3651, 5122, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Ancient Guthix Temple", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Ancient Guthix Temple", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2525, 5810, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Waterbirth Island Dungeon", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Waterbirth Island Dungeon", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 2900, 4449, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Kalphite Hive", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Kalphite Hive", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3479, 9516, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Jadinko Lair", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Jadinko Lair", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3012, 9275, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Grotworm lair", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Grotworm lair", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 1206, 6372, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Glacor Cave", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Glacor Cave", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 4196, 5755, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Barrows", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Barrows", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3565, 3313, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Duel Arena", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Duel Arena", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 3363, 3276, 0, 3).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Tzhaar City", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Tzhaar City", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.StandardBook, 4668, 5059, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Forinthry Dungeon", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Forinthry Dungeon", (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Are you sure you want to go to Forinthry Dungeon?", "It is very dangerous place and you are likely to die around there.");
                 return false;
             });
-            AttachDialogueContinueClickHandler(2, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(2, (_, _) =>
             {
                 DefaultOptionDialogue("Yes", "No");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Yes", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Yes", (_, _) =>
             {
                 if (Stage == 3)
                 {
@@ -338,7 +338,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
 
                 return false;
             });
-            AttachDialogueOptionClickHandler("No", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("No", (_, _) =>
             {
                 if (Stage == 3)
                 {
@@ -348,7 +348,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
 
                 return false;
             });
-            AttachDialogueOptionClickHandler("Nevermind", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Nevermind", (_, _) =>
             {
                 if (Stage == 2)
                 {

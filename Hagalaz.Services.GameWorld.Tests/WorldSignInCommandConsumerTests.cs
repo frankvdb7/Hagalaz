@@ -1,7 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Contacts.Messages.Model;

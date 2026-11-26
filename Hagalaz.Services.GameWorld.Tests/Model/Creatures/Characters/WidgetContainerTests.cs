@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -8,7 +7,6 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Services.GameWorld.Builders;
-using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Services.GameWorld.Model.Widgets;
 

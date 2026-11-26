@@ -6,10 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Collections;
 using Hagalaz.Services.GameWorld.Model.Creatures;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {

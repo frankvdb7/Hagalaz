@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Minigames.DuelArena;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena;

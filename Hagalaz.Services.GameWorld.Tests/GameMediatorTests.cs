@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Mediator;
 using MassTransit;
 using MassTransit.Mediator;

@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                             else
                             {
                                 Owner.Profile.SetValue(ProfileConstants.BankSettingsOptionX, value);
-                                Owner.Bank.DepositFromInventory(item, value, out var deposited);
+                                Owner.Bank.DepositFromInventory(item, value, out _);
                             }
                         };
                         Owner.Configurations.SendIntegerInput("Please enter the amount to deposit:");
@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
                     if (amount > 0)
                     {
-                        Owner.Bank.DepositFromInventory(item, amount, out var deposit);
+                        Owner.Bank.DepositFromInventory(item, amount, out _);
                     }
 
                     return true;
@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         var item = Owner.Inventory.Items[i];
                         if (item != null)
                         {
-                            if (!Owner.Bank.DepositFromInventory(item, item.Count, out var outItem))
+                            if (!Owner.Bank.DepositFromInventory(item, item.Count, out _))
                             {
                                 break;
                             }
@@ -91,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachClickHandler(20,
                 (componentID, type, itemID, slot) =>
                 {
-                    Owner.Bank.DepositFromMoneyPouch(out var outItem);
+                    Owner.Bank.DepositFromMoneyPouch(out _);
                     return true;
                 });
 
@@ -106,7 +106,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                             continue;
                         }
 
-                        if (!Owner.Bank.DepositFromEquipment(item, item.Count, out var outItem))
+                        if (!Owner.Bank.DepositFromEquipment(item, item.Count, out _))
                         {
                             break;
                         }
@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                         var item = inventory.Items[i];
                         if (item != null)
                         {
-                            if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out var outItem, inventory))
+                            if (!Owner.Bank.DepositFromFamiliar(item, item.Count, out _, inventory))
                             {
                                 break;
                             }

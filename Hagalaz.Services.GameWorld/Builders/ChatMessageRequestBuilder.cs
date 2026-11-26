@@ -40,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Builders
 
         private string TargetMessage { get; set; } = default!;
 
-        private ChatMessageType Type { get; set; } = default!;
+        private ChatMessageType Type { get; set; }
 
         private ChatMessageRequestOptionBuilder Option { get; set; } = default!;
 

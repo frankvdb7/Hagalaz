@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Mediator;
@@ -13,13 +11,26 @@ using Hagalaz.Game.Scripts.Skills.Combat.Magic;
 using Hagalaz.Game.Scripts.Widgets.Tabs;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using System.Linq;
 
 namespace Hagalaz.Game.Scripts.Tests.Widgets.Tabs;
 
 [TestClass]
 public sealed class SpellBookTabTests
 {
+    [TestMethod]
+    [DataRow(MagicBook.StandardBook, ComponentClickType.Option6Click)]
+    [DataRow(MagicBook.AncientBook, ComponentClickType.LeftClick)]
+    public void OnOpen_AutocastHandlerRejectsTheOtherBooksClickType(MagicBook book, ComponentClickType clickType)
+    {
+        var fixture = OpenSpellBook(book);
+        const int sharedButton = 25;
+
+        Assert.IsFalse(fixture.ClickHandlers[sharedButton](sharedButton, clickType, 41, 42));
+
+        Assert.IsFalse(fixture.Character.Magic.ReceivedCalls()
+            .Any(call => call.GetMethodInfo().Name == nameof(IMagic.SetAutoCastingSpell)));
+    }
+
     [TestMethod]
     public void ResolveThroughDependencyInjection_WithExplicitProjectileBuilder_DoesNotRequireGlobalInitialization()
     {

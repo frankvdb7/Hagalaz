@@ -8,7 +8,7 @@ internal static class GameObjectDefinitionResolutionDiagnostics
 
     public const string BulkResolutionActivityName = "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk";
 
-    public static Activity? StartActivity() => ActivitySource.StartActivity(BulkResolutionActivityName, ActivityKind.Internal);
+    public static Activity? StartActivity() => ActivitySource.StartActivity(BulkResolutionActivityName);
 
     public static void RecordFailure(Activity? activity, Exception exception)
     {

@@ -300,7 +300,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
         private bool ShouldPerformSpecial(ICharacter attacker, ICreature victim, IItem ammo)
         {
             var itemID = ammo.Id;
-            double chance = 0;
+            double chance;
             switch (itemID)
             {
                 // opal

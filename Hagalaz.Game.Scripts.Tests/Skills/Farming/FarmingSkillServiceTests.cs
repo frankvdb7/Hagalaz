@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -9,16 +7,10 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Common;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Scripts.Skills.Farming;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Farming
 {

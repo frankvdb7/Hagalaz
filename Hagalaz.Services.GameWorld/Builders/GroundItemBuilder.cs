@@ -14,9 +14,9 @@ namespace Hagalaz.Services.GameWorld.Builders
     {
         private IItem _item = default!;
         private ILocation _location = default!;
-        private ICharacter? _owner = default!;
-        private int? _respawnTicks = default!;
-        private int? _ticks = default!;
+        private ICharacter? _owner;
+        private int? _respawnTicks;
+        private int? _ticks;
         private bool _isRespawning;
         private readonly IOptions<GroundItemOptions> _groundItemOptions;
         private readonly IServiceProvider _serviceProvider;

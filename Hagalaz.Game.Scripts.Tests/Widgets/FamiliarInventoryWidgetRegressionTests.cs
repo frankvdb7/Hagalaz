@@ -1,13 +1,11 @@
 using System.Reflection;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Model.Items;
 using ISmartPathFinder = Hagalaz.Game.Abstractions.Model.Maps.PathFinding.ISmartPathFinder;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
@@ -18,7 +16,6 @@ using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Npcs.Familiars;
 using Hagalaz.Game.Scripts.Skills.Summoning;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Widgets;

@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Skills.Herblore.Herbs;
 using NSubstitute;

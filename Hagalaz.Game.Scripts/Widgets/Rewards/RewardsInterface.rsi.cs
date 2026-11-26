@@ -131,7 +131,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
                 return false;
             });
 
-            RefreshRewards(null);
+            RefreshRewards();
         }
 
         /// <summary>

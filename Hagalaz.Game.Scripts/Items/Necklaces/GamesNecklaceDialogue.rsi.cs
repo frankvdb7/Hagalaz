@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Items.Necklaces
             AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
             {
                 var nameArray = Item.Name.Split('(');
-                var charges = 1;
+                int charges;
                 int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out charges);
                 StandardOptionDialogue(charges + " Charges Remaining", "Corporeal Beast", "Gamers' Grotto");
                 return true;

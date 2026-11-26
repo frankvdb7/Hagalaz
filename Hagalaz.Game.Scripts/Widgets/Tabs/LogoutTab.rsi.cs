@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         public override void OnOpen()
         {
             // logout to lobby 
-            InterfaceInstance.AttachClickHandler(6, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(6, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -29,7 +29,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // logout to game
-            InterfaceInstance.AttachClickHandler(13, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(13, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

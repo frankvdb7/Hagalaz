@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         {
             InterfaceInstance.SetOptions(1, 0, MusicConstants.ConfigIDs.Length * 64, 30);
             InterfaceInstance.SetOptions(9, 0, 12, 30);
-            InterfaceInstance.AttachClickHandler(1, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(1, (_, clickType, _, extraData2) =>
             {
                 var musicIndex = (int)Math.Floor(extraData2 * 0.5);
                 if (clickType == ComponentClickType.LeftClick)
@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(4, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(4, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(9, (componentID, clickType, extraData1, playListIndex) =>
+            InterfaceInstance.AttachClickHandler(9, (_, clickType, _, playListIndex) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -81,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(11, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(11, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -91,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(12, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(12, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -101,7 +101,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

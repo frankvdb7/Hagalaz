@@ -1,11 +1,7 @@
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Services.GameWorld;
-using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 

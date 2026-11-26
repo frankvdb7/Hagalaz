@@ -1,5 +1,3 @@
-using System.Threading;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
@@ -11,14 +9,11 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
-using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Logic.Shops;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;

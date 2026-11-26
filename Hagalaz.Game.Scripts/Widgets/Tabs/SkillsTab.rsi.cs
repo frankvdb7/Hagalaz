@@ -104,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             var defaultScript = Owner.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
                             if (Owner.Widgets.OpenDialogue(defaultScript, true))
                             {
-                                defaultScript.AttachDialogueContinueClickHandler(0, (extra1, extra2) => Owner.Widgets.CloseChatboxOverlay());
+                                defaultScript.AttachDialogueContinueClickHandler(0, (_, _) => Owner.Widgets.CloseChatboxOverlay());
                                 defaultScript.StandardDialogue("You must set a target higher than your current skill level.");
                             }
                         }
@@ -113,7 +113,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             var defaultScript = Owner.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
                             if (Owner.Widgets.OpenDialogue(defaultScript, true))
                             {
-                                defaultScript.AttachDialogueContinueClickHandler(0, (extra1, extra2) => Owner.Widgets.CloseChatboxOverlay());
+                                defaultScript.AttachDialogueContinueClickHandler(0, (_, _) => Owner.Widgets.CloseChatboxOverlay());
                                 defaultScript.StandardDialogue("You cannot set a level target higher than " + (skillID == 24 ? 120 : 99) + ".");
                             }
                         }
@@ -149,7 +149,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             var defaultScript = Owner.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
                             if (Owner.Widgets.OpenDialogue(defaultScript, true))
                             {
-                                defaultScript.AttachDialogueContinueClickHandler(0, (extra1, extra2) => Owner.Widgets.CloseChatboxOverlay());
+                                defaultScript.AttachDialogueContinueClickHandler(0, (_, _) => Owner.Widgets.CloseChatboxOverlay());
                                 defaultScript.StandardDialogue("You must set a target higher than your current XP.");
                             }
                         }
@@ -158,7 +158,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             var defaultScript = Owner.ServiceProvider.GetRequiredService<DefaultDialogueScript>();
                             if (Owner.Widgets.OpenDialogue(defaultScript, true))
                             {
-                                defaultScript.AttachDialogueContinueClickHandler(0, (extra1, extra2) => Owner.Widgets.CloseChatboxOverlay());
+                                defaultScript.AttachDialogueContinueClickHandler(0, (_, _) => Owner.Widgets.CloseChatboxOverlay());
                                 defaultScript.StandardDialogue("That number is larger than the amount of XP it is possible to attain.");
                             }
                         }

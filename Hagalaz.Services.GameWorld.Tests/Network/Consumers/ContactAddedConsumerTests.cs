@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Game.Abstractions.Features.Chat;

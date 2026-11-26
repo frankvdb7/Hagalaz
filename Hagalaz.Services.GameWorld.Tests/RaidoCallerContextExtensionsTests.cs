@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hagalaz.Services.GameWorld.Extensions;
 using Hagalaz.Services.GameWorld.Features;
 using Microsoft.AspNetCore.Http.Features;

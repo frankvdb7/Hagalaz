@@ -339,14 +339,13 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
             IItem[] equippedItems;
             bool cleared;
             ItemContainerTransaction? transaction;
-            EquipmentEffect[] effects = [];
             using var write = _synchronization.BeginWrite();
             equippedItems = _storage.ToArray().Where(item => item != null).Cast<IItem>().ToArray();
             cleared = _storage.Clear();
             transaction = write.Transaction;
             if (cleared)
             {
-                effects = new EquipmentEffect[equippedItems.Length];
+                var effects = new EquipmentEffect[equippedItems.Length];
                 for (var index = 0; index < equippedItems.Length; index++)
                     effects[index] = new EquipmentEffect(EquipmentEffectKind.Unequipped, equippedItems[index]);
                 if (transaction is { } activeTransaction) DeferEquipmentEffects(activeTransaction, effects);
@@ -486,7 +485,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public void Hydrate(IReadOnlyList<HydratedItemDto> equipment)
         {
             var items = equipment.Select(entry => entry.ToStorageEntry(_itemBuilder)).ToArray();
-            using (var write = _synchronization.BeginWrite())
+            using (_synchronization.BeginWrite())
                 _storage.RestoreItems(items);
             _owner.Statistics.CalculateBonuses();
             foreach (var (_, item) in items) item.EquipmentScript.OnEquipped(item, _owner);

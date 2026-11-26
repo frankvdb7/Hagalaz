@@ -61,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Widgets
 
             Owner.Configurations.SendGlobalCs2Int(674, locationHash); // character location
 
-            InterfaceInstance.AttachClickHandler(46, (componentID, type, extraInfo1, extraInfo2) =>
+            InterfaceInstance.AttachClickHandler(46, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {

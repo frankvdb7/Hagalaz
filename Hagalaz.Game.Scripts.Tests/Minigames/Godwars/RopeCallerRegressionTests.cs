@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects;
 using Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Saradomin;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Minigames.Godwars;

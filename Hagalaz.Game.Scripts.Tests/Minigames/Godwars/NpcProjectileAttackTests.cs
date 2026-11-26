@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Npcs.Bosses.Dagannoth;

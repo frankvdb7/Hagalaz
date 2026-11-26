@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
             SetFriendsChatSettings();
 
             // clan name/alias setting.
-            InterfaceInstance.AttachClickHandler(1, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(1, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick) // set prefix
                 {
@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
             });
 
             // "who can enter chat?" setting
-            InterfaceInstance.AttachClickHandler(2, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(2, (_, clickType, _, _) =>
             {
                 var rank = FriendsChatRank.Regular;
                 if (clickType == ComponentClickType.LeftClick)
@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
             });
 
             // "who can talk on chat?" setting
-            InterfaceInstance.AttachClickHandler(3, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(3, (_, clickType, _, _) =>
             {
                 var rank = FriendsChatRank.Regular;
                 if (clickType == ComponentClickType.LeftClick)
@@ -141,7 +141,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
             });
 
             // "who can kick from chat?" setting
-            InterfaceInstance.AttachClickHandler(4, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(4, (_, clickType, _, _) =>
             {
                 var rank = FriendsChatRank.Owner;
                 if (clickType == ComponentClickType.Option4Click)
@@ -175,7 +175,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
             });
 
             // "who can loot share?" setting
-            InterfaceInstance.AttachClickHandler(5, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(5, (_, clickType, _, _) =>
             {
                 var rank = FriendsChatRank.NoOne;
                 if (clickType == ComponentClickType.LeftClick)
@@ -216,7 +216,7 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
                 return true;
             });
 
-            InterfaceInstance.AttachClickHandler(12, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(12, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

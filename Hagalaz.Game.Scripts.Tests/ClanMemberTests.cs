@@ -1,5 +1,4 @@
 using Hagalaz.Game.Features.Clans;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Scripts.Tests
 {

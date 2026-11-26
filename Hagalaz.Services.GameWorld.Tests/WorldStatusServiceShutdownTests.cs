@@ -1,9 +1,5 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Runtime.CompilerServices;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Mediator;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
@@ -15,7 +11,6 @@ using Hagalaz.Services.GameWorld.Services.Model;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 

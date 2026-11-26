@@ -1,10 +1,6 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
@@ -12,16 +8,9 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Skills.Firemaking;
 using Hagalaz.Game.Scripts.Skills.Fletching;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Collections;
-using System.Linq;
-using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Firemaking
 {

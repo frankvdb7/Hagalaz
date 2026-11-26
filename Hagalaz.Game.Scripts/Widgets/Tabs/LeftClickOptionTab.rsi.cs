@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 }
             });
 
-            OnComponentClick clickHandler = (componentID, clickType, extra1, extra2) =>
+            OnComponentClick clickHandler = (componentID, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -46,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 InterfaceInstance.AttachClickHandler(i, clickHandler);
             }
 
-            InterfaceInstance.AttachClickHandler(21, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(21, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return true;
             });
 
-            OnComponentClick clickHandler2 = (componentID, clickType, extra1, extra2) =>
+            OnComponentClick clickHandler2 = (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {

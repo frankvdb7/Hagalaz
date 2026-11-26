@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Hagalaz.Game.Abstractions.Factories;

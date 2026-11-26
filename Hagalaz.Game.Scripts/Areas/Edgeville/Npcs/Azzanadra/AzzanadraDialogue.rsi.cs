@@ -29,35 +29,35 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Azzanadra
         /// </summary>
         private void Setup()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Greetings " + Owner.DisplayName + "!", "I can teleport you to various ancient places of power.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 DefaultOptionDialogue("Ancient Altar", "Lunar Altar", "The Temple at Senntisten", "Nevermind");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Ancient Altar", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Ancient Altar", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.AncientBook, 3233, 9315, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Lunar Altar", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Lunar Altar", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.LunarBook, 2152, 3868, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("The Temple at Senntisten", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("The Temple at Senntisten", (_, _) =>
             {
                 new StandardTeleportScript(MagicBook.AncientBook, 3182, 5713, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Nevermind", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Nevermind", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

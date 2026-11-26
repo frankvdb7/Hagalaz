@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             this.interfaceInstance.SetVisible(72, true);*/
 
             // Call FamiliarScript
-            InterfaceInstance.AttachClickHandler(49, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(49, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // Dismiss FamiliarScript
-            InterfaceInstance.AttachClickHandler(51, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(51, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -91,7 +91,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // Take BoB
-            InterfaceInstance.AttachClickHandler(67, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(67, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -113,7 +113,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // Renew FamiliarScript
-            InterfaceInstance.AttachClickHandler(69, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(69, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -130,7 +130,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // Cast special move
-            InterfaceInstance.AttachClickHandler(74, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(74, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -147,7 +147,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // Attack
-            InterfaceInstance.AttachUseOnCreatureHandler(65, (componentID, creature, forceRun, extraData1, extraData2) =>
+            InterfaceInstance.AttachUseOnCreatureHandler(65, (_, creature, _, _, _) =>
             {
                 if (!Owner.HasFamiliar())
                 {
@@ -165,7 +165,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // Cast special move
-            InterfaceInstance.AttachUseOnCreatureHandler(74, (componentID, creature, forceRun, extraData1, extraData2) =>
+            InterfaceInstance.AttachUseOnCreatureHandler(74, (_, creature, _, _, _) =>
             {
                 if (!Owner.HasFamiliar())
                 {

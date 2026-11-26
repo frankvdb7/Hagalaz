@@ -115,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(46, (component, type, itemID, slot) =>
+            InterfaceInstance.AttachClickHandler(46, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {

@@ -40,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
 
                 if (Owner.Location.WithinDistance(clicker.Location, 6))
                 {
-                    LocationReachTask task = null;
+                    LocationReachTask task;
                     task = new LocationReachTask(clicker, Location.Create(clicker.Location.X, 3418, 3, clicker.Location.Dimension), success =>
                     {
                         if (!success)

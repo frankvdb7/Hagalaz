@@ -1,10 +1,6 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Mediator;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;

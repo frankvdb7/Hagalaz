@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -9,7 +8,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Skills.Fishing;
 using Hagalaz.Game.Scripts.Skills.Mining;
 using Hagalaz.Game.Scripts.Skills.Woodcutting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills

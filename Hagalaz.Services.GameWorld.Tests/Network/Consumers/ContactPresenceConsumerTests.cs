@@ -1,7 +1,4 @@
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Game.Abstractions.Features.Chat;

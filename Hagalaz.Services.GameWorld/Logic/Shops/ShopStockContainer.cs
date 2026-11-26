@@ -269,7 +269,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Shops
             var emptied = 0;
             for (var slot = 0; remaining > 0 && slot < inventory.Capacity; slot++)
             {
-                if (inventory[slot] is not { Count: > 0 } held || !held.Equals(currency, true)) continue;
+                if (inventory[slot] is not { Count: > 0 } held || !held.Equals(currency)) continue;
                 if (held.Count <= remaining) emptied++;
                 remaining -= held.Count;
             }

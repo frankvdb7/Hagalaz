@@ -51,13 +51,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 }
             });
 
-            OnComponentClick styleClickHandler = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick styleClickHandler = (componentID, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
                     return false;
                 }
-                var optionId = componentID - 7;
                 if (Owner.Combat.GetAttackBonusType() == AttackBonus.None) 
                 { 
                     componentID = 0; 
@@ -66,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 _gameMediator.Publish(new ProfileSetIntAction(ProfileConstants.CombatSettingsAttackStyleOptionId, componentID - 7));
                 return true;
             };
-            OnComponentClick autoRetaliateHandler = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick autoRetaliateHandler = (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -76,7 +75,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 _gameMediator.Publish(new ProfileToggleBoolAction(ProfileConstants.CombatSettingsAutoRetaliate));
                 return true;
             };
-            OnComponentClick specialBarHandler = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick specialBarHandler = (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {

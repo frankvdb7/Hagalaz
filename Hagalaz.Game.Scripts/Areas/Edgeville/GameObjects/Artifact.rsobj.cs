@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
         /// </summary>
         public override void OnOpen()
         {
-            InterfaceInstance.AttachClickHandler(13, (componentID, buttonClickType, info1, info2) =>
+            InterfaceInstance.AttachClickHandler(13, (_, buttonClickType, _, _) =>
             {
                 if (buttonClickType == ComponentClickType.SpecialClick || buttonClickType == ComponentClickType.LeftClick)
                 {
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
 
                 return true;
             });
-            InterfaceInstance.AttachClickHandler(14, (componentID, buttonClickType, info1, info2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, buttonClickType, _, _) =>
             {
                 if (buttonClickType == ComponentClickType.SpecialClick || buttonClickType == ComponentClickType.LeftClick)
                 {

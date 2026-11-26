@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                         clicker.Interrupt(this);
                         clicker.Movement.Lock(true);
                         ILocation destination;
-                        var movementDirection = FaceDirection.None;
+                        FaceDirection movementDirection;
 
                         if (clicker.Location.Y > Owner.Location.Y)
                         {

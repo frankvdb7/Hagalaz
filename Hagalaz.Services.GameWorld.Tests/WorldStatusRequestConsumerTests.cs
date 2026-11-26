@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Linq.Expressions;
 using AutoMapper;
 using Hagalaz.Data.Entities;

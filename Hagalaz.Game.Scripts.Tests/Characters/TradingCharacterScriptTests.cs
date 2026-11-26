@@ -1,6 +1,5 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Characters;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using NSubstitute;

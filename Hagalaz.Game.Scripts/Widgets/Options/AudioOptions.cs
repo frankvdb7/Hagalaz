@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Options
         ///     Happens when interface is opened for character.
         /// </summary>
         public override void OnOpen() =>
-            InterfaceInstance.AttachClickHandler(18, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(18, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

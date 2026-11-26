@@ -132,7 +132,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
                         if (clickType == ComponentClickType.Option2Click)
                         {
-                            var inputHandler = args.Character.Widgets.IntInputHandler = value =>
+                            args.Character.Widgets.IntInputHandler = value =>
                             {
                                 args.Character.Widgets.IntInputHandler = null;
                                 if (!spawnBox.IsOpened)

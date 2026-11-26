@@ -52,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             Owner.Configurations.SendStandardConfiguration(2405, -1); // living on borrowed time
             Owner.Configurations.SendStandardConfiguration(2458, -1); // chaotic cookery
             
-            InterfaceInstance.AttachClickHandler(8, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(8, (_, clickType, _, extraData2) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {

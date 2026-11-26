@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
             InterfaceInstance.DrawString(13, _toDestroy.Name);
             InterfaceInstance.DrawString(29, "If you destroy this object, you will have to earn it again.");
             InterfaceInstance.DrawItem(30, _toDestroy.Id, _toDestroy.Count);
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.SpecialClick)
                 {
@@ -68,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
                 Owner.Widgets.CloseChatboxOverlay();
                 return succes;
             });
-            InterfaceInstance.AttachClickHandler(19, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(19, (_, _, _, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

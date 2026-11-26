@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.GameObjects.Altars;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.Widgets;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.GameObjects;

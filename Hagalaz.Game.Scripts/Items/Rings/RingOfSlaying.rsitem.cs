@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Items.Rings
             }
             else if (clickType == ComponentClickType.Option7Click)
             {
-                character.Widgets.OpenDialogue(new RingOfSlayingDialogue(character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), false),
+                character.Widgets.OpenDialogue(new RingOfSlayingDialogue(character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>()),
                     true,
                     item);
             }

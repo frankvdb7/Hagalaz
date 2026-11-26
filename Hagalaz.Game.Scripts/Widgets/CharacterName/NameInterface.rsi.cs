@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterName
         {
             Owner.Configurations.SendCs2Script(3943, []); // enable the input
             InterfaceInstance.DrawString(19, _standardString);
-            InterfaceInstance.AttachClickHandler(31, (componentID, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(31, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {

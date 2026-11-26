@@ -92,7 +92,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 switch (type)
                 {
                     case GameMessageType.WorldSpecific:
-                        var friendText = FormatMessage(message, GameMessageType.Friends);
+                        FormatMessage(message, GameMessageType.Friends);
                         // TODO
                         //character.SendMessage(announcerDisplayName != null && character.ContactList.ContainsFriend(announcerDisplayName) ? friendText : text);
 

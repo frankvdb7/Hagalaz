@@ -27,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         public override void OnOpen()
         {
             InterfaceInstance.AttachClickHandler(38,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 });
             InterfaceInstance.AttachClickHandler(41,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -61,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 });
             InterfaceInstance.AttachClickHandler(42,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 });
             InterfaceInstance.AttachClickHandler(43,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -94,7 +94,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     return false;
                 });
 
-            OnComponentClick handler = (componentID, type, itemID, extra2) =>
+            OnComponentClick handler = (componentID, type, itemID, _) =>
             {
                 var slot = GetSlot(componentID);
                 if (slot == EquipmentSlot.NoSlot)
@@ -123,7 +123,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             }));
 
-            RefreshEquipment(null);
+            RefreshEquipment();
         }
 
         /// <summary>

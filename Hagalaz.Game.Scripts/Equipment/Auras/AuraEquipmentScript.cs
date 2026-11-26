@@ -47,7 +47,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Auras
         /// <returns></returns>
         public override bool UnEquipItem(IItem aura, ICharacter character, int toInventorySlot = -1)
         {
-            if (aura.ItemScript is not AuraItemScript script)
+            if (aura.ItemScript is not AuraItemScript)
             {
                 return base.UnEquipItem(aura, character, toInventorySlot);
             }

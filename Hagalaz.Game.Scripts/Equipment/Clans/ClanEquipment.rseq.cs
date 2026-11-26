@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Clans
         /// <param name="character">Character which equipped the item.</param>
         public override void OnEquipped(IItem item, ICharacter character)
         {
-            EventHappened clanUpdate = null;
+            EventHappened clanUpdate;
             clanUpdate = _eventManager.Listen<ClanSettingsUpdatedEvent>(e =>
             {
                 if (e.Clan == character.Clan)

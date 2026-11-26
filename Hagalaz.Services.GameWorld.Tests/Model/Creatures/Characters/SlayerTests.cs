@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -8,7 +6,6 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using NSubstitute;

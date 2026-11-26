@@ -34,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 });
                 try
                 {
-                    var result = await _setContactSettingsRequest.GetResponse<SetContactSettingsResponse>(new SetContactSettingsRequest
+                    await _setContactSettingsRequest.GetResponse<SetContactSettingsResponse>(new SetContactSettingsRequest
                     {
                         MasterId = character.MasterId,
                         Settings = new ContactSettingsDto((ContactAvailability)message.NewValue)

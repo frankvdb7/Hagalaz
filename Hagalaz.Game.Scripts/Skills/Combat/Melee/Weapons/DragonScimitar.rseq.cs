@@ -48,7 +48,7 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             vic.Prayers.DeactivatePrayer(NormalPrayer.ProtectFromRanged);
             vic.Prayers.DeactivatePrayer(NormalPrayer.ProtectFromSummoning);
 
-            EventHappened pAllowHandler = null!;
+            EventHappened pAllowHandler;
             pAllowHandler = vic.RegisterEventHandler(new EventHappened<PrayerAllowEvent>(e =>
             {
                 if (e.Prayer != NormalPrayer.ProtectFromMagic && e.Prayer != NormalPrayer.ProtectFromMelee && e.Prayer != NormalPrayer.ProtectFromRanged && e.Prayer != NormalPrayer.ProtectFromSummoning)

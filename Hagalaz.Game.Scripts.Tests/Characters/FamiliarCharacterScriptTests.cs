@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model;

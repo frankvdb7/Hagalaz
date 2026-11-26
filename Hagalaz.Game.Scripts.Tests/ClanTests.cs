@@ -1,7 +1,5 @@
 using Hagalaz.Game.Features.Clans;
 using Hagalaz.Game.Abstractions.Features.Clans;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections.Generic;
 
 namespace Hagalaz.Game.Scripts.Tests
 {

@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         ///     Called when [open].
         /// </summary>
         public override void OnOpen() =>
-            InterfaceInstance.AttachClickHandler(57, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(57, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

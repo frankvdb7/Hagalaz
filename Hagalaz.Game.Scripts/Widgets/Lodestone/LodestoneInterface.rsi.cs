@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Lodestone
         {
             foreach (var def in _lodestoneService.FindAll().GetAwaiter().GetResult())
             {
-                InterfaceInstance.AttachClickHandler(def.ComponentId, (componentID, clickType, extraData1, extraData2) =>
+                InterfaceInstance.AttachClickHandler(def.ComponentId, (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {

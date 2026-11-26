@@ -36,77 +36,77 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
         /// </summary>
         private void Setup()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Welcome to Hagalaz " + Owner.DisplayName + "!");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "I will provide you with some basic information that will get you started!");
                 return true;
             });
-            AttachDialogueContinueClickHandler(2, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(2, (_, _) =>
             {
                 DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Sure, I would like to hear what you want to say!");
                 return true;
             });
-            AttachDialogueContinueClickHandler(3, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(3, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "You can buy items and equipment from the shopkeepers in the north-west of Edgeville.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(4, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(4, (_, _) =>
             {
                 DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Where can I train myself to become even stronger?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(5, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(5, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "If you want to become stronger and earn some gold, than you can talk to Mandrith.", "He is able to teleport you to the training area for example.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(6, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(6, (_, _) =>
             {
                 DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "And where can I earn some serious cash or high level equipment?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(7, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(7, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "I heard that experienced adventurers made some gold by training their skills and selling the items they made, earned or looted, to other adventurers like you.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(8, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(8, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "You can also sell the items you gathered to the General Store, the shop is located in the north west of Edgeville.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(9, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(9, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "You can also travel to various dangerous places like GodWars and the Forinthry Dungeon.", "The monsters there often drop valuable loot.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(10, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(10, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "If you need more information about a certain skill, than feel free to ask the skill masters who wander in Edgeville.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(11, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(11, (_, _) =>
             {
                 DefaultCharacterDialogue(DialogueAnimations.Laughing, "Sweet! I am anxious to get started!");
                 return true;
             });
-            AttachDialogueContinueClickHandler(12, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(12, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "That is great news!", "If you have any questions or if you need assistance, than try asking me or other players for help.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(13, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(13, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "I am looking forward to hearing from you again!", "Have a great time playing Hagalaz!");
                 return true;
             });
-            AttachDialogueContinueClickHandler(14, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(14, (_, _) =>
             {
                 var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e => true));
                 var npc = Owner.Viewport.VisibleNpcs.FirstOrDefault(n => n.Name.Equals("Mandrith", StringComparison.OrdinalIgnoreCase));

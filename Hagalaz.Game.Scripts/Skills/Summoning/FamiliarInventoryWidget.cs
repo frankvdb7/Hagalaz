@@ -216,8 +216,8 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                     return true;
                 });
 
-            RefreshFamiliarInventory(null);
-            RefreshInventory(null);
+            RefreshFamiliarInventory();
+            RefreshInventory();
         }
 
         /// <summary>

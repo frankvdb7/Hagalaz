@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
         public override void OnOpen()
         {
             RefreshInfo(Owner.Area.IsPvP);
-            InterfaceInstance.AttachClickHandler(17, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(17, (_, clickType, extraData1, _) =>
             {
                 if (clickType == ComponentClickType.Option10Click)
                 {
@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(18, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(18, (_, clickType, extraData1, _) =>
             {
                 if (clickType == ComponentClickType.Option10Click)
                 {
@@ -61,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(20, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(20, (_, clickType, extraData1, _) =>
             {
                 if (clickType == ComponentClickType.Option10Click)
                 {
@@ -72,7 +72,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(22, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(22, (_, clickType, extraData1, _) =>
             {
                 if (clickType == ComponentClickType.Option10Click)
                 {
@@ -83,7 +83,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(28, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(28, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

@@ -29,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         private Action<INpcScript>? _scriptConfiguration;
         private DirectionFlag? _faceDirection;
         private ILocation _location = default!;
-        private int _id = default!;
+        private int _id;
 
         public NpcBuilder(IServiceProvider serviceProvider, INpcScriptProvider npcScriptProvider)
         {

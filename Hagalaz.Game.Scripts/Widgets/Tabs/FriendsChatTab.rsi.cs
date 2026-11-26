@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // clan setup screen
-            InterfaceInstance.AttachClickHandler(31, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(31, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // toggle loot-share
-            InterfaceInstance.AttachClickHandler(19, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(19, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

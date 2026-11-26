@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Areas.Taverly.GameObjects
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                ILocation loc = null;
+                ILocation loc;
                 if (Owner.Id == GetType().GetCustomAttribute<GameObjectScriptMetaDataAttribute>()!.ObjectIds[0])
                 {
                     loc = Location.Create(1394, 4587, 0, 0);

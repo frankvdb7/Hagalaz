@@ -36,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             InterfaceInstance.SetOptions(8, 0, 30, 0x2); // allow first right click option
             InterfaceInstance.SetOptions(42, 0, 30, 2); // allow quick prayer selecting
 
-            InterfaceInstance.AttachClickHandler(8, (componentID, clickType, extraData1, prayerID) =>
+            InterfaceInstance.AttachClickHandler(8, (_, clickType, _, prayerID) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -75,7 +75,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return true;
             });
 
-            InterfaceInstance.AttachClickHandler(42, (componentID, clickType, extraData1, prayerID) =>
+            InterfaceInstance.AttachClickHandler(42, (_, clickType, _, prayerID) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -115,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(43, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(43, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

@@ -1,15 +1,11 @@
-using System.Collections.Generic;
-using System.Linq;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Builders;
 using Hagalaz.Services.GameWorld.Model.Creatures;
 using Hagalaz.Services.GameWorld.Services;

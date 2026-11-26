@@ -224,7 +224,7 @@ namespace Hagalaz.Game.Scripts.Items.Auras
             // set the cooldown time
             aura.ExtraData[1] = DateTime.UtcNow.Add(GetCoolDownTime(character, aura)).Ticks;
 
-            if (aura.EquipmentScript is AuraEquipmentScript script)
+            if (aura.EquipmentScript is AuraEquipmentScript)
             {
                 AuraEquipmentScript.ClearModel(character, aura);
             }

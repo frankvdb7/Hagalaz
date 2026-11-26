@@ -38,22 +38,22 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
         /// </summary>
         private void Setup()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Hello " + Owner.DisplayName + "!", "I am Mandrith and if it is within my power,", "I can teleport you to various places!");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "I can teleport you to the training area if you'd like.", "You are able to return to this place with", "the use of the home teleport, free of charge.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(2, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(2, (_, _) =>
             {
                 DefaultOptionDialogue("Yes.", "No.");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Yes.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Yes.", (_, _) =>
             {
                 var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e => true));
                 new TrainingTeleport().PerformTeleport(Owner);
@@ -79,7 +79,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("No.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("No.", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

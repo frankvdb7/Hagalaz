@@ -1,13 +1,9 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Mediator.Consumers;
 using MassTransit;
 using Microsoft.Extensions.Options;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;

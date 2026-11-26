@@ -1,5 +1,4 @@
 using Hagalaz.Game.Scripts.Skills.Fletching;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Fletching;
 

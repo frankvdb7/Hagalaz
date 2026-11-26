@@ -35,7 +35,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 clicker.Interrupt(this);
                 clicker.SendChatMessage("You carefully cross the tightrope.");
                 clicker.Movement.MovementType = MovementType.Walk;
-                ILocation destination = null;
+                ILocation destination;
                 if (Owner.Id == 2312)
                 {
                     destination = Location.Create(2483, 3420, 2, clicker.Location.Dimension);

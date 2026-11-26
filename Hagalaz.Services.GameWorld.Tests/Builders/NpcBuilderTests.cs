@@ -1,6 +1,5 @@
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
-using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Loot;

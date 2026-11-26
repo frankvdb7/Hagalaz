@@ -129,13 +129,13 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
                 this.owner.Configurations.SendGlobalCS2String(26, ""); 
             }*/
 
-            InterfaceInstance.AttachClickHandler(1, (componentID, type, button1, button2) =>
+            InterfaceInstance.AttachClickHandler(1, (_, _, _, _) =>
             {
                 Owner.Widgets.CloseWidget(InterfaceInstance);
                 return true;
             });
 
-            InterfaceInstance.AttachClickHandler(21, (componentID, type, button1, button2) =>
+            InterfaceInstance.AttachClickHandler(21, (_, _, _, _) =>
             {
                 if (Owner.HasState<ShopSellScreenState>())
                 {

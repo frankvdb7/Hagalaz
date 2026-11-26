@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             SelectPermissionCategory(1);
 
-            InterfaceInstance.AttachClickHandler(45, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(45, (_, clickType, _, extraData2) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(98, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(98, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(99, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(99, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -93,7 +93,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(100, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(100, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -104,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(101, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(101, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -115,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(117, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(117, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(124, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(124, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -137,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(128, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(128, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -149,7 +149,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(164, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(164, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -161,7 +161,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(244, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(244, (_, clickType, _, extraData2) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -172,7 +172,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(266, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(266, (_, clickType, _, extraData2) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -183,7 +183,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(280, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(280, (_, clickType, _, extraData2) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -195,7 +195,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
             });
 
 
-            InterfaceInstance.AttachClickHandler(294, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(294, (_, clickType, _, extraData2) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -211,7 +211,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(313, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(313, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -222,7 +222,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(322, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(322, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -233,7 +233,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(350, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(350, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -247,7 +247,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
             });
 
 
-            InterfaceInstance.AttachClickHandler(389, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(389, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -258,7 +258,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 return false;
             });
 
-            OnComponentClick selectPermissionRankClick = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick selectPermissionRankClick = (componentID, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -273,7 +273,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 InterfaceInstance.AttachClickHandler(i, selectPermissionRankClick);
             }
 
-            OnComponentClick selectPermissionTabClick = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick selectPermissionTabClick = (componentID, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

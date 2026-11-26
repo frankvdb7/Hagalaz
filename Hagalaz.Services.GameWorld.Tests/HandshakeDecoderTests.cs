@@ -16,6 +16,21 @@ namespace Hagalaz.Services.GameWorld.Tests
     public sealed class HandshakeDecoderTests
     {
         [TestMethod]
+        public void TryParseHardwareBlock_LeavesFollowingFieldUnread()
+        {
+            const byte marker = 0x7F;
+            var payload = new List<byte>();
+            AppendHardwareBlock(payload);
+            payload.Add(marker);
+            var reader = new SequenceReader<byte>(new ReadOnlySequence<byte>(payload.ToArray()));
+
+            Assert.IsTrue(HandshakeDecoderHelper.TryParseHardwareBlock(ref reader));
+            Assert.AreEqual(1L, reader.Remaining);
+            Assert.IsTrue(reader.TryRead(out var next));
+            Assert.AreEqual(marker, next);
+        }
+
+        [TestMethod]
         public void TryParseRsaHeader_ValidData_ReturnsTrue()
         {
             // Arrange

@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // client settings
-            InterfaceInstance.AttachClickHandler(22, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(22, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -63,7 +63,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // audio settings
-            InterfaceInstance.AttachClickHandler(24, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(24, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -74,7 +74,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(6, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(6, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -86,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // toggle profanity filter
-            InterfaceInstance.AttachClickHandler(11, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(11, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -98,7 +98,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // toggle chat effects
-            InterfaceInstance.AttachClickHandler(12, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(12, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -110,7 +110,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // chat settings
-            InterfaceInstance.AttachClickHandler(13, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(13, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -122,7 +122,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // toggle mouse buttons
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // toggle accept aid
-            InterfaceInstance.AttachClickHandler(15, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(15, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -146,7 +146,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // adventures log
-            InterfaceInstance.AttachClickHandler(26, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(26, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

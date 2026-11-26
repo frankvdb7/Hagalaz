@@ -104,19 +104,19 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
         public void Setup()
         {
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Hello " + Owner.DisplayName + "!", "How can I help you?");
                     return true;
                 });
             AttachDialogueContinueClickHandler(1,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I'd like to talk about skill capes please!");
                     return true;
                 });
             AttachDialogueContinueClickHandler(2,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo,
                         DialogueAnimations.CalmTalk,
@@ -126,40 +126,40 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
                     return true;
                 });
             AttachDialogueContinueClickHandler(3,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue("Yes", "No");
                     return true;
                 });
             AttachDialogueOptionClickHandler("Yes",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Yes please!");
                     SetStage(6);
                     return false;
                 });
             AttachDialogueOptionClickHandler("No",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.Sad, "No thanks.");
                     SetStage(4);
                     return false;
                 });
             AttachDialogueContinueClickHandler(4,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Alright, see you again soon!");
                     return true;
                 });
             AttachDialogueContinueClickHandler(5,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;
                 });
 
             AttachDialogueContinueClickHandler(6,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     if (Owner.Statistics.LevelForExperience(SkillID) >= 99)
                     {
@@ -210,7 +210,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.SkillCapeDialogue
                 });
 
             AttachDialogueContinueClickHandler(7,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;

@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         public override void OnOpen()
         {
             // clan info screen
-            InterfaceInstance.AttachClickHandler(75, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(75, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // clan setup screen
-            InterfaceInstance.AttachClickHandler(78, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(78, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             });
 
             // leave/join clan channel
-            InterfaceInstance.AttachClickHandler(82, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(82, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -89,7 +89,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            InterfaceInstance.AttachUseOnCreatureHandler(87, (componentID, usedOn, forceRun, extraData1, extraData2) =>
+            InterfaceInstance.AttachUseOnCreatureHandler(87, (_, usedOn, forceRun, _, _) =>
             {
                 if (usedOn is ICharacter target)
                 {
@@ -122,7 +122,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(91, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(91, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -158,7 +158,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(109, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(109, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

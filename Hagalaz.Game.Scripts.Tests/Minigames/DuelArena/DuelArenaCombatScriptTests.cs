@@ -9,8 +9,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Common.Events;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using AwesomeAssertions;
 
 namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena

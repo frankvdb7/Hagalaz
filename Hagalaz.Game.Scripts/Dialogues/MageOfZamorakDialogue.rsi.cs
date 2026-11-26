@@ -24,27 +24,27 @@ namespace Hagalaz.Game.Scripts.Dialogues
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.Angry, "What do you want?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 DefaultOptionDialogue("Teleport me to the Abyss.", "Nevermind.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(2, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(2, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Are you sure you want to go to the Abyss?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(3, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(3, (_, _) =>
             {
                 DefaultOptionDialogue("Yes, I'm aware of the dangers.", "No, I am not prepared.");
                 return true;
             });
-            AttachDialogueContinueClickHandler(5, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(5, (_, _) =>
             {
                 TalkingTo.Speak("Veniens! Sallakar! Rinnesset!");
                 new StandardTeleportScript(MagicBook.StandardBook, 3039, 4830, 0, 0).PerformTeleport(Owner); // TODO - teleother anim / gfx
@@ -52,25 +52,25 @@ namespace Hagalaz.Game.Scripts.Dialogues
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Teleport me to the Abyss.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Teleport me to the Abyss.", (_, _) =>
             {
                 DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Teleport me to the Abyss.");
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Nevermind.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Nevermind.", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("No, I am not prepared.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("No, I am not prepared.", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Yes, I'm aware of the dangers.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Yes, I'm aware of the dangers.", (_, _) =>
             {
                 DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Beam me up!");
                 return true;

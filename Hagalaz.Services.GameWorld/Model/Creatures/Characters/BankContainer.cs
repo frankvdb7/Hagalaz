@@ -76,25 +76,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
         {
             deposited = null;
-            var bankFull = false;
             using (var transaction = ItemContainerTransaction.Begin(this, _owner.MoneyPouch))
             {
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
                 var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
                 if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
-                if (!_items.Add(coins))
-                {
-                    bankFull = true;
-                }
-                else
+                if (_items.Add(coins))
                 {
                     transaction.Commit();
                     deposited = coins;
                     return true;
                 }
             }
-            if (bankFull) _owner.SendChatMessage("Not enough space in your bank.");
+            _owner.SendChatMessage("Not enough space in your bank.");
             return false;
         }
 
