@@ -360,7 +360,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             var magicManager = _magicService;
 
-            switch (Owner.Profile.GetValue<MagicBook>(ProfileConstants.MagicSettingsBook, MagicBook.StandardBook))
+            switch (Owner.Profile.GetValue(ProfileConstants.MagicSettingsBook, MagicBook.StandardBook))
             {
                 case MagicBook.StandardBook:
                     {

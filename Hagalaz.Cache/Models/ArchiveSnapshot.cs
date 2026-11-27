@@ -15,7 +15,7 @@ internal sealed class ArchiveSnapshot
     {
         _data = data;
         _members = members;
-        RetentionWeight = checked((long)data.Length + ((long)members.Length * sizeof(int) * 2) + EntryMetadataWeight);
+        RetentionWeight = checked(data.Length + ((long)members.Length * sizeof(int) * 2) + EntryMetadataWeight);
     }
 
     public long RetentionWeight { get; }

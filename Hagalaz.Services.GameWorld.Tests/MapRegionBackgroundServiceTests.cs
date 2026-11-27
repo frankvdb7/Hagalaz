@@ -228,6 +228,6 @@ public sealed class MapRegionBackgroundServiceTests
     private static ServiceProvider CreateServiceProvider(INpcService npcService) => new ServiceCollection()
         .AddSingleton(npcService)
         .AddSingleton<IEntityStore, EntityStore>()
-        .AddSingleton<IRsTaskService>(Substitute.For<IRsTaskService>())
+        .AddSingleton(Substitute.For<IRsTaskService>())
         .BuildServiceProvider();
 }

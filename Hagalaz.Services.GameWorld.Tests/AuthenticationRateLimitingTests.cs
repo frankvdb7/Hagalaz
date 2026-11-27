@@ -20,13 +20,13 @@ public sealed class AuthenticationRateLimitingTests
         {
             for (var i = 0; i < AuthenticationRateLimiting.PartitionPermitLimit; i++)
             {
-                var lease = await limiter.AcquireAsync(firstClient, 1);
+                var lease = await limiter.AcquireAsync(firstClient);
                 Assert.IsTrue(lease.IsAcquired);
                 firstClientLeases.Add(lease);
             }
 
-            var exhaustedLease = await limiter.AcquireAsync(firstClient, 1);
-            var unrelatedLease = await limiter.AcquireAsync(secondClient, 1);
+            var exhaustedLease = await limiter.AcquireAsync(firstClient);
+            var unrelatedLease = await limiter.AcquireAsync(secondClient);
 
             Assert.IsFalse(exhaustedLease.IsAcquired);
             Assert.IsTrue(unrelatedLease.IsAcquired);
@@ -59,13 +59,13 @@ public sealed class AuthenticationRateLimitingTests
         {
             for (var i = 0; i < AuthenticationRateLimiting.PartitionPermitLimit; i++)
             {
-                firstClientLeases.Add(await limiter.AcquireAsync(firstClient, 1));
+                firstClientLeases.Add(await limiter.AcquireAsync(firstClient));
             }
 
             var queuedLeaseTask = limiter.AcquireAsync(firstClient, 1, cancellationSource.Token);
             Assert.IsFalse(queuedLeaseTask.IsCompleted);
 
-            var unrelatedLease = await limiter.AcquireAsync(secondClient, 1);
+            var unrelatedLease = await limiter.AcquireAsync(secondClient);
             Assert.IsTrue(unrelatedLease.IsAcquired);
 
             cancellationSource.Cancel();

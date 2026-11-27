@@ -8,7 +8,6 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Reflection;
 using System.Security.Claims;
-using System.Threading;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
@@ -84,7 +83,7 @@ public sealed class RaidoServerBehaviorTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = candidate => candidate.Name == source.Name,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData
+            Sample = (ref _) => ActivitySamplingResult.AllData
         };
 
         var headers = new Dictionary<string, object?>
@@ -113,7 +112,7 @@ public sealed class RaidoServerBehaviorTests
             diagnosticsOrLoggingEnabled: true);
 
         Assert.IsNotNull(activity);
-        Assert.AreEqual("remote-operation", activity!.OperationName);
+        Assert.AreEqual("remote-operation", activity.OperationName);
         Assert.AreEqual("value", activity.GetTagItem("tag"));
         Assert.AreEqual("one", activity.GetBaggageItem("first"));
         Assert.AreEqual("two", activity.GetBaggageItem("second"));
@@ -126,7 +125,7 @@ public sealed class RaidoServerBehaviorTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = candidate => candidate.Name == source.Name,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData
+            Sample = (ref _) => ActivitySamplingResult.AllData
         };
         var headers = new Dictionary<string, object?>
         {
@@ -155,7 +154,7 @@ public sealed class RaidoServerBehaviorTests
             diagnosticsOrLoggingEnabled: true);
 
         Assert.IsNotNull(activity);
-        Assert.AreEqual("vendor=value", activity!.TraceStateString);
+        Assert.AreEqual("vendor=value", activity.TraceStateString);
         Assert.AreEqual("remote", activity.GetTagItem("source"));
         Assert.AreEqual("remote", activity.GetBaggageItem("request"));
         Assert.AreEqual(1, activity.Links.Count());
@@ -189,7 +188,7 @@ public sealed class RaidoServerBehaviorTests
             diagnosticsOrLoggingEnabled: true);
 
         Assert.IsNotNull(activity);
-        Assert.IsNull(activity!.ParentId);
+        Assert.IsNull(activity.ParentId);
         Assert.AreEqual("untraced", activity.GetBaggageItem("request"));
     }
 

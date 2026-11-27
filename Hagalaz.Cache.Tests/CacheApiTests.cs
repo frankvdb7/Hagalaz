@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.Metrics;
-using System.IO;
 using Moq;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
@@ -73,9 +70,9 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var expectedContainer = new Mock<IContainer>().Object;
-            _containerDecoderMock.Setup(f => f.Decode(It.IsAny<System.IO.MemoryStream>())).Returns(expectedContainer);
+            _containerDecoderMock.Setup(f => f.Decode(It.IsAny<MemoryStream>())).Returns(expectedContainer);
             _fileStoreMock.SetupGet(fs => fs.IndexFileCount).Returns(1);
-            _fileStoreMock.Setup(fs => fs.Read(It.IsAny<int>(), It.IsAny<int>())).Returns(() => new System.IO.MemoryStream());
+            _fileStoreMock.Setup(fs => fs.Read(It.IsAny<int>(), It.IsAny<int>())).Returns(() => new MemoryStream());
 
             // Act
             using var result = _cacheApi.ReadContainer(0, 0);
@@ -92,7 +89,7 @@ namespace Hagalaz.Cache.Tests
             var streamSpy = new MemoryStreamSpy();
             _fileStoreMock.SetupGet(fs => fs.IndexFileCount).Returns(1);
             _fileStoreMock.Setup(fs => fs.Read(It.IsAny<int>(), It.IsAny<int>())).Returns(streamSpy);
-            _containerDecoderMock.Setup(f => f.Decode(It.IsAny<System.IO.MemoryStream>())).Returns(new Mock<IContainer>().Object);
+            _containerDecoderMock.Setup(f => f.Decode(It.IsAny<MemoryStream>())).Returns(new Mock<IContainer>().Object);
 
             // Act
             using var result = _cacheApi.ReadContainer(0, 0);
@@ -153,7 +150,7 @@ namespace Hagalaz.Cache.Tests
         {
             SetupArchiveRead(CompressionType.Gzip);
             _containerDecoderMock
-                .Setup(decoder => decoder.Decode(It.IsAny<System.IO.MemoryStream>()))
+                .Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
                 .Throws<InvalidDataException>();
             using var measurements = new CacheMeterListener();
 
@@ -177,7 +174,7 @@ namespace Hagalaz.Cache.Tests
             _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
             _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(() => new MemoryStream([1, 2, 3]));
             _fileStoreMock.Setup(store => store.Read(0, 1)).Returns(() => new MemoryStream([1, 2, 3]));
-            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+            var table = new ReferenceTable(7, 1, 0, 2);
             table.AddEntry(0, CreateSparseArchiveEntry(0));
             table.AddEntry(1, CreateSparseArchiveEntry(0));
             _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table);
@@ -241,7 +238,7 @@ namespace Hagalaz.Cache.Tests
             _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
             _fileStoreMock.Setup(store => store.Read(0, highArchiveId)).Returns(() => new MemoryStream());
 
-            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+            var table = new ReferenceTable(7, 1, 0, 2);
             table.AddEntry(1, CreateSparseArchiveEntry(0));
             table.AddEntry(highArchiveId, CreateSparseArchiveEntry(1));
             _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table);
@@ -283,7 +280,7 @@ namespace Hagalaz.Cache.Tests
         private void SetupArchiveRead(CompressionType compression)
         {
             _fileStoreMock.SetupGet(store => store.IndexFileCount).Returns(1);
-            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(() => new System.IO.MemoryStream());
+            _fileStoreMock.Setup(store => store.Read(0, 0)).Returns(() => new MemoryStream());
 
             var entry = new Mock<IReferenceTableEntry>();
             entry.SetupGet(reference => reference.Capacity).Returns(1);
@@ -293,7 +290,7 @@ namespace Hagalaz.Cache.Tests
             _referenceTableProviderMock.Setup(provider => provider.ReadReferenceTable(0)).Returns(table.Object);
 
             _containerDecoderMock
-                .Setup(decoder => decoder.Decode(It.IsAny<System.IO.MemoryStream>()))
+                .Setup(decoder => decoder.Decode(It.IsAny<MemoryStream>()))
                 .Returns(() =>
                 {
                     var container = new Mock<IContainer>();

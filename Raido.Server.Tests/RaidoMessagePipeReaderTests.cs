@@ -1,8 +1,5 @@
-using System;
 using System.Buffers;
 using System.IO.Pipelines;
-using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Raido.Common.Protocol;
 
@@ -74,7 +71,7 @@ namespace Raido.Server.Tests
             var reader = new RaidoMessagePipeReader(pipeReader, messageReader);
             var buffer = new ReadOnlySequence<byte>(new byte[] { 1, 2, 3 });
             var readResult = new ReadResult(buffer, false, false);
-            pipeReader.ReadAsync(default).Returns(readResult);
+            pipeReader.ReadAsync().Returns(readResult);
             messageReader.TryParseMessage(Arg.Any<ReadOnlySequence<byte>>(), ref Arg.Any<SequencePosition>(), ref Arg.Any<SequencePosition>(), out Arg.Any<ReadOnlySequence<byte>>()).Returns(x => { x[3] = buffer; return true; });
 
             // Act

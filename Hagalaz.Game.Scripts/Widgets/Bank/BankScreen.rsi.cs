@@ -119,7 +119,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 return true; // event handled
             }));
             _inventoryInterface.AttachClickHandler(0,
-                (componentID, type, itemID, slot) =>
+                (_, type, itemID, slot) =>
                 {
                     if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 

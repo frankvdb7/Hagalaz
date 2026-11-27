@@ -108,7 +108,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
             });
             AttachDialogueContinueClickHandler(14, (_, _) =>
             {
-                var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e => true));
+                var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(_ => true));
                 var npc = Owner.Viewport.VisibleNpcs.FirstOrDefault(n => n.Name.Equals("Mandrith", StringComparison.OrdinalIgnoreCase));
                 if (npc != null)
                 {

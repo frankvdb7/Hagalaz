@@ -3,7 +3,6 @@ using Hagalaz.Data;
 using Hagalaz.Services.GameWorld.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using MySql.EntityFrameworkCore.Extensions;
 using Testcontainers.MySql;
 
 namespace Hagalaz.Services.GameWorld.IntegrationTests;

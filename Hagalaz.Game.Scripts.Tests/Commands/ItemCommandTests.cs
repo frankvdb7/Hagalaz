@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             itemBuilderMock.Create().Returns(itemIdMock);
             itemIdMock.WithId(123).Returns(itemOptionalMock);
             itemOptionalMock.WithCount(456).Returns(itemOptionalMock);
-            ((IItemBuild)itemOptionalMock).Build().Returns(itemMock);
+            (itemOptionalMock).Build().Returns(itemMock);
 
             var inventoryMock = new ComposedTestContainer(28);
 

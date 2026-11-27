@@ -1,10 +1,9 @@
 using System.Net;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -70,7 +69,7 @@ public sealed class ModelImageEndpointTests
     private static async Task<Microsoft.AspNetCore.Builder.WebApplication> StartAsync()
     {
         var store = new MemoryFileStore();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var entry = new ReferenceTableEntry(0);
         entry.InitializeEntries(1);
         entry.AddEntry(0, new ReferenceTableChildEntry(0));

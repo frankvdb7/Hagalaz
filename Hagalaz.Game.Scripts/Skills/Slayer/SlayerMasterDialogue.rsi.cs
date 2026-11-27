@@ -66,7 +66,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                             StandardNpcDialogue(TalkingTo,
                                 DialogueAnimations.CalmTalk,
                                 "You are currently assigned to kill:",
-                                slayerTask!.Name,
+                                slayerTask.Name,
                                 "Only " + task.CurrentKillCount + " more to go.");
                         });
                     }
@@ -93,7 +93,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                             StandardNpcDialogue(TalkingTo,
                                 DialogueAnimations.CalmTalk,
                                 "You are currently assigned to kill:",
-                                slayerTask!.Name + ".",
+                                slayerTask.Name + ".",
                                 "Only " + task.CurrentKillCount + " more to go.");
                         });
                     }
@@ -116,7 +116,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                                 StandardNpcDialogue(TalkingTo,
                                     DialogueAnimations.CalmTalk,
                                     "Your new task is to kill:",
-                                    task.CurrentKillCount + " x " + slayerTask!.Name + ".");
+                                    task.CurrentKillCount + " x " + slayerTask.Name + ".");
                             });
                         }
                         else

@@ -109,7 +109,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             {
                 // Load event handlers.
 
-                _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((e) =>
+                _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((_) =>
                 {
                     // Dissallow summoning.
                     if (Summoner.HasFamiliar())
@@ -122,21 +122,21 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                     return false;
                 }));
 
-                _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((e) =>
+                _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((_) =>
                 {
                     Owner.OnDeath();
                     UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
                     return false;
                 }));
 
-                _summonerDestroyedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>((e) =>
+                _summonerDestroyedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>((_) =>
                 {
                     _summonerDestroyed = true;
                     _npcService.Unregister(Owner);
                     return false;
                 }));
 
-                _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((e) =>
+                _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((_) =>
                 {
                     _npcService.UnregisterAsync(Owner);
                     UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);

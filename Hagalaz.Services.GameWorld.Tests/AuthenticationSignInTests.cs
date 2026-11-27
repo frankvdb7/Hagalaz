@@ -1633,7 +1633,7 @@ public sealed partial class AuthenticationSignInTests
         public ValueTask<ICharacter?> FindByMasterId(uint masterId)
         {
             FindByMasterIdCallCount++;
-            return ValueTask.FromResult<ICharacter?>(_existingCharacter);
+            return ValueTask.FromResult(_existingCharacter);
         }
 
     }

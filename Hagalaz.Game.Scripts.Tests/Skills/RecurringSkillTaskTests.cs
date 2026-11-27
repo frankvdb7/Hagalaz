@@ -65,7 +65,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
             var handle = new EntityHandle<IGameObject>(2, 1);
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(false);
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(false);
             var callbackCalls = 0;
             var task = new MiningTask(performer, _ =>
             {
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             performer.ServiceProvider.Returns(serviceProvider);
             var staleHandle = new EntityHandle<IGameObject>(4, 1);
             var replacement = Substitute.For<IGameObject>();
-            entityService.TryResolve<IGameObject>(staleHandle, out Arg.Any<IGameObject>()).Returns(false);
+            entityService.TryResolve(staleHandle, out Arg.Any<IGameObject>()).Returns(false);
             var callbackCalls = 0;
             var task = new MiningTask(performer, target =>
             {
@@ -160,7 +160,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             var fishingSpotHandle = new EntityHandle<ICreature>(9, 1);
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(fishingSpotHandle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            entityService.TryResolve(fishingSpotHandle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 callInfo[1] = fishingSpot;
                 return true;
@@ -250,7 +250,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
             var handle = new EntityHandle<IGameObject>(6, 1);
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(false);
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(false);
             var callbackCalls = 0;
             var task = new WoodcuttingTask(performer, _ =>
             {
@@ -313,7 +313,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             performer.ServiceProvider.Returns(serviceProvider);
             var staleHandle = new EntityHandle<IGameObject>(8, 1);
             var replacement = Substitute.For<IGameObject>();
-            entityService.TryResolve<IGameObject>(staleHandle, out Arg.Any<IGameObject>()).Returns(false);
+            entityService.TryResolve(staleHandle, out Arg.Any<IGameObject>()).Returns(false);
             var callbackCalls = 0;
             var task = new WoodcuttingTask(performer, target =>
             {
@@ -347,7 +347,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
             target.Handle.Returns(handle);
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 callInfo[1] = target;
                 return true;

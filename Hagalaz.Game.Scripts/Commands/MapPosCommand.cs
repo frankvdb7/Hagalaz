@@ -15,7 +15,7 @@ namespace Hagalaz.Game.Scripts.Commands
             {
                 var mapX = -1;
                 var mapY = -1;
-                var location = Game.Abstractions.Model.Location.Create(absX, absY, args.Character.Location.Z, args.Character.Location.Dimension);
+                var location = Location.Create(absX, absY, args.Character.Location.Z, args.Character.Location.Dimension);
                 args.Character.Viewport.GetLocalPosition(location, ref mapX, ref mapY);
                 args.Character.SendChatMessage($"X:{mapX} Y:{mapY}");
             }

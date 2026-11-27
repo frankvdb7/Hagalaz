@@ -121,7 +121,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                if (_entityService.TryResolve(targetHandle, out var currentTarget)
                     && currentTarget is not null)
                 {
                     @interface.OnComponentUsedOnCreature(componentId, currentTarget, forceRun, extraData1, extraData2);

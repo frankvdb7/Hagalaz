@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using Hagalaz.Cache.Utilities;
 using Xunit;
 

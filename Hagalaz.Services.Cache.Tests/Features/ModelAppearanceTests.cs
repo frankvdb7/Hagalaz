@@ -1,15 +1,12 @@
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Security;
@@ -393,7 +390,7 @@ public sealed class ModelAppearanceTests
         Assert.IsNotNull(handler);
         var error = Assert.ThrowsExactly<TargetInvocationException>(() => handler.Invoke(null, new object[] {
             new[] { new ObjectRenderAppearanceKeyDto(0, 10, 0), new ObjectRenderAppearanceKeyDto(1, 10, 0) },
-            ActivatorUtilities.CreateInstance<Hagalaz.Cache.Logic.Rendering.ModelAssembler>(app.Services, (ITypeProvider<IObjectType>)provider), cancellation.Token }));
+            ActivatorUtilities.CreateInstance<Hagalaz.Cache.Logic.Rendering.ModelAssembler>(app.Services, provider), cancellation.Token }));
         Assert.IsInstanceOfType<OperationCanceledException>(error.InnerException);
         Assert.AreEqual(1, provider.Reads);
     }
@@ -533,7 +530,7 @@ public sealed class ModelAppearanceTests
         CollectionAssert.AreEqual(new[] { 60000 }, result.FaceTextureIds);
         CollectionAssert.AreEqual(new[] { 50000 }, result.FaceColors);
         CollectionAssert.AreEqual(kind == "npcs" ? new[] { 0, 0, 0, 40, 0, 0, 0, 80, 0 } : new[] { 0, 0, 0, 80, 0, 0, 0, 40, 0 }, result.Positions);
-        if (kind == "npcs") CollectionAssert.AreEqual(new float[] { 2, 0.5f, 2 }, result.Scale);
+        if (kind == "npcs") CollectionAssert.AreEqual(new[] { 2, 0.5f, 2 }, result.Scale);
         else Assert.IsNull(result.Scale);
         Assert.AreEqual(1f, result.CoordinateScale);
         Assert.IsNull(result.VertexSkins, "A definition with no skinned vertices must not offer manual animation posing.");
@@ -748,7 +745,7 @@ public sealed class ModelAppearanceTests
 
     private static void SeedDefinitions(MemoryFileStore store, int index, params (int Id,byte[] Data)[] definitions)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         foreach(var group in definitions.GroupBy(definition=>definition.Id>>8))
         {
             var members=group.OrderBy(definition=>definition.Id).ToArray();

@@ -38,7 +38,7 @@ public sealed class DuelRulesTests
         EventHappened<EquipAllowEvent>? equipHandler = null;
         var registeredHandler = (EventHappened)(_ => false);
         character.GetScript<DuelArenaCombatScript>().Returns(combatScript);
-        character.RegisterEventHandler<EquipAllowEvent>(
+        character.RegisterEventHandler(
                 Arg.Do<EventHappened<EquipAllowEvent>>(handler => equipHandler = handler))
             .Returns(registeredHandler);
 
@@ -90,7 +90,7 @@ public sealed class DuelRulesTests
             EventHappened<AttackAllowEvent>? attackHandler = null;
             var registeredHandler = (EventHappened)(_ => false);
             character.GetScript<DuelArenaCombatScript>().Returns(combatScript);
-            character.RegisterEventHandler<AttackAllowEvent>(
+            character.RegisterEventHandler(
                     Arg.Do<EventHappened<AttackAllowEvent>>(handler => attackHandler = handler))
                 .Returns(registeredHandler);
 
@@ -132,7 +132,7 @@ public sealed class DuelRulesTests
         EventHappened<UnEquipAllowEvent>? unEquipHandler = null;
         var registeredHandler = (EventHappened)(_ => false);
         character.GetScript<DuelArenaCombatScript>().Returns(combatScript);
-        character.RegisterEventHandler<UnEquipAllowEvent>(
+        character.RegisterEventHandler(
                 Arg.Do<EventHappened<UnEquipAllowEvent>>(handler => unEquipHandler = handler))
             .Returns(registeredHandler);
 
@@ -161,7 +161,7 @@ public sealed class DuelRulesTests
         var registeredUnequipHandlers = new List<EventHappened>();
         var unregisteredUnequipHandlers = new List<EventHappened>();
 
-        character.RegisterEventHandler<EquipAllowEvent>(Arg.Any<EventHappened<EquipAllowEvent>>())
+        character.RegisterEventHandler(Arg.Any<EventHappened<EquipAllowEvent>>())
             .Returns(_ =>
             {
                 EventHappened handler = _ => false;
@@ -170,7 +170,7 @@ public sealed class DuelRulesTests
             });
         character.UnregisterEventHandler<EquipAllowEvent>(Arg.Do<EventHappened>(unregisteredEquipHandlers.Add))
             .Returns(true);
-        character.RegisterEventHandler<UnEquipAllowEvent>(Arg.Any<EventHappened<UnEquipAllowEvent>>())
+        character.RegisterEventHandler(Arg.Any<EventHappened<UnEquipAllowEvent>>())
             .Returns(_ =>
             {
                 EventHappened handler = _ => false;

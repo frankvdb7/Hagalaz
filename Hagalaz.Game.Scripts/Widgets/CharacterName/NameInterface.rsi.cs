@@ -88,7 +88,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterName
         ///     Send's set name packet.
         /// </summary>
         /// <param name="name"></param>
-        private void SendSetName(string name) => _nameSetCallback = Owner.RegisterEventHandler<NameSetFinishedEvent>(NameSetFinished);
+        private void SendSetName(string _) => _nameSetCallback = Owner.RegisterEventHandler<NameSetFinishedEvent>(NameSetFinished);
 
         //adapter.SendPacketAsync(new SetCharacterDetailsRequestPacketComposer(Owner.Session.Id, new CharacterDetailsDto() { DisplayName = name })).Wait();
         /// <summary>

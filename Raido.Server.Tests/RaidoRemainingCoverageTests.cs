@@ -1,18 +1,13 @@
 using Hagalaz.TestSupport;
-using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.IO.Pipelines;
-using System.Linq;
 using System.Reflection;
-using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Raido.Common.Messages;
-using Raido.Common.Protocol;
 using Raido.Server.Extensions;
 using Raido.Server.Internal;
 using Raido.Server.Internal.Diagnostics;
@@ -88,7 +83,7 @@ public sealed class RaidoRemainingCoverageTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton<IOptions<RaidoOptions>>(Options.Create(new RaidoOptions
+        services.AddSingleton(Options.Create(new RaidoOptions
         {
             KeepAliveInterval = TimeSpan.FromSeconds(10),
             ClientTimeoutInterval = TimeSpan.FromSeconds(20)
@@ -191,7 +186,7 @@ public sealed class RaidoRemainingCoverageTests
         var context = Substitute.For<RaidoCallerContext>();
         var nextCalled = false;
         var registered = new DisposableFilter();
-        using var services = new ServiceCollection().AddSingleton<DisposableFilter>(registered).BuildServiceProvider();
+        using var services = new ServiceCollection().AddSingleton(registered).BuildServiceProvider();
         var factory = new RaidoHubFilterFactory(typeof(DisposableFilter));
         var registeredInvocation = new RaidoHubInvocationContext(executor, context, services, new TestHub(), Array.Empty<object?>());
         await factory.InvokeMethodAsync(registeredInvocation, _ =>
@@ -233,7 +228,7 @@ public sealed class RaidoRemainingCoverageTests
         using var activity = ActivityCreator.CreateFromRemote(source, propagator, headers, Get, "operation", ActivityKind.Server,
             new[] { new KeyValuePair<string, object?>("tag", "value") }, null, true);
         Assert.IsNotNull(activity);
-        Assert.AreEqual("operation", activity!.OperationName);
+        Assert.AreEqual("operation", activity.OperationName);
     }
 
     private sealed class TestHub : RaidoHub { }

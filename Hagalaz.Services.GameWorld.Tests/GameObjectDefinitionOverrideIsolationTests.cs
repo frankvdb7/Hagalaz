@@ -1,6 +1,6 @@
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Extensions;
@@ -15,7 +15,7 @@ using Hagalaz.Services.GameWorld.Data.Model;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Cache;
-using Hagalaz.TestSupport;
+
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
@@ -82,7 +82,7 @@ public sealed class GameObjectDefinitionOverrideIsolationTests
 
     private static byte[] EncodeReferenceTable(ReferenceTableCodec codec, int archiveId, int childId)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, archiveId + 1);
+        var table = new ReferenceTable(7, 1, 0, archiveId + 1);
         var archive = new ReferenceTableEntry(archiveId);
         archive.InitializeEntries(1);
         archive.AddEntry(childId, new ReferenceTableChildEntry(0));

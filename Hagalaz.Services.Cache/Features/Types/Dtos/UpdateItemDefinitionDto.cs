@@ -55,7 +55,7 @@ public sealed record UpdateItemDefinitionDto : ItemDefinitionFieldsDto
     public void ApplyTo(ItemType item)
     {
         item.ExtraData = ExtraData?.ToDictionary(pair => pair.Key, pair => pair.Value is JsonElement value
-            ? value.ValueKind == JsonValueKind.String ? (object)value.GetString()! : value.GetInt32()
+            ? value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetInt32()
             : pair.Value);
         item.InterfaceModelId = InterfaceModelId;
         item.Name = Name;

@@ -80,7 +80,7 @@ namespace Hagalaz.Cache.Types.Providers
                 (raw, terrain) => MapCodec.ToCollisionPlanes(System.Linq.Enumerable.Cast<MapObject>(raw), terrain));
         }
 
-        private (sbyte[,,] TerrainData, System.Collections.Generic.List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)
+        private (sbyte[,,] TerrainData, List<MapObject> Objects) DecodeMapData(int regionId, int[] xteaKeys)
         {
             using var terrainContainer = ReadTerrainContainer(regionId);
             using var objectContainer = ReadObjectContainer(regionId, xteaKeys);
@@ -92,7 +92,7 @@ namespace Hagalaz.Cache.Types.Providers
                 MapCodec.DecodeTerrainData(terrainData, terrainDataStream);
             }
 
-            var objects = new System.Collections.Generic.List<MapObject>();
+            var objects = new List<MapObject>();
             if (objectDataStream != null && objectDataStream.Length > 0)
             {
                 MapCodec.DecodeRawObjectData(objects, objectDataStream);

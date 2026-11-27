@@ -1,8 +1,6 @@
 using System;
-using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
-using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache.Logic.Codecs

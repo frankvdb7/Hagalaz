@@ -1,7 +1,6 @@
-using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Models;
@@ -66,7 +65,7 @@ public sealed class NpcTypeProviderSparseRangeTests
 
     private static ReferenceTable CreateReferenceTableWithArchiveGap()
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+        var table = new ReferenceTable(7, 1, 0, 2);
         foreach (var archiveId in new[] { 0, 2 })
         {
             var entry = new ReferenceTableEntry(archiveId);

@@ -714,7 +714,7 @@ public sealed class AuthenticationLogoutTests
         var contextAccessor = CreateContextAccessor(
             character,
             session,
-            new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+            new AuthenticationProperties
             {
                 ClientId = "world-client",
                 AuthorizationId = "authorization-id",
@@ -773,7 +773,7 @@ public sealed class AuthenticationLogoutTests
             CreateContextAccessor(
                 character,
                 session,
-                new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                new AuthenticationProperties
                 {
                     ClientId = "world-client",
                     AuthorizationId = "authorization-id",
@@ -816,7 +816,7 @@ public sealed class AuthenticationLogoutTests
             CreateContextAccessor(
                 character: null,
                 session: session,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                authenticationProperties: new AuthenticationProperties
                 {
                     ClientId = "lobby-client",
                     AuthorizationId = "authorization-id",
@@ -888,7 +888,7 @@ public sealed class AuthenticationLogoutTests
     private static CharacterPersistenceReceipt CreateReceipt(ICharacter character) =>
         new(character.MasterId, Guid.NewGuid(), 7L);
 
-    private static Hagalaz.Services.GameWorld.Features.AuthenticationProperties CreateAuthenticationProperties(uint masterId) =>
+    private static AuthenticationProperties CreateAuthenticationProperties(uint masterId) =>
         new()
         {
             Claims = new Dictionary<string, object>
@@ -972,7 +972,7 @@ public sealed class AuthenticationLogoutTests
     private static IRaidoCallerContextAccessor CreateContextAccessor(
         ICharacter? character,
         IGameSession? session,
-        Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
+        AuthenticationProperties? authenticationProperties = null)
     {
         var accessor = Substitute.For<IRaidoCallerContextAccessor>();
         var context = CreateContext(character, session, authenticationProperties);
@@ -983,7 +983,7 @@ public sealed class AuthenticationLogoutTests
     private static RaidoCallerContext CreateContext(
         ICharacter? character,
         IGameSession? session,
-        Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
+        AuthenticationProperties? authenticationProperties = null)
     {
         var context = Substitute.For<RaidoCallerContext>();
         var features = new FeatureCollection();
@@ -993,7 +993,7 @@ public sealed class AuthenticationLogoutTests
         }
         if (authenticationProperties != null)
         {
-            features.Set<Hagalaz.Services.GameWorld.Features.IAuthenticationFeature>(new Hagalaz.Services.GameWorld.Features.AuthenticationFeature
+            features.Set<IAuthenticationFeature>(new AuthenticationFeature
             {
                 AuthenticationProperties = authenticationProperties
             });
@@ -1001,7 +1001,7 @@ public sealed class AuthenticationLogoutTests
 
         if (session != null)
         {
-            features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
+            features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
         }
 
         context.Features.Returns(features);
@@ -1018,7 +1018,7 @@ public sealed class AuthenticationLogoutTests
             CreateContextAccessor(
                 character: null,
                 session: null,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                authenticationProperties: new AuthenticationProperties
                 {
                     ClientId = clientId,
                     AuthorizationId = "authorization-id",

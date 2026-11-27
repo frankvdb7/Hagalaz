@@ -24,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             _wallSafe = wallSafe;
             _owner = owner;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = owner.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = owner.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

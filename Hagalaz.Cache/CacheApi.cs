@@ -220,7 +220,7 @@ namespace Hagalaz.Cache
                 var sourceGroup = table.GetEntry(sourceFileId);
                 var sourceMember = sourceGroup?.GetEntry(sourceEntryId)
                     ?? throw new FileNotFoundException($"Archive member {index}/{sourceFileId}/{sourceEntryId} does not exist.");
-                using var source = _archiveSnapshotCache.ReadMember(new ArchiveKey(index, sourceFileId), sourceMember.Index, sourceGroup!.Capacity);
+                using var source = _archiveSnapshotCache.ReadMember(new ArchiveKey(index, sourceFileId), sourceMember.Index, sourceGroup.Capacity);
                 var targetGroup = table.Entries.Max(entry => entry.Key);
                 var memberId = table.GetEntry(targetGroup)!.Entries.Max(entry => entry.Key) + 1;
                 if (memberId >= archiveMemberLimit)

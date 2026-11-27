@@ -45,7 +45,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         public void Reset_ClearsFlagsAndUpdatesLocation()
         {
             // Arrange
-            _renderInfo.ScheduleFlagUpdate(Hagalaz.Game.Abstractions.Model.Creatures.Characters.UpdateFlags.Animation);
+            _renderInfo.ScheduleFlagUpdate(UpdateFlags.Animation);
             _renderInfo.ScheduleItemAppearanceUpdate();
 
             // Act

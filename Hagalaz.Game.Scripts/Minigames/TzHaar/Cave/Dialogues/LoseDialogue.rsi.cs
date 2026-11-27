@@ -32,13 +32,13 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.Dialogues
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(_definition, DialogueAnimations.CalmTalk, _definition.Name, "Well done in the cave, JalYt.", "Please accept these Tokkuls as a reward.");
                 return true;
             });
 
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

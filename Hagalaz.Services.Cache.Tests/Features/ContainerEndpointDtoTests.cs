@@ -6,7 +6,6 @@ using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.Containers;
 using Hagalaz.Services.Cache.Features.Containers.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -79,7 +78,7 @@ public class ContainerEndpointDtoTests
     private static MemoryFileStore Seed()
     {
         var store = new MemoryFileStore();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var entry = new ReferenceTableEntry(0);
         entry.InitializeEntries(1);
         entry.AddEntry(0, new ReferenceTableChildEntry(0));

@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             widgetCharacterMock.ForCharacter(Arg.Any<ICharacter>()).Returns(widgetIdMock);
             widgetIdMock.WithId(Arg.Any<int>()).Returns(widgetOptionalMock);
             widgetOptionalMock.AsFrame().Returns(widgetOptionalMock);
-            ((IWidgetBuild)widgetOptionalMock).Build().Returns(widgetMock);
+            (widgetOptionalMock).Build().Returns(widgetMock);
 
             var widgetContainerMock = Substitute.For<IWidgetContainer>();
 

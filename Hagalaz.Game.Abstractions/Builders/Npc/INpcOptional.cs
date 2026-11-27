@@ -3,7 +3,6 @@ using System.ComponentModel;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Scripts;
 
 namespace Hagalaz.Game.Abstractions.Builders.Npc
 {

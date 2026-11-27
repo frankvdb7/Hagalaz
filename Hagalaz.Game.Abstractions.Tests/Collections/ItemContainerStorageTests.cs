@@ -1,13 +1,6 @@
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Cache.Abstractions.Types;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System.Collections.Generic;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Model;
 
 namespace Hagalaz.Game.Abstractions.Tests.Collections
 {
@@ -41,7 +34,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 2);
 
             Assert.ThrowsExactly<ArgumentNullException>(() =>
-                container.Items.TryRemoveExact(null!, -1));
+                container.Items.TryRemoveExact(null!));
         }
 
         [TestMethod]
@@ -85,7 +78,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             Assert.IsTrue(storage.TryAdd(item, out _));
             var storedItem = storage[0];
             var revision = storage.MutationRevision;
-            var snapshot = new IItem?[] { CreateItem(2, 1), null };
+            var snapshot = new[] { CreateItem(2, 1), null };
             var counts = new[] { 1, 0 };
 
             storage.RestoreSnapshotState(snapshot, counts, revision + 10);
@@ -525,7 +518,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             container.Items.Add(CreateItem(3, 1));
 
             // Act
-            container.Items.Clear(true);
+            container.Items.Clear();
 
             // Assert
             Assert.AreEqual(0, container.Items.TakenSlots);
@@ -1665,7 +1658,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Collections
             var container = new TestableItemContainer(StorageType.Normal, 10);
 
             // Act
-            container.Items.Clear(true);
+            container.Items.Clear();
 
             // Assert
             Assert.AreEqual(0, container.Items.TakenSlots);

@@ -19,7 +19,7 @@ public sealed class CharacterPersistenceServiceTests
     {
         var snapshot = new CharacterModel { SnapshotRevision = 101 };
         var publishEndpoint = Substitute.For<IPublishEndpoint>();
-        var publishedCommands = new System.Collections.Generic.List<PersistCharacterCommand>();
+        var publishedCommands = new List<PersistCharacterCommand>();
         publishEndpoint
             .When(endpoint => endpoint.Publish(Arg.Any<PersistCharacterCommand>(), Arg.Any<CancellationToken>()))
             .Do(callInfo => publishedCommands.Add(callInfo.Arg<PersistCharacterCommand>()!));

@@ -198,7 +198,7 @@ public sealed class SpellCastRegressionTests
         source.ItemDefinition.HighAlchemyValue.Returns(500); inventory.SetItem(0, source);
         var character = CreateAlchemyCharacter(inventory, out var states);
         character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true); character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
-        character.Magic.When(x => x.RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>())).Do(_ => inventory.SetItem(0, CreateMagicItem(561, 1)));
+        character.Magic.When(x => x.RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>())).Do(_ => inventory.SetItem(0, CreateMagicItem(561)));
 
         Assert.IsTrue(new HighLevelAlchemy(CreateItemBuilder(), CreateAccessor(character)).Cast(source));
 
@@ -239,14 +239,14 @@ public sealed class SpellCastRegressionTests
     private sealed class MagicItem(int id, int count) : IItem
     {
         private IItemDefinition _definition = MakeDefinition(id);
-        private readonly Hagalaz.Game.Abstractions.Model.Items.IItemScript _script = MakeScript();
+        private readonly IItemScript _script = MakeScript();
         public int Id { get; } = id;
         public long[] ExtraData => [];
         public int Count { get; set; } = count;
         public string Name => $"Test item {Id}";
         public IItemDefinition ItemDefinition => _definition;
         public IEquipmentDefinition EquipmentDefinition { get; } = Substitute.For<IEquipmentDefinition>();
-        public Hagalaz.Game.Abstractions.Model.Items.IItemScript ItemScript => _script;
+        public IItemScript ItemScript => _script;
         public IEquipmentScript EquipmentScript { get; } = Substitute.For<IEquipmentScript>();
         public IItem Clone() => new MagicItem(Id, Count) { _definition = _definition };
         public IItem Clone(int newCount) => new MagicItem(Id, newCount) { _definition = _definition };
@@ -255,7 +255,7 @@ public sealed class SpellCastRegressionTests
         public void SetDefinition(IItemDefinition definition) => _definition = definition;
         private static IItemDefinition MakeDefinition(int itemId)
         { var d = Substitute.For<IItemDefinition>(); d.Stackable.Returns(itemId is 995 or 1963 or 6883); return d; }
-        private static Hagalaz.Game.Abstractions.Model.Items.IItemScript MakeScript()
-        { var s = Substitute.For<Hagalaz.Game.Abstractions.Model.Items.IItemScript>(); s.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(true); return s; }
+        private static IItemScript MakeScript()
+        { var s = Substitute.For<IItemScript>(); s.CanStackItem(Arg.Any<IItem>(), Arg.Any<IItem>(), Arg.Any<bool>()).Returns(true); return s; }
     }
 }

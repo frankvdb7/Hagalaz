@@ -83,7 +83,7 @@ public sealed class FamiliarScriptBaseTests
 
         summoner.RegisterEventHandler(Arg.Any<EventHappened<SummoningAllowEvent>>())
             .Returns(summoningAllowHandler);
-        summoner.When(x => x.RegisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened<CreatureDiedEvent>>()))
+        summoner.When(x => x.RegisterEventHandler(Arg.Any<EventHappened<CreatureDiedEvent>>()))
             .Do(_ => throw expectedException);
 
         var actualException = Assert.ThrowsExactly<InvalidOperationException>(() =>
@@ -122,7 +122,7 @@ public sealed class FamiliarScriptBaseTests
 
         script.AttachToSummoner(summoner, new SummoningDto { NpcId = 6815 });
 
-        summoner.Received(1).RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
+        summoner.Received(1).RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
     }
 
     [TestMethod]

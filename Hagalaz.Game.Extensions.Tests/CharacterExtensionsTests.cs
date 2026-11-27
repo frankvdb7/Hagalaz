@@ -108,7 +108,7 @@ public class CharacterExtensionsTests
     public void ForceRunMovementType_ForceRunFalseAndRunToggledOn_SetsMovementToRun()
     {
         var profile = Substitute.For<IProfile>();
-        profile.GetValue<bool>(Hagalaz.Configuration.ProfileConstants.RunSettingsToggled).Returns(true);
+        profile.GetValue<bool>(Configuration.ProfileConstants.RunSettingsToggled).Returns(true);
         _character.Profile.Returns(profile);
 
         var movement = Substitute.For<IMovement>();
@@ -124,7 +124,7 @@ public class CharacterExtensionsTests
     public void ForceRunMovementType_ForceRunFalseAndRunToggledOff_SetsMovementToWalk()
     {
         var profile = Substitute.For<IProfile>();
-        profile.GetValue<bool>(Hagalaz.Configuration.ProfileConstants.RunSettingsToggled).Returns(false);
+        profile.GetValue<bool>(Configuration.ProfileConstants.RunSettingsToggled).Returns(false);
         _character.Profile.Returns(profile);
 
         var movement = Substitute.For<IMovement>();
@@ -140,7 +140,7 @@ public class CharacterExtensionsTests
     public void ResetMovementType_RunToggledOn_SetsMovementToRun()
     {
         var profile = Substitute.For<IProfile>();
-        profile.GetValue<bool>(Hagalaz.Configuration.ProfileConstants.RunSettingsToggled).Returns(true);
+        profile.GetValue<bool>(Configuration.ProfileConstants.RunSettingsToggled).Returns(true);
         _character.Profile.Returns(profile);
         var movement = Substitute.For<IMovement>();
         _character.Movement.Returns(movement);
@@ -154,7 +154,7 @@ public class CharacterExtensionsTests
     public void ResetMovementType_RunToggledOff_SetsMovementToWalk()
     {
         var profile = Substitute.For<IProfile>();
-        profile.GetValue<bool>(Hagalaz.Configuration.ProfileConstants.RunSettingsToggled).Returns(false);
+        profile.GetValue<bool>(Configuration.ProfileConstants.RunSettingsToggled).Returns(false);
         _character.Profile.Returns(profile);
         var movement = Substitute.For<IMovement>();
         _character.Movement.Returns(movement);

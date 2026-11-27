@@ -7,7 +7,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Skills
     /// <summary>
     /// Contains data on raw fish.
     /// </summary>
-    public class FishingLoot : ILootObject, IFishingLoot
+    public class FishingLoot :  IFishingLoot
     {
         /// <summary>
         /// The item id of the raw fish.

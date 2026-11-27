@@ -33,7 +33,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         public override void OnOpen()
         {
             InterfaceInstance.AttachClickHandler(19,
-                (componentID, type, itemID, slot) =>
+                (_, type, _, _) =>
                 {
                     if (type != ComponentClickType.LeftClick)
                     {
@@ -46,7 +46,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 });
 
             InterfaceInstance.AttachClickHandler(16,
-                (componentID, type, itemID, itemSlot) =>
+                (_, type, itemID, itemSlot) =>
                 {
                     if (itemSlot < 0)
                     {

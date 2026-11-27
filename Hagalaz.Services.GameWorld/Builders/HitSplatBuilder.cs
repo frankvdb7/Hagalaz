@@ -6,7 +6,7 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class HitSplatSpriteBuilder : IHitSplatSpriteBuilder, IHitSplatSpriteOptional
+    public class HitSplatSpriteBuilder : IHitSplatSpriteBuilder
     {
         public int? Damage { get; private set; }
         public HitSplatType? SplatType { get; private set; }
@@ -45,7 +45,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         }
     }
 
-    public class HitSplatBuilder : IHitSplatBuilder, IHitSplatOptional, IHitSplatBuild, IHitSplatSprite
+    public class HitSplatBuilder : IHitSplatBuilder, IHitSplatOptional
     {
         private int? _delay;
         private IRuneObject? _sender;

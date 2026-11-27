@@ -1,7 +1,5 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Game.Extensions.Tests
 {

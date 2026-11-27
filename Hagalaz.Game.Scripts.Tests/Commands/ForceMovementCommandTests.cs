@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             movementLocationStartMock.WithStart(Arg.Any<Location>()).Returns(movementLocationEndMock);
             movementLocationEndMock.WithEnd(Arg.Any<Location>()).Returns(movementOptionalMock);
             movementOptionalMock.WithEndSpeed(Arg.Any<int>()).Returns(movementOptionalMock);
-            ((IMovementBuild)movementOptionalMock).Build().Returns(movementMock);
+            (movementOptionalMock).Build().Returns(movementMock);
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IMovementBuilder)).Returns(movementBuilderMock);

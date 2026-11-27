@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Items.Necklaces
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 var nameArray = Item.Name.Split('(');
                 int charges;
@@ -23,13 +23,13 @@ namespace Hagalaz.Game.Scripts.Items.Necklaces
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Corporeal Beast", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Corporeal Beast", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportGamesNecklace(Owner, Item, false, Jewelry.Jewelry.GameNecklaceTeleports[1]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Gamers' Grotto", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Gamers' Grotto", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportGamesNecklace(Owner, Item, false, Jewelry.Jewelry.GameNecklaceTeleports[0]);
                 return true;

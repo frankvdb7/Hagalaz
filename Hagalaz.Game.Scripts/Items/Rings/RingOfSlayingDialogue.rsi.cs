@@ -19,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Items.Rings
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 var nameArray = Item.Name.Split('(');
                 int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out var charges);
@@ -27,25 +27,25 @@ namespace Hagalaz.Game.Scripts.Items.Rings
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Sumona", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Sumona", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfSlaying(Owner, Item, _equipment, Jewelry.Jewelry.RingOfSlayingTeleports[0]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Slayer Tower", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Slayer Tower", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfSlaying(Owner, Item, _equipment, Jewelry.Jewelry.RingOfSlayingTeleports[1]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Fremennik Slayer Dungeon", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Fremennik Slayer Dungeon", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfSlaying(Owner, Item, _equipment, Jewelry.Jewelry.RingOfSlayingTeleports[2]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Tarn's Lair", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Tarn's Lair", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfSlaying(Owner, Item, _equipment, Jewelry.Jewelry.RingOfSlayingTeleports[3]);
                 return true;

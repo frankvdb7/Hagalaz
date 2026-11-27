@@ -1,4 +1,3 @@
-using System;
 using Xunit;
 
 namespace Hagalaz.Security.Tests
@@ -166,7 +165,7 @@ namespace Hagalaz.Security.Tests
 
         [Theory]
         [InlineData(new uint[] { 1, 2, 3, 4, 5, 6, 7, 8 })]
-        [InlineData(new uint[] { 0xFFFFFFFF, 0xEEEEEEEE, 0xDDDDDDDD, 0xCCCCCCCC, 0xBBBBBBBB, 0xAAAAAAAA, 0x99999999, 0x88888888 })]
+        [InlineData(new[] { 0xFFFFFFFF, 0xEEEEEEEE, 0xDDDDDDDD, 0xCCCCCCCC, 0xBBBBBBBB, 0xAAAAAAAA, 0x99999999, 0x88888888 })]
         public void KeyGeneration_AcrossKeySetBoundary_ShouldRemainConsistent(uint[] seed)
         {
             // Arrange

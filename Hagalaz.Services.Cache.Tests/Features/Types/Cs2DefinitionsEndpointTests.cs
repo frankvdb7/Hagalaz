@@ -5,7 +5,6 @@ using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 

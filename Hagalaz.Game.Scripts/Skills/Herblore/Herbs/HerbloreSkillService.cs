@@ -84,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
             var service = character.ServiceProvider.GetRequiredService<IItemService>();
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [overload.PotionId];
-            dialogue.PerformMakeProductCallback = (itemID, count) =>
+            dialogue.PerformMakeProductCallback = (_, count) =>
             {
                 // the character has selected an amount, we then queue an task that will create all products
                 character.QueueTask(new MakeProductTask(count,
@@ -145,7 +145,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId];
-            dialogue.PerformMakeProductCallback = (itemID, count) =>
+            dialogue.PerformMakeProductCallback = (_, count) =>
             {
                 // the character has selected an amount, we then queue an task that will create all products
                 character.QueueTask(new MakeProductTask(count,

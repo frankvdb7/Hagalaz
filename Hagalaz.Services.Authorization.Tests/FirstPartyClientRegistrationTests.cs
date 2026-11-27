@@ -1,9 +1,5 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Services.Authorization.Services;
 using Microsoft.Extensions.Configuration;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using OpenIddict.Abstractions;
 using OpenIddictConstants = OpenIddict.Abstractions.OpenIddictConstants;
@@ -30,7 +26,7 @@ namespace Hagalaz.Services.Authorization.Tests
                     It.IsAny<CancellationToken>()))
                 .Callback<OpenIddictApplicationDescriptor, CancellationToken>((descriptor, _) =>
                     createdDescriptors.Add(descriptor.ClientId!, descriptor))
-                .Returns(() => ValueTask.FromResult<object>(new object()));
+                .Returns(() => ValueTask.FromResult(new object()));
 
             var registration = CreateRegistration(applicationManager.Object);
 
@@ -71,7 +67,7 @@ namespace Hagalaz.Services.Authorization.Tests
                 .Setup(manager => manager.CreateAsync(
                     It.IsAny<OpenIddictApplicationDescriptor>(),
                     It.IsAny<CancellationToken>()))
-                .Returns(() => ValueTask.FromResult<object>(new object()));
+                .Returns(() => ValueTask.FromResult(new object()));
 
             var registration = CreateRegistration(applicationManager.Object);
 
@@ -227,7 +223,7 @@ namespace Hagalaz.Services.Authorization.Tests
                 .Build();
             var registration = new FirstPartyClientRegistration(applicationManager.Object, configuration);
 
-            await Assert.ThrowsExactlyAsync<System.InvalidOperationException>(() => registration.RegisterIfMissingAsync());
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => registration.RegisterIfMissingAsync());
         }
 
         /// <summary>A manager that finds the given clients (null when missing) and checks the cache client's secret.</summary>
@@ -262,7 +258,7 @@ namespace Hagalaz.Services.Authorization.Tests
             return applicationManager;
         }
 
-        private static void SetupPopulate(Mock<IOpenIddictApplicationManager> applicationManager, object client, System.Action<OpenIddictApplicationDescriptor> populate)
+        private static void SetupPopulate(Mock<IOpenIddictApplicationManager> applicationManager, object client, Action<OpenIddictApplicationDescriptor> populate)
         {
             applicationManager
                 .Setup(manager => manager.PopulateAsync(
@@ -274,7 +270,7 @@ namespace Hagalaz.Services.Authorization.Tests
         }
 
         /// <summary>Captures the descriptor passed to UpdateAsync for the client; call the returned function after the act step.</summary>
-        private static System.Func<OpenIddictApplicationDescriptor?> CaptureUpdate(Mock<IOpenIddictApplicationManager> applicationManager, object client)
+        private static Func<OpenIddictApplicationDescriptor?> CaptureUpdate(Mock<IOpenIddictApplicationManager> applicationManager, object client)
         {
             OpenIddictApplicationDescriptor? updated = null;
             applicationManager

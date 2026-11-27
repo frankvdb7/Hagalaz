@@ -157,7 +157,7 @@ public sealed class ArmadylNpcTests
         "kreearra" => new Kreearra(world.Owner, Substitute.For<ILocationBuilder>(), Substitute.For<IAnimationBuilder>(),
             Substitute.For<IMovementBuilder>(), world.Projectiles, Substitute.For<IMapRegionService>(), world.Flight, world.NpcService, world.PathFinder,
             world.WidgetActivator),
-        _ => throw new System.ArgumentOutOfRangeException(nameof(npc))
+        _ => throw new ArgumentOutOfRangeException(nameof(npc))
     };
 
     private sealed class NoRetaliationAviansie(NpcAttackWorld world)

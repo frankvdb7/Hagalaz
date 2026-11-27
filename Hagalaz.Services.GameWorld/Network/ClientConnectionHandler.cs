@@ -202,10 +202,10 @@ internal sealed class ClientConnectionHandler
                 _handshakeProtocol,
                 reconnectRequest,
                 handshakeCancellationToken);
-            return;
+
         }
 
-        return;
+
     }
 
     private static async ValueTask<bool?> ReadLobbyAuthenticationFrameAsync(

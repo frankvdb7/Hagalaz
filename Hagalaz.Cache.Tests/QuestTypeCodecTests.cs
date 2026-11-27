@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;

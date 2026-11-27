@@ -83,7 +83,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await wait.WaitAsync(TimeSpan.FromSeconds(1));
             await scheduler.StopAsync(CancellationToken.None);
 
-            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!, default);
+            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!);
         }
 
         [TestMethod]
@@ -100,7 +100,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             scheduler.CompleteDynamicPopulation(region, false);
 
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => wait);
-            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!, default);
+            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!);
         }
 
         [TestMethod]

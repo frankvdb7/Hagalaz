@@ -49,7 +49,7 @@ namespace Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome
                 var entityService = clicker.ServiceProvider.GetRequiredService<IEntityService>();
                 var task = new GameObjectReachTask(clicker, targetHandle, success =>
                 {
-                    if (entityService.TryResolve<IGameObject>(targetHandle, out var target)
+                    if (entityService.TryResolve(targetHandle, out var target)
                         && target is not null
                         && !target.IsDisabled
                         && (success || target.Location.WithinDistance(clicker.Location, 1)))

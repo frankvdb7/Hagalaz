@@ -109,7 +109,7 @@ internal static class Cs2Source
             }
             else if (opcode == 459 && BindIntChanged(index))
             {
-                continue;
+
             }
             else if (PreferenceWrites.TryGetValue(opcode, out var preference) && stacks["int"].Count > 0)
                 Add(index, $"setClientPreference({preference}, {Take("int", 1)[0].Text})");

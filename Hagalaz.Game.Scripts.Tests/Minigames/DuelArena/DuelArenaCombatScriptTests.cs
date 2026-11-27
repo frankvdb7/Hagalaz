@@ -55,8 +55,8 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             hintIconType.AtEntity(target).Returns(hintIconTarget);
             hintIconTarget.Build().Returns(hintIcon);
             var destroyHandler = (EventHappened)(_ => false);
-            character.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
-            target.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
+            character.RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
+            target.RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
 
             var context = Substitute.For<ICharacterContext>();
             context.Character.Returns(character);
@@ -68,8 +68,8 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
             script.OnRegistered();
             script.OnRemove();
 
-            character.Received(1).RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
-            target.Received(1).RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
+            character.Received(1).RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
+            target.Received(1).RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>());
             character.Received(1).UnregisterEventHandler<CreatureDestroyedEvent>(destroyHandler);
             target.Received(1).UnregisterEventHandler<CreatureDestroyedEvent>(destroyHandler);
         }
@@ -89,8 +89,8 @@ namespace Hagalaz.Game.Scripts.Tests.Minigames.DuelArena
 
             EventHappened<CreatureDestroyedEvent>? targetDestroyed = null;
             var destroyHandler = (EventHappened)(_ => false);
-            character.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
-            target.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Do<EventHappened<CreatureDestroyedEvent>>(handler => targetDestroyed = handler)).Returns(destroyHandler);
+            character.RegisterEventHandler(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(destroyHandler);
+            target.RegisterEventHandler(Arg.Do<EventHappened<CreatureDestroyedEvent>>(handler => targetDestroyed = handler)).Returns(destroyHandler);
 
             var context = Substitute.For<ICharacterContext>();
             context.Character.Returns(character);

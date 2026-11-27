@@ -267,7 +267,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             }).ToArray();
             lootGenerator.GenerateLoot<IFishingLoot>(Arg.Any<CharacterLootParams>()).Returns(loot);
 
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(call =>
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(call =>
             {
                 if (!fixture.IsLive)
                 {

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Cache.Abstractions.Types;
 
 namespace Hagalaz.Cache.Abstractions.Types.Providers
 {

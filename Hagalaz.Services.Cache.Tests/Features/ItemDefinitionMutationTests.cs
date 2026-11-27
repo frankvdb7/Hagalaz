@@ -2,15 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using Hagalaz.Cache.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Hagalaz.Cache.Types;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 [TestClass]
@@ -129,7 +126,7 @@ public class ItemDefinitionMutationTests
 
     private static MemoryFileStore Seed(int id,byte[] bytes)
     {
-        var store=new MemoryFileStore();var table=new ReferenceTable(7,1,(ReferenceTableFlags)0,1);var entry=new ReferenceTableEntry(id>>8);
+        var store=new MemoryFileStore();var table=new ReferenceTable(7,1,0,1);var entry=new ReferenceTableEntry(id>>8);
         entry.InitializeEntries(1);entry.AddEntry(id&255,new ReferenceTableChildEntry(0));table.AddEntry(id>>8,entry);
         using var encoded=new ReferenceTableCodec().Encode(table);using var reference=new Container(new MemoryStream(encoded.ToArray()));using var data=new Container(new MemoryStream(bytes));
         store.Set(255,19,reference.Encode());store.Set(19,id>>8,data.Encode());return store;

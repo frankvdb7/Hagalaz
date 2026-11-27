@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Items.Amulets
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 var nameArray = Item.Name.Split('(');
                 int charges;
@@ -23,25 +23,25 @@ namespace Hagalaz.Game.Scripts.Items.Amulets
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Edgeville", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Edgeville", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportAmuletOfGlory(Owner, Item, false, Jewelry.Jewelry.GloryTeleports[0]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Karamja", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Karamja", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportAmuletOfGlory(Owner, Item, false, Jewelry.Jewelry.GloryTeleports[1]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Draynor Village", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Draynor Village", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportAmuletOfGlory(Owner, Item, false, Jewelry.Jewelry.GloryTeleports[2]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Al-Kharid", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Al-Kharid", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportAmuletOfGlory(Owner, Item, false, Jewelry.Jewelry.GloryTeleports[3]);
                 return true;

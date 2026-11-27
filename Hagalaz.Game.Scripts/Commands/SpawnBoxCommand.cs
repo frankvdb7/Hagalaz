@@ -103,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Commands
             args.Character.Configurations.SendItems(90, false, container);
 
                 spawnBox.AttachClickHandler(16,
-                    (componentID, clickType, itemID, slot) =>
+                    (_, clickType, itemID, slot) =>
                     {
                         if (clickType == ComponentClickType.LeftClick)
                         {

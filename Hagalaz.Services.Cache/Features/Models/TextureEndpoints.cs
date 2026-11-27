@@ -2,7 +2,6 @@ using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Rendering;
-using Hagalaz.Cache.Types;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Text.Json;

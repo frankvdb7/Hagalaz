@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using AutoMapper;
+﻿using AutoMapper;
 using Hagalaz.Configuration;
 using Hagalaz.Contacts.Messages.Model;
 using Microsoft.EntityFrameworkCore;
@@ -8,8 +7,6 @@ using Hagalaz.Services.Common.Model;
 using Hagalaz.Services.Contacts.Data;
 using Hagalaz.Services.Contacts.Store;
 using Hagalaz.Text.Json;
-using Hagalaz.Game.Abstractions.Features.Chat;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using ContactDto = Hagalaz.Services.Contacts.Services.Model.ContactDto;
 using ContactSettingsDto = Hagalaz.Services.Contacts.Services.Model.ContactSettingsDto;
 

@@ -314,7 +314,7 @@ public sealed class ItemContainerPersistenceTests
         for (var slot = 0; slot < container.Capacity; slot++)
         {
             var match = occupied.FirstOrDefault(item => item.Slot == slot);
-            Assert.AreEqual(match.ItemId == 0 ? (int?)null : match.ItemId, container[slot]?.Id, $"Slot {slot}");
+            Assert.AreEqual(match.ItemId == 0 ? null : match.ItemId, container[slot]?.Id, $"Slot {slot}");
         }
     }
 

@@ -134,7 +134,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Farming
             Click(s);
 
             s.Patch.DidNotReceive().FellTree();
-            s.Character.Received(1).SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
+            s.Character.Received(1).SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>());
             Assert.IsEmpty(s.Queued);
         }
 
@@ -152,7 +152,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Farming
             }
 
             s.Patch.DidNotReceive().FellTree();
-            s.Character.Received(1).SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
+            s.Character.Received(1).SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>());
             s.Character.Received(1).UnregisterEventHandler<CreatureInterruptedEvent>(s.Handle);
         }
 

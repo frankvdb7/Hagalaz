@@ -1,20 +1,13 @@
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 using Moq;
 using Hagalaz.Cache.Abstractions.Types;
-using Hagalaz.Cache.Types;
-using System.Linq;
-using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types.Factories;
 using Hagalaz.Cache.Abstractions.Types.Providers;
-using Hagalaz.Cache;
-using Hagalaz.Cache.Types.Factories;
 using Hagalaz.Cache.Models;
 
 namespace Hagalaz.Cache.Extensions.Tests
@@ -139,8 +132,8 @@ namespace Hagalaz.Cache.Extensions.Tests
             var referenceTables = new Mock<IReferenceTableProvider>();
             referenceTables.Setup(current => current.ReadReferenceTable(0)).Returns(table.Object);
 
-            _services.AddSingleton<IFileStore>(store.Object);
-            _services.AddSingleton<IReferenceTableProvider>(referenceTables.Object);
+            _services.AddSingleton(store.Object);
+            _services.AddSingleton(referenceTables.Object);
             _services.AddGameCache(options => options.ArchiveSnapshotCacheSizeBytes = 0);
             using var serviceProvider = _services.BuildServiceProvider();
             var cache = serviceProvider.GetRequiredService<ICacheAPI>();
@@ -157,9 +150,9 @@ namespace Hagalaz.Cache.Extensions.Tests
         [Fact]
         public void AddGameCache_RejectsNegativeSnapshotCapacityAtConstruction()
         {
-            _services.AddSingleton<IFileStore>(Mock.Of<IFileStore>());
-            _services.AddSingleton<IReferenceTableProvider>(Mock.Of<IReferenceTableProvider>());
-            _services.AddSingleton<ICacheWriter>(Mock.Of<ICacheWriter>());
+            _services.AddSingleton(Mock.Of<IFileStore>());
+            _services.AddSingleton(Mock.Of<IReferenceTableProvider>());
+            _services.AddSingleton(Mock.Of<ICacheWriter>());
             _services.AddGameCache(options => options.ArchiveSnapshotCacheSizeBytes = -1);
             using var serviceProvider = _services.BuildServiceProvider();
 

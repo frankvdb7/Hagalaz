@@ -1,14 +1,11 @@
-using System.IO;
 using System.Net;
 using System.Text.Json;
-using Hagalaz.Services.Cache.Tests.Features;
 using Hagalaz.Services.Cache.Features.Shared;
 using Hagalaz.TestSupport;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Shared;
 

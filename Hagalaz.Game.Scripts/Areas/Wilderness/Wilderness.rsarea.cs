@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Configuration;
@@ -223,7 +222,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
 
             if (character.HasFamiliar())
             {
-                var familiar = character.FamiliarScript!.Familiar;
+                var familiar = character.FamiliarScript.Familiar;
                 if (familiar.Definition.Id == familiar.Appearance.CompositeID)
                 {
                     familiar.Appearance.Transform(familiar.Definition.Id + 1);
@@ -254,7 +253,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
             {
                 if (character.HasFamiliar())
                 {
-                    var familiar = character.FamiliarScript!.Familiar;
+                    var familiar = character.FamiliarScript.Familiar;
                     if (familiar.Definition.Id != familiar.Appearance.CompositeID)
                     {
                         familiar.Appearance.Transform(familiar.Definition.Id);

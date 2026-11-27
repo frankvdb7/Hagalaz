@@ -26,12 +26,12 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
         {
             InterfaceInstance.DrawString(18, Owner.Profile.GetValue<int>(ProfileConstants.SlayerRewardPoints).ToString());
 
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, _, _, _) =>
             {
                 Owner.Widgets.OpenWidget(161, 0, Owner.ServiceProvider.GetRequiredService<RewardsAssignmentScreen>(), true);
                 return true;
             });
-            InterfaceInstance.AttachClickHandler(15, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(15, (_, _, _, _) =>
             {
                 Owner.Widgets.OpenWidget(164, 0, Owner.ServiceProvider.GetRequiredService<RewardsBuyScreen>(), true);
                 return true;

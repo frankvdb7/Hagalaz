@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             soundOptionalMock.WithDelay(Arg.Any<int>()).Returns(soundOptionalMock);
             soundOptionalMock.WithPlaybackSpeed(Arg.Any<int>()).Returns(soundOptionalMock);
             soundOptionalMock.WithRepeatCount(Arg.Any<int>()).Returns(soundOptionalMock);
-            ((ISoundBuild)soundOptionalMock).Build().Returns(audioMock);
+            (soundOptionalMock).Build().Returns(audioMock);
 
             var sessionMock = Substitute.For<IGameSession>();
             var characterMock = Substitute.For<ICharacter>();

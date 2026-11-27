@@ -1,6 +1,5 @@
 using AutoMapper;
 using MassTransit;
-using Hagalaz.Data;
 using Hagalaz.Data.Extensions;
 using Hagalaz.Services.Contacts.Consumers;
 using Hagalaz.Services.Contacts.Data;

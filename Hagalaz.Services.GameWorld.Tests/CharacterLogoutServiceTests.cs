@@ -187,7 +187,7 @@ public sealed class CharacterLogoutServiceTests
         character.When(value => value.OnDetach()).Do(_ => order.Add("script-detach"));
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var service = new CharacterLogoutService(
@@ -219,7 +219,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
 
@@ -275,7 +275,7 @@ public sealed class CharacterLogoutServiceTests
         var failure = new InvalidOperationException("dehydration failed");
         dehydrationService.Dehydrate(character).Returns(_ => throw failure);
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
 
@@ -305,7 +305,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var failure = new InvalidOperationException("destroy failed");
@@ -389,7 +389,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
@@ -437,7 +437,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -480,7 +480,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -550,7 +550,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
 
@@ -699,7 +699,7 @@ public sealed class CharacterLogoutServiceTests
             return snapshot;
         });
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         character.When(value => value.OnDetach()).Do(_ => order.Add("script-detach"));
@@ -732,7 +732,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var service = new CharacterLogoutService(

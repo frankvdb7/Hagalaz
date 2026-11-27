@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             rocks.Handle.Returns(handle);
             rocks.Id.Returns(1);
             var isLive = true;
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!isLive)
                 {
@@ -122,7 +122,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             var handle = new EntityHandle<IGameObject>(12, 1);
             rocks.Handle.Returns(handle);
             var isLive = true;
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!isLive)
                 {
@@ -220,7 +220,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             resolvedRock.Id.Returns(1);
             resolvedRock.IsDisabled.Returns(false);
             fixture.IsLive = true;
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!fixture.IsLive)
                 {

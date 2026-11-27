@@ -78,7 +78,7 @@ public sealed class CharacterPersistenceHealthMetricsTests
             {
                 started.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>());
-                return (CharacterPersistenceReceipt?)null;
+                return null;
             });
         using var spy = new MeterListenerSpy(MeterName);
 
@@ -110,7 +110,7 @@ public sealed class CharacterPersistenceHealthMetricsTests
     {
         var harness = new FlushHarness();
         harness.Logout.RecoverPendingLogoutsAsync(Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => throw new InvalidOperationException("recovery"));
+            .Returns(_ => throw new InvalidOperationException("recovery"));
         using var spy = new MeterListenerSpy(MeterName);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Worker.FlushAsync(force: false, CancellationToken.None));

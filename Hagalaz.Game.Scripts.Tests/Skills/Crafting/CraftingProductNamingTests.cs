@@ -117,6 +117,6 @@ public sealed class CraftingProductNamingTests
         return definition;
     }
 
-    private static Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder CreateItemBuilder() =>
+    private static Abstractions.Builders.Item.IItemBuilder CreateItemBuilder() =>
         new TestItemBuilder(ComposedTestContainer.CreateTestItem);
 }

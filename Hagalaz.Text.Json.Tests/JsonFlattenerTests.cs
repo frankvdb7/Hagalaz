@@ -1,4 +1,4 @@
-using System.Collections;
+
 using System.Text.Json.Nodes;
 
 namespace Hagalaz.Text.Json.Tests
@@ -16,7 +16,7 @@ namespace Hagalaz.Text.Json.Tests
             var result = JsonFlattener.FlattenJson(emptyString);
 
             // Assert
-            CollectionAssert.AreEquivalent(new Dictionary<string, JsonNode>(), (ICollection)result);
+            CollectionAssert.AreEquivalent(new Dictionary<string, JsonNode>(), result);
         }
 
         [TestMethod]
@@ -29,7 +29,7 @@ namespace Hagalaz.Text.Json.Tests
             var result = JsonFlattener.FlattenJson(emptyJson);
 
             // Assert
-            CollectionAssert.AreEquivalent(new Dictionary<string, JsonNode>(), (ICollection)result);
+            CollectionAssert.AreEquivalent(new Dictionary<string, JsonNode>(), result);
         }
 
         [TestMethod]

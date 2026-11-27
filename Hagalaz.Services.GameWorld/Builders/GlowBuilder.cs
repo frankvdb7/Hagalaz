@@ -4,7 +4,7 @@ using Hagalaz.Services.GameWorld.Model.Creatures;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class GlowBuilder : IGlowBuilder, IGlowBuild, IGlowOptional
+    public class GlowBuilder : IGlowBuilder, IGlowOptional
     {
         private byte _red;
         private byte _green;

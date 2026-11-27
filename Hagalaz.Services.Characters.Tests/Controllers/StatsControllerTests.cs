@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Hagalaz.Services.Characters.Controllers;
 using Hagalaz.Services.Common.Model;
 using Hagalaz.Services.Characters.Mediator.Queries;
@@ -6,7 +5,6 @@ using Hagalaz.Services.Characters.Model;
 using MassTransit;
 using MassTransit.Mediator;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
 namespace Hagalaz.Services.Characters.Tests.Controllers

@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Hagalaz.Cache.Tests.Utilities
 {
-    public class XteaLoaderTests : System.IDisposable
+    public class XteaLoaderTests : IDisposable
     {
         private const string DataDirectory = "./data";
         private const string XteaDirectory = "./data/xtea";
@@ -55,9 +55,9 @@ namespace Hagalaz.Cache.Tests.Utilities
             // Assert
             Assert.Equal(2, regions.Count);
             Assert.True(regions.ContainsKey(12345));
-            Assert.Equal(new int[] { 1, 2, 3, 4 }, regions[12345]);
+            Assert.Equal(new[] { 1, 2, 3, 4 }, regions[12345]);
             Assert.True(regions.ContainsKey(54321));
-            Assert.Equal(new int[] { 5, 6, 7, 8 }, regions[54321]);
+            Assert.Equal(new[] { 5, 6, 7, 8 }, regions[54321]);
         }
 
         [Fact]

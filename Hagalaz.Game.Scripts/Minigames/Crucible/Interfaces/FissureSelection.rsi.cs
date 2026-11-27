@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.Interfaces
         /// </summary>
         public override void OnOpen()
         {
-            OnComponentClick bankClick = (componentID, clickType, info1, info2) =>
+            OnComponentClick bankClick = (componentID, _, _, _) =>
             {
                 var selected = Crucible.Banks.SingleOrDefault(e => e.ComponentID == componentID);
                 if (selected != null)
@@ -41,7 +41,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Crucible.Interfaces
                 InterfaceInstance.AttachClickHandler(i, bankClick);
             }
 
-            OnComponentClick fissureClick = (componentID, clickType, info1, info2) =>
+            OnComponentClick fissureClick = (componentID, _, _, _) =>
             {
                 var selected = Crucible.Fissures.SingleOrDefault(e => e.ComponentID == componentID);
                 if (selected != null)

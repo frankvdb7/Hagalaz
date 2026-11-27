@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Commands
             var builder = args.Character.ServiceProvider.GetRequiredService<IMovementBuilder>();
             var mov = builder.Create()
                 .WithStart(args.Character.Location)
-                .WithEnd(Game.Abstractions.Model.Location.Create(args.Character.Location.X + RandomStatic.Generator.Next(5),
+                .WithEnd(Location.Create(args.Character.Location.X + RandomStatic.Generator.Next(5),
                     args.Character.Location.Y + RandomStatic.Generator.Next(5),
                     args.Character.Location.Z,
                     args.Character.Location.Dimension))

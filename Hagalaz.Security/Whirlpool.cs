@@ -152,7 +152,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C0 constant array.
         /// </summary>
-        static readonly ulong[] C0 = new ulong[256] {
+        static readonly ulong[] C0 = new [] {
             Ll(0x18186018c07830d8), Ll(0x23238c2305af4626), Ll(0xc6c63fc67ef991b8), Ll(0xe8e887e8136fcdfb),
             Ll(0x878726874ca113cb), Ll(0xb8b8dab8a9626d11), Ll(0x0101040108050209), Ll(0x4f4f214f426e9e0d),
             Ll(0x3636d836adee6c9b), Ll(0xa6a6a2a6590451ff), Ll(0xd2d26fd2debdb90c), Ll(0xf5f5f3f5fb06f70e),
@@ -222,7 +222,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C1 constant array.
         /// </summary>
-        static readonly ulong[] C1 = new ulong[256] {
+        static readonly ulong[] C1 = new [] {
             Ll(0xd818186018c07830), Ll(0x2623238c2305af46), Ll(0xb8c6c63fc67ef991), Ll(0xfbe8e887e8136fcd),
             Ll(0xcb878726874ca113), Ll(0x11b8b8dab8a9626d), Ll(0x0901010401080502), Ll(0x0d4f4f214f426e9e),
             Ll(0x9b3636d836adee6c), Ll(0xffa6a6a2a6590451), Ll(0x0cd2d26fd2debdb9), Ll(0x0ef5f5f3f5fb06f7),
@@ -292,7 +292,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C2 constant array.
         /// </summary>
-        static readonly ulong[] C2 = new ulong[256] {
+        static readonly ulong[] C2 = new [] {
             Ll(0x30d818186018c078), Ll(0x462623238c2305af), Ll(0x91b8c6c63fc67ef9), Ll(0xcdfbe8e887e8136f),
             Ll(0x13cb878726874ca1), Ll(0x6d11b8b8dab8a962), Ll(0x0209010104010805), Ll(0x9e0d4f4f214f426e),
             Ll(0x6c9b3636d836adee), Ll(0x51ffa6a6a2a65904), Ll(0xb90cd2d26fd2debd), Ll(0xf70ef5f5f3f5fb06),
@@ -362,7 +362,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C3 constant array.
         /// </summary>
-        static readonly ulong[] C3 = new ulong[256] {
+        static readonly ulong[] C3 = new [] {
             Ll(0x7830d818186018c0), Ll(0xaf462623238c2305), Ll(0xf991b8c6c63fc67e), Ll(0x6fcdfbe8e887e813),
             Ll(0xa113cb878726874c), Ll(0x626d11b8b8dab8a9), Ll(0x0502090101040108), Ll(0x6e9e0d4f4f214f42),
             Ll(0xee6c9b3636d836ad), Ll(0x0451ffa6a6a2a659), Ll(0xbdb90cd2d26fd2de), Ll(0x06f70ef5f5f3f5fb),
@@ -432,7 +432,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C4 constant array.
         /// </summary>
-        static readonly ulong[] C4 = new ulong[256] {
+        static readonly ulong[] C4 = new [] {
             Ll(0xc07830d818186018), Ll(0x05af462623238c23), Ll(0x7ef991b8c6c63fc6), Ll(0x136fcdfbe8e887e8),
             Ll(0x4ca113cb87872687), Ll(0xa9626d11b8b8dab8), Ll(0x0805020901010401), Ll(0x426e9e0d4f4f214f),
             Ll(0xadee6c9b3636d836), Ll(0x590451ffa6a6a2a6), Ll(0xdebdb90cd2d26fd2), Ll(0xfb06f70ef5f5f3f5),
@@ -502,7 +502,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C5 constant array.
         /// </summary>
-        static readonly ulong[] C5 = new ulong[256] {
+        static readonly ulong[] C5 = new [] {
             Ll(0x18c07830d8181860), Ll(0x2305af462623238c), Ll(0xc67ef991b8c6c63f), Ll(0xe8136fcdfbe8e887),
             Ll(0x874ca113cb878726), Ll(0xb8a9626d11b8b8da), Ll(0x0108050209010104), Ll(0x4f426e9e0d4f4f21),
             Ll(0x36adee6c9b3636d8), Ll(0xa6590451ffa6a6a2), Ll(0xd2debdb90cd2d26f), Ll(0xf5fb06f70ef5f5f3),
@@ -572,7 +572,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C6 constant array.
         /// </summary>
-        static readonly ulong[] C6 = new ulong[256] {
+        static readonly ulong[] C6 = new [] {
             Ll(0x6018c07830d81818), Ll(0x8c2305af46262323), Ll(0x3fc67ef991b8c6c6), Ll(0x87e8136fcdfbe8e8),
             Ll(0x26874ca113cb8787), Ll(0xdab8a9626d11b8b8), Ll(0x0401080502090101), Ll(0x214f426e9e0d4f4f),
             Ll(0xd836adee6c9b3636), Ll(0xa2a6590451ffa6a6), Ll(0x6fd2debdb90cd2d2), Ll(0xf3f5fb06f70ef5f5),
@@ -642,7 +642,7 @@ namespace Hagalaz.Security
         /// <summary>
         /// The C7 constant array.
         /// </summary>
-        static readonly ulong[] C7 = new ulong[256] {
+        static readonly ulong[] C7 = new [] {
             Ll(0x186018c07830d818), Ll(0x238c2305af462623), Ll(0xc63fc67ef991b8c6), Ll(0xe887e8136fcdfbe8),
             Ll(0x8726874ca113cb87), Ll(0xb8dab8a9626d11b8), Ll(0x0104010805020901), Ll(0x4f214f426e9e0d4f),
             Ll(0x36d836adee6c9b36), Ll(0xa6a2a6590451ffa6), Ll(0xd26fd2debdb90cd2), Ll(0xf5f3f5fb06f70ef5),

@@ -61,7 +61,7 @@ public sealed class GameCommandPromptTests
         var store = Substitute.For<ICharacterStore>();
         store.GetSnapshotAsync().Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(lookup.Task));
         using var services = new ServiceCollection()
-            .AddSingleton<ICharacterStore>(store)
+            .AddSingleton(store)
             .BuildServiceProvider();
 
         var character = Substitute.For<ICharacter>();
@@ -108,7 +108,7 @@ public sealed class GameCommandPromptTests
         var store = Substitute.For<ICharacterStore>();
         store.GetSnapshotAsync().Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(lookup.Task));
         using var services = new ServiceCollection()
-            .AddSingleton<ICharacterStore>(store)
+            .AddSingleton(store)
             .BuildServiceProvider();
 
         var character = Substitute.For<ICharacter>();

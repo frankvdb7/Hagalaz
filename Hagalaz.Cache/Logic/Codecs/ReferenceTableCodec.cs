@@ -120,7 +120,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                     foreach (var child in members[archiveIndex])
                     {
                         var parentEntry = table.GetEntry(id) ?? throw new InvalidDataException($"Corrupt reference table: entry {id} not found while reading child identifiers.");
-                        var entry = parentEntry.GetEntry(child) ?? throw new System.InvalidOperationException($"{nameof(ReferenceTableChildEntry)} with id {child} does not exist in {nameof(ReferenceTableEntry)} with id {id}");
+                        var entry = parentEntry.GetEntry(child) ?? throw new InvalidOperationException($"{nameof(ReferenceTableChildEntry)} with id {child} does not exist in {nameof(ReferenceTableEntry)} with id {id}");
                         entry.Id = stream.ReadInt();
                     }
                 }

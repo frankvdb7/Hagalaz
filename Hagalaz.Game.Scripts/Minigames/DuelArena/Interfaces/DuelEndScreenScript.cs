@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
             Owner.Configurations.SendGlobalCs2String(359, Victorious ? "You were victorious!" : "You were defeated"); // title
             InterfaceInstance.DrawString(11, Opponent.Statistics.FullCombatLevel.ToString());
             InterfaceInstance.DrawString(13, Victorious ? "The spoils:" : "You lost:");
-            InterfaceInstance.AttachClickHandler(15, (componentID, clickType, itemID, itemSlot) =>
+            InterfaceInstance.AttachClickHandler(15, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.SpecialClick)
                 {

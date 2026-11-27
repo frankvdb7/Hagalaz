@@ -1,9 +1,7 @@
 using System.Net;
 using Hagalaz.Cache.Models;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 

@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 else
                 {
                     InterfaceInstance.DrawItem(definition.ChildID, definition.ProductID, 1);
-                    InterfaceInstance.AttachClickHandler(definition.ChildID, (componentID, type, extra1, extra2) => HandleClick(definition, type));
+                    InterfaceInstance.AttachClickHandler(definition.ChildID, (_, type, _, _) => HandleClick(definition, type));
                 }
             }
         }

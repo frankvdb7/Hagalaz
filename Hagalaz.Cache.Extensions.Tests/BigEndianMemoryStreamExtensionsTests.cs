@@ -1,5 +1,3 @@
-using System.IO;
-using Xunit;
 
 namespace Hagalaz.Cache.Extensions.Tests
 {

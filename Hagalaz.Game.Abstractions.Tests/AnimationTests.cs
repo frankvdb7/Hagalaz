@@ -47,11 +47,9 @@ public class AnimationTests
     {
         // Arrange
         const int id = -1;
-        const int delay = 0;
-        const int priority = 0;
 
         // Act
-        var animation = Animation.Create(id, delay, priority);
+        var animation = Animation.Create(id);
 
         // Assert
         Assert.AreEqual(Animation.Reset, animation);

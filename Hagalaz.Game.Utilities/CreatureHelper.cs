@@ -1,4 +1,3 @@
-using System.Linq;
 
 namespace Hagalaz.Game.Utilities
 {

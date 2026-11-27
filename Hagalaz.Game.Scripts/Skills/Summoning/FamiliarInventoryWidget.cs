@@ -85,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 return false;
             }));
             _inventoryInterface.AttachClickHandler(0,
-                (componentID, type, itemID, slot) =>
+                (_, type, itemID, slot) =>
                 {
                     if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
@@ -146,7 +146,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 });
 
             InterfaceInstance.AttachClickHandler(27,
-                (componentID, type, itemID, slot) =>
+                (_, type, itemID, slot) =>
                 {
                     if (Owner.FamiliarScript is not BobFamiliarScriptBase bob)
                     {
@@ -205,7 +205,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 });
 
             InterfaceInstance.AttachClickHandler(29,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     if (Owner.FamiliarScript is not BobFamiliarScriptBase bob)
                     {

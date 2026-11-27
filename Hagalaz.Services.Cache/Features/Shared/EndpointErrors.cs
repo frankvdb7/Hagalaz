@@ -6,7 +6,6 @@ using Hagalaz.Cache.Logic.Rendering;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Types;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using SixLabors.ImageSharp;
 

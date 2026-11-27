@@ -1,16 +1,12 @@
-using System;
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Common.Tests
@@ -37,7 +33,7 @@ namespace Hagalaz.Game.Common.Tests
             _entityService = Substitute.For<IEntityService>();
             var handle = new EntityHandle<ICreature>(1, 1);
             _target.Handle.Returns(handle);
-            _entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            _entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 callInfo[1] = _target;
                 return true;
@@ -76,7 +72,7 @@ namespace Hagalaz.Game.Common.Tests
         public void PerformTickImpl_WhenTargetNotReached_AddsPathToMovementQueue()
         {
             // Arrange
-            var task = new CreatureReachTask(_reacher, _target.Handle, (result) => { });
+            var task = new CreatureReachTask(_reacher, _target.Handle, (_) => { });
             var path = Substitute.For<IPath>();
             path.Successful.Returns(true);
             path.MovedNear.Returns(false);
@@ -120,7 +116,7 @@ namespace Hagalaz.Game.Common.Tests
             EventHappened<CreatureInterruptedEvent> handler = null;
             _reacher.RegisterEventHandler(Arg.Do<EventHappened<CreatureInterruptedEvent>>(h => handler = h));
 
-            var task = new CreatureReachTask(_reacher, _target.Handle, (result) => { });
+            var task = new CreatureReachTask(_reacher, _target.Handle, (_) => { });
 
             // Act
             handler.Invoke(new CreatureInterruptedEvent(_reacher, new object()));
@@ -135,7 +131,7 @@ namespace Hagalaz.Game.Common.Tests
         _reacher.FacedCreature.Returns(_target);
         var callbackResult = true;
         var task = new CreatureReachTask(_reacher, _target.Handle, result => callbackResult = result);
-        _entityService.TryResolve<ICreature>(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
+        _entityService.TryResolve(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
 
         task.Tick();
 
@@ -157,7 +153,7 @@ namespace Hagalaz.Game.Common.Tests
         var task = new CreatureReachTask(_reacher, _target.Handle, _ => { });
 
         task.Tick();
-        _entityService.TryResolve<ICreature>(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
+        _entityService.TryResolve(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
         handler!.Invoke(new CreatureInterruptedEvent(_reacher, new object()));
 
         _reacher.Received(1).ResetFacing();
@@ -171,7 +167,7 @@ namespace Hagalaz.Game.Common.Tests
         otherCreature.Handle.Returns(new EntityHandle<ICreature>(2, 1));
         _reacher.FacedCreature.Returns(otherCreature);
         var task = new CreatureReachTask(_reacher, _target.Handle, _ => { });
-        _entityService.TryResolve<ICreature>(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
+        _entityService.TryResolve(_target.Handle, out Arg.Any<ICreature>()).Returns(false);
 
         task.Tick();
 

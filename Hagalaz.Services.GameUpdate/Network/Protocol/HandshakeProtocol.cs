@@ -1,6 +1,5 @@
 using System;
 using System.Buffers;
-using System.Buffers.Binary;
 using Hagalaz.Services.GameUpdate.Network.Messages;
 using Raido.Common.Buffers;
 using Raido.Common.Protocol;

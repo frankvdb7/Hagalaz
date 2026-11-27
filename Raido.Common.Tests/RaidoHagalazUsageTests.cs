@@ -1,4 +1,3 @@
-using System;
 using Raido.Common.Buffers;
 using Raido.Common.Protocol;
 

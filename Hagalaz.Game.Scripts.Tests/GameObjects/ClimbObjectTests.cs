@@ -139,7 +139,7 @@ public sealed class ClimbObjectTests
                 "stepsTwo" => new StepsTwo(),
                 "slayerFirst" => new StaircaseFirstFloor(),
                 "slayerSecond" => new StaircaseSecondFloor(),
-                _ => throw new System.ArgumentOutOfRangeException(nameof(script))
+                _ => throw new ArgumentOutOfRangeException(nameof(script))
             };
             instance.Initialize(Owner);
             instance.OnCharacterClickPerform(Clicker, GameObjectClickType.Option1Click);

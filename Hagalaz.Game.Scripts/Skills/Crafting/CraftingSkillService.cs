@@ -350,7 +350,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
             var itemManager = character.ServiceProvider.GetRequiredService<IItemService>();
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [definition.CutGemID];
-            dialogue.PerformMakeProductCallback = (productID, count) => CutGem(character, definition, count);
+            dialogue.PerformMakeProductCallback = (_, count) => CutGem(character, definition, count);
             dialogue.ProductNamingCallback = productID =>
             {
                 var builder = new StringBuilder();

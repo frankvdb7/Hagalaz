@@ -12,7 +12,6 @@ using Hagalaz.Cache.Utilities;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 
@@ -39,7 +38,7 @@ public sealed class MapRenderEndpointTests
     /// <summary>Object IDs 0 to 511 exist.</summary>
     private static void SeedObjectIndex(MemoryFileStore store)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var archive = new ReferenceTableEntry(1);
         archive.InitializeEntries(1);
         archive.AddEntry(255, new ReferenceTableChildEntry(255));
@@ -422,7 +421,7 @@ public sealed class MapRenderEndpointTests
 
     private static void SeedFloors(MemoryFileStore store)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         foreach (var (group, definition) in new[] { (1, new byte[] { 1, 0x10, 0x20, 0x30, 0 }), (4, new byte[] { 1, 0x40, 0x50, 0x60, 0 }) })
         {
             var archive = new ReferenceTableEntry(group);
@@ -761,7 +760,7 @@ public sealed class MapRenderEndpointTests
     {
         // Tile 0,0 on plane 0 uses underlay 6 (member ID 5), stored at physical position 0 of config group 1.
         var store = Store(("m0_0", [87, ..new byte[16384]]));
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+        var table = new ReferenceTable(7, 1, 0, 2);
         var entry = new ReferenceTableEntry(0);
         entry.InitializeEntries(1);
         entry.AddEntry(5, new ReferenceTableChildEntry(0));

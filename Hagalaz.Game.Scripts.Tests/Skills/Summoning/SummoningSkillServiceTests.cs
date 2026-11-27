@@ -29,7 +29,7 @@ public sealed class SummoningSkillServiceTests
         var item = Substitute.For<IItem>();
         item.Id.Returns(123);
         character.ServiceProvider.Returns(new ServiceCollection()
-            .AddSingleton<ISummoningService>(summoningService)
+            .AddSingleton(summoningService)
             .BuildServiceProvider());
         var inventory = new ComposedTestContainer(28);
         character.Inventory.Returns(inventory);
@@ -38,7 +38,7 @@ public sealed class SummoningSkillServiceTests
         var service = new SummoningSkillService(
             Substitute.For<INpcBuilder>(),
             Substitute.For<IFamiliarScriptProvider>(),
-            Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
+            Substitute.For<Abstractions.Builders.Item.IItemBuilder>());
 
         using var cancellation = new CancellationTokenSource();
         var summonTask = service.SummonFamiliar(character, item, cancellation.Token);

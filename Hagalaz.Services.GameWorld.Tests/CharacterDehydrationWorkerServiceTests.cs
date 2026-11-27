@@ -182,11 +182,11 @@ public sealed class CharacterDehydrationWorkerServiceTests
                 ? new Dictionary<int, ICharacter> { [_character.Index] = _character }
                 : new Dictionary<int, ICharacter>());
 
-        public ValueTask<int> CountAsync() => throw new System.NotImplementedException();
-        public ValueTask<bool> AddAsync(ICharacter character) => throw new System.NotImplementedException();
-        public ValueTask<bool> RemoveAsync(ICharacter character) => throw new System.NotImplementedException();
-        public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new System.NotImplementedException();
-        public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new System.NotImplementedException();
+        public ValueTask<int> CountAsync() => throw new NotImplementedException();
+        public ValueTask<bool> AddAsync(ICharacter character) => throw new NotImplementedException();
+        public ValueTask<bool> RemoveAsync(ICharacter character) => throw new NotImplementedException();
+        public ValueTask<ICharacter?> FindByIdAsync(uint id) => throw new NotImplementedException();
+        public ValueTask<ICharacter?> FindByIndexAsync(int index) => throw new NotImplementedException();
         public ICharacter? FindByMasterId(uint id) => id == _character.MasterId ? _character : null;
         public bool Remove(ICharacter character) => false;
     }

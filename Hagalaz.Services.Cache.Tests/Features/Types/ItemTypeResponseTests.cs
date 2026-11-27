@@ -3,13 +3,11 @@ using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 
@@ -42,9 +40,9 @@ public class ItemTypeResponseTests
         Assert.AreEqual(10, json.GetProperty("lendTemplateId").GetInt32());
         Assert.AreEqual(11, json.GetProperty("boughtItemId").GetInt32());
         Assert.AreEqual(12, json.GetProperty("boughtTemplateId").GetInt32());
-        CollectionAssert.AreEqual(new string?[] { "Wear", null, null, null, "drop" },
+        CollectionAssert.AreEqual(new[] { "Wear", null, null, null, "drop" },
             json.GetProperty("inventoryOptions").EnumerateArray().Select(value => value.GetString()).ToArray());
-        CollectionAssert.AreEqual(new string?[] { null, null, "take", "Test", null },
+        CollectionAssert.AreEqual(new[] { null, null, "take", "Test", null },
             json.GetProperty("groundOptions").EnumerateArray().Select(value => value.GetString()).ToArray());
         Assert.IsFalse(json.TryGetProperty("tradePrice", out _));
     }

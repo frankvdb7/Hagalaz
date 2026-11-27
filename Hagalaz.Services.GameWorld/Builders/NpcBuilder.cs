@@ -18,7 +18,7 @@ using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class NpcBuilder : INpcBuilder, INpcBuild, INpcOptional, INpcId, INpcLocation
+    public class NpcBuilder : INpcBuilder, INpcOptional, INpcId, INpcLocation
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IServiceScope _serviceScope = default!;

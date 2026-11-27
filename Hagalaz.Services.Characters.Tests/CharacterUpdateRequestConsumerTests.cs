@@ -1,4 +1,3 @@
-using System;
 using AutoMapper;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Characters.Messages.Model;

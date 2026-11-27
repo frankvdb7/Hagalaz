@@ -177,7 +177,7 @@ public sealed class CreatureReachTaskOwnershipTests
         var pathFinderProvider = Substitute.For<IPathFinderProvider>();
         pathFinderProvider.Smart.Returns(pathFinder);
         var services = new ServiceCollection()
-            .AddSingleton<IPathFinderProvider>(pathFinderProvider);
+            .AddSingleton(pathFinderProvider);
         var entityStore = new EntityStore();
         services.AddSingleton<IEntityStore>(entityStore);
         services.AddSingleton<IEntityService>(new EntityService(entityStore));

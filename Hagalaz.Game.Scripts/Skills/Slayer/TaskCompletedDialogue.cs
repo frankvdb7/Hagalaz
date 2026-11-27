@@ -28,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             AttachDialogueContinueClickHandlers();
 
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.QueueTask(async cancellationToken =>
                     {
@@ -51,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 });
 
             AttachDialogueContinueClickHandler(1,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;

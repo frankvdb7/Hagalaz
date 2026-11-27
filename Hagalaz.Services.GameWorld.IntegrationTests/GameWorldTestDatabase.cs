@@ -4,7 +4,6 @@ using Hagalaz.Services.GameWorld.Profiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using MySql.EntityFrameworkCore.Extensions;
 using Testcontainers.MySql;
 
 namespace Hagalaz.Services.GameWorld.IntegrationTests;

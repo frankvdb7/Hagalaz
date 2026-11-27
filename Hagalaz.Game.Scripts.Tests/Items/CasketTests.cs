@@ -69,7 +69,7 @@ public sealed class CasketTests
         itemBuilder.Create().Returns(itemId);
         itemId.WithId(995).Returns(itemOptional);
         itemOptional.WithCount(1).Returns(itemOptional);
-        ((IItemBuild)itemOptional).Build().Returns(generatedItem);
+        (itemOptional).Build().Returns(generatedItem);
 
         var character = Substitute.For<ICharacter>();
         var item = ComposedTestContainer.CreateTestItem(1);
@@ -77,8 +77,8 @@ public sealed class CasketTests
         inventory.SetItem(3, item);
         character.Inventory.Returns(inventory);
         character.ServiceProvider.Returns(new ServiceCollection()
-            .AddSingleton<ILootGenerator>(lootGenerator)
-            .AddSingleton<IItemBuilder>(itemBuilder)
+            .AddSingleton(lootGenerator)
+            .AddSingleton(itemBuilder)
             .AddSingleton(Substitute.For<IGroundItemBuilder>())
             .BuildServiceProvider());
         var operation = CaptureQueuedOperation(character);

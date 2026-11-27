@@ -359,7 +359,7 @@ public sealed class FarmingPersistenceTests
         var now = new DateTimeOffset(2026, 9, 23, 20, 52, 51, TimeSpan.Zero).AddMilliseconds(78);
         const int savedProgress = 1_860_765_382;
         var offlineTicks = (now - lastLogin).Ticks / (TimeSpan.TicksPerMillisecond * 600L);
-        Assert.IsTrue((long)savedProgress + offlineTicks > int.MaxValue);
+        Assert.IsTrue(savedProgress + offlineTicks > int.MaxValue);
 
         var task = CreatePatchTask(
             8389,
@@ -653,7 +653,7 @@ public sealed class FarmingPersistenceTests
         farmingService.FindSeedById(Arg.Any<int>())
             .Returns(call => Task.FromResult(seedsById.GetValueOrDefault(call.Arg<int>())));
 
-        var owner = Substitute.For<Hagalaz.Game.Abstractions.Model.Creatures.Characters.ICharacter>();
+        var owner = Substitute.For<ICharacter>();
         owner.LastLogin.Returns(_ => DateTimeOffset.Now.AddMilliseconds(-(offlineTicks * 600 + 300)));
         var farming = new Farming(owner, farmingService, Substitute.For<IGameObjectService>());
         owner.Farming.Returns(farming);

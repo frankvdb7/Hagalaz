@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Model
     /// <summary>
     /// Represents an immutable 3D coordinate in the game world, including a dimension for instancing.
     /// </summary>
-    public readonly struct Location : ILocation, IVector2, IVector3, IEquatable<Location>
+    public readonly struct Location : ILocation, IEquatable<Location>
     {
         /// <summary>
         /// Gets the dimension (or instance) of this location.

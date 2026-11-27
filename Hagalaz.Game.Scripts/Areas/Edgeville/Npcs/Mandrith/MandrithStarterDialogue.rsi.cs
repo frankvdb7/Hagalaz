@@ -55,7 +55,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Mandrith
             });
             AttachDialogueOptionClickHandler("Yes.", (_, _) =>
             {
-                var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e => true));
+                var allowWalkingEvent = Owner.RegisterEventHandler(new EventHappened<WalkAllowEvent>(_ => true));
                 new TrainingTeleport().PerformTeleport(Owner);
                 Owner.QueueTask(new RsTask(() =>
                     {

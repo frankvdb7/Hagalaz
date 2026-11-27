@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Model;
 
 namespace Hagalaz.Game.Utilities.Model.Creatures

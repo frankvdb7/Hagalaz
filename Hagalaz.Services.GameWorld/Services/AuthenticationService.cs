@@ -307,7 +307,7 @@ namespace Hagalaz.Services.GameWorld.Services
             var signInMessage = signInResponse.Message;
             if (signInMessage.Succeeded)
             {
-                context.Features.Set<PendingAuthorizationCleanup>(new PendingAuthorizationCleanup(
+                context.Features.Set(new PendingAuthorizationCleanup(
                     clientId,
                     signInMessage.Subject,
                     signInMessage.AuthorizationId));

@@ -27,7 +27,7 @@ public sealed class CachedGameObjectServiceTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity =>
             {
                 if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
@@ -121,7 +121,7 @@ public sealed class CachedGameObjectServiceTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity =>
             {
                 if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
@@ -153,7 +153,7 @@ public sealed class CachedGameObjectServiceTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity =>
             {
                 if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
@@ -199,7 +199,7 @@ public sealed class CachedGameObjectServiceTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity =>
             {
                 if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
@@ -240,7 +240,7 @@ public sealed class CachedGameObjectServiceTests
         scriptProvider.GetGameObjectScriptTypeById(100).Returns(typeof(IGameObjectScript));
         var script = Substitute.For<IGameObjectScript>();
         using var services = new ServiceCollection()
-            .AddSingleton<IGameObjectService>(gameObjectService)
+            .AddSingleton(gameObjectService)
             .AddScoped<IGameObjectScript>(_ => script)
             .BuildServiceProvider();
         var definition = Substitute.For<IGameObjectDefinition>();

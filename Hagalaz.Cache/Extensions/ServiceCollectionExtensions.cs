@@ -31,7 +31,7 @@ namespace Hagalaz.Cache.Extensions
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
         /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-        public static IServiceCollection AddGameCache(this IServiceCollection services) => AddGameCache(services, options => { });
+        public static IServiceCollection AddGameCache(this IServiceCollection services) => AddGameCache(services, _ => { });
 
         /// <summary>
         /// Adds the Hagalaz game cache services to the specified <see cref="IServiceCollection"/>.

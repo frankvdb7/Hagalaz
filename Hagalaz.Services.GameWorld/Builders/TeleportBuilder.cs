@@ -5,7 +5,7 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class TeleportBuilder : ITeleportBuilder, ITeleportType, ITeleportY, ITeleportBuild, ITeleportOptional
+    public class TeleportBuilder : ITeleportBuilder, ITeleportType, ITeleportY, ITeleportOptional
     {
         private readonly ILocationBuilder _locationBuilder;
         private int _x;

@@ -278,8 +278,8 @@ public sealed class CreatureInteractionHubTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton<ICharacterService>(characterServiceSubstitute);
-        services.AddSingleton<INpcService>(npcServiceSubstitute);
+        services.AddSingleton(characterServiceSubstitute);
+        services.AddSingleton(npcServiceSubstitute);
         services.AddSingleton<ICharacterStore>(CreateCharacterStore());
         services.AddSingleton<INpcStore, NpcStore>();
         var entityStore = new EntityStore();

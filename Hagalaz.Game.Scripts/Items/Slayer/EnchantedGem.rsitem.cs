@@ -38,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                             return;
                         }
 
-                        character.SendChatMessage("You are currently assigned to kill: " + slayerTask!.Name + ". Only " + slayer.CurrentKillCount +
+                        character.SendChatMessage("You are currently assigned to kill: " + slayerTask.Name + ". Only " + slayer.CurrentKillCount +
                                                   " more to go.");
                     }
                     else

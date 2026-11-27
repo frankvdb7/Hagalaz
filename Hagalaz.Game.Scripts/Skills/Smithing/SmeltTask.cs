@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             Performer = characterContextAccessor.Context.Character;
             TickActionMethod = PerformTickImpl;
             _itemService = itemService;
-            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

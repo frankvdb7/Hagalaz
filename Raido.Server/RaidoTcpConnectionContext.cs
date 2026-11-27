@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
-using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
@@ -210,7 +209,7 @@ namespace Raido.Server
                 replacement.Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
                     static state =>
                     {
-                        var heartbeatState = ((RaidoTcpConnectionContext Context, ConnectionContext PhysicalConnection))state!;
+                        var heartbeatState = ((RaidoTcpConnectionContext Context, ConnectionContext PhysicalConnection))state;
                         heartbeatState.Context.RunHeartbeat(heartbeatState.PhysicalConnection);
                     },
                     (this, replacement));
@@ -483,7 +482,7 @@ namespace Raido.Server
             catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
             {
                 // Terminal cleanup canceled the relay.
-                return;
+
             }
             finally
             {
@@ -607,7 +606,7 @@ namespace Raido.Server
             }
             catch (OperationCanceledException) when (_transportExecutionCancellation.IsCancellationRequested)
             {
-                return;
+
             }
             finally
             {

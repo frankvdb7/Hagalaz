@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class ItemBuilder : IItemBuilder, IItemBuild, IItemId, IItemOptional
+    public class ItemBuilder : IItemBuilder, IItemId, IItemOptional
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IItemScriptProvider _itemScriptProvider;

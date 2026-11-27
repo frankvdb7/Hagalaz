@@ -207,7 +207,7 @@ public sealed class ContactAddedConsumerTests
     private static void ApplyInitialSnapshot(ContactsFeature feature, Friend friend)
     {
         var snapshotContact = new Hagalaz.Contacts.Messages.Model.ContactDto { MasterId = AdderId, DisplayName = "Adder" };
-        var response = new Hagalaz.Contacts.Messages.GetContactsResponse
+        var response = new GetContactsResponse
         {
             MasterId = ReceiverId,
             SessionGeneration = 1,
@@ -220,12 +220,12 @@ public sealed class ContactAddedConsumerTests
         session.SessionGeneration.Returns(1);
         session.ConnectionId.Returns("receiver");
         var mapper = Substitute.For<IMapper>();
-        mapper.Map<System.Collections.Generic.IEnumerable<Friend>>(Arg.Any<object>()).Returns(new[] { friend });
-        mapper.Map<System.Collections.Generic.IEnumerable<Ignore>>(Arg.Any<object>()).Returns(System.Array.Empty<Ignore>());
-        mapper.Map<System.Collections.Generic.List<ContactDto>>(Arg.Any<object>())
-            .Returns(call => new System.Collections.Generic.List<ContactDto>());
-        mapper.Map<System.Collections.Generic.List<ContactDto>>(response.Friends)
-            .Returns(new System.Collections.Generic.List<ContactDto> { new() { MasterId = (int)AdderId, DisplayName = "Adder" } });
+        mapper.Map<IEnumerable<Friend>>(Arg.Any<object>()).Returns(new[] { friend });
+        mapper.Map<IEnumerable<Ignore>>(Arg.Any<object>()).Returns(Array.Empty<Ignore>());
+        mapper.Map<List<ContactDto>>(Arg.Any<object>())
+            .Returns(call => new List<ContactDto>());
+        mapper.Map<List<ContactDto>>(response.Friends)
+            .Returns(new List<ContactDto> { new() { MasterId = (int)AdderId, DisplayName = "Adder" } });
 
         Assert.IsTrue(ContactSnapshotApplicator.TryApply(response, session, feature, mapper));
     }

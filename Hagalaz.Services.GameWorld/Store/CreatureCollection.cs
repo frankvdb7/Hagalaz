@@ -135,7 +135,7 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        private struct Enumerator : IEnumerator<TCreature>, IEnumerator
+        private struct Enumerator : IEnumerator<TCreature>
         {
             private readonly CreatureCollection<TCreature> _container;
             private readonly int _version;

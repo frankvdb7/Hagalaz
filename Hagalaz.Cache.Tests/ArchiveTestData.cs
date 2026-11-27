@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Hagalaz.Cache.Extensions;
 
 namespace Hagalaz.Cache.Tests;

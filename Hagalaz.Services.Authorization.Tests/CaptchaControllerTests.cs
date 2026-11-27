@@ -1,11 +1,8 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Services.Authorization.Controllers;
 using Hagalaz.Services.Authorization.Model;
 using Hagalaz.Services.Authorization.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
 namespace Hagalaz.Services.Authorization.Tests.Controllers

@@ -63,7 +63,7 @@ public sealed class SkillCapeMasterTests
 
         world.Create(npc).OnCharacterClickPerform(world.Clicker, NpcClickType.Option2Click);
 
-        world.Clicker.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default, default!);
+        world.Clicker.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default);
         world.WidgetActivator.DidNotReceiveWithAnyArgs().Create(default!, default!);
     }
 
@@ -125,7 +125,7 @@ public sealed class SkillCapeMasterTests
             "larriar" => new Larriar(Owner, NpcService, PathFinder, WidgetActivator),
             "ajjat" => new Ajjat(Owner, NpcService, PathFinder, WidgetActivator),
             "sloane" => new Sloane(Owner, NpcService, PathFinder, WidgetActivator),
-            _ => throw new System.ArgumentOutOfRangeException(nameof(npc))
+            _ => throw new ArgumentOutOfRangeException(nameof(npc))
         };
     }
 }

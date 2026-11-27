@@ -7,7 +7,7 @@ using Hagalaz.Services.GameWorld.Model.Creatures;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class HintIconBuilder : IHintIconBuilder, IHintIconBuild, IHintIconOptional, IHintIconEntityOptional, IHintIconLocationOptional, IHintIconType
+    public class HintIconBuilder : IHintIconBuilder, IHintIconEntityOptional, IHintIconLocationOptional, IHintIconType
     {
         private int? _creatureIndex;
         private bool _isCharacter;
@@ -44,7 +44,7 @@ namespace Hagalaz.Services.GameWorld.Builders
                 {
                     ModelId = _modelId,
                     IsCharacter = _isCharacter,
-                    TargetIndex = _creatureIndex.Value!,
+                    TargetIndex = _creatureIndex.Value,
                     ArrowId = _arrowId,
                     FlashSpeed = _flashSpeed
                 };

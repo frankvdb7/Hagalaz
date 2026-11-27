@@ -194,7 +194,7 @@ public sealed class MapRegionServiceTests
         provider.GetRequiredService<IRsTaskService>().Tick();
 
         Assert.AreEqual(dimension.Id, service.FindMapRegion(source.RegionId, dimension.Id)!.BaseLocation.Dimension);
-        var dynamicRegion = service.GetOrCreateMapRegion(destination.RegionId, dimension.Id)!;
+        var dynamicRegion = service.GetOrCreateMapRegion(destination.RegionId, dimension.Id);
         Assert.AreEqual(dimension.Id, dynamicRegion.BaseLocation.Dimension);
         Assert.IsTrue(dynamicRegion.IsDynamic);
     }
@@ -598,9 +598,9 @@ public sealed class MapRegionServiceTests
         Assert.IsTrue(destinationRegion.IsDynamic);
         Assert.IsNull(service.FindMapRegion(source.RegionId, source.Dimension));
         loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
-        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!);
         templateLoader.Received(1).LoadAsync(source.RegionId, Arg.Any<int[]>(), Arg.Any<CancellationToken>());
-        templateLoader.ReceivedWithAnyArgs(1).LoadAsync(default, default!, default);
+        templateLoader.ReceivedWithAnyArgs(1).LoadAsync(default, default!);
     }
 
     [TestMethod]
@@ -757,7 +757,7 @@ public sealed class MapRegionServiceTests
         Assert.IsFalse(service.FindIdleRegionsByDimension(0).Contains(first), "The source was resumed.");
         Assert.AreEqual(50 * 8 + 3, second.GetRegionPartByLocalPart(3, 4, 2).DrawRegionPartX);
         loadRequests.DidNotReceiveWithAnyArgs().RequestLoad(default!);
-        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!);
     }
 
     [TestMethod]
@@ -803,7 +803,7 @@ public sealed class MapRegionServiceTests
         Assert.AreEqual(MapRegionState.Ready, destinationRegion.State);
         Assert.IsFalse(destinationRegion.IsDynamic);
         Assert.AreEqual(CollisionFlag.WallNorth, service.GetClippingFlag(destination.X, destination.Y, destination.Z));
-        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!, default);
+        loadRequests.DidNotReceiveWithAnyArgs().EnsureLoadedAsync(default!);
     }
 
     [TestMethod]
@@ -913,7 +913,7 @@ public sealed class MapRegionServiceTests
         }
 
         templateLoader.Received(1).LoadAsync(source.RegionId, Arg.Any<int[]>(), Arg.Any<CancellationToken>());
-        templateLoader.ReceivedWithAnyArgs(1).LoadAsync(default, default!, default);
+        templateLoader.ReceivedWithAnyArgs(1).LoadAsync(default, default!);
     }
 
     [TestMethod]

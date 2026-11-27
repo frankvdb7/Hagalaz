@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
         public async Task Execute_DoesNotThrowException()
         {
             // Arrange
-            var soundBuilderMock = Substitute.For<Hagalaz.Game.Abstractions.Builders.Audio.IAudioBuilder>();
+            var soundBuilderMock = Substitute.For<Abstractions.Builders.Audio.IAudioBuilder>();
             var characterMock = Substitute.For<ICharacter>();
             var command = new VoiceCommand(soundBuilderMock);
             var args = new GameCommandArgs(characterMock, new[] { "voice", "123" });

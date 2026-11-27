@@ -3,7 +3,7 @@ using Hagalaz.Game.Abstractions.Providers;
 
 namespace Hagalaz.Services.GameWorld.Providers
 {
-    public class CharacterContextAccessor : ICharacterContextAccessor, ICharacterContextProvider
+    public class CharacterContextAccessor :  ICharacterContextProvider
     {
         public ICharacterContext Context { get; set; } = null!;
     }

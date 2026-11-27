@@ -152,7 +152,7 @@ public sealed class SpellBookTabTests
     private static OpenedSpellBook OpenSpellBook(MagicBook book)
     {
         var character = Substitute.For<ICharacter>();
-        character.Profile.GetValue<MagicBook>(Arg.Any<string>(), Arg.Any<MagicBook>()).Returns(book);
+        character.Profile.GetValue(Arg.Any<string>(), Arg.Any<MagicBook>()).Returns(book);
         character.Magic.CheckMagicLevel(Arg.Any<int>()).Returns(true);
         character.Magic.CheckRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>()).Returns(true);
         var accessor = Substitute.For<ICharacterContextAccessor>();

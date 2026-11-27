@@ -293,7 +293,7 @@ namespace Raido.Server
         internal Task OnConnectedAsync()
         {
             Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
-                static state => ((RaidoHubConnectionContext)state!).KeepAliveTick(),
+                static state => ((RaidoHubConnectionContext)state).KeepAliveTick(),
                 this);
             StartTimestamp = _timeProvider.GetTimestamp();
             return Task.CompletedTask;
@@ -303,7 +303,7 @@ namespace Raido.Server
             WriteAsync(message, CancellationToken.None);
 
         public ValueTask WriteAsync<TMessage>(TMessage message, CancellationToken cancellationToken) where TMessage : RaidoMessage =>
-            WriteAsync<TMessage>(message, ignoreAbort: false, cancellationToken);
+            WriteAsync(message, ignoreAbort: false, cancellationToken);
 
         internal ValueTask WriteAsync<TMessage>(TMessage message, bool ignoreAbort, CancellationToken cancellationToken = default)
             where TMessage : RaidoMessage
@@ -535,7 +535,7 @@ namespace Raido.Server
 
             _clientTimeoutActive = true;
             Features.Get<IConnectionHeartbeatFeature>()?.OnHeartbeat(
-                static state => ((RaidoHubConnectionContext)state!).CheckClientTimeout(),
+                static state => ((RaidoHubConnectionContext)state).CheckClientTimeout(),
                 this);
         }
 

@@ -233,7 +233,7 @@ public sealed class MapRegionStaleMutationTests
         .AddSingleton(Substitute.For<INpcService>())
         .AddSingleton<IEntityStore, EntityStore>()
         .AddSingleton(loadScheduler)
-        .AddSingleton<IRsTaskService>(Substitute.For<IRsTaskService>())
+        .AddSingleton(Substitute.For<IRsTaskService>())
         .BuildServiceProvider();
 
     private static MapRegionService CreateService(IServiceProvider provider, IMapper? mapper = null) => new(

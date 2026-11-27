@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Logic.Codecs;
-using System.IO;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -17,7 +16,7 @@ namespace Hagalaz.Cache.Tests
                 Name = "Test NPC",
                 CombatLevel = 100,
                 IsVisible = true,
-                Actions = new string?[] { "Talk-to", "Attack", "Trade", null, null, "Examine" },
+                Actions = new[] { "Talk-to", "Attack", "Trade", null, null, "Examine" },
                 Size = 2,
                 ModelIDs = new[] { 10, 20, 30 },
                 OriginalColours = new short[] { 100, 200 },
@@ -119,11 +118,11 @@ namespace Hagalaz.Cache.Tests
             var originalNpc = new NpcType(3)
             {
                 Name = "Empty NPC",
-                ModelIDs = System.Array.Empty<int>(),
-                OriginalColours = System.Array.Empty<short>(),
-                ModifiedColours = System.Array.Empty<short>(),
+                ModelIDs = Array.Empty<int>(),
+                OriginalColours = Array.Empty<short>(),
+                ModifiedColours = Array.Empty<short>(),
                 ExtraData = new Dictionary<int, object>(),
-                TransformToIDs = System.Array.Empty<int>()
+                TransformToIDs = Array.Empty<int>()
             };
 
             // Act
@@ -148,7 +147,7 @@ namespace Hagalaz.Cache.Tests
             var originalNpc = new NpcType(4)
             {
                 Name = "TransformToIDs Empty",
-                TransformToIDs = System.Array.Empty<int>()
+                TransformToIDs = Array.Empty<int>()
             };
 
             // Act
@@ -186,7 +185,7 @@ namespace Hagalaz.Cache.Tests
             var codec = new NpcTypeCodec();
             var npc = new NpcType(10)
             {
-                Actions = new string?[] { null, "Attack", null, "Trade", null }
+                Actions = new[] { null, "Attack", null, "Trade", null }
             };
 
             // Act & Assert

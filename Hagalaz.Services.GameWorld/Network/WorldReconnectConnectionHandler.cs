@@ -215,12 +215,12 @@ internal sealed class WorldReconnectConnectionHandler
             if (!attached && reconnectResult == ReconnectResult.Rejected)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);
-                return;
+
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return;
+
         }
         catch (Exception ex)
         {

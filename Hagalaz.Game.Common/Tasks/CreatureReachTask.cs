@@ -80,7 +80,7 @@ namespace Hagalaz.Game.Common.Tasks
                 Cancel();
                 return false;
             });
-            _pathFinder = reacher.ServiceProvider!.GetRequiredService<IPathFinderProvider>().Smart;
+            _pathFinder = reacher.ServiceProvider.GetRequiredService<IPathFinderProvider>().Smart;
         }
 
         /// <summary>
@@ -130,7 +130,7 @@ namespace Hagalaz.Game.Common.Tasks
 
         private ICreature? ResolveTarget()
         {
-            return _entityService.TryResolve<ICreature>(_targetHandle, out var creature) ? creature : null;
+            return _entityService.TryResolve(_targetHandle, out var creature) ? creature : null;
         }
 
         private bool IsFacingTarget() => _reacher.FacedCreature?.Handle == _targetHandle;

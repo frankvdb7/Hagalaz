@@ -116,7 +116,7 @@ public sealed class GameWorldWorkloadMetricsTests
     {
         var loader = Substitute.For<IMapRegionLoader>();
         loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => throw new InvalidOperationException("boom"));
+            .Returns(_ => throw new InvalidOperationException("boom"));
         using var provider = new ServiceCollection().AddScoped(_ => loader).BuildServiceProvider();
         using var scheduler = CreateScheduler(provider, new ManualTimeProvider());
         using var spy = new MeterListenerSpy(MeterName);

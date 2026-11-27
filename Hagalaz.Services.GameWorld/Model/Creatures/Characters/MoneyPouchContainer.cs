@@ -148,7 +148,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int Remove(int count)
         {
             if (count <= 0) return 0;
-            var amount = (int)Math.Min((long)count, (long)Count + _owner.Inventory.Items.GetCountById(CoinsItemId));
+            var amount = (int)Math.Min(count, (long)Count + _owner.Inventory.Items.GetCountById(CoinsItemId));
             return amount > 0 && TryRemoveExact(amount) ? amount : 0;
         }
 

@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             graphicIdMock.WithId(Arg.Any<int>()).Returns(graphicOptionalMock);
             graphicOptionalMock.WithHeight(Arg.Any<int>()).Returns(graphicOptionalMock);
             graphicOptionalMock.WithRotation(Arg.Any<int>()).Returns(graphicOptionalMock);
-            ((IGraphicBuild)graphicOptionalMock).Build().Returns(graphicMock);
+            (graphicOptionalMock).Build().Returns(graphicMock);
 
             var characterMock = Substitute.For<ICharacter>();
             var command = new TileGfxCommand(graphicBuilderMock);

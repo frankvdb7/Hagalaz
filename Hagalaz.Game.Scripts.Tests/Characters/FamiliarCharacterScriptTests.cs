@@ -62,10 +62,10 @@ public sealed class FamiliarCharacterScriptTests
         Assert.IsNull(character.FamiliarScript);
         familiar.DidNotReceive().AttachToSummoner(Arg.Any<ICharacter>(), Arg.Any<SummoningDto>());
         character.DidNotReceive().AttachFamiliar(Arg.Any<IFamiliarScript>());
-        character.DidNotReceive().RegisterEventHandler<SummoningAllowEvent>(Arg.Any<EventHappened<SummoningAllowEvent>>());
-        character.DidNotReceive().RegisterEventHandler<CreatureDiedEvent>(Arg.Any<EventHappened<CreatureDiedEvent>>());
-        character.DidNotReceive().RegisterEventHandler<FamiliarDismissEvent>(Arg.Any<EventHappened<FamiliarDismissEvent>>());
-        character.DidNotReceive().RegisterEventHandler<CreatureSetCombatTargetEvent>(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>());
+        character.DidNotReceive().RegisterEventHandler(Arg.Any<EventHappened<SummoningAllowEvent>>());
+        character.DidNotReceive().RegisterEventHandler(Arg.Any<EventHappened<CreatureDiedEvent>>());
+        character.DidNotReceive().RegisterEventHandler(Arg.Any<EventHappened<FamiliarDismissEvent>>());
+        character.DidNotReceive().RegisterEventHandler(Arg.Any<EventHappened<CreatureSetCombatTargetEvent>>());
 
         script.OnRegistered();
 

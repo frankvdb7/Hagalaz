@@ -365,7 +365,7 @@ public sealed class ClientConnectionHandlerTests
         character.Index.Returns(1);
         character.Location.Returns(Location.Create(3200, 3200));
         character.GameClient.Returns(gameClient);
-        target.Features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
+        target.Features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
         target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
         target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
         {
@@ -489,7 +489,7 @@ public sealed class ClientConnectionHandlerTests
             Assert.IsNotNull(authenticationRequest);
             Assert.AreEqual("203.0.113.7", authenticationRequest!.RemoteAddress!.ToString());
             Assert.AreEqual("physical-reconnect", authenticationRequest.ConnectionId);
-            Assert.AreSame(session, target.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session);
+            Assert.AreSame(session, target.Features.Get<Features.ISessionFeature>()!.Session);
             Assert.AreSame(character, target.Features.Get<ICharacterFeature>()!.Character);
             Assert.AreSame(freshProtocol, target.Protocol);
             Assert.IsInstanceOfType(gameMessage, typeof(TestGameMessage));

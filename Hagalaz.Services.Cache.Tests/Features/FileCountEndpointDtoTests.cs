@@ -1,12 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.FileCounts;
 using Hagalaz.Services.Cache.Features.FileCounts.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -18,7 +17,7 @@ public class FileCountEndpointDtoTests
     {
         var store = new MemoryFileStore();
         store.Set(7, 3, []);
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var entry = new ReferenceTableEntry(3);
         entry.InitializeEntries(2);
         entry.AddEntry(1, new ReferenceTableChildEntry(0));

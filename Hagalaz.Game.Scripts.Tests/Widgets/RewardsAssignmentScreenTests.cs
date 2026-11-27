@@ -19,7 +19,7 @@ public sealed class RewardsAssignmentScreenTests
         slayer.CurrentTaskId.Returns(1);
         slayer.TrySkipAssignment(30).Returns(true);
         var profile = Substitute.For<IProfile>();
-        profile.GetValue<int>(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()).Returns(100);
+        profile.GetValue(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()).Returns(100);
         var character = Substitute.For<ICharacter>();
         character.Slayer.Returns(slayer);
         character.Profile.Returns(profile);

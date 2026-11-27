@@ -75,14 +75,14 @@ public sealed class NpcChildScopeTests
             .AddSingleton(mapRegionService)
             .AddSingleton(Substitute.For<IAreaService>())
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
-            .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
+            .AddSingleton(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())
             .AddSingleton(Substitute.For<IEntityService>())
             .AddSingleton(Substitute.For<ILootService>())
             .AddSingleton(Substitute.For<ILootGenerator>())
             .AddSingleton(Substitute.For<IGroundItemBuilder>())
             .AddSingleton(Substitute.For<INpcScriptProvider>())
-            .AddSingleton<IWidgetScriptActivator>(Substitute.For<IWidgetScriptActivator>())
+            .AddSingleton(Substitute.For<IWidgetScriptActivator>())
             .BuildServiceProvider();
 
         using var scope = services.CreateScope();
@@ -134,14 +134,14 @@ public sealed class NpcChildScopeTests
             .AddSingleton(Substitute.For<ISmartPathFinder>())
             .AddSingleton(Substitute.For<IMapRegionService>())
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
-            .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
+            .AddSingleton(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())
             .AddSingleton(Substitute.For<IEntityService>())
             .AddSingleton(Substitute.For<ILootService>())
             .AddSingleton(Substitute.For<ILootGenerator>())
             .AddSingleton(Substitute.For<IGroundItemBuilder>())
             .AddSingleton(Substitute.For<INpcScriptProvider>())
-            .AddSingleton<IWidgetScriptActivator>(Substitute.For<IWidgetScriptActivator>())
+            .AddSingleton(Substitute.For<IWidgetScriptActivator>())
             .BuildServiceProvider();
 
         using var parentScope = services.CreateScope();

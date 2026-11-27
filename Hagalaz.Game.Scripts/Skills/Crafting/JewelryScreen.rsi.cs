@@ -51,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     if (Owner.Inventory.Items.Contains(ring.ResourceID))
                     {
                         ringId = ring.ProductID;
-                        InterfaceInstance.AttachClickHandler(ring.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(ring, type));
+                        InterfaceInstance.AttachClickHandler(ring.ChildID + 1, (_, type, _, _) => HandleClick(ring, type));
                     }
 
                     InterfaceInstance.DrawItem(ring.ChildID, ringId, 1);
@@ -68,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     if (Owner.Inventory.Items.Contains(necklace.ResourceID))
                     {
                         necklaceId = necklace.ProductID;
-                        InterfaceInstance.AttachClickHandler(necklace.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(necklace, type));
+                        InterfaceInstance.AttachClickHandler(necklace.ChildID + 1, (_, type, _, _) => HandleClick(necklace, type));
                     }
 
                     InterfaceInstance.DrawItem(necklace.ChildID, necklaceId, 1);
@@ -85,7 +85,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     if (Owner.Inventory.Items.Contains(amulet.ResourceID))
                     {
                         amuletId = amulet.ProductID;
-                        InterfaceInstance.AttachClickHandler(amulet.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(amulet, type));
+                        InterfaceInstance.AttachClickHandler(amulet.ChildID + 1, (_, type, _, _) => HandleClick(amulet, type));
                     }
 
                     InterfaceInstance.DrawItem(amulet.ChildID, amuletId, 1);
@@ -102,7 +102,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                     if (Owner.Inventory.Items.Contains(bracelet.ResourceID))
                     {
                         braceletId = bracelet.ProductID;
-                        InterfaceInstance.AttachClickHandler(bracelet.ChildID + 1, (componentID, type, extra1, extra2) => HandleClick(bracelet, type));
+                        InterfaceInstance.AttachClickHandler(bracelet.ChildID + 1, (_, type, _, _) => HandleClick(bracelet, type));
                     }
 
                     InterfaceInstance.DrawItem(bracelet.ChildID, braceletId, 1);

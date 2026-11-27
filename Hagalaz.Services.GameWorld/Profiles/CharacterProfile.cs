@@ -40,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
             CreateMap<AuthenticationProperties, HydratedClaims>()
                 .ForMember(dest => dest.Permissions,
                 opt => opt.MapFrom(
-                    src => src.GetClaimList<string>(OpenIddictConstants.Claims.Role)!
+                    src => src.GetClaimList<string>(OpenIddictConstants.Claims.Role)
                     .Select(PermissionHelpers.ParseRole)
                     .Aggregate((permissions, permission) => permissions | permission)))
                 .ForMember(dest => dest.PreviousDisplayName,

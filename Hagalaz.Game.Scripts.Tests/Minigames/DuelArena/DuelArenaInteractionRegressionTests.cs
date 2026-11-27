@@ -306,7 +306,7 @@ public sealed class DuelArenaInteractionRegressionTests
         equippedItem.EquipmentScript.Returns(new TestEquipmentScript());
         var targetEventManager = new InMemoryEventBus();
         duel.Target.EventManager.Returns(targetEventManager);
-        duel.Target.RegisterEventHandler<UnEquipAllowEvent>(Arg.Any<EventHappened<UnEquipAllowEvent>>())
+        duel.Target.RegisterEventHandler(Arg.Any<EventHappened<UnEquipAllowEvent>>())
             .Returns(call => targetEventManager.Listen(call.ArgAt<EventHappened<UnEquipAllowEvent>>(0)));
         duel.Target.UnregisterEventHandler<UnEquipAllowEvent>(Arg.Any<EventHappened>())
             .Returns(call => targetEventManager.StopListen<UnEquipAllowEvent>(call.ArgAt<EventHappened>(0)));
@@ -780,9 +780,9 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(targetInventoryCount, duel.TargetInventory.Items.GetCountById(duel.TargetItem.Id));
         Assert.AreEqual(8, duel.SentItems.Count);
         Assert.AreEqual(8, duel.StakeValueUpdates.Count);
-        AssertFullStakeRefresh(duel, 0);
+        AssertFullStakeRefresh(duel);
         AssertFullStakeRefresh(duel, 4);
-        AssertStakeValueUpdates(duel, 707, 600, 0);
+        AssertStakeValueUpdates(duel, 707, 600);
         AssertStakeValueUpdates(duel, 707, 600, 4);
 
         duel.SessionScript.RefreshDuelConfirmationStatus();
@@ -1231,7 +1231,7 @@ public sealed class DuelArenaInteractionRegressionTests
         character.Movement.Returns(Substitute.For<IMovement>());
         character.Statistics.Returns(Substitute.For<ICharacterStatistics>());
         character.IsBusy().Returns(false);
-        character.QueueTask(Arg.Do<ITaskItem>(captureTask)).Returns(Substitute.For<IRsTaskHandle>());
+        character.QueueTask(Arg.Do(captureTask)).Returns(Substitute.For<IRsTaskHandle>());
         widgets.GetOpenWidget(1367).Returns(screen);
         widgets.GetOpenWidget(1368).Returns(overlay);
         var context = Substitute.For<ICharacterContext>();
@@ -1284,7 +1284,7 @@ public sealed class DuelArenaInteractionRegressionTests
     private static TestDeathCharacterCombat CreateDeathCombat(ICharacter owner, ICreature killer)
     {
         var entityService = Substitute.For<IEntityService>();
-        entityService.TryResolve<ICreature>(Arg.Any<EntityHandle<ICreature>>(), out Arg.Any<ICreature>())
+        entityService.TryResolve(Arg.Any<EntityHandle<ICreature>>(), out Arg.Any<ICreature>())
             .Returns(call =>
             {
                 call[1] = killer;

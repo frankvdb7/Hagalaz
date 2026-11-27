@@ -60,25 +60,25 @@ namespace Hagalaz.Game.Scripts.GameObjects.Altars
         private void Setup()
         {
             AttachDialogueContinueClickHandlers();
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardOptionDialogue(Question, ConfirmOption, "Nevermind.");
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Nevermind.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Nevermind.", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
 
-            AttachDialogueOptionClickHandler(ConfirmOption, (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler(ConfirmOption, (_, _) =>
             {
                 SwitchBook();
                 return true;
             });
 
-            AttachDialogueContinueClickHandler(2, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(2, (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

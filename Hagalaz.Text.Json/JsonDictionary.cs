@@ -15,7 +15,7 @@ public class JsonDictionary : IJsonDictionary
 
     public void SetValue<T>(string key, T value) where T : struct => _data[key] = JsonValue.Create(value)!;
 
-    public void SetValue(string key, string value) => _data[key] = JsonValue.Create(value)!;
+    public void SetValue(string key, string value) => _data[key] = JsonValue.Create(value);
 
     public void SetObject<T>(string key, T value) where T : class
     {

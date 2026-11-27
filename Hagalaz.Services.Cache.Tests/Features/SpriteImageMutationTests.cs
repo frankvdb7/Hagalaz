@@ -1,13 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -111,7 +109,7 @@ public sealed class SpriteImageMutationTests
     {
         var store = new MemoryFileStore();
         var referenceTableCodec = new ReferenceTableCodec();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var archiveEntry = new ReferenceTableEntry(0);
         archiveEntry.InitializeEntries(1);
         archiveEntry.AddEntry(0, new ReferenceTableChildEntry(0));

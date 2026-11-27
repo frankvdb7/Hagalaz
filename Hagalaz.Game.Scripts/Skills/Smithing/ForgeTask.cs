@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
             TickActionMethod = PerformTickImpl;
             _itemService = itemService;
             _itemBuilder = itemBuilder;
-            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             var handle = new EntityHandle<ICreature>(1, 1);
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(false);
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(false);
 
             var callbackCalls = 0;
             var task = new FishingTask(
@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             replacement.Handle.Returns(new EntityHandle<ICreature>(2, 2));
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(staleHandle, out Arg.Any<ICreature>()).Returns(false);
+            entityService.TryResolve(staleHandle, out Arg.Any<ICreature>()).Returns(false);
 
             var callbackCalls = 0;
             var task = new FishingTask(
@@ -111,7 +111,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             ownerAppearance.Visible.Returns(true);
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             clicker.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 if (!isLive)
                 {
@@ -123,7 +123,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
                 return true;
             });
             fishingService.FindSpotByNpcIdClickType(123, NpcClickType.Option1Click).Returns(lookup.Task);
-            clicker.RegisterEventHandler<CreatureInterruptedEvent>(Arg.Any<EventHappened<CreatureInterruptedEvent>>())
+            clicker.RegisterEventHandler(Arg.Any<EventHappened<CreatureInterruptedEvent>>())
                 .Returns(Substitute.For<EventHappened>());
             clicker.QueueTask(Arg.Do<Func<CancellationToken, Task>>(value => operation = value))
                 .Returns(Substitute.For<IRsTaskHandle>());
@@ -262,7 +262,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
 
             fixture.IsLive = true;
             fixture.CurrentCreature = originalSpot;
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 if (!fixture.IsLive)
                 {

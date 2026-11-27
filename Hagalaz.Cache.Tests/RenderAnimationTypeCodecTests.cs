@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic.Codecs;
 using Xunit;

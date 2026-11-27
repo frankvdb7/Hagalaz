@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Hagalaz.Cache.Types;
 
 namespace Hagalaz.Cache.Logic.Codecs;

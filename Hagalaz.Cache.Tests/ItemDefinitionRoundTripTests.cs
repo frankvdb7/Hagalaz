@@ -1,5 +1,3 @@
-using System.IO;
-using System.Linq;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;

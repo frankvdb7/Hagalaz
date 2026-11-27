@@ -306,7 +306,7 @@ public sealed class PriceCheckerTransferTests
         harness.Character.Received(1).UnregisterEventHandler<InventoryChangedEvent>(harness.InventoryChangeHandle!);
         harness.Widgets.Received(1).CloseWidget(harness.InventoryOverlay);
         Assert.IsNotNull(pendingInput);
-        harness.Configurations.Received().SendItems(93, false, harness.Inventory.Items, null);
+        harness.Configurations.Received().SendItems(93, false, harness.Inventory.Items);
 
         harness.Script.OnClose();
         Assert.IsFalse(harness.InventoryChangedHandler!(new InventoryChangedEvent(harness.Character)));
@@ -344,7 +344,7 @@ public sealed class PriceCheckerTransferTests
         var count = 0;
         for (var slot = 0; slot < container.Capacity; slot++)
         {
-            if (container[slot] is { } item && item.Equals(matching, true))
+            if (container[slot] is { } item && item.Equals(matching))
             {
                 count += item.Count;
             }
@@ -357,7 +357,7 @@ public sealed class PriceCheckerTransferTests
     {
         for (var slot = 0; slot < container.Capacity; slot++)
         {
-            if (container[slot]?.Equals(matching, true) == true)
+            if (container[slot]?.Equals(matching) == true)
             {
                 return slot;
             }
@@ -405,7 +405,7 @@ public sealed class PriceCheckerTransferTests
 
         EventHappened<InventoryChangedEvent>? inventoryChangedHandler = null;
         EventHappened? inventoryChangeHandle = _ => false;
-        character.RegisterEventHandler<InventoryChangedEvent>(Arg.Any<EventHappened<InventoryChangedEvent>>())
+        character.RegisterEventHandler(Arg.Any<EventHappened<InventoryChangedEvent>>())
             .Returns(call =>
             {
                 inventoryChangedHandler = call.ArgAt<EventHappened<InventoryChangedEvent>>(0);

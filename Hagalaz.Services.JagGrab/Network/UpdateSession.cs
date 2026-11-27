@@ -86,7 +86,7 @@ namespace Hagalaz.Services.JagGrab.Network
             if (resp == null)
             {
                 Disconnect();
-                return;
+
             }
 
             //_client.SendDataAsync(resp.FileData.ToArray()).Wait();

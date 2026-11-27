@@ -1,7 +1,6 @@
 using Hagalaz.Game.Network.Model;
 using Hagalaz.Game.Messages.Model;
 using Hagalaz.Services.Authorization.Model;
-using Xunit;
 
 namespace Hagalaz.Models.Tests
 {

@@ -330,7 +330,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
 
             SelfInterface.AttachClickHandler(42,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -342,7 +342,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(42,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -358,7 +358,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(48,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -370,7 +370,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(48,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -386,7 +386,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(56,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -403,7 +403,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(56,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -421,7 +421,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(71,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -433,7 +433,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(71,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -515,16 +515,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
 
             SelfOverlay.AttachClickHandler(0,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleInventoryStakeClick(true, clickType, itemID, itemSlot));
 
             TargetOverlay.AttachClickHandler(0,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleInventoryStakeClick(false, clickType, itemID, itemSlot));
 
             // money pouch
             SelfInterface.AttachClickHandler(8,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -546,7 +546,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             TargetInterface.AttachClickHandler(8,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -568,11 +568,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(7,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleStakedItemClick(true, clickType, itemID, itemSlot));
 
             TargetInterface.AttachClickHandler(7,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleStakedItemClick(false, clickType, itemID, itemSlot));
         }
 
@@ -586,10 +586,10 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            Character.Configurations.SendItems(134, false, SelfContainer.Items, null);
-            Character.Configurations.SendItems(134, true, TargetContainer.Items, null);
-            Target.Configurations.SendItems(134, false, TargetContainer.Items, null);
-            Target.Configurations.SendItems(134, true, SelfContainer.Items, null);
+            Character.Configurations.SendItems(134, false, SelfContainer.Items);
+            Character.Configurations.SendItems(134, true, TargetContainer.Items);
+            Target.Configurations.SendItems(134, false, TargetContainer.Items);
+            Target.Configurations.SendItems(134, true, SelfContainer.Items);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -808,7 +808,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendGlobalCs2String(377, Character.DisplayName); // name, no combat
 
             SelfInterface.AttachClickHandler(24,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -826,7 +826,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             TargetInterface.AttachClickHandler(24,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {

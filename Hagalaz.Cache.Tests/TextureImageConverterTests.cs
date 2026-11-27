@@ -1,4 +1,3 @@
-using System.IO;
 using Hagalaz.Cache.Logic.Rendering;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
@@ -39,7 +38,7 @@ public class TextureImageConverterTests
         using var hdrBytes = new MemoryStream();
         companion.SaveAsPng(hdrBytes, new PngEncoder {ColorType = PngColorType.Grayscale});
         var result = TextureImageConverter.ToHdr(sourceBytes.ToArray(), hdrBytes.ToArray(), 0);
-        Assert.Equal(new float[] {1.96875f, 1.96875f, 1.96875f, 1}, result.Rgba);
+        Assert.Equal(new[] {1.96875f, 1.96875f, 1.96875f, 1}, result.Rgba);
     }
 
     [Fact]

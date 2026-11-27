@@ -1,7 +1,4 @@
 using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Hagalaz.Services.GameUpdate.Network;
 using Hagalaz.Services.GameUpdate.Network.Messages;
@@ -34,7 +31,7 @@ namespace Hagalaz.Services.GameUpdate.Hubs
                 IndexId = fileRequest.IndexId,
                 FileId = fileRequest.FileId,
                 HighPriority = fileRequest.HighPriority,
-                EncryptionFlag = session!.EncryptionFlag
+                EncryptionFlag = session.EncryptionFlag
             };
         }
 
@@ -58,7 +55,7 @@ namespace Hagalaz.Services.GameUpdate.Hubs
             {
                 throw new ArgumentNullException(nameof(session));
             }
-            return session!;
+            return session;
         }
     }
 }

@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var command = new GenericGameCommand
             {
                 Name = "test",
-                Permission = Hagalaz.Game.Abstractions.Authorization.Permission.Standard,
+                Permission = Abstractions.Authorization.Permission.Standard,
                 CommandFunc = commandFuncMock
             };
             var args = new GameCommandArgs(characterMock, []);

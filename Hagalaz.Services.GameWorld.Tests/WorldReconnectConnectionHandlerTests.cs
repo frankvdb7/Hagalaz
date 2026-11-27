@@ -75,7 +75,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             .AddScoped<IClientProtocolResolver>(_ => resolver)
             .BuildServiceProvider();
         await using var fixture = CreateReconnectFixture(provider, protocol, out _);
-        var oldSession = (IGameWorldSession)fixture.Target.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session;
+        var oldSession = (IGameWorldSession)fixture.Target.Features.Get<Features.ISessionFeature>()!.Session;
         var replacementSession = Substitute.For<IGameWorldSession>();
         replacementSession.ConnectionId.Returns("replacement-session");
         replacementSession.MasterId.Returns(42u);
@@ -483,7 +483,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             .BuildServiceProvider();
         var fixture = CreateReconnectFixture(provider, clientProtocol, out var gate, detach: false);
         var oldProtocol = fixture.Target.Protocol;
-        var oldGameClient = fixture.Target.Features.Get<ICharacterFeature>()!.Character!.GameClient;
+        var oldGameClient = fixture.Target.Features.Get<ICharacterFeature>()!.Character.GameClient;
         var reconnect = CreateReconnectRequest();
         await using var dispatcherProvider = CreateApplicationProvider(
             (connection, dispatch, cancellationToken) => fixture.Handler.HandleAsync(
@@ -504,7 +504,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, gate.FlushedBytes![0]);
         clientProtocol.DidNotReceive().SetEncryptionSeed(Arg.Any<uint[]>());
         Assert.AreSame(oldProtocol, fixture.Target.Protocol);
-        Assert.AreSame(oldGameClient, fixture.Target.Features.Get<ICharacterFeature>()!.Character!.GameClient);
+        Assert.AreSame(oldGameClient, fixture.Target.Features.Get<ICharacterFeature>()!.Character.GameClient);
         Assert.IsFalse(fixture.Target.IsTerminal);
         Assert.IsTrue(fixture.Tcp.TryGetCurrentConnection(out var current));
         Assert.AreNotSame(fixture.Replacement, current);
@@ -571,7 +571,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         character.Index.Returns(1);
         character.Location.Returns(Location.Create(3200, 3200));
         character.GameClient.Returns(gameClient);
-        target.Features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
+        target.Features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
         target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
         target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
         {
@@ -638,7 +638,7 @@ public sealed class WorldReconnectConnectionHandlerTests
                 connection,
                 dispatch,
                 CreateHandshakeProtocol(),
-                CreateReconnectRequest(1, DisplayMode.FixedScreen, Language.English, 800, 600),
+                CreateReconnectRequest(1, DisplayMode.FixedScreen),
                 cancellationToken));
         await using var dispatcherProviderB = CreateApplicationProvider(
             (connection, dispatch, cancellationToken) => handler.HandleAsync(
@@ -692,7 +692,7 @@ public sealed class WorldReconnectConnectionHandlerTests
             Assert.AreEqual(4611, gateA.FlushedBytes!.Length);
             Assert.AreEqual((byte)ClientSignInResponseOpcode.BadSession, gateB.FlushedBytes![0]);
             Assert.AreSame(protocolA, target.Protocol);
-            Assert.AreSame(session, target.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session);
+            Assert.AreSame(session, target.Features.Get<Features.ISessionFeature>()!.Session);
             Assert.AreSame(character, target.Features.Get<ICharacterFeature>()!.Character);
             Assert.AreEqual(DisplayMode.FixedScreen, gameClient.DisplayMode);
             Assert.AreEqual(Language.English, gameClient.Language);
@@ -851,7 +851,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         ClientRevision = 742,
         Login = "login",
         Password = "password",
-        IsaacSeed = new uint[] { seed, seed + 1, seed + 2, seed + 3 },
+        IsaacSeed = new [] { seed, seed + 1, seed + 2, seed + 3 },
         DisplayMode = displayMode,
         Language = language,
         ClientSizeX = clientSizeX,
@@ -907,7 +907,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         character.Index.Returns(1);
         character.Location.Returns(Location.Create(3200, 3200));
         character.GameClient.Returns(gameClient);
-        target.Features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
+        target.Features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
         target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
         target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
         {

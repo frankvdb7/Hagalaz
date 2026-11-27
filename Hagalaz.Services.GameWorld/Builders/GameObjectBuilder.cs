@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class GameObjectBuilder : IGameObjectBuilder, IGameObjectId, IGameObjectLocation, IGameObjectOptional, IGameObjectBuild
+    public class GameObjectBuilder : IGameObjectBuilder, IGameObjectId, IGameObjectLocation, IGameObjectOptional
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IGameObjectScriptProvider _gameObjectScriptProvider;

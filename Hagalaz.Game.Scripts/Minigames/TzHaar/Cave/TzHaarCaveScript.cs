@@ -106,7 +106,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
         {
             var dialog = Character.ServiceProvider.GetRequiredService<StartDialogue>();
             Character.Widgets.OpenDialogue(dialog, false);
-            var allowWalkingEvent = Character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
+            var allowWalkingEvent = Character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(_ =>
             {
                 return true; // Dissallow walking
             }));

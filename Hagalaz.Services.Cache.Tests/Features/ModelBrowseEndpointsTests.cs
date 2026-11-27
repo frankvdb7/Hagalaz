@@ -1,12 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -16,7 +15,7 @@ public sealed class ModelBrowseEndpointsTests
     private static MemoryFileStore Store()
     {
         var store = new MemoryFileStore();
-        var table = new ReferenceTable(7, 0, (ReferenceTableFlags)0, 3);
+        var table = new ReferenceTable(7, 0, 0, 3);
         foreach (var id in new[] { 0, 2, 666 })
         {
             var entry = new ReferenceTableEntry(id);

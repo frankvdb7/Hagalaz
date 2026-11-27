@@ -1,9 +1,6 @@
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
 using System.Security.Claims;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Hagalaz.Data;
 using Hagalaz.Data.Extensions;
 using Hagalaz.Services.Authorization.Services;
@@ -11,7 +8,6 @@ using Hagalaz.Services.Characters.Services;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -142,7 +138,7 @@ namespace Hagalaz.Services.Authorization.Tests
                     ["services:hagalaz-services-authorization:https:0"] = "https://localhost:1"
                 })
                 .Build();
-            var exception = Assert.Throws<System.InvalidOperationException>(() =>
+            var exception = Assert.Throws<InvalidOperationException>(() =>
             {
                 using var provider = new ServiceCollection()
                     .AddCharactersTokenValidation(configuration)
@@ -152,7 +148,7 @@ namespace Hagalaz.Services.Authorization.Tests
             StringAssert.Contains(exception.Message, "Security:Introspection:ClientSecret");
         }
 
-        private sealed class CharactersValidationHost : System.IAsyncDisposable
+        private sealed class CharactersValidationHost : IAsyncDisposable
         {
             private readonly WebApplication _app;
             private readonly HttpClient _client;
@@ -160,7 +156,7 @@ namespace Hagalaz.Services.Authorization.Tests
             private CharactersValidationHost(WebApplication app)
             {
                 _app = app;
-                _client = new HttpClient { BaseAddress = new System.Uri(app.Urls.First()) };
+                _client = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
             }
 
             public static async Task<CharactersValidationHost> StartAsync(string authorizationUrl, string clientSecret)
@@ -204,7 +200,7 @@ namespace Hagalaz.Services.Authorization.Tests
             }
         }
 
-        private sealed class JsonResponse : System.IDisposable
+        private sealed class JsonResponse : IDisposable
         {
             private readonly JsonDocument _document;
 
@@ -219,7 +215,7 @@ namespace Hagalaz.Services.Authorization.Tests
             public void Dispose() => _document.Dispose();
         }
 
-        private sealed class TestAuthorizationHost : System.IAsyncDisposable
+        private sealed class TestAuthorizationHost : IAsyncDisposable
         {
             private const string IssuerClientId = "test-token-issuer";
             private const string IssuerClientSecret = "test-token-issuer-secret";
@@ -232,14 +228,14 @@ namespace Hagalaz.Services.Authorization.Tests
             private TestAuthorizationHost(WebApplication app)
             {
                 _app = app;
-                _client = new HttpClient { BaseAddress = new System.Uri(app.Urls.First()) };
+                _client = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
             }
 
             public static async Task<TestAuthorizationHost> StartAsync(string cacheSecret, string charactersSecret)
             {
                 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Development });
                 builder.WebHost.UseUrls("http://127.0.0.1:0");
-                var databaseName = System.Guid.NewGuid().ToString();
+                var databaseName = Guid.NewGuid().ToString();
                 builder.Services.AddDbContext<HagalazDbContext>(options =>
                 {
                     options.UseInMemoryDatabase(databaseName);

@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            eventManagerMock.Received(1).SendEvent(Arg.Is<Hagalaz.Game.Common.Events.Character.OpenShopEvent>(e => e.ShopId == 123));
+            eventManagerMock.Received(1).SendEvent(Arg.Is<Common.Events.Character.OpenShopEvent>(e => e.ShopId == 123));
         }
     }
 }

@@ -1,6 +1,5 @@
 using Hagalaz.Data;
 using Microsoft.EntityFrameworkCore;
-using MySql.EntityFrameworkCore.Extensions;
 using Testcontainers.MySql;
 
 namespace Hagalaz.Database.Migrations.Tests;

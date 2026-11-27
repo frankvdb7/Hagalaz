@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Net;
 using System.Security.Claims;
 using AutoMapper;
@@ -15,7 +14,6 @@ using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Hagalaz.Services.GameWorld.Store;
 using MassTransit;
-using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
@@ -272,7 +270,7 @@ public sealed class FusionCacheGameSessionClaimIntegrationTests
             })
             .Build();
         var services = new ServiceCollection();
-        new Hagalaz.Services.GameWorld.Startup(configuration).ConfigureServices(services);
+        new Startup(configuration).ConfigureServices(services);
         new Hagalaz.Game.Scripts.Startup().Configure(services);
         if (harness != null)
         {

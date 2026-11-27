@@ -66,7 +66,7 @@ public sealed class MapRenderDecoderTests
         var terrain = MapRenderDecoder.DecodeTerrain(input, 12850);
         var (atmosphere, lights) = MapRenderDecoder.DecodeTerrainTrailer(input);
         Assert.NotNull(atmosphere);
-        Assert.Equal(new Hagalaz.Cache.Types.MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600, null), atmosphere with { EnvironmentFaces = null });
+        Assert.Equal(new MapAtmosphere(0xddcebb, 334 / 256f, 2f, 92 / 256f, -4, -16, 1, 0x8da4c2, 600, null), atmosphere with { EnvironmentFaces = null });
         Assert.Equal([682, 683, 684, 685, 686, 687], atmosphere.EnvironmentFaces);
         Assert.NotNull(lights);
         Assert.Equal(55, lights.Count);
@@ -177,7 +177,7 @@ public sealed class MapRenderDecoderTests
         stream.WriteHugeSmart(0);
         stream.Position = 0;
         var objects = MapRenderDecoder.DecodeLandscape(stream);
-        Assert.Equal(new Hagalaz.Cache.Types.MapRenderPlacement(41, 10, 3, 3, 4, 1), Assert.Single(objects));
+        Assert.Equal(new MapRenderPlacement(41, 10, 3, 3, 4, 1), Assert.Single(objects));
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class MapRenderDecoderTests
         Assert.Equal(0x654321, result.SecondaryRgb);
         Assert.Equal(-1, result.TextureId);
         Assert.Equal(256, result.TextureScale);
-        Assert.Equal(new Hagalaz.Cache.Types.OverlayRenderProperties(1, true, 0, 32, 2, 3, 4, 5), result.OverlayProperties);
+        Assert.Equal(new OverlayRenderProperties(1, true, 0, 32, 2, 3, 4, 5), result.OverlayProperties);
         using var underlay = new MemoryStream([1, 0, 255, 0, 2, 0, 7, 3, 0, 32, 4, 5, 0]);
         var ground = MapRenderDecoder.DecodeFloor(underlay, 8, false);
         Assert.Equal(0x00ff00, ground.Rgb);
@@ -197,7 +197,7 @@ public sealed class MapRenderDecoderTests
         Assert.Equal(128, ground.TextureScale);
         Assert.Null(ground.OverlayProperties);
         using var plain = new MemoryStream([1, 0, 0, 1, 0]);
-        Assert.Equal(new Hagalaz.Cache.Types.OverlayRenderProperties(8, false, 0x122b3d, 512, 255, 63, 0, 64), MapRenderDecoder.DecodeFloor(plain, 1, true).OverlayProperties);
+        Assert.Equal(new OverlayRenderProperties(8, false, 0x122b3d, 512, 255, 63, 0, 64), MapRenderDecoder.DecodeFloor(plain, 1, true).OverlayProperties);
     }
 
     [Fact]

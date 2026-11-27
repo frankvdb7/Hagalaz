@@ -491,7 +491,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
                 Arg.Any<TimeSpan>(),
                 Arg.Any<ILogger>(),
                 Arg.Any<CancellationToken>())
-            .Returns(new ValueTask<object?>(Task.FromResult<object?>(lockAcquired ? new object() : null)));
+            .Returns(new ValueTask<object?>(Task.FromResult(lockAcquired ? new object() : null)));
         locker.ReleaseLockAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),

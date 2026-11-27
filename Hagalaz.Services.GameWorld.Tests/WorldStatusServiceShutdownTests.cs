@@ -76,11 +76,11 @@ public sealed class WorldStatusServiceShutdownTests
                 collection.AddLogging();
                 collection.AddSingleton(bus);
                 collection.AddSingleton(mediator);
-                collection.AddSingleton<IMapper>(Substitute.For<IMapper>());
+                collection.AddSingleton(Substitute.For<IMapper>());
                 collection.AddSingleton(identity);
                 collection.AddSingleton(lifecycle);
                 collection.AddSingleton<WorldRegistrationStore>();
-                collection.AddSingleton<IOptions<WorldOptions>>(Options.Create(new WorldOptions
+                collection.AddSingleton(Options.Create(new WorldOptions
                 {
                     Id = onlineMessage.Id,
                     Name = onlineMessage.Name,
@@ -153,11 +153,11 @@ public sealed class WorldStatusServiceShutdownTests
                 collection.AddLogging();
                 collection.AddSingleton(bus);
                 collection.AddSingleton(mediator);
-                collection.AddSingleton<IMapper>(Substitute.For<IMapper>());
+                collection.AddSingleton(Substitute.For<IMapper>());
                 collection.AddSingleton(identity);
                 collection.AddSingleton(lifecycle);
                 collection.AddSingleton<WorldRegistrationStore>();
-                collection.AddSingleton<IOptions<WorldOptions>>(Options.Create(new WorldOptions
+                collection.AddSingleton(Options.Create(new WorldOptions
                 {
                     Id = onlineMessage.Id,
                     Name = onlineMessage.Name,
@@ -176,7 +176,7 @@ public sealed class WorldStatusServiceShutdownTests
         await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
 
         await host.StopAsync();
-        await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!, default);
+        await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!);
     }
 
     private static WorldOnlineMessage CreateOnlineMessage(WorldInstanceIdentity identity) => new()

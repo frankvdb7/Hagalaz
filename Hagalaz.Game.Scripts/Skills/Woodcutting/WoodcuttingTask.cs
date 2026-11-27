@@ -36,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             _finishCallback = finishCallback;
             _entityService = performer.ServiceProvider.GetRequiredService<IEntityService>();
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

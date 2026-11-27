@@ -63,7 +63,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
             Owner.Statistics.Bonuses.Reset();
             Owner.Statistics.Bonuses.Add(Definition.Bonuses);
 
-            _equipAllowEvent = Owner.RegisterEventHandler(new EventHappened<EquipAllowEvent>(e => true));
+            _equipAllowEvent = Owner.RegisterEventHandler(new EventHappened<EquipAllowEvent>(_ => true));
 
             _initialized = true;
         }

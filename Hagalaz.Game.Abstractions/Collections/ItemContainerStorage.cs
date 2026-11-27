@@ -328,7 +328,7 @@ namespace Hagalaz.Game.Abstractions.Collections
             long available = 0;
             foreach (var sourceItem in Items)
             {
-                if (sourceItem != null && sourceItem.Count > 0 && sourceItem.Equals(item, true))
+                if (sourceItem != null && sourceItem.Count > 0 && sourceItem.Equals(item))
                 {
                     available += sourceItem.Count;
                 }
@@ -341,14 +341,14 @@ namespace Hagalaz.Game.Abstractions.Collections
 
             var remaining = count;
             if ((uint)preferredSourceSlot < (uint)Items.Length &&
-                Items[preferredSourceSlot] is { Count: > 0 } preferredItem && preferredItem.Equals(item, true))
+                Items[preferredSourceSlot] is { Count: > 0 } preferredItem && preferredItem.Equals(item))
             {
                 AddRemoval(preferredSourceSlot, preferredItem);
             }
 
             for (var slot = 0; remaining > 0 && slot < Items.Length; slot++)
             {
-                if (slot == preferredSourceSlot || Items[slot] is not { Count: > 0 } sourceItem || !sourceItem.Equals(item, true))
+                if (slot == preferredSourceSlot || Items[slot] is not { Count: > 0 } sourceItem || !sourceItem.Equals(item))
                 {
                     continue;
                 }
@@ -792,7 +792,7 @@ namespace Hagalaz.Game.Abstractions.Collections
 
                 end:
                 {
-                    continue;
+
                 }
             }
 
@@ -984,7 +984,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         public int GetCount(IItem item)
         {
             var count = Items.OfType<IItem>()
-                .Where(tItem => tItem.Equals(item, true))
+                .Where(tItem => tItem.Equals(item))
                 .Sum(tItem => (long)tItem.Count);
 
             return (int)Math.Min(count, int.MaxValue);
@@ -1158,7 +1158,7 @@ namespace Hagalaz.Game.Abstractions.Collections
         /// A version-aware enumerator for the item container to prevent modification during enumeration.
         /// </summary>
         [Serializable]
-        private struct ItemContainerEnumerator : IEnumerator<IItem?>, IEnumerator
+        private struct ItemContainerEnumerator : IEnumerator<IItem?>
         {
             private readonly ItemContainerStorage _container;
 

@@ -500,30 +500,30 @@ namespace Hagalaz.Game.Scripts.Characters
                 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x80 | 0x400); // allow clicking of 7 right click options + auto examine option ( last )
 
             SelfOverlay.AttachClickHandler(0,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleInventoryOfferClick(true, clickType, itemID, itemSlot));
 
             TargetOverlay.AttachClickHandler(0,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleInventoryOfferClick(false, clickType, itemID, itemSlot));
 
             SelfInterface.AttachClickHandler(32,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleOfferedItemClick(true, clickType, itemID, itemSlot));
             TargetInterface.AttachClickHandler(32,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleOfferedItemClick(false, clickType, itemID, itemSlot));
 
             SelfInterface.AttachClickHandler(35,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleOtherOfferClick(true, clickType, itemID, itemSlot));
 
             TargetInterface.AttachClickHandler(35,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleOtherOfferClick(false, clickType, itemID, itemSlot));
 
             SelfInterface.AttachClickHandler(53,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -537,7 +537,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 });
 
             TargetInterface.AttachClickHandler(53,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -551,7 +551,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 });
 
             SelfInterface.AttachClickHandler(18,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -562,7 +562,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
             TargetInterface.AttachClickHandler(18,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -573,7 +573,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
             SelfInterface.AttachClickHandler(20,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -585,7 +585,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
             TargetInterface.AttachClickHandler(20,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -1219,7 +1219,7 @@ namespace Hagalaz.Game.Scripts.Characters
             RefreshTradeConfirmationStatusLocked(session);
 
             SelfInterface.AttachClickHandler(21,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -1231,7 +1231,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 });
 
             TargetInterface.AttachClickHandler(21,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -1243,7 +1243,7 @@ namespace Hagalaz.Game.Scripts.Characters
                 });
 
             SelfInterface.AttachClickHandler(22,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -1255,7 +1255,7 @@ namespace Hagalaz.Game.Scripts.Characters
                     return true;
                 });
             TargetInterface.AttachClickHandler(22,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {

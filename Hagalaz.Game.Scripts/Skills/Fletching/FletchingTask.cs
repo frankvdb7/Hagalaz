@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
             TotalFletchCount = totalFletchCount;
 
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

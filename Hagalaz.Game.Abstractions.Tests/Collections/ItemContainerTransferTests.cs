@@ -1,11 +1,6 @@
-using System;
-using System.Threading;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Abstractions.Tests.Collections;
@@ -270,7 +265,7 @@ public sealed class ItemContainerTransferTests
         using (ItemContainerTransaction.Begin(source, destination))
         {
             Assert.IsTrue(source.TryTransferTo(destination, item, 3, 0));
-            source.Clear(true);
+            source.Clear();
             Assert.AreEqual(7, existing.Count);
         }
         Assert.AreSame(item, source[0]);
@@ -1627,8 +1622,8 @@ public sealed class ItemContainerTransferTests
     {
         var owner = new TestCompletionOwner(name, timeline ?? []);
         var storage = items == null
-            ? new ItemContainerStorage(StorageType.Normal, capacity, -1)
-            : new ItemContainerStorage(StorageType.Normal, items, capacity, -1);
+            ? new ItemContainerStorage(StorageType.Normal, capacity)
+            : new ItemContainerStorage(StorageType.Normal, items, capacity);
         var synchronization = new ItemContainerSynchronization(storage, owner);
         var container = new ItemContainer(synchronization);
         owner.Container = container;

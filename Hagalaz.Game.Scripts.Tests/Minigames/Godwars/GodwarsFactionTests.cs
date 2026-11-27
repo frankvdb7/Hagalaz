@@ -178,7 +178,7 @@ public sealed class GodwarsFactionTests
         public ICreature Npc(NpcScriptBase script, int attackers, int handle = -1)
         {
             var npc = Substitute.For<INpc>();
-            npc.Script.Returns((INpcScript)script);
+            npc.Script.Returns(script);
             return Make(npc, attackers, handle);
         }
 

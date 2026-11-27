@@ -1,6 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Hagalaz.Collections;
-using System.Linq;
 
 namespace Hagalaz.Collections.Tests
 {
@@ -37,13 +34,13 @@ namespace Hagalaz.Collections.Tests
         public void TestMultiThreaded()
         {
             var list = new SynchronizedList<int>();
-            var tasks = new System.Threading.Tasks.Task[100];
+            var tasks = new Task[100];
             for (int i = 0; i < 100; i++)
             {
                 int local = i;
-                tasks[i] = System.Threading.Tasks.Task.Run(() => list.Add(local));
+                tasks[i] = Task.Run(() => list.Add(local));
             }
-            System.Threading.Tasks.Task.WaitAll(tasks);
+            Task.WaitAll(tasks);
             Assert.AreEqual(100, list.Count);
         }
     }

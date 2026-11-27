@@ -6,7 +6,7 @@ using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class RegionUpdateBuilder : IRegionUpdateBuilder, IRegionUpdateOptional, IRegionUpdateBuild, IRegionUpdateLocation
+    public class RegionUpdateBuilder : IRegionUpdateBuilder, IRegionUpdateOptional, IRegionUpdateLocation
     {
         private readonly IMapRegionService _mapRegionService;
         private IGraphic? _graphic;

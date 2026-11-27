@@ -41,7 +41,7 @@ public sealed class WorldSessionAdmissionServiceTests
         Assert.IsTrue(result.Succeeded);
         await fixture.GameSessionService.Received(1).CommitWorldSession(fixture.Session, Arg.Any<CancellationToken>());
         Assert.AreSame(fixture.Character, fixture.Context.Features.Get<ICharacterFeature>()!.Character);
-        Assert.AreSame(fixture.Session, fixture.Context.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session);
+        Assert.AreSame(fixture.Session, fixture.Context.Features.Get<Features.ISessionFeature>()!.Session);
         var contacts = Assert.IsInstanceOfType<ContactsFeature>(fixture.Context.Features.Get<IContactsFeature>());
         Assert.AreSame(friends, contacts.Friends);
         Assert.AreSame(ignores, contacts.Ignores);
@@ -105,7 +105,7 @@ public sealed class WorldSessionAdmissionServiceTests
     public async Task AdmitAsync_WhenCharacterIsNotFound_ReturnsFailureAndRollsBackSession()
     {
         var fixture = CreateFixture(commitResult: true);
-        var notFoundResponse = CreateSecondResponse<CharacterHydrated, CharacterNotFound>(new CharacterNotFound(System.Guid.NewGuid(), 42));
+        var notFoundResponse = CreateSecondResponse<CharacterHydrated, CharacterNotFound>(new CharacterNotFound(Guid.NewGuid(), 42));
         fixture.HydrateClient.GetResponse<CharacterHydrated, CharacterNotFound>(
                 Arg.Any<HydrateCharacter>(), Arg.Any<CancellationToken>(), Arg.Any<RequestTimeout>())
             .Returns(Task.FromResult(notFoundResponse));
@@ -379,7 +379,7 @@ public sealed class WorldSessionAdmissionServiceTests
         var response = CreateResponse<CharacterHydrated, CharacterNotFound>(new CharacterHydrated
         {
             MasterId = 42,
-            CorrelationId = System.Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
             Appearance = null!,
             Details = null!,
             Statistics = null!,

@@ -1,18 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Hagalaz.ServiceDefaults;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Authorization.Tests
 {
@@ -58,7 +51,7 @@ namespace Hagalaz.Services.Authorization.Tests
                 using var handler = new HttpClientHandler { AllowAutoRedirect = false };
                 using var client = new HttpClient(handler)
                 {
-                    BaseAddress = new System.Uri(app.Urls.Single())
+                    BaseAddress = new Uri(app.Urls.Single())
                 };
                 client.DefaultRequestHeaders.TryAddWithoutValidation("X-Forwarded-Proto", "https");
 

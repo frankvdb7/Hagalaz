@@ -1,5 +1,3 @@
-using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Raido.Common.Protocol;
 
 namespace Raido.Common.Tests.Protocol

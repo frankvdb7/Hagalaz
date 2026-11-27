@@ -172,7 +172,7 @@ namespace Hagalaz.Services.GameWorld
 
             services.AddScoped<IGameSessionService, GameSessionService>();
             services.AddScoped<IGameConnectionService, GameConnectionService>();
-            services.AddSingleton(System.TimeProvider.System);
+            services.AddSingleton(TimeProvider.System);
             services.AddSingleton<GameSessionStore>();
             services.AddSingleton<IGameSessionStore>(serviceProvider => serviceProvider.GetRequiredService<GameSessionStore>());
             // Both capabilities intentionally resolve to this one singleton; the interfaces are capability boundaries.

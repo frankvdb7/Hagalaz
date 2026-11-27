@@ -8,14 +8,12 @@ using System.Net;
 using System.Text.Json;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
@@ -212,7 +210,7 @@ public sealed class TextureMaterialEndpointsTests
     {
         var store = CreateStore();
         AddImage(store, 9, 1, new Rgba32(100, 110, 120));
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var archive = new ReferenceTableEntry(0);
         archive.InitializeEntries(1); archive.AddEntry(0, new ReferenceTableChildEntry(0)); table.AddEntry(0, archive);
         using var encoded = new ReferenceTableCodec().Encode(table);
@@ -338,7 +336,7 @@ public sealed class TextureMaterialEndpointsTests
         var result = await client.GetFromJsonAsync<GetTextureHdrDto>("/api/v1/cache/textures/0/hdr");
         Assert.IsNotNull(result);
         Assert.AreEqual(1, result.Width); Assert.AreEqual(1, result.Height);
-        CollectionAssert.AreEqual(new float[] {16.5f, 128/255f*16.5f, 0, 1}, result.Rgba);
+        CollectionAssert.AreEqual(new[] {16.5f, 128/255f*16.5f, 0, 1}, result.Rgba);
         using var png = await client.GetAsync("/api/v1/cache/textures/0/image");
         Assert.AreEqual(HttpStatusCode.OK, png.StatusCode);
         Assert.AreEqual("image/png", png.Content.Headers.ContentType!.MediaType);
@@ -382,7 +380,7 @@ public sealed class TextureMaterialEndpointsTests
         data[3 + 14] = 1; data[3 + 16] = 1;
         data[^1] = alphaMode;
         System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(data.AsSpan(21, 4), 0x12345678);
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var archive = new ReferenceTableEntry(0);
         archive.InitializeEntries(1); archive.AddEntry(0, new ReferenceTableChildEntry(0)); table.AddEntry(0, archive);
         using var encoded = new ReferenceTableCodec().Encode(table);

@@ -426,7 +426,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             Target = target.Handle
                         });
 
-                        handle.RegisterResultHandler(result =>
+                        handle.RegisterResultHandler(_ =>
                         {
                             if (RandomStatic.Generator.Next(0, 15) == 10)
                             {

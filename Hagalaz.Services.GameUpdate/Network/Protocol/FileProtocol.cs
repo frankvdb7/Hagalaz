@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using Raido.Common.Buffers;
 using Raido.Common.Messages;
 using Raido.Common.Protocol;
-using Raido.Server.Extensions;
 
 namespace Hagalaz.Services.GameUpdate.Network.Protocol
 {

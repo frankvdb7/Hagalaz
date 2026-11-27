@@ -29,7 +29,7 @@ public sealed class JewelryMutationTests
         if (equipped)
         {
             equipmentItems[2].Returns(jewelry);
-            equipmentItems.GetEnumerator().Returns(_ => new IItem?[] { null, null, jewelry }.AsEnumerable().GetEnumerator());
+            equipmentItems.GetEnumerator().Returns(_ => new[] { null, null, jewelry }.AsEnumerable().GetEnumerator());
         }
         else
         {

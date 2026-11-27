@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Contacts.Messages;
 using Hagalaz.Contacts.Messages.Model;
 using Hagalaz.Services.Contacts.Services;
-using Hagalaz.Services.Contacts.Store;
 using MassTransit;
 
 namespace Hagalaz.Services.Contacts.Consumers

@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
 
             animationBuilderMock.Create().Returns(animationIdMock);
             animationIdMock.WithId(123).Returns(animationOptionalMock);
-            ((IAnimationBuild)animationOptionalMock).Build().Returns(animationMock);
+            (animationOptionalMock).Build().Returns(animationMock);
 
             var gameObjectMock = Substitute.For<IGameObject>();
             gameObjectMock.Id.Returns(456);

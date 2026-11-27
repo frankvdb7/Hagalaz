@@ -32,7 +32,7 @@ public sealed class DialogueNpcTests
     [DataRow("mandrith", typeof(MandrithDialogue), true)]
     [DataRow("oziach", typeof(OziachDialogue), false)]
     [DataRow("sage", typeof(SageDialogue), true)]
-    public void Option1Click_OpensItsDialogueWithItsInterruptSetting(string npc, System.Type dialogueType, bool interrupt)
+    public void Option1Click_OpensItsDialogueWithItsInterruptSetting(string npc, Type dialogueType, bool interrupt)
     {
         var world = new World(dialogueType);
 
@@ -48,13 +48,13 @@ public sealed class DialogueNpcTests
     [DataRow("mandrith", typeof(MandrithDialogue))]
     [DataRow("oziach", typeof(OziachDialogue))]
     [DataRow("sage", typeof(SageDialogue))]
-    public void OtherClicks_DoNotOpenTheDialogue(string npc, System.Type dialogueType)
+    public void OtherClicks_DoNotOpenTheDialogue(string npc, Type dialogueType)
     {
         var world = new World(dialogueType);
 
         world.Create(npc).OnCharacterClickPerform(world.Clicker, NpcClickType.Option2Click);
 
-        world.Clicker.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default, default!);
+        world.Clicker.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default);
     }
 
     [TestMethod]
@@ -72,7 +72,7 @@ public sealed class DialogueNpcTests
 
     private sealed class World
     {
-        public World(System.Type dialogueType)
+        public World(Type dialogueType)
         {
             Owner = Substitute.For<INpc>();
             Clicker = Substitute.For<ICharacter>();
@@ -99,7 +99,7 @@ public sealed class DialogueNpcTests
             "mandrith" => new Mandrith(Owner, NpcService, PathFinder, WidgetActivator),
             "oziach" => new Oziach(Owner, NpcService, PathFinder, WidgetActivator),
             "sage" => new Sage(Owner, NpcService, PathFinder, WidgetActivator),
-            _ => throw new System.ArgumentOutOfRangeException(nameof(npc))
+            _ => throw new ArgumentOutOfRangeException(nameof(npc))
         };
     }
 }

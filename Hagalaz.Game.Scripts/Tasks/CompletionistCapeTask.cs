@@ -26,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Tasks
             _actor = actor;
             _id = id;
             _finishCallback = finishCallback;
-            _interruptEvent = _actor.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = _actor.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 _finishCallback?.Invoke();
                 Cancel();

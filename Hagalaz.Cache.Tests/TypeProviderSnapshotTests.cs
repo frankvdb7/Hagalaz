@@ -1,10 +1,8 @@
-using System.IO;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Factories;
-using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
@@ -462,7 +460,7 @@ public sealed class TypeProviderSnapshotTests
     }
 
     private static ReferenceTable ReferenceTableWithoutArchive(int archiveId) =>
-        new(7, 1, (ReferenceTableFlags)0, archiveId + 1);
+        new(7, 1, 0, archiveId + 1);
 
     private static ReferenceTable ReferenceTableWithArchiveWithoutChild(int archiveId, int childId)
     {

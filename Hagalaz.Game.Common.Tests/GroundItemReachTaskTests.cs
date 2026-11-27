@@ -1,12 +1,10 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Common.Tests;
@@ -20,7 +18,7 @@ public sealed class GroundItemReachTaskTests
         var (reacher, entityService, pathFinder) = CreateFixture();
         var target = CreateTarget(new EntityHandle<IGroundItem>(22, 4));
         var isRegistered = true;
-        entityService.TryResolve<IGroundItem>(target.Handle, out Arg.Any<IGroundItem>()).Returns(callInfo =>
+        entityService.TryResolve(target.Handle, out Arg.Any<IGroundItem>()).Returns(callInfo =>
         {
             if (isRegistered)
             {
@@ -49,7 +47,7 @@ public sealed class GroundItemReachTaskTests
         var target = CreateTarget(new EntityHandle<IGroundItem>(23, 7));
         var replacement = CreateTarget(new EntityHandle<IGroundItem>(target.Handle.Slot, target.Handle.Generation + 1));
         var isRegistered = true;
-        entityService.TryResolve<IGroundItem>(target.Handle, out Arg.Any<IGroundItem>()).Returns(callInfo =>
+        entityService.TryResolve(target.Handle, out Arg.Any<IGroundItem>()).Returns(callInfo =>
         {
             if (isRegistered)
             {

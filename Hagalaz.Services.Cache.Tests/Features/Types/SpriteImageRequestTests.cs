@@ -1,9 +1,7 @@
 using System.Text;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 

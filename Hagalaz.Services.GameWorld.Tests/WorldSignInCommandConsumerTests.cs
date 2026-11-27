@@ -359,7 +359,7 @@ public sealed class WorldSignInCommandConsumerTests
             scheduler,
             connectionTerminator,
             connectionService ?? Substitute.For<IGameConnectionService>(),
-            mapper ?? Substitute.For<AutoMapper.IMapper>(),
+            mapper ?? Substitute.For<IMapper>(),
             identity ?? new WorldInstanceIdentity(),
             NullLogger<WorldSignInCommandConsumer>.Instance);
 
@@ -385,7 +385,7 @@ public sealed class WorldSignInCommandConsumerTests
     {
         var connection = Substitute.For<IGameConnection>();
         var features = new FeatureCollection();
-        features.Set<IContactsFeature>(contacts);
+        features.Set(contacts);
         connection.Features.Returns(features);
         return connection;
     }

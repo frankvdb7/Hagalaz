@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class GroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild
+    public class GroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional
     {
         private IItem _item = default!;
         private ILocation _location = default!;

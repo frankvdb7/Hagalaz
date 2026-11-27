@@ -61,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                 SetItems();
 
                 var clickHandlers = new OnComponentClick[4];
-                clickHandlers[0] = (componentID, type, extraData1, extraData2) => // make 1 handler
+                clickHandlers[0] = (componentID, _, _, _) => // make 1 handler
                 {
                     var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();
                     task.Definition = Definition;
@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     Owner.Widgets.CloseWidget(InterfaceInstance);
                     return true;
                 };
-                clickHandlers[1] = (componentID, type, extraData1, extraData2) => // make 5 handler
+                clickHandlers[1] = (componentID, _, _, _) => // make 5 handler
                 {
                     var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();
                     task.Definition = Definition;
@@ -81,7 +81,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     Owner.Widgets.CloseWidget(InterfaceInstance);
                     return true;
                 };
-                clickHandlers[2] = (componentID, type, extraData1, extraData2) => // make X handler
+                clickHandlers[2] = (componentID, _, _, _) => // make X handler
                 {
                     _forgeXHandler = Owner.Widgets.IntInputHandler = value =>
                     {
@@ -103,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Skills.Smithing
                     Owner.Configurations.SendIntegerInput("Please enter the amount to smith:");
                     return true;
                 };
-                clickHandlers[3] = (componentID, type, extraData1, extraData2) => // make All handler
+                clickHandlers[3] = (componentID, _, _, _) => // make All handler
                 {
                     // TODO - Calculate how many items can be made
                     var task = Owner.ServiceProvider.GetRequiredService<ForgeTask>();

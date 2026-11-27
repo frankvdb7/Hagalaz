@@ -7,7 +7,7 @@ namespace Hagalaz.Services.GameWorld.Builders
     /// <summary>
     ///
     /// </summary>
-    public class AnimationBuilder : IAnimationBuilder, IAnimationId, IAnimationOptional, IAnimationBuild
+    public class AnimationBuilder : IAnimationBuilder, IAnimationId, IAnimationOptional
     {
         private readonly IAnimationService _repository;
         private int _id;

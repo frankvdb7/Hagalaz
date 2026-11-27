@@ -42,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "currentregion",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         var regionService = character.ServiceProvider.GetRequiredService<IMapRegionService>();
                         var region = regionService.FindMapRegion(character.Location.RegionId, character.Location.Dimension);
@@ -56,7 +56,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "listcommands",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         foreach (var command in _commands.Values.Where(command => character.Permissions.HasAtLeastXPermission(command.Permission)))
                         {
@@ -70,7 +70,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "logconsole",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         var writer = new ServerTextWriter(text =>
@@ -86,7 +86,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "played",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         var currentPlayTime = character.Statistics.PlayTime.Add(DateTime.Now - character.LastLogin);
                         var sb = new StringBuilder("Play time: ");
@@ -102,7 +102,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "testurl",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (_, _) =>
                     {
                         //await character.Session.SendPacketAsync(new OpenUrlPacketComposer("http://www.github.com/"));
                         return true;
@@ -112,7 +112,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "testpriority",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (_, _) =>
                     {
                         //await character.Session.SendPacketAsync(new CharacterRenderPriorityPacketComposer(false));
                         return true;
@@ -184,7 +184,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "coords",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         character.SendChatMessage(character.Location.ToString()!, ChatMessageType.ConsoleText);
                         return true;
@@ -194,7 +194,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "mcoords",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         var mapX = -1;
@@ -208,7 +208,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "players",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         var store = character.ServiceProvider.GetRequiredService<ICharacterStore>();
                         var players = await store.CountAsync();
@@ -225,7 +225,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "empty",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         character.Inventory.ClearItems();
@@ -236,7 +236,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "master",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         for (byte i = 0; i < StatisticsConstants.SkillsCount; i++)
@@ -253,7 +253,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "pure",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         for (byte i = 0; i < StatisticsConstants.SkillsCount; i++)
@@ -273,7 +273,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "reset",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         for (byte i = 0; i < StatisticsConstants.SkillsCount; i++)
@@ -382,7 +382,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "mute",
-                    CommandFunc = async (character, _) =>
+                    CommandFunc = async (_, _) =>
                     {
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Mute).Serialize());
@@ -409,7 +409,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "ipban",
-                    CommandFunc = async (character, _) =>
+                    CommandFunc = async (_, _) =>
                     {
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, cmsd, SubmitOffenceType.IpBan).Serialize());
@@ -436,7 +436,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "ban",
-                    CommandFunc = async (character, _) =>
+                    CommandFunc = async (_, _) =>
                     {
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Ban).Serialize());
@@ -447,7 +447,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "unban",
-                    CommandFunc = async (character, _) =>
+                    CommandFunc = async (_, _) =>
                     {
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.UnBan).Serialize());
@@ -458,7 +458,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "kick",
-                    CommandFunc = async (character, _) =>
+                    CommandFunc = async (_, _) =>
                     {
                         // TODO
                         //await adapter.SendDataAsync(new DoGameCommandRequestPacketComposer(character.Session.Id, name, SubmitOffenceType.Kick).Serialize());
@@ -469,7 +469,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "changename",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         var script = character.ServiceProvider.GetRequiredService<NameInterface>();
@@ -505,7 +505,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "tzhaar",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         var regionManager = character.ServiceProvider.GetRequiredService<IMapRegionService>();
                         if (!regionManager.TryCreateDimension(out var dimension))
@@ -523,7 +523,7 @@ namespace Hagalaz.Game.Scripts.Commands
                 new GenericGameCommand
                 {
                     Name = "minimapclick",
-                    CommandFunc = async (character, arguments) =>
+                    CommandFunc = async (character, _) =>
                     {
                         await Task.CompletedTask;
                         EventHappened? happ = null!;

@@ -2,9 +2,7 @@ using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Hagalaz.Cache.Utilities;
 using ICSharpCode.SharpZipLib.BZip2;
-using System.IO;
 using System.Text;
 using Xunit;
 

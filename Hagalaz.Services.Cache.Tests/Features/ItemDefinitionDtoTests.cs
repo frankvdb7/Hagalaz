@@ -1,9 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hagalaz.Cache.Types;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 

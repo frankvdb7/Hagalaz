@@ -121,7 +121,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             await _woodcuttingSkillService.StartCuttingAsync(character, tree.Handle);
 
             // Assert
-            character.Received().SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>(), null);
+            character.Received().SendChatMessage(GameStrings.InventoryFull, Arg.Any<ChatMessageType>());
             character.DidNotReceive().QueueTask(Arg.Any<RsTask>());
         }
 
@@ -136,7 +136,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _woodcuttingService.FindLogByTreeId(tree.Id).Returns(logsCompletion.Task);
 
             EventHappened<CreatureInterruptedEvent>? interruptHandler = null;
-            character.RegisterEventHandler<CreatureInterruptedEvent>(
+            character.RegisterEventHandler(
                     Arg.Do<EventHappened<CreatureInterruptedEvent>>(handler => interruptHandler = handler))
                 .Returns(Substitute.For<EventHappened>());
 
@@ -175,7 +175,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             _lootService.FindGameObjectLootTable(Arg.Any<int>()).Returns(Task.FromResult<ILootTable?>(null));
 
             var targetIsLive = true;
-            _entityService.TryResolve<IGameObject>(tree.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            _entityService.TryResolve(tree.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!targetIsLive)
                 {
@@ -261,7 +261,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             await _characterStore.DidNotReceive().CountAsync();
 
             // Assert
-            character.DidNotReceive().SendChatMessage(WoodcuttingSkillService.LogsReceived, Arg.Any<ChatMessageType>(), null);
+            character.DidNotReceive().SendChatMessage(WoodcuttingSkillService.LogsReceived, Arg.Any<ChatMessageType>());
             character.Statistics.DidNotReceive().AddExperience(StatisticsConstants.Woodcutting, Arg.Any<double>());
         }
 
@@ -324,7 +324,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
             woodcuttingTask!._finishCallback(tree);
             Assert.IsNotNull(scheduled);
 
-            _entityService.TryResolve<IGameObject>(tree.Handle, out Arg.Any<IGameObject>()).Returns(false);
+            _entityService.TryResolve(tree.Handle, out Arg.Any<IGameObject>()).Returns(false);
             scheduled!.Tick();
 
             _mapRegionService.DidNotReceive().AddGameObject(Arg.Any<IGameObject>());
@@ -334,7 +334,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Woodcutting
         {
             character.ServiceProvider.Returns(_serviceProvider);
             target.Handle.Returns(handle);
-            _entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            _entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 callInfo[1] = target;
                 return true;

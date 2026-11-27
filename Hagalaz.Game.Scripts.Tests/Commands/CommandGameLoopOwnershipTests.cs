@@ -38,9 +38,9 @@ public sealed class CommandGameLoopOwnershipTests
         scheduler.Schedule(task);
         scheduler.Tick();
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
         definitionReady.SetResult(definition);
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
 
         scheduler.Tick();
         await queuedContinuation.Task.WaitAsync(TestTimeout);
@@ -72,13 +72,13 @@ public sealed class CommandGameLoopOwnershipTests
 
         character.Destroy();
         definitionReady.SetResult(definition);
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
 
         scheduler.Tick();
         await queuedContinuation.Task.WaitAsync(TestTimeout);
         scheduler.Tick();
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
         Assert.IsTrue(task.IsCompleted);
     }
 
@@ -110,7 +110,7 @@ public sealed class CommandGameLoopOwnershipTests
         character.Widgets.Returns(widgets);
         character.Configurations.Returns(configurations);
         character.ServiceProvider.Returns(serviceProvider);
-        var command = new SpawnBoxCommand(Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
+        var command = new SpawnBoxCommand(Substitute.For<Abstractions.Builders.Item.IItemBuilder>());
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -123,7 +123,7 @@ public sealed class CommandGameLoopOwnershipTests
             scheduler.Tick();
             await searchStarted.Task.WaitAsync(TestTimeout);
 
-            character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+            character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
             widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
             character.Destroy();
         }
@@ -144,7 +144,7 @@ public sealed class CommandGameLoopOwnershipTests
 
         Assert.IsTrue(task.IsCompleted);
         Assert.IsTrue(queuedContinuation.Task.IsCompletedSuccessfully);
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         configurations.DidNotReceiveWithAnyArgs().SendCs2Script(default, default!);
         configurations.DidNotReceiveWithAnyArgs().SendItems(default, default, default!);

@@ -1,6 +1,5 @@
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 

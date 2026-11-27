@@ -86,9 +86,9 @@ namespace Hagalaz.Cache.Tests
 
             var codec = new ReferenceTableCodec();
             using var encoded = codec.Encode(table);
-            var allocatedBeforeDecode = System.GC.GetAllocatedBytesForCurrentThread();
+            var allocatedBeforeDecode = GC.GetAllocatedBytesForCurrentThread();
             var decoded = codec.Decode(encoded);
-            var allocatedDuringDecode = System.GC.GetAllocatedBytesForCurrentThread() - allocatedBeforeDecode;
+            var allocatedDuringDecode = GC.GetAllocatedBytesForCurrentThread() - allocatedBeforeDecode;
 
             Assert.True(allocatedDuringDecode < 1_000_000, $"Sparse archive IDs allocated {allocatedDuringDecode} bytes while decoding.");
             Assert.Equal(2, decoded.Count);
@@ -108,7 +108,7 @@ namespace Hagalaz.Cache.Tests
         public void EncodeDecode_PreservesLargeSparseArchiveAndChildIds(byte protocol, int version)
         {
             const int largeId = 40000;
-            var table = new ReferenceTable(protocol, version, (ReferenceTableFlags)0, 1);
+            var table = new ReferenceTable(protocol, version, 0, 1);
             var archive = new ReferenceTableEntry(0);
             archive.InitializeEntries(1);
             archive.AddEntry(largeId, new ReferenceTableChildEntry(0));
@@ -130,7 +130,7 @@ namespace Hagalaz.Cache.Tests
         public void EncodeDecode_PreservesCountsAtBigSmartThreshold(byte protocol, int version)
         {
             const int threshold = short.MaxValue;
-            var table = new ReferenceTable(protocol, version, (ReferenceTableFlags)0, threshold);
+            var table = new ReferenceTable(protocol, version, 0, threshold);
 
             for (var archiveId = 0; archiveId < threshold; archiveId++)
             {
@@ -152,13 +152,13 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(threshold, decoded.Count);
             var lastArchive = decoded.GetEntry(threshold - 1);
             Assert.NotNull(lastArchive);
-            Assert.Equal(threshold, lastArchive!.Capacity);
+            Assert.Equal(threshold, lastArchive.Capacity);
         }
 
         [Fact]
         public void Encode_RejectsLegacyProtocolIdsOutsideUnsignedShortRange()
         {
-            var table = new ReferenceTable(6, 42, (ReferenceTableFlags)0, 1);
+            var table = new ReferenceTable(6, 42, 0, 1);
             var archive = new ReferenceTableEntry(0);
             archive.InitializeEntries(0);
             table.AddEntry(ushort.MaxValue + 1, archive);
@@ -171,9 +171,9 @@ namespace Hagalaz.Cache.Tests
         [InlineData((byte)8)]
         public void Encode_RejectsProtocolsNotSupportedByDecoder(byte protocol)
         {
-            var table = new ReferenceTable(protocol, 42, (ReferenceTableFlags)0, 0);
+            var table = new ReferenceTable(protocol, 42, 0, 0);
 
-            Assert.Throws<System.IO.InvalidDataException>(() => new ReferenceTableCodec().Encode(table));
+            Assert.Throws<InvalidDataException>(() => new ReferenceTableCodec().Encode(table));
         }
 
         private static ReferenceTableEntry CreateEntry(int index, string name)

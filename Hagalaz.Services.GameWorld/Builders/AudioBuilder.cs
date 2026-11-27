@@ -4,7 +4,7 @@ using Hagalaz.Services.GameWorld.Model.Audio;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class AudioBuilder : IAudioBuilder, ISoundBuild, ISoundId, ISoundOptional, ISoundType, IMusicEffectId, IMusicEffectOptional, IVoiceId, IVoiceOptional
+    public class AudioBuilder : IAudioBuilder, ISoundId, ISoundOptional, ISoundType, IMusicEffectId, IMusicEffectOptional, IVoiceId, IVoiceOptional
     {
         /// <summary>
         /// Enum SoundType

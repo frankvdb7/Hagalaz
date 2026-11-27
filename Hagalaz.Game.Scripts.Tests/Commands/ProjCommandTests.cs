@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             projectileOptionalMock.WithToHeight(Arg.Any<int>()).Returns(projectileOptionalMock);
             projectileOptionalMock.WithSlope(Arg.Any<int>()).Returns(projectileOptionalMock);
             projectileOptionalMock.WithDelay(Arg.Any<int>()).Returns(projectileOptionalMock);
-            ((IProjectileBuild)projectileOptionalMock).Send();
+            (projectileOptionalMock).Send();
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IProjectileBuilder)).Returns(projectileBuilderMock);

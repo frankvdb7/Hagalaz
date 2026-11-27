@@ -6,7 +6,6 @@ using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.ReferenceTables;
 using Hagalaz.Services.Cache.Features.ReferenceTables.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 

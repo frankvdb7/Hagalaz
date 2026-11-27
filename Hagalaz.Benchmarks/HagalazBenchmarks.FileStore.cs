@@ -1,11 +1,8 @@
 using BenchmarkDotNet.Attributes;
 using Hagalaz.Cache;
-using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Logic.Codecs;
-using Hagalaz.Cache.Models;
 using System;
 using System.IO;
-using System.Linq;
 
 namespace Hagalaz.Benchmarks
 {

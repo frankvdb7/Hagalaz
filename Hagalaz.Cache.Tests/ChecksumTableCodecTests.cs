@@ -83,11 +83,11 @@ namespace Hagalaz.Cache.Tests
             var codec = new ChecksumTableCodec();
             using var stream = new MemoryStream();
             // Entry 1
-            stream.Write(System.BitConverter.GetBytes(123)); // CRC
-            stream.Write(System.BitConverter.GetBytes(456)); // Version
+            stream.Write(BitConverter.GetBytes(123)); // CRC
+            stream.Write(BitConverter.GetBytes(456)); // Version
             // Entry 2
-            stream.Write(System.BitConverter.GetBytes(789)); // CRC
-            stream.Write(System.BitConverter.GetBytes(101)); // Version
+            stream.Write(BitConverter.GetBytes(789)); // CRC
+            stream.Write(BitConverter.GetBytes(101)); // Version
             stream.Position = 0;
 
             // Act
@@ -106,8 +106,8 @@ namespace Hagalaz.Cache.Tests
             using var stream = new MemoryStream();
             stream.WriteByte(1); // Number of entries
             // Entry 1
-            stream.Write(System.BitConverter.GetBytes(123)); // CRC
-            stream.Write(System.BitConverter.GetBytes(456)); // Version
+            stream.Write(BitConverter.GetBytes(123)); // CRC
+            stream.Write(BitConverter.GetBytes(456)); // Version
             stream.Write(new byte[64]); // Whirlpool digest
 
             var dataToHash = stream.ToArray();
@@ -151,8 +151,8 @@ namespace Hagalaz.Cache.Tests
             using var stream = new MemoryStream();
             stream.WriteByte(1); // Number of entries
             // Entry 1
-            stream.Write(System.BitConverter.GetBytes(123)); // CRC
-            stream.Write(System.BitConverter.GetBytes(456)); // Version
+            stream.Write(BitConverter.GetBytes(123)); // CRC
+            stream.Write(BitConverter.GetBytes(456)); // Version
             stream.Write(new byte[64]); // Whirlpool digest
 
             var dataToHash = stream.ToArray();

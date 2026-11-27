@@ -241,7 +241,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.AreSame(replacement, region.FindAllGroundItems().Single());
         }
 
-        public class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild {
+        public class SimpleGroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional {
             private int? _respawnTicks;
             private int? _ticks;
             private readonly int _publicTicks;

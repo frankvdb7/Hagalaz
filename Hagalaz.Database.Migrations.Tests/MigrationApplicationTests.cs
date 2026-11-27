@@ -1,4 +1,3 @@
-using Hagalaz.Database.Migrations;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Hagalaz.Database.Migrations.Tests;

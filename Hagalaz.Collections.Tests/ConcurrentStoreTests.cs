@@ -1,7 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Hagalaz.Collections;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace Hagalaz.Collections.Tests
 {
@@ -57,7 +53,7 @@ namespace Hagalaz.Collections.Tests
         public void TestGetOrAdd()
         {
             var store = new ConcurrentStore<string, int>();
-            store.GetOrAdd("a", (k) => 1);
+            store.GetOrAdd("a", (_) => 1);
             Assert.AreEqual(1, store["a"]);
         }
 
@@ -93,13 +89,13 @@ namespace Hagalaz.Collections.Tests
         public void TestMultiThreaded()
         {
             var store = new ConcurrentStore<int, int>();
-            var tasks = new System.Threading.Tasks.Task[100];
+            var tasks = new Task[100];
             for (int i = 0; i < 100; i++)
             {
                 int local = i;
-                tasks[i] = System.Threading.Tasks.Task.Run(() => store.TryAdd(local, local));
+                tasks[i] = Task.Run(() => store.TryAdd(local, local));
             }
-            System.Threading.Tasks.Task.WaitAll(tasks);
+            Task.WaitAll(tasks);
             Assert.AreEqual(100, store.Count);
         }
     }

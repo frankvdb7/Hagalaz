@@ -276,7 +276,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 _spawnEntries[i] = new SpawnEntry(BarrowsConstants.BarrowBrotherIDs[i], _npcBuilder, _hintIconBuilder);
             }
 
-            var barrowsDto = Character.Profile.GetObject(BarrowsConstants.MinigamesBarrows, NewRun())!;
+            var barrowsDto = Character.Profile.GetObject(BarrowsConstants.MinigamesBarrows, NewRun());
 
             if (barrowsDto.AhrimKilled)
             {

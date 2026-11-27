@@ -45,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Clans
                 return false;
             });
             EventHappened equipmentUpdate = null;
-            equipmentUpdate = character.RegisterEventHandler<EquipmentChangedEvent>(e =>
+            equipmentUpdate = character.RegisterEventHandler<EquipmentChangedEvent>(_ =>
             {
                 if (character.Equipment[item.Id == 20708 ? EquipmentSlot.Cape : EquipmentSlot.Weapon] == item)
                 {

@@ -1,8 +1,8 @@
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Model.Items;
+
+
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 var entityService = Owner.ServiceProvider.GetRequiredService<IEntityService>();
                 var task = new GameObjectReachTask(Owner, targetHandle, success =>
                 {
-                    if (success && entityService.TryResolve<IGameObject>(targetHandle, out var target) && target is not null && !target.IsDisabled)
+                    if (success && entityService.TryResolve(targetHandle, out var target) && target is not null && !target.IsDisabled)
                     {
                         if (used.ItemScript.UseItemOnGameObject(used, target, Owner))
                         {
@@ -121,7 +121,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 var entityService = Owner.ServiceProvider.GetRequiredService<IEntityService>();
                 var task = new GroundItemReachTask(Owner, targetHandle, success =>
                 {
-                    if (success && entityService.TryResolve<IGroundItem>(targetHandle, out var target) && target is not null)
+                    if (success && entityService.TryResolve(targetHandle, out var target) && target is not null)
                     {
                         if (!used.ItemScript.UseItemOnGroundItem(used, target, Owner))
                         {
