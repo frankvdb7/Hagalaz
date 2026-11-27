@@ -25,9 +25,9 @@ public sealed class CatherbyShopNpcTests
         var clicker = Substitute.For<ICharacter>();
         var events = Substitute.For<IEventManager>();
         clicker.EventManager.Returns(events);
-        var script = Activator.CreateInstance(scriptType, Substitute.For<INpc>(), Substitute.For<INpcService>(),
+        var instance = Activator.CreateInstance(scriptType, Substitute.For<INpc>(), Substitute.For<INpcService>(),
             Substitute.For<ISimplePathFinder>(), Substitute.For<IWidgetScriptActivator>()) as NpcScriptBase;
-        Assert.IsNotNull(script);
+        var script = instance ?? throw new AssertFailedException($"Could not create an NPC script for {scriptType.Name}.");
 
         script.OnCharacterClickPerform(clicker, NpcClickType.Option3Click);
 

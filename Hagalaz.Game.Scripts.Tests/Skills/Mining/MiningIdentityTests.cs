@@ -36,10 +36,10 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             var higherLevel = bronze with { ItemId = 2, RequiredLevel = 6 };
             var unowned = bronze with { ItemId = 3, RequiredLevel = 3 };
             character.Equipment.Items.GetById(bronze.ItemId).Returns(Substitute.For<IItem>());
-            character.Equipment.Items.GetById(higherLevel.ItemId).Returns((IItem?)null);
+            character.Equipment.Items.GetById(higherLevel.ItemId).Returns(_ => null);
             character.Inventory.Items.GetById(higherLevel.ItemId).Returns(Substitute.For<IItem>());
-            character.Equipment.Items.GetById(unowned.ItemId).Returns((IItem?)null);
-            character.Inventory.Items.GetById(unowned.ItemId).Returns((IItem?)null);
+            character.Equipment.Items.GetById(unowned.ItemId).Returns(_ => null);
+            character.Inventory.Items.GetById(unowned.ItemId).Returns(_ => null);
 
             var selected = Hagalaz.Game.Scripts.Skills.Mining.Mining.FindPickaxe(character, [unowned, bronze, higherLevel]);
 

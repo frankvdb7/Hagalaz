@@ -133,13 +133,11 @@ public sealed class CommandGameLoopOwnershipTests
         }
 
         using var timeout = new CancellationTokenSource(TestTimeout);
+        scheduler.Tick();
         while (!task.IsCompleted && !task.IsFaulted)
         {
+            await Task.Delay(TimeSpan.FromMilliseconds(1), timeout.Token);
             scheduler.Tick();
-            if (!task.IsCompleted && !task.IsFaulted)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(1), timeout.Token);
-            }
         }
         scheduler.Tick();
         scheduler.Tick();
