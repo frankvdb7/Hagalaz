@@ -1,4 +1,5 @@
-﻿using Hagalaz.Game.Abstractions.Model;
+﻿using System;
+using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -12,7 +13,9 @@ using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
+using Hagalaz.Game.Extensions;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
@@ -41,16 +44,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// NPC.
         /// </summary>
         /// <param name="owner"></param>
-        /// <param name="entityService">Resolves entity handles.</param>
-        /// <param name="npcService">Provides NPC definitions.</param>
-        /// <param name="lootService">Provides loot tables.</param>
-        /// <param name="lootGenerator">Rolls drops from loot tables.</param>
-        /// <param name="groundItemBuilder">Builds items placed on the ground.</param>
-        /// <param name="projectilePathFinder">Checks projectile routes.</param>
-        /// <param name="smartPathFinder">Finds routes for combat movement.</param>
-        /// <param name="combatOptions">Provides combat settings.</param>
-        /// <param name="hitSplatBuilder">Builds hitsplats for damage updates.</param>
-        /// <param name="combatRules">Provides shared combat calculations.</param>
         public NpcCombat(
             INpc owner,
             IEntityService entityService,
@@ -219,7 +212,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Set's ( Attacks ) the specified target ('target')
         /// </summary>
-        /// <param name="targetHandle">The handle of the prospective combat target.</param>
+        /// <param name="target">Creature which should be attacked.</param>
         /// <returns>
         /// If creature target was set sucessfully.
         /// </returns>
@@ -237,7 +230,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// <summary>
         /// Determines whether this instance [can set target] the specified target.
         /// </summary>
-        /// <param name="targetHandle">The handle of the prospective combat target.</param>
+        /// <param name="target">The target.</param>
         /// <returns></returns>
         public override bool CanSetTarget(EntityHandle<ICreature> targetHandle)
         {

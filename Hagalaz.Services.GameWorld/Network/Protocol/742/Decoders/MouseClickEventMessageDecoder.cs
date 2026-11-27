@@ -15,7 +15,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Decoders
                 message = default;
                 return false;
             }
-            if (!reader.TryReadC(out byte _))
+            if (!reader.TryReadC(out byte eventData))
             {
                 message = default;
                 return false;

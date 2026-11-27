@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 }
             });
 
-            InterfaceInstance.AttachClickHandler(0, (_, clickType, _, _) =>
+            InterfaceInstance.AttachClickHandler(0, (componentID, clickType, extraData1, extraData2) =>
             {
                 Availability? value = null;
                 if (clickType == ComponentClickType.Option2Click)
@@ -68,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(14, (_, clickType, _, _) =>
+            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -80,7 +80,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(17, (_, clickType, _, _) =>
+            InterfaceInstance.AttachClickHandler(17, (componentID, clickType, extraData1, extraData2) =>
             {
                 Availability? value = null;
                 if (clickType == ComponentClickType.Option2Click)
@@ -104,7 +104,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(23, (_, clickType, _, _) =>
+            InterfaceInstance.AttachClickHandler(23, (componentID, clickType, extraData1, extraData2) =>
             {
                 Availability? value = null;
                 if (clickType == ComponentClickType.Option2Click)
@@ -128,7 +128,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(32, (_, clickType, _, _) =>
+            InterfaceInstance.AttachClickHandler(32, (componentID, clickType, extraData1, extraData2) =>
             {
                 Availability? value = null;
                 if (clickType == ComponentClickType.Option2Click)

@@ -54,7 +54,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             //this.interfaceInstance.DrawString(88, string.IsNullOrEmpty(this.clan.Settings.Motto) ? "Not set." : this.clan.Settings.Motto);
 
-            _clientMapDefinitionProvider.Get(3686);
+            var clientMap = _clientMapDefinitionProvider.Get(3686);
             /*if (this.clan.Settings.MottifTop != 0)
                 this.interfaceInstance.DrawSprite(96, (short)clientMap.GetIntValue(this.clan.Settings.MottifTop + 1)); // right
             if (this.clan.Settings.MottifBottom != 0)

@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+﻿using System;
+using System.Buffers;
 using System.Numerics;
 using System.Security.Cryptography;
 using Hagalaz.Cache.Abstractions;
@@ -113,7 +114,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                     return false;
                 }
 
-                if (!rsaDataReader.TryReadBigEndian(out long _) || !rsaDataReader.TryReadBigEndian(out long _))
+                if (!rsaDataReader.TryReadBigEndian(out long clientSeed1) || !rsaDataReader.TryReadBigEndian(out long clientSeed2))
                 {
                     isaacSeed = default!;
                     password = default!;
@@ -297,52 +298,52 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte operatingSystemId))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out bool _))
+            if (!reader.TryRead(out bool is64Bit))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte operatingSystemVersion))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte javaVendorId))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte javaMinorVersion))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte javaPatchVersion))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte javaMajorVersion))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out bool _))
+            if (!reader.TryRead(out bool unknownBool))
             {
                 return false;
             }
 
-            if (!reader.TryReadBigEndian(out short _))
+            if (!reader.TryReadBigEndian(out short maxMemory))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte processorCount))
             {
                 return false;
             }
@@ -353,58 +354,58 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
             }
             reader.Advance(3); // medium int cpu data
 
-            if (!reader.TryReadBigEndian(out short _))
+            if (!reader.TryReadBigEndian(out short cpuData))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out string _, true))
+            if (!reader.TryRead(out string gpuName, true))
             {
                 return false;
             }
 
 
-            if (!reader.TryRead(out string _, true))
+            if (!reader.TryRead(out string someHardwareData, true))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out string _, true))
+            if (!reader.TryRead(out string directXRuntimeVersion, true))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out string _, true))
+            if (!reader.TryRead(out string unknownHardwareString2, true))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte gpuDriverDateDay))
             {
                 return false;
             }
 
-            if (!reader.TryReadBigEndian(out short _))
+            if (!reader.TryReadBigEndian(out short gpuDriverDateYear))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out string _, true))
+            if (!reader.TryRead(out string cpuManufacturer, true))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out string _, true))
+            if (!reader.TryRead(out string cpuName, true))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte cpuCoreCount))
             {
                 return false;
             }
 
-            if (!reader.TryRead(out byte _))
+            if (!reader.TryRead(out byte someHardwareValue))
             {
                 return false;
             }
@@ -419,7 +420,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 javaVersions[i] = javaData;
             }
 
-            if (!reader.TryReadBigEndian(out int _))
+            if (!reader.TryReadBigEndian(out int someCpuData3))
             {
                 return false;
             }

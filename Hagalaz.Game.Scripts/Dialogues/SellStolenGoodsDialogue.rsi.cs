@@ -1,6 +1,7 @@
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
@@ -36,19 +37,19 @@ namespace Hagalaz.Game.Scripts.Dialogues
         public override void OnOpen()
         {
             AttachDialogueContinueClickHandler(0,
-                (_, _) =>
+                (extraData1, extraData2) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Greetings adventurer!", "Do you want me to fence any stolen goods?");
                     return true;
                 });
             AttachDialogueContinueClickHandler(1,
-                (_, _) =>
+                (extraData1, extraData2) =>
                 {
                     DefaultOptionDialogue("Yes, please!", "No, thanks!");
                     return true;
                 });
             AttachDialogueOptionClickHandler("Yes, please!",
-                (_, _) =>
+                (extraData1, extraData2) =>
                 {
                     var rateValue = _ratesService.GetRate<ItemOptions>(i => i.CoinCountRate);
                     foreach (var t in _goodsIds)
@@ -77,14 +78,14 @@ namespace Hagalaz.Game.Scripts.Dialogues
                     return false;
                 });
             AttachDialogueContinueClickHandler(2,
-                (_, _) =>
+                (extraData1, extraData2) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;
                 });
 
             AttachDialogueOptionClickHandler("No, thanks!",
-                (_, _) =>
+                (extraData1, extraData2) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return false;

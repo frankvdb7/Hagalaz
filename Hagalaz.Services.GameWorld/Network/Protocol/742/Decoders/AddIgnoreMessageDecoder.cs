@@ -15,7 +15,7 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Decoders
                 message = default;
                 return false;
             }
-            if (!reader.TryRead(out bool _))
+            if (!reader.TryRead(out bool ignoreTemporary))
             {
                 message = default;
                 return false;
