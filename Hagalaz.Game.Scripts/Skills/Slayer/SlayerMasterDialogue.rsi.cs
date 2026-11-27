@@ -50,27 +50,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             AttachDialogueOptionClickHandler("How many monsters do I have left?",
                 (extraData1, extraData2) =>
                 {
-                    if (Owner.HasSlayerTask())
-                    {
-                        var task = Owner.Slayer;
-                        var taskId = task.CurrentTaskId;
-                        Owner.QueueTask(async cancellationToken =>
-                        {
-                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
-                            cancellationToken.ThrowIfCancellationRequested();
-                            if (slayerTask == null || task.CurrentTaskId != taskId)
-                            {
-                                return;
-                            }
-
-                            StandardNpcDialogue(TalkingTo,
-                                DialogueAnimations.CalmTalk,
-                                "You are currently assigned to kill:",
-                                slayerTask.Name,
-                                "Only " + task.CurrentKillCount + " more to go.");
-                        });
-                    }
-
+                    ShowAssignedTaskDialogue(includePeriodAfterTaskName: false);
                     return true;
                 });
 
@@ -79,23 +59,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 {
                     if (Owner.HasSlayerTask())
                     {
-                        var task = Owner.Slayer;
-                        var taskId = task.CurrentTaskId;
-                        Owner.QueueTask(async cancellationToken =>
-                        {
-                            var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
-                            cancellationToken.ThrowIfCancellationRequested();
-                            if (slayerTask == null || task.CurrentTaskId != taskId)
-                            {
-                                return;
-                            }
-
-                            StandardNpcDialogue(TalkingTo,
-                                DialogueAnimations.CalmTalk,
-                                "You are currently assigned to kill:",
-                                slayerTask.Name + ".",
-                                "Only " + task.CurrentKillCount + " more to go.");
-                        });
+                        ShowAssignedTaskDialogue(includePeriodAfterTaskName: true);
                     }
                     else
                     {
@@ -169,6 +133,33 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                     Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 11));
                     return true;
                 });
+        }
+
+        private void ShowAssignedTaskDialogue(bool includePeriodAfterTaskName)
+        {
+            if (!Owner.HasSlayerTask())
+            {
+                return;
+            }
+
+            var task = Owner.Slayer;
+            var taskId = task.CurrentTaskId;
+            Owner.QueueTask(async cancellationToken =>
+            {
+                var slayerTask = await _slayerService.FindSlayerTaskDefinition(taskId);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (slayerTask == null || task.CurrentTaskId != taskId)
+                {
+                    return;
+                }
+
+                var taskName = includePeriodAfterTaskName ? slayerTask.Name + "." : slayerTask.Name;
+                StandardNpcDialogue(TalkingTo,
+                    DialogueAnimations.CalmTalk,
+                    "You are currently assigned to kill:",
+                    taskName,
+                    "Only " + task.CurrentKillCount + " more to go.");
+            });
         }
     }
 }

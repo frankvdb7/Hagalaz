@@ -395,16 +395,7 @@ public sealed class FusionCacheGameSessionClaimStoreTests
                 Arg.Any<FusionCacheEntryOptions>(),
                 Arg.Any<CancellationToken>())
             .Returns(new ValueTask());
-        locker.ReleaseLockAsync(
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<object>(),
-                Arg.Any<ILogger>(),
-                Arg.Any<CancellationToken>())
-            .Returns(_ => new ValueTask(Task.FromException(new InvalidOperationException("Lock release failed."))));
+        ConfigureLockReleaseFailure(locker);
 
         var callbackCalled = false;
         var result = await store.ExecuteIfOwnerAsync(42, "owner", _ =>
@@ -511,6 +502,18 @@ public sealed class FusionCacheGameSessionClaimStoreTests
             cache,
             locker);
     }
+
+    private static void ConfigureLockReleaseFailure(IFusionCacheDistributedLocker locker) =>
+        locker.ReleaseLockAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<object>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => new ValueTask(Task.FromException(new InvalidOperationException("Lock release failed."))));
 }
 
 #pragma warning restore CA2012

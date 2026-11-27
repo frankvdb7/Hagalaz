@@ -56,17 +56,9 @@ public sealed class GameCommandPromptTests
     [TestMethod]
     public async Task TeletomeCommand_UsesIssuingCharacterSnapshotAfterLookup()
     {
-        var lookup = new TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var store = Substitute.For<ICharacterStore>();
-        store.GetSnapshotAsync().Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(lookup.Task));
-        using var services = new ServiceCollection()
-            .AddSingleton(store)
-            .BuildServiceProvider();
-
-        var character = Substitute.For<ICharacter>();
-        character.Permissions.Returns(Permission.GameModerator);
-        character.ServiceProvider.Returns(services);
+        using var fixture = CreatePromptCharacterFixture();
+        var lookup = fixture.Lookup;
+        var character = fixture.Character;
         var initialLocation = Location.Create(3200, 3200, 0, 1);
         var currentLocation = initialLocation;
         character.Location.Returns(_ => currentLocation);
@@ -103,17 +95,9 @@ public sealed class GameCommandPromptTests
     [TestMethod]
     public async Task TeletoCommand_UsesTargetSnapshotAfterLookup()
     {
-        var lookup = new TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var store = Substitute.For<ICharacterStore>();
-        store.GetSnapshotAsync().Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(lookup.Task));
-        using var services = new ServiceCollection()
-            .AddSingleton(store)
-            .BuildServiceProvider();
-
-        var character = Substitute.For<ICharacter>();
-        character.Permissions.Returns(Permission.GameModerator);
-        character.ServiceProvider.Returns(services);
+        using var fixture = CreatePromptCharacterFixture();
+        var lookup = fixture.Lookup;
+        var character = fixture.Character;
         var movement = Substitute.For<IMovement>();
         character.Movement.Returns(movement);
         ITaskItem? characterTask = null;
@@ -142,6 +126,29 @@ public sealed class GameCommandPromptTests
         movement.Received(1).Teleport(Arg.Is<ITeleport>(teleport =>
             teleport.Location.X == initialLocation.X && teleport.Location.Y == initialLocation.Y));
         character.Received(1).SendChatMessage("You teleported to Target.");
+    }
+
+    private static PromptCharacterFixture CreatePromptCharacterFixture()
+    {
+        var lookup = new TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = Substitute.For<ICharacterStore>();
+        store.GetSnapshotAsync().Returns(_ => new ValueTask<IReadOnlyDictionary<int, ICharacter>>(lookup.Task));
+        var services = new ServiceCollection()
+            .AddSingleton(store)
+            .BuildServiceProvider();
+        var character = Substitute.For<ICharacter>();
+        character.Permissions.Returns(Permission.GameModerator);
+        character.ServiceProvider.Returns(services);
+        return new PromptCharacterFixture(lookup, character, services);
+    }
+
+    private sealed record PromptCharacterFixture(
+        TaskCompletionSource<IReadOnlyDictionary<int, ICharacter>> Lookup,
+        ICharacter Character,
+        ServiceProvider Services) : IDisposable
+    {
+        public void Dispose() => Services.Dispose();
     }
 
     private sealed class GatedCharacterStore(TaskCompletionSource<int> countRead) : ICharacterStore

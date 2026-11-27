@@ -211,17 +211,10 @@ public sealed class CharacterLogoutServiceTests
     [TestMethod]
     public async Task DetachAsync_WhenWaitIsCanceledBeforeWorkerRuns_MakesTerminalSnapshotRecoverable()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
 
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var persistenceState = new CharacterPersistenceState();
@@ -297,17 +290,10 @@ public sealed class CharacterLogoutServiceTests
     [TestMethod]
     public async Task DetachAsync_WhenCleanupFailsAfterSnapshot_MakesLogoutRecoverable()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
         var failure = new InvalidOperationException("destroy failed");
         character.When(value => value.Destroy()).Do(_ => throw failure);
 
@@ -429,24 +415,11 @@ public sealed class CharacterLogoutServiceTests
     [Timeout(5000)]
     public async Task DetachAsync_WhenCancellationWinsAfterSnapshotPublication_MakesSnapshotRecoverable()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
-        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        character.When(value => value.Destroy()).Do(_ =>
-        {
-            snapshotPublished.TrySetResult(true);
-            releaseDestroy.Task.GetAwaiter().GetResult();
-        });
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
+        var (snapshotPublished, releaseDestroy) = BlockDestroyUntilReleased(character);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var service = new CharacterLogoutService(
             state,
@@ -472,24 +445,11 @@ public sealed class CharacterLogoutServiceTests
     [Timeout(5000)]
     public async Task RecoverPendingLogouts_WhenDestroyIsBlocked_CompletesRecoveryBeforeWorkerFinishes()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
-        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        character.When(value => value.Destroy()).Do(_ =>
-        {
-            snapshotPublished.TrySetResult(true);
-            releaseDestroy.Task.GetAwaiter().GetResult();
-        });
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
+        var (snapshotPublished, releaseDestroy) = BlockDestroyUntilReleased(character);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var persistenceState = new CharacterPersistenceState();
         persistenceState.InitializeRevision(42, 0, 7);
@@ -542,17 +502,10 @@ public sealed class CharacterLogoutServiceTests
     [Timeout(5000)]
     public async Task RecoverPendingLogouts_WhenDestroyFailsAfterRecoveryClaim_DoesNotReleaseRecoveryClaim()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
 
         var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -757,6 +710,41 @@ public sealed class CharacterLogoutServiceTests
         session.SessionGeneration.Returns(7L);
         character.Session.Returns(session);
         return character;
+    }
+
+    private static (TaskCompletionSource<bool> SnapshotPublished, TaskCompletionSource<bool> ReleaseDestroy)
+        BlockDestroyUntilReleased(ICharacter character)
+    {
+        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        character.When(value => value.Destroy()).Do(_ =>
+        {
+            snapshotPublished.TrySetResult(true);
+            releaseDestroy.Task.GetAwaiter().GetResult();
+        });
+        return (snapshotPublished, releaseDestroy);
+    }
+    private static PendingLogoutFixture CreatePendingLogoutFixture(CharacterLogoutState state)
+    {
+        var character = CreateCharacter(42);
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        var provider = new ServiceCollection()
+            .AddSingleton(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        return new PendingLogoutFixture(character, characterService, provider);
+    }
+
+    private sealed record PendingLogoutFixture(
+        ICharacter Character,
+        ICharacterService CharacterService,
+        ServiceProvider Provider) : IDisposable
+    {
+        public void Dispose() => Provider.Dispose();
     }
 
     private sealed class InlineTaskScheduler : IRsTaskService

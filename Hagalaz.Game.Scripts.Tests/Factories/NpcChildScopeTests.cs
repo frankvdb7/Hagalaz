@@ -67,25 +67,10 @@ public sealed class NpcChildScopeTests
             .AddScoped<IItemContainerFactory>(_ => itemContainerFactory)
             .AddScoped<IItemService>(_ => Substitute.For<IItemService>())
             .AddScoped<IItemBuilder>(_ => Substitute.For<IItemBuilder>())
-            .AddScoped<ISimplePathFinder>(_ => Substitute.For<ISimplePathFinder>())
-            .AddSingleton(Substitute.For<ICreatureTaskService>())
-            .AddSingleton(eventManager)
-            .AddSingleton(Substitute.For<IScopedGameMediator>())
-            .AddSingleton(Substitute.For<ISmartPathFinder>())
-            .AddSingleton(mapRegionService)
-            .AddSingleton(Substitute.For<IAreaService>())
-            .AddSingleton(Substitute.For<IProjectilePathFinder>())
-            .AddSingleton(Options.Create(new CombatOptions()))
-            .AddSingleton(Substitute.For<IHitSplatBuilder>())
-            .AddSingleton(Substitute.For<IEntityService>())
-            .AddSingleton(Substitute.For<ILootService>())
-            .AddSingleton(Substitute.For<ILootGenerator>())
-            .AddSingleton(Substitute.For<IGroundItemBuilder>())
-            .AddSingleton(Substitute.For<INpcScriptProvider>())
-            .AddSingleton(Substitute.For<IWidgetScriptActivator>())
-            .BuildServiceProvider();
+            .AddScoped<ISimplePathFinder>(_ => Substitute.For<ISimplePathFinder>());
+        using var provider = CreateNpcProvider(services, eventManager, mapRegionService);
 
-        using var scope = services.CreateScope();
+        using var scope = provider.CreateScope();
         var builder = new NpcBuilder(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<INpcScriptProvider>());
         var npc = builder.Create()
             .WithId(definition.Id)
@@ -127,24 +112,13 @@ public sealed class NpcChildScopeTests
             .AddScoped<ScopeMarker>()
             .AddScoped<INpcScriptActivator, NpcScriptActivator>()
             .AddScoped<INpcService>(_ => npcService)
-            .AddScoped<ISimplePathFinder>(_ => Substitute.For<ISimplePathFinder>())
-            .AddSingleton(Substitute.For<ICreatureTaskService>())
-            .AddSingleton(Substitute.For<IEventManager>())
-            .AddSingleton(Substitute.For<IScopedGameMediator>())
-            .AddSingleton(Substitute.For<ISmartPathFinder>())
-            .AddSingleton(Substitute.For<IMapRegionService>())
-            .AddSingleton(Substitute.For<IProjectilePathFinder>())
-            .AddSingleton(Options.Create(new CombatOptions()))
-            .AddSingleton(Substitute.For<IHitSplatBuilder>())
-            .AddSingleton(Substitute.For<IEntityService>())
-            .AddSingleton(Substitute.For<ILootService>())
-            .AddSingleton(Substitute.For<ILootGenerator>())
-            .AddSingleton(Substitute.For<IGroundItemBuilder>())
-            .AddSingleton(Substitute.For<INpcScriptProvider>())
-            .AddSingleton(Substitute.For<IWidgetScriptActivator>())
-            .BuildServiceProvider();
+            .AddScoped<ISimplePathFinder>(_ => Substitute.For<ISimplePathFinder>());
+        using var provider = CreateNpcProvider(
+            services,
+            Substitute.For<IEventManager>(),
+            Substitute.For<IMapRegionService>());
 
-        using var parentScope = services.CreateScope();
+        using var parentScope = provider.CreateScope();
         var builder = new NpcBuilder(parentScope.ServiceProvider, parentScope.ServiceProvider.GetRequiredService<INpcScriptProvider>());
         var parentMarker = parentScope.ServiceProvider.GetRequiredService<ScopeMarker>();
         var child = builder.Create()
@@ -174,6 +148,27 @@ public sealed class NpcChildScopeTests
     {
         public ScopeMarker Marker { get; } = marker;
     }
+
+    private static ServiceProvider CreateNpcProvider(
+        IServiceCollection services,
+        IEventManager eventManager,
+        IMapRegionService mapRegionService) => services
+        .AddSingleton(Substitute.For<ICreatureTaskService>())
+        .AddSingleton(eventManager)
+        .AddSingleton(Substitute.For<IScopedGameMediator>())
+        .AddSingleton(Substitute.For<ISmartPathFinder>())
+        .AddSingleton(mapRegionService)
+        .AddSingleton(Substitute.For<IAreaService>())
+        .AddSingleton(Substitute.For<IProjectilePathFinder>())
+        .AddSingleton(Options.Create(new CombatOptions()))
+        .AddSingleton(Substitute.For<IHitSplatBuilder>())
+        .AddSingleton(Substitute.For<IEntityService>())
+        .AddSingleton(Substitute.For<ILootService>())
+        .AddSingleton(Substitute.For<ILootGenerator>())
+        .AddSingleton(Substitute.For<IGroundItemBuilder>())
+        .AddSingleton(Substitute.For<INpcScriptProvider>())
+        .AddSingleton(Substitute.For<IWidgetScriptActivator>())
+        .BuildServiceProvider();
 
     public sealed class ScopeMarker : IDisposable
     {

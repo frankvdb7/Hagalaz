@@ -73,22 +73,7 @@ public sealed class WorldStatusServiceShutdownTests
         using var host = new HostBuilder()
             .ConfigureServices(collection =>
             {
-                collection.AddLogging();
-                collection.AddSingleton(bus);
-                collection.AddSingleton(mediator);
-                collection.AddSingleton(Substitute.For<IMapper>());
-                collection.AddSingleton(identity);
-                collection.AddSingleton(lifecycle);
-                collection.AddSingleton<WorldRegistrationStore>();
-                collection.AddSingleton(Options.Create(new WorldOptions
-                {
-                    Id = onlineMessage.Id,
-                    Name = onlineMessage.Name,
-                    AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
-                    RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
-                    RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
-                    RegistrationRetryDelay = TimeSpan.FromSeconds(1)
-                }));
+                AddWorldStatusCoreServices(collection, bus, mediator, identity, lifecycle, onlineMessage, TimeSpan.FromSeconds(1));
                 collection.AddSingleton<ICharacterStore>(characterStore);
                 collection.AddSingleton<IRsTaskService>(new InlineTaskScheduler());
                 collection.AddSingleton(new CharacterPersistenceState());
@@ -150,22 +135,7 @@ public sealed class WorldStatusServiceShutdownTests
         using var host = new HostBuilder()
             .ConfigureServices(collection =>
             {
-                collection.AddLogging();
-                collection.AddSingleton(bus);
-                collection.AddSingleton(mediator);
-                collection.AddSingleton(Substitute.For<IMapper>());
-                collection.AddSingleton(identity);
-                collection.AddSingleton(lifecycle);
-                collection.AddSingleton<WorldRegistrationStore>();
-                collection.AddSingleton(Options.Create(new WorldOptions
-                {
-                    Id = onlineMessage.Id,
-                    Name = onlineMessage.Name,
-                    AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
-                    RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
-                    RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
-                    RegistrationRetryDelay = TimeSpan.FromHours(1)
-                }));
+                AddWorldStatusCoreServices(collection, bus, mediator, identity, lifecycle, onlineMessage, TimeSpan.FromHours(1));
                 collection.AddHostedService<WorldStatusService>();
             })
             .Build();
@@ -177,6 +147,33 @@ public sealed class WorldStatusServiceShutdownTests
 
         await host.StopAsync();
         await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!);
+    }
+
+    private static void AddWorldStatusCoreServices(
+        IServiceCollection services,
+        IBus bus,
+        IGameMediator mediator,
+        WorldInstanceIdentity identity,
+        WorldLifecycleState lifecycle,
+        WorldOnlineMessage onlineMessage,
+        TimeSpan registrationRetryDelay)
+    {
+        services.AddLogging();
+        services.AddSingleton(bus);
+        services.AddSingleton(mediator);
+        services.AddSingleton(Substitute.For<IMapper>());
+        services.AddSingleton(identity);
+        services.AddSingleton(lifecycle);
+        services.AddSingleton<WorldRegistrationStore>();
+        services.AddSingleton(Options.Create(new WorldOptions
+        {
+            Id = onlineMessage.Id,
+            Name = onlineMessage.Name,
+            AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
+            RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
+            RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
+            RegistrationRetryDelay = registrationRetryDelay
+        }));
     }
 
     private static WorldOnlineMessage CreateOnlineMessage(WorldInstanceIdentity identity) => new()

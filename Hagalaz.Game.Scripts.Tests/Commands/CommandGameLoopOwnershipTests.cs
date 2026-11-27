@@ -21,19 +21,13 @@ public sealed class CommandGameLoopOwnershipTests
     [TestMethod]
     public async Task SearchObjectCommand_SendsResultsOnlyOnGameWorkerContinuation()
     {
-        var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var definition = Substitute.For<IGameObjectDefinition>();
-        definition.Name.Returns("Test Object");
-        var gameObjectService = Substitute.For<IGameObjectService>();
-        gameObjectService.GetObjectsCount().Returns(1);
-        gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
-        var character = CreateCharacter(out var characterStore);
-        var command = new SearchObjectCommand(gameObjectService);
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var creatureTaskService = new CreatureTaskService(scheduler);
-        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
-        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        using var fixture = CreateSearchObjectCommandFixture();
+        var definitionReady = fixture.DefinitionReady;
+        var definition = fixture.Definition;
+        var character = fixture.Character;
+        var scheduler = fixture.Scheduler;
+        var queuedContinuation = fixture.QueuedContinuation;
+        var task = fixture.Task;
 
         scheduler.Schedule(task);
         scheduler.Tick();
@@ -53,19 +47,13 @@ public sealed class CommandGameLoopOwnershipTests
     [TestMethod]
     public async Task SearchObjectCommand_DoesNotMutateCharacterAfterCharacterIsDestroyed()
     {
-        var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var definition = Substitute.For<IGameObjectDefinition>();
-        definition.Name.Returns("Test Object");
-        var gameObjectService = Substitute.For<IGameObjectService>();
-        gameObjectService.GetObjectsCount().Returns(1);
-        gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
-        var character = CreateCharacter(out var characterStore);
-        var command = new SearchObjectCommand(gameObjectService);
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var creatureTaskService = new CreatureTaskService(scheduler);
-        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
-        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        using var fixture = CreateSearchObjectCommandFixture();
+        var definitionReady = fixture.DefinitionReady;
+        var definition = fixture.Definition;
+        var character = fixture.Character;
+        var scheduler = fixture.Scheduler;
+        var queuedContinuation = fixture.QueuedContinuation;
+        var task = fixture.Task;
 
         scheduler.Schedule(task);
         scheduler.Tick();
@@ -148,6 +136,43 @@ public sealed class CommandGameLoopOwnershipTests
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         configurations.DidNotReceiveWithAnyArgs().SendCs2Script(default, default!);
         configurations.DidNotReceiveWithAnyArgs().SendItems(default, default, default!);
+    }
+
+    private static SearchObjectCommandFixture CreateSearchObjectCommandFixture()
+    {
+        var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.Name.Returns("Test Object");
+        var gameObjectService = Substitute.For<IGameObjectService>();
+        gameObjectService.GetObjectsCount().Returns(1);
+        gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
+        var character = CreateCharacter(out _);
+        var command = new SearchObjectCommand(gameObjectService);
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var creatureTaskService = new CreatureTaskService(scheduler);
+        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
+        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        return new SearchObjectCommandFixture(
+            definitionReady,
+            definition,
+            character,
+            scheduler,
+            queuedContinuation,
+            task,
+            taskCancellation);
+    }
+
+    private sealed record SearchObjectCommandFixture(
+        TaskCompletionSource<IGameObjectDefinition> DefinitionReady,
+        IGameObjectDefinition Definition,
+        ICharacter Character,
+        RsTaskService Scheduler,
+        TaskCompletionSource<ITaskItem> QueuedContinuation,
+        RsAsyncTask Task,
+        CancellationTokenSource TaskCancellation) : IDisposable
+    {
+        public void Dispose() => TaskCancellation.Dispose();
     }
 
     private static ICharacter CreateCharacter(out ICharacterStore characterStore)

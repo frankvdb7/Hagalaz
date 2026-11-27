@@ -565,25 +565,9 @@ public sealed class WorldReconnectConnectionHandlerTests
         session.SessionClaimId.Returns("claim");
         var gameClient = new GameClient(DisplayMode.FixedScreen, Language.English, 800, 600);
         var targetItemsCount = target.Items.Count;
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        character.Session.Returns(session);
-        character.Index.Returns(1);
-        character.Location.Returns(Location.Create(3200, 3200));
-        character.GameClient.Returns(gameClient);
-        target.Features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
-        target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
-        {
-            AuthenticationProperties = new AuthenticationProperties
-            {
-                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" },
-                AuthorizationId = "authorization-id"
-            }
-        });
+        var character = AuthenticatedCharacterFeatureSetup.Create(target, session, gameClient);
 
-        var connections = new RaidoHubConnectionStore();
-        connections.Add(target);
+        var connections = AuthenticatedCharacterFeatureSetup.CreateConnectionStore(target);
         using var meter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
         var connectionHandler = CreateConnectionHandler(meter);
         var authentication = Substitute.For<IAuthenticationService>();
@@ -901,28 +885,9 @@ public sealed class WorldReconnectConnectionHandlerTests
         session.MasterId.Returns(42u);
         session.SessionClaimId.Returns("claim");
         var gameClient = new GameClient(DisplayMode.FixedScreen, Language.English, 800, 600);
-        var character = Substitute.For<ICharacter>();
-        character.MasterId.Returns(42u);
-        character.Session.Returns(session);
-        character.Index.Returns(1);
-        character.Location.Returns(Location.Create(3200, 3200));
-        character.GameClient.Returns(gameClient);
-        target.Features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
-        target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
-        {
-            AuthenticationProperties = new AuthenticationProperties
-            {
-                Claims = new Dictionary<string, object>
-                {
-                    [OpenIddictConstants.Claims.Subject] = "42"
-                },
-                AuthorizationId = "authorization-id"
-            }
-        });
+        var character = AuthenticatedCharacterFeatureSetup.Create(target, session, gameClient);
 
-        var connections = new RaidoHubConnectionStore();
-        connections.Add(target);
+        var connections = AuthenticatedCharacterFeatureSetup.CreateConnectionStore(target);
         var metricsMeter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");
         var connectionHandler = CreateConnectionHandler(metricsMeter);
         var authentication = Substitute.For<IAuthenticationService>();

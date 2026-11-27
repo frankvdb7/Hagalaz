@@ -119,17 +119,7 @@ public sealed class MapRegionLoaderTests
     {
         var stoppedActivities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
-                    stoppedActivities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateLoadActivityListener(stoppedActivities);
 
         var region = CreateRegion();
         var gameObject = Substitute.For<IGameObject>();
@@ -393,17 +383,7 @@ public sealed class MapRegionLoaderTests
     {
         var stoppedActivities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
-                    stoppedActivities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateLoadActivityListener(stoppedActivities);
         using var cancellation = new CancellationTokenSource();
         var region = CreateRegion();
         var npcA = CreateNpc(1);
@@ -855,6 +835,24 @@ public sealed class MapRegionLoaderTests
         }
         region.When(value => value.MarkDiscarded()).Do(_ => state = MapRegionState.Discarded);
         return region;
+    }
+
+    private static ActivityListener CreateLoadActivityListener(List<Activity> stoppedActivities)
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
+                {
+                    stoppedActivities.Add(activity);
+                }
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
     }
 
     private static NpcSpawn[] CreateNpcSpawns(params int[] ids) => ids.Select(id => new NpcSpawn

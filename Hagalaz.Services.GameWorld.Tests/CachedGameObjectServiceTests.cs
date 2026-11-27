@@ -24,17 +24,7 @@ public sealed class CachedGameObjectServiceTests
     {
         var activities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
-                    activities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateResolutionActivityListener(activities);
         var overrides = new Dictionary<uint, GameObjectDefinitionOverride>
         {
             [100] = new(100, "override-100", 11),
@@ -95,6 +85,22 @@ public sealed class CachedGameObjectServiceTests
         CollectionAssert.AreEqual(new[] { "hit", "miss" }, lookups);
     }
 
+    private static ActivityListener CreateResolutionActivityListener(List<Activity> activities)
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
+                    activities.Add(activity);
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
+    }
+
     [TestMethod]
     public async Task FindDefinitionById_RetainsTheSingleIdCachedPath()
     {
@@ -118,17 +124,7 @@ public sealed class CachedGameObjectServiceTests
     {
         var activities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
-                    activities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateResolutionActivityListener(activities);
         var (service, repository, _) = CreateService([]);
 
         var result = await service.FindGameObjectDefinitionsByIdsAsync([]);
@@ -150,17 +146,7 @@ public sealed class CachedGameObjectServiceTests
     {
         var activities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
-                    activities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateResolutionActivityListener(activities);
         using var source = new CancellationTokenSource();
         var repository = Substitute.For<IGameObjectDefinitionRepository>();
         repository.FindOverridesByIdsAsync(Arg.Any<IReadOnlyCollection<uint>>(), Arg.Any<CancellationToken>())
@@ -196,17 +182,7 @@ public sealed class CachedGameObjectServiceTests
     {
         var activities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.GameObjectDefinitions.ResolveBulk")
-                    activities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateResolutionActivityListener(activities);
 
         var failure = new InvalidOperationException("repository unavailable");
         var repository = Substitute.For<IGameObjectDefinitionRepository>();

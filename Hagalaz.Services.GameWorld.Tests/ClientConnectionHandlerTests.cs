@@ -365,16 +365,7 @@ public sealed class ClientConnectionHandlerTests
         character.Index.Returns(1);
         character.Location.Returns(Location.Create(3200, 3200));
         character.GameClient.Returns(gameClient);
-        target.Features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
-        target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
-        {
-            AuthenticationProperties = new AuthenticationProperties
-            {
-                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" },
-                AuthorizationId = "authorization-id"
-            }
-        });
+        AuthenticatedCharacterFeatureSetup.Set(target, session, character);
 
         tcp.OnPhysicalConnectionClosed(initial);
         Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));

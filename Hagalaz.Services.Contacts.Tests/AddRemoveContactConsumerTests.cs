@@ -55,8 +55,7 @@ namespace Hagalaz.Services.Contacts.Tests
             _mapperMock.Setup(m => m.Map<MsgContactDto>(contactCharacter)).Returns(new MsgContactDto { MasterId = contactId, DisplayName = contactName });
             _mapperMock.Setup(m => m.Map<MsgContactDto>(masterCharacter)).Returns(new MsgContactDto { MasterId = masterId, DisplayName = "Master" });
 
-            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
-            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+            var contextMock = CreateAddContactRequestContext(masterId, contactName);
             AddContactResponse? response = null;
             contextMock
                 .Setup(x => x.RespondAsync(It.IsAny<AddContactResponse>()))
@@ -96,8 +95,7 @@ namespace Hagalaz.Services.Contacts.Tests
             _contactServiceMock.Setup(x => x.FindFriendByIdAsync(contactId, masterId))
                 .ReturnsAsync(reciprocal ? new ContactDto { MasterId = contactId, DisplayName = contactName } : null);
 
-            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
-            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+            var contextMock = CreateAddContactRequestContext(masterId, contactName);
 
             await _consumer.Consume(contextMock.Object);
 
@@ -178,6 +176,18 @@ namespace Hagalaz.Services.Contacts.Tests
             _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName)).ReturnsAsync(contact);
             _mapperMock.Setup(m => m.Map<MsgContactDto>(master)).Returns(new MsgContactDto { MasterId = masterId, DisplayName = "Master" });
             _mapperMock.Setup(m => m.Map<MsgContactDto>(contact)).Returns(new MsgContactDto { MasterId = contactId, DisplayName = contactName });
+        }
+
+        private static Mock<ConsumeContext<AddContactRequest>> CreateAddContactRequestContext(uint masterId, string contactName)
+        {
+            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
+            contextMock.Setup(x => x.Message).Returns(new AddContactRequest
+            {
+                MasterId = masterId,
+                ContactDisplayName = contactName,
+                Ignore = false
+            });
+            return contextMock;
         }
 
         [TestMethod]
@@ -266,15 +276,10 @@ namespace Hagalaz.Services.Contacts.Tests
         public async Task Consume_AddContactRequest_SetsCorrectAvailabilityFromSettings()
         {
             // Arrange
-            uint masterId = 100;
-            uint contactId = 200;
-            string contactName = "ContactUser";
-
-            var masterCharacter = new Services.Model.CharacterDto { MasterId = masterId, DisplayName = "Master" };
-            var contactCharacter = new Services.Model.CharacterDto { MasterId = contactId, DisplayName = contactName };
-
-            _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId)).ReturnsAsync(masterCharacter);
-            _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName)).ReturnsAsync(contactCharacter);
+            const uint masterId = 100;
+            const uint contactId = 200;
+            const string contactName = "ContactUser";
+            SetupCharacters(masterId, contactId, contactName);
             _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Common.Model.Result.Success);
 
             // Contact has Friends-only availability
@@ -286,11 +291,7 @@ namespace Hagalaz.Services.Contacts.Tests
             };
             _contactServiceMock.Setup(x => x.FindFriendByIdAsync(contactId, masterId)).ReturnsAsync(contactFriendOfMaster);
 
-            _mapperMock.Setup(m => m.Map<MsgContactDto>(contactCharacter)).Returns(new MsgContactDto { MasterId = contactId, DisplayName = contactName });
-            _mapperMock.Setup(m => m.Map<MsgContactDto>(masterCharacter)).Returns(new MsgContactDto { MasterId = masterId, DisplayName = "Master" });
-
-            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
-            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+            var contextMock = CreateAddContactRequestContext(masterId, contactName);
 
             // Act
             await _consumer.Consume(contextMock.Object);
@@ -305,26 +306,17 @@ namespace Hagalaz.Services.Contacts.Tests
         public async Task Consume_AddContactRequest_HandlesNullAvailabilityGracefully()
         {
             // Arrange
-            uint masterId = 100;
-            uint contactId = 200;
-            string contactName = "ContactUser";
-
-            var masterCharacter = new Services.Model.CharacterDto { MasterId = masterId, DisplayName = "Master" };
-            var contactCharacter = new Services.Model.CharacterDto { MasterId = contactId, DisplayName = contactName };
-
-            _characterServiceMock.Setup(x => x.FindCharacterByIdAsync(masterId)).ReturnsAsync(masterCharacter);
-            _characterServiceMock.Setup(x => x.FindCharacterByDisplayName(contactName)).ReturnsAsync(contactCharacter);
+            const uint masterId = 100;
+            const uint contactId = 200;
+            const string contactName = "ContactUser";
+            SetupCharacters(masterId, contactId, contactName);
             _contactServiceMock.Setup(x => x.AddContactAsync(masterId, contactId, false)).ReturnsAsync(Common.Model.Result.Success);
 
             // contactSettings is NOT null, but Availability IS null
             var contactSettings = new ContactSettingsDto { Availability = null! };
             _contactServiceMock.Setup(x => x.FindContactSettingsAsync(contactId)).ReturnsAsync(contactSettings);
 
-            _mapperMock.Setup(m => m.Map<MsgContactDto>(contactCharacter)).Returns(new MsgContactDto { MasterId = contactId, DisplayName = contactName });
-            _mapperMock.Setup(m => m.Map<MsgContactDto>(masterCharacter)).Returns(new MsgContactDto { MasterId = masterId, DisplayName = "Master" });
-
-            var contextMock = new Mock<ConsumeContext<AddContactRequest>>();
-            contextMock.Setup(x => x.Message).Returns(new AddContactRequest { MasterId = masterId, ContactDisplayName = contactName, Ignore = false });
+            var contextMock = CreateAddContactRequestContext(masterId, contactName);
 
             // Act
             await _consumer.Consume(contextMock.Object);
