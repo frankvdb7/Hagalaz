@@ -17,7 +17,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var itemBuilderMock = Substitute.For<IItemBuilder>();
             var itemIdMock = Substitute.For<IItemId>();
             var itemOptionalMock = Substitute.For<IItemOptional>();
-            var itemBuildMock = Substitute.For<IItemBuild>();
+            _ = Substitute.For<IItemBuild>();
             var itemMock = Substitute.For<IItem>();
             itemMock.Id.Returns(123);
             itemMock.Count.Returns(456);

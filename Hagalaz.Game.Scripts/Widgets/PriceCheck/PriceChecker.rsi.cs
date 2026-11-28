@@ -71,7 +71,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
 
 
             // Component attachment for inventory (for ability to add items to price check interface).
-            inventoryInterface.AttachClickHandler(0, (componentID, clickType, itemID, slot) =>
+            inventoryInterface.AttachClickHandler(0, (_, clickType, itemID, slot) =>
             {
                 if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
@@ -133,7 +133,7 @@ namespace Hagalaz.Game.Scripts.Widgets.PriceCheck
             });
 
             // Component attachment for price checker (for ability to remove items to owner's inventory).
-            InterfaceInstance.AttachClickHandler(15, (componentID, clickType, itemID, slot) =>
+            InterfaceInstance.AttachClickHandler(15, (_, clickType, itemID, slot) =>
             {
                 var items = _priceCheckItems;
                 if (items == null)

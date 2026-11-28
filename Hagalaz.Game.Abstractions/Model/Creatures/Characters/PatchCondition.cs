@@ -6,7 +6,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
     /// Defines a set of flags representing the various conditions a farming patch can be in.
     /// </summary>
     [Flags]
-    public enum PatchCondition : int
+    public enum PatchCondition
     {
         /// <summary>
         /// The patch is diseased.

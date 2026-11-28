@@ -96,7 +96,7 @@ public sealed class ExtractedItemOperationsTests
         character.Statistics.DidNotReceive().AddExperience(StatisticsConstants.Magic, Arg.Any<double>());
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(1963, 25.0)]
     [DataRow(6883, 35.5)]
     public void BonesConversion_ConsumesSupportedBonesAndAwardsSpellOutput(int productId, double experiencePerBone)

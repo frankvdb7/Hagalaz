@@ -13,7 +13,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Prayer;
 [TestClass]
 public sealed class PrayerCallerLookupFailureTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false, 526)]
     [DataRow(true, 592)]
     public async Task ConcretePrayerCaller_WhenDefinitionIsMissingDoesNotStartAction(bool ash, int id)
@@ -30,7 +30,7 @@ public sealed class PrayerCallerLookupFailureTests
         character.DidNotReceive().QueueTask(Arg.Any<ITaskItem>());
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false, 526)]
     [DataRow(true, 592)]
     public async Task ConcretePrayerCaller_WhenItemDisappearsDuringLookupDoesNotStartAction(bool ash, int id)

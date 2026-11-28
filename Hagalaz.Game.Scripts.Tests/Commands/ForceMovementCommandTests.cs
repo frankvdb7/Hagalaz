@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var movementLocationStartMock = Substitute.For<IMovementLocationStart>();
             var movementLocationEndMock = Substitute.For<IMovementLocationEnd>();
             var movementOptionalMock = Substitute.For<IMovementOptional>();
-            var movementBuildMock = Substitute.For<IMovementBuild>();
+            _ = Substitute.For<IMovementBuild>();
             var movementMock = Substitute.For<IForceMovement>();
 
             movementBuilderMock.Create().Returns(movementLocationStartMock);

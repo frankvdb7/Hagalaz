@@ -78,8 +78,8 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="fileId">The identifier of the file to read.</param>
         /// <param name="xteaKeys">The set of four integer keys used for XTEA decryption.</param>
         /// <returns>A decoded <see cref="IContainer"/> containing the decrypted file data.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="xteaKeys"/> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="xteaKeys"/> does not contain exactly four keys.</exception>
+        /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="xteaKeys"/> is null.</exception>
+        /// <exception cref="System.ArgumentException">Thrown if <paramref name="xteaKeys"/> does not contain exactly four keys.</exception>
         IContainer ReadContainer(int indexId, int fileId, int[] xteaKeys);
 
         /// <summary>
@@ -122,7 +122,7 @@ namespace Hagalaz.Cache.Abstractions
         /// <param name="replacement">The container to write.</param>
         /// <param name="xteaKeys">Four keys, not all zero.</param>
         /// <returns><c>true</c> when the replacement was written; <c>false</c> when another write changed the file first or it cannot be read with these keys.</returns>
-        /// <exception cref="ArgumentException">Thrown if the keys are not four values or are all zero; nothing is read or written.</exception>
+        /// <exception cref="System.ArgumentException">Thrown if the keys are not four values or are all zero; nothing is read or written.</exception>
         bool TryReplaceContainer(int indexId, int fileId, byte[] expected, IContainer replacement, int[] xteaKeys);
 
         /// <summary>

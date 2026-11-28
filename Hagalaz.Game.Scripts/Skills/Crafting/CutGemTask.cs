@@ -24,7 +24,6 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
         {
             _itemBuilder = itemBuilder;
             Performer = characterContextAccessor.Context.Character;
-            ;
             TickActionMethod = PerformTickImpl;
             _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {

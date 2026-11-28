@@ -22,14 +22,14 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
         public override void OnOpen()
         {
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Good day " + Owner.DisplayName + ",", "how may I help you?");
                     return true;
                 });
 
             AttachDialogueContinueClickHandler(1,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue(Owner.HasSlayerTask() ? "How many monsters do I have left?" : "Please give me a task.",
                         TalkingTo.Appearance.CompositeID == 9085 ? "Can you tell me about your skill cape?" : "What do you have in your shop?",
@@ -39,7 +39,7 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 });
 
             AttachDialogueOptionClickHandler("Can you tell me about your skill cape?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     var dialogue = Owner.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
                     dialogue.SkillID = StatisticsConstants.Slayer;
@@ -48,14 +48,14 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 });
 
             AttachDialogueOptionClickHandler("How many monsters do I have left?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     ShowAssignedTaskDialogue(includePeriodAfterTaskName: false);
                     return true;
                 });
 
             AttachDialogueOptionClickHandler("Please give me a task.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     if (Owner.HasSlayerTask())
                     {
@@ -98,14 +98,14 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 });
 
             AttachDialogueOptionClickHandler("Nothing, never mind.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;
                 });
 
             AttachDialogueOptionClickHandler("What do you have in your shop?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "I have multiple items for sale.");
                     SetStage(3);
@@ -113,21 +113,21 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
                 });
 
             AttachDialogueOptionClickHandler("Give me a tip.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "I currently do not have any tips for you.");
                     return true;
                 });
 
             AttachDialogueContinueClickHandler(3,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;
                 });
 
             AttachDialogueContinueClickHandler(4,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 11));

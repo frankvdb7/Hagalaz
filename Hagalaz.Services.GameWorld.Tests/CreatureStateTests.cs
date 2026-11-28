@@ -44,7 +44,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void AddState_AddsNewState()
         {
-            var state = new ResistPoisonState { };
+            var state = new ResistPoisonState();
             _creature.AddState(state);
 
             Assert.IsTrue(_creature.HasState<ResistPoisonState>());
@@ -55,10 +55,10 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void AddState_UpdatesExistingStateIfNewer()
         {
-            var oldState = new ResistPoisonState { };
+            var oldState = new ResistPoisonState();
             _creature.AddState(oldState);
 
-            var newState = new ResistPoisonState { };
+            var newState = new ResistPoisonState();
             _creature.AddState(newState);
 
             Assert.IsTrue(_creature.HasState<ResistPoisonState>());
@@ -68,10 +68,10 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void AddState_DoesNotUpdateExistingStateIfOlder()
         {
-            var oldState = new ResistPoisonState { };
+            var oldState = new ResistPoisonState();
             _creature.AddState(oldState);
 
-            var newState = new ResistPoisonState { };
+            var newState = new ResistPoisonState();
             _creature.AddState(newState);
 
             Assert.IsTrue(_creature.HasState<ResistPoisonState>());
@@ -81,7 +81,7 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void RemoveState_RemovesExistingState()
         {
-            var state = new ResistPoisonState { };
+            var state = new ResistPoisonState();
             _creature.AddState(state);
             Assert.IsTrue(_creature.HasState<ResistPoisonState>());
 
@@ -101,8 +101,8 @@ namespace Hagalaz.Services.GameWorld.Tests
         [TestMethod]
         public void GetStates_ReturnsAllActiveStates()
         {
-            var state1 = new ResistPoisonState { };
-            var state2 = new RestingState { };
+            var state1 = new ResistPoisonState();
+            var state2 = new RestingState();
             _creature.AddState(state1);
             _creature.AddState(state2);
 

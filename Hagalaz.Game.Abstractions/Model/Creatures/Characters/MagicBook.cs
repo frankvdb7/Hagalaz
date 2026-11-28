@@ -3,7 +3,7 @@
     /// <summary>
     /// Defines the different spellbooks a character can use, which determine the set of available spells.
     /// </summary>
-    public enum MagicBook : int
+    public enum MagicBook
     {
         /// <summary>
         /// The standard spellbook, available to all players.

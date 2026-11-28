@@ -1,11 +1,11 @@
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Mediator;
+using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
+using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Npcs.Familiars;
 using Hagalaz.Game.Scripts.Widgets.Orbs;
 using Hagalaz.Game.Scripts.Widgets.Tabs;
@@ -16,6 +16,42 @@ namespace Hagalaz.Game.Scripts.Tests.Widgets.Orbs;
 [TestClass]
 public sealed class SummoningOrbTests
 {
+    [TestMethod]
+    [DataRow(15)]
+    [DataRow(24)]
+    [DataRow(65)]
+    public void AttackHandlers_RejectSelfAndQueueTheTargetForTheNextTick(int component)
+    {
+        var familiar = Substitute.For<INpc>();
+        var familiarScript = Substitute.For<IFamiliarScript>();
+        familiarScript.Familiar.Returns(familiar);
+        var character = Substitute.For<ICharacter>();
+        character.FamiliarScript.Returns(familiarScript);
+        character.EventManager.Returns(Substitute.For<IEventManager>());
+        var context = Substitute.For<ICharacterContext>();
+        context.Character.Returns(character);
+        var accessor = Substitute.For<ICharacterContextAccessor>();
+        accessor.Context.Returns(context);
+        var mediator = Substitute.For<IScopedGameMediator>();
+        var widget = Substitute.For<IWidget>();
+        OnComponentUsedOnCreature? attack = null;
+        widget.When(x => x.AttachUseOnCreatureHandler(component, Arg.Any<OnComponentUsedOnCreature>()))
+            .Do(call => attack = call.ArgAt<OnComponentUsedOnCreature>(1));
+        IWidgetScript script = component == 65
+            ? new SummoningTab(accessor)
+            : new SummoningOrb(accessor, mediator, new LeftClickOptionTab(accessor, mediator));
+        script.Initialize(widget);
+        script.OnOpen();
+        Assert.IsNotNull(attack);
+
+        Assert.IsFalse(attack(component, familiar, true, 41, 42));
+        familiar.DidNotReceive().QueueTask(Arg.Any<ITaskItem>());
+
+        var target = Substitute.For<ICreature>();
+        Assert.IsTrue(attack(component, target, true, 41, 42));
+        familiar.Received(1).QueueTask(Arg.Is<ITaskItem>(task => task is RsTask && ((RsTask)task).ExecuteDelay == 1));
+    }
+
     [TestMethod]
     public void InteractHandlers_OpenTheFamiliarDialogueForBothClickOptions()
     {

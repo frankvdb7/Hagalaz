@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var soundTypeMock = Substitute.For<ISoundType>();
             var soundIdMock = Substitute.For<ISoundId>();
             var soundOptionalMock = Substitute.For<ISoundOptional>();
-            var soundBuildMock = Substitute.For<ISoundBuild>();
+            _ = Substitute.For<ISoundBuild>();
             var audioMock = Substitute.For<ISound>();
 
             audioBuilderMock.Create().Returns(soundTypeMock);

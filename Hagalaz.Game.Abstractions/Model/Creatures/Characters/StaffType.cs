@@ -3,7 +3,7 @@
     /// <summary>
     /// Defines the different types of magical staves, identified by their item ID.
     /// </summary>
-    public enum StaffType : int
+    public enum StaffType
     {
         /// <summary>
         /// A staff of air.

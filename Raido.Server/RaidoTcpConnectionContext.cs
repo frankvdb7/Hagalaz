@@ -348,7 +348,7 @@ namespace Raido.Server
                 }
                 else if (published)
                 {
-                    if (reconnectStartTimestamp is long reconnectStart)
+                    if (reconnectStartTimestamp is { } reconnectStart)
                     {
                         RecordReconnectCompletion("success", reconnectStart, reconnectEndTimestamp);
                     }
@@ -974,7 +974,7 @@ namespace Raido.Server
 
             var reconnectWaiter = _reconnectWaiter;
             _reconnectWaiter = null;
-            if (_metricsContext.ReconnectEnabled && _reconnectWindowStartTimestamp is long reconnectStartTimestamp)
+            if (_metricsContext.ReconnectEnabled && _reconnectWindowStartTimestamp is { } reconnectStartTimestamp)
             {
                 var reconnectEndTimestamp = _metricsContext.ReconnectDurationEnabled
                     ? _timeProvider.GetTimestamp()
@@ -1118,7 +1118,7 @@ namespace Raido.Server
         private TimeSpan GetReconnectWaitTimeoutLocked(TimeSpan requestedTimeout)
         {
             var remainingTimeout = _statefulReconnectTimeout;
-            if (_reconnectWindowStartTimestamp is long startTimestamp)
+            if (_reconnectWindowStartTimestamp is { } startTimestamp)
             {
                 remainingTimeout -= _timeProvider.GetElapsedTime(startTimestamp);
             }
@@ -1132,7 +1132,7 @@ namespace Raido.Server
         }
 
         private bool IsReconnectWindowExpiredLocked() =>
-            _reconnectWindowStartTimestamp is long startTimestamp &&
+            _reconnectWindowStartTimestamp is { } startTimestamp &&
             _timeProvider.GetElapsedTime(startTimestamp) >= _statefulReconnectTimeout;
 
         private void OnConnectionClosedRequested(ConnectionContext connection)

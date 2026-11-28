@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var animationBuilderMock = Substitute.For<IAnimationBuilder>();
             var animationIdMock = Substitute.For<IAnimationId>();
             var animationOptionalMock = Substitute.For<IAnimationOptional>();
-            var animationBuildMock = Substitute.For<IAnimationBuild>();
+            _ = Substitute.For<IAnimationBuild>();
             var animationMock = Substitute.For<IAnimation>();
 
             animationBuilderMock.Create().Returns(animationIdMock);

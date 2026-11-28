@@ -21,7 +21,7 @@ public sealed class ItemWidgetOperationsTests
         Assert.AreSame(exactItem, actual);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(ComponentClickType.LeftClick, 1)]
     [DataRow(ComponentClickType.Option2Click, 5)]
     [DataRow(ComponentClickType.Option3Click, 10)]

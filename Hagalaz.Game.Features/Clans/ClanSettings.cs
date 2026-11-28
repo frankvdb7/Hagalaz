@@ -325,14 +325,14 @@ namespace Hagalaz.Game.Features.Clans
             }
         }
 
-        /// <summary>
-        /// Inserts the ISqlDataObject into the database via the client.
-        /// </summary>
-        /// <param name="client">The client to execute query on.</param>
-        /// <returns>
-        /// Returns true if the client has successfully inserted the object.
-        /// </returns>
-        /// <exception cref="System.NotImplementedException"></exception>
+        // <summary>
+        // Inserts the ISqlDataObject into the database via the client.
+        // </summary>
+        // <param name="client">The client to execute query on.</param>
+        // <returns>
+        // Returns true if the client has successfully inserted the object.
+        // </returns>
+        // <exception cref="System.NotImplementedException"></exception>
         //public bool Insert(ISqlDatabaseClient client)
         //{
         //    StringBuilder query = new StringBuilder()

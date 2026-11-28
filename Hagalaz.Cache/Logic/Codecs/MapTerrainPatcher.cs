@@ -33,14 +33,14 @@ public static class MapTerrainPatcher
         using var output = new MemoryStream(stored.Length + byTile.Count * 4);
         var offset = 0;
         for (var z = 0; z < Planes; z++)
-        for (var x = 0; x < Dimension; x++)
-        for (var y = 0; y < Dimension; y++)
-        {
-            var end = TileEnd(stored, offset);
-            if (byTile.TryGetValue(TileKey(z, x, y), out var change)) WriteTile(output, stored, offset, end, change);
-            else output.Write(stored, offset, end - offset);
-            offset = end;
-        }
+            for (var x = 0; x < Dimension; x++)
+                for (var y = 0; y < Dimension; y++)
+                {
+                    var end = TileEnd(stored, offset);
+                    if (byTile.TryGetValue(TileKey(z, x, y), out var change)) WriteTile(output, stored, offset, end, change);
+                    else output.Write(stored, offset, end - offset);
+                    offset = end;
+                }
         output.Write(stored, offset, stored.Length - offset);
         return output.ToArray();
     }

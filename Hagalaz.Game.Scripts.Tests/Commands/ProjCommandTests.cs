@@ -20,7 +20,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var projectileToMock = Substitute.For<IProjectileTo>();
             var projectileDurationMock = Substitute.For<IProjectileDuration>();
             var projectileOptionalMock = Substitute.For<IProjectileOptional>();
-            var projectileBuildMock = Substitute.For<IProjectileBuild>();
+            _ = Substitute.For<IProjectileBuild>();
 
             projectileBuilderMock.Create().Returns(projectileIdMock);
             projectileIdMock.WithGraphicId(Arg.Any<int>()).Returns(projectileFromMock);

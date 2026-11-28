@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Scripts.Tests.Items;
 [TestClass]
 public sealed class GodSwordCompositionTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(11702, 11690, 11694)]
     [DataRow(11690, 11702, 11694)]
     [DataRow(11708, 11690, 11700)]
@@ -29,7 +29,7 @@ public sealed class GodSwordCompositionTests
         Assert.IsNull(inventory.Items[0]);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(11710, 11692, 11690)]
     [DataRow(11692, 11710, 11690)]
     [DataRow(11712, 11688, 11690)]

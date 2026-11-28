@@ -48,7 +48,7 @@ namespace Hagalaz.Services.GameWorld.Data
             if (eventHandlers.Any(eventHandler => eventHandler.Invoke(e)))
             {
                 return false;
-            };
+            }
             return true;
         }
 

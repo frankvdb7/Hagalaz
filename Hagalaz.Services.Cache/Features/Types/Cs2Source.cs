@@ -276,14 +276,14 @@ internal static class Cs2Source
             var strings = Take("string", setter.Strings);
             // Class109.method1352 treats exactly 1 as hidden.
             var arguments = setter.Name is "setHidden" or "setSpriteTiled"
-                ? [ints[0].Constant is int value ? (value == 1 ? "true" : "false") : $"{ints[0].Text} == 1"]
+                ? [ints[0].Constant is { } value ? (value == 1 ? "true" : "false") : $"{ints[0].Text} == 1"]
                 : ints.Concat(strings).Select(value => value.Text);
             Add(index, $"{setter.Name}({target}, {string.Join(", ", arguments)})", widget: widget);
         }
     }
 
     private static Cs2WidgetReferenceDto? WidgetReference(Value? component) =>
-        component?.Constant is int packed ? new(packed >>> 16, packed & 65535) : null;
+        component?.Constant is { } packed ? new(packed >>> 16, packed & 65535) : null;
 
     private static string WidgetTarget(Cs2WidgetReferenceDto? widget, string fallback) =>
         widget is null ? fallback : $"widget({widget.Id}, {widget.Component})";

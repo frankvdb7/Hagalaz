@@ -522,6 +522,19 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             RefreshUsingSpecialAttack();
         }
 
+        internal static bool TryQueueAttack(ICharacter summoner, ICreature target)
+        {
+            if (!summoner.HasFamiliar() || summoner.FamiliarScript.Familiar == target)
+            {
+                return false;
+            }
+
+            var targetHandle = target.Handle;
+            summoner.FamiliarScript.Familiar.QueueTask(new RsTask(
+                () => summoner.FamiliarScript.Familiar.Combat.SetTarget(targetHandle), 1));
+            return true;
+        }
+
         /// <summary>
         /// Refreshes special attack boolean in client.
         /// </summary>

@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
     /// <summary>
     /// Defines the different types of movement boundaries for an NPC, controlling how it wanders.
     /// </summary>
-    public enum BoundsType : int
+    public enum BoundsType
     {
         /// <summary>
         /// The NPC remains stationary at its spawn point and does not walk.

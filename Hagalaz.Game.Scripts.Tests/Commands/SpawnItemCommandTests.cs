@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var itemBuilderMock = Substitute.For<IItemBuilder>();
             var itemIdMock = Substitute.For<IItemId>();
             var itemOptionalMock = Substitute.For<IItemOptional>();
-            var itemBuildMock = Substitute.For<IItemBuild>();
+            _ = Substitute.For<IItemBuild>();
             var itemMock = Substitute.For<IItem>();
 
             itemBuilderMock.Create().Returns(itemIdMock);
@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var groundItemOnGroundMock = Substitute.For<IGroundItemOnGround>();
             var groundItemLocationMock = Substitute.For<IGroundItemLocation>();
             var groundItemOptionalMock = Substitute.For<IGroundItemOptional>();
-            var groundItemBuildMock = Substitute.For<IGroundItemBuild>();
+            _ = Substitute.For<IGroundItemBuild>();
 
             groundItemBuilderMock.Create().Returns(groundItemOnGroundMock);
             groundItemOnGroundMock.WithItem(Arg.Any<Func<IItemBuilder, IItemBuild>>()).Returns(groundItemLocationMock);

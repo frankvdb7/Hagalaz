@@ -66,7 +66,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Rewards
                 return false;
             }));
 
-            InterfaceInstance.AttachClickHandler(16, (componentID, clickType, itemID, slot) =>
+            InterfaceInstance.AttachClickHandler(16, (_, clickType, itemID, slot) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

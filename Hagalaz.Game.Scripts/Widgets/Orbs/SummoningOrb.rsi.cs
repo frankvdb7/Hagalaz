@@ -82,7 +82,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             }));
 
             // Select left click option
-            InterfaceInstance.AttachClickHandler(8, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(8, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.Option10Click)
                 {
@@ -95,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Follower Details
-            InterfaceInstance.AttachClickHandler(10, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(10, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.Option6Click)
                 {
@@ -113,7 +113,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Call Familiar
-            InterfaceInstance.AttachClickHandler(11, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(11, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.Option6Click)
                 {
@@ -130,7 +130,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Dismiss
-            InterfaceInstance.AttachClickHandler(12, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(12, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.Option6Click)
                 {
@@ -147,7 +147,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Take BoB
-            InterfaceInstance.AttachClickHandler(13, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(13, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.Option6Click)
                 {
@@ -169,7 +169,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Renew FamiliarScript
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.Option6Click)
                 {
@@ -189,7 +189,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             AttachInteractHandler(16, ComponentClickType.Option6Click);
 
             // Special move
-            InterfaceInstance.AttachClickHandler(18, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(18, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -206,7 +206,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Left click FamiliarScript details
-            InterfaceInstance.AttachClickHandler(19, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(19, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -225,7 +225,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Left click call FamiliarScript
-            InterfaceInstance.AttachClickHandler(20, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(20, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -242,7 +242,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Left click dismiss FamiliarScript
-            InterfaceInstance.AttachClickHandler(21, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(21, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -259,7 +259,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Left click take BoB
-            InterfaceInstance.AttachClickHandler(22, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(22, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -281,7 +281,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Left click renew FamiliarScript
-            InterfaceInstance.AttachClickHandler(23, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(23, (_, clickType, _, _) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {
@@ -301,43 +301,15 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             AttachInteractHandler(27, ComponentClickType.LeftClick);
 
             // Attack
-            InterfaceInstance.AttachUseOnCreatureHandler(15, (componentID, creature, forceRun, extraData1, extraData2) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+            InterfaceInstance.AttachUseOnCreatureHandler(15, (_, creature, _, _, _) =>
+                FamiliarScriptBase.TryQueueAttack(Owner, creature));
 
             // Attack left click
-            InterfaceInstance.AttachUseOnCreatureHandler(24, (componentID, creature, forceRun, extraData1, extraData2) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+            InterfaceInstance.AttachUseOnCreatureHandler(24, (_, creature, _, _, _) =>
+                FamiliarScriptBase.TryQueueAttack(Owner, creature));
 
             // Cast special move
-            InterfaceInstance.AttachUseOnCreatureHandler(18, (componentID, creature, forceRun, extraData1, extraData2) =>
+            InterfaceInstance.AttachUseOnCreatureHandler(18, (_, creature, _, _, _) =>
             {
                 if (!Owner.HasFamiliar())
                 {
@@ -354,7 +326,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Cast special move
-            InterfaceInstance.AttachUseOnComponentHandler(18, (componentID, itemUsedOnId, itemUsedOnSlot, extra1, extra2) =>
+            InterfaceInstance.AttachUseOnComponentHandler(18, (_, itemUsedOnId, itemUsedOnSlot, _, _) =>
             {
                 if (!Owner.HasFamiliar())
                 {
@@ -439,7 +411,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
 
         private void AttachInteractHandler(int componentId, ComponentClickType requiredClickType)
         {
-            InterfaceInstance.AttachClickHandler(componentId, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(componentId, (_, clickType, _, _) =>
             {
                 if (clickType != requiredClickType)
                 {

@@ -78,7 +78,7 @@ namespace Hagalaz.Collections.Tests
             });
 
             // Act
-            var list = new LazyList<int>(source);
+            _ = new LazyList<int>(source);
 
             // Assert
             Assert.AreEqual(0, enumerationCount, "The source IEnumerable should not be enumerated upon LazyList creation.");
@@ -97,14 +97,14 @@ namespace Hagalaz.Collections.Tests
             var list = new LazyList<int>(source);
 
             // Act
-            var firstElement = list.ElementAt(0);
-            var secondElement = list.ElementAt(1);
+            _ = list.ElementAt(0);
+            _ = list.ElementAt(1);
 
             // Assert
             Assert.AreEqual(2, enumerationCount, "The source should be enumerated up to the accessed element.");
 
             // Act again
-            var firstElementAgain = list.ElementAt(0);
+            _ = list.ElementAt(0);
 
             // Assert again
             Assert.AreEqual(2, enumerationCount, "Accessing an already enumerated element should not re-enumerate the source.");

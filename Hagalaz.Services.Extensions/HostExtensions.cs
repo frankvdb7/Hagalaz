@@ -16,7 +16,7 @@ namespace Hagalaz.Services.Extensions
         /// <returns></returns>
         public static IHostBuilder UseGlobalExceptionHandling(this IHostBuilder builder)
         {
-            return builder.ConfigureServices((context, services) =>
+            return builder.ConfigureServices((_, services) =>
             {
                 services.TryAddSingleton<IGlobalExceptionService, GlobalExceptionService>();
             });

@@ -26,7 +26,7 @@ namespace Hagalaz.Cache.Extensions.Tests
         {
             // Arrange
             _services.AddGameCache();
-            var serviceProvider = _services.BuildServiceProvider();
+            _ = _services.BuildServiceProvider();
 
             // Assert
             Assert.Equal(ServiceLifetime.Singleton, _services.GetLifetime<IFileStoreLoader>());
@@ -48,7 +48,7 @@ namespace Hagalaz.Cache.Extensions.Tests
         {
             // Arrange
             _services.AddGameCache();
-            var serviceProvider = _services.BuildServiceProvider();
+            _ = _services.BuildServiceProvider();
 
             // Assert
             Assert.Equal(ServiceLifetime.Transient, _services.GetLifetime<IMapProvider>());

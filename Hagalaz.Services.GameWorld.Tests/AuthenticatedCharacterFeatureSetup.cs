@@ -2,7 +2,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.AspNetCore.Http.Features;
 using NSubstitute;
 using OpenIddict.Abstractions;
 using Raido.Server;

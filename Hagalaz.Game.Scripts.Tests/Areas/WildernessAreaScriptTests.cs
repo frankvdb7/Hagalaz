@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Scripts.Areas.Wilderness;
-using Hagalaz.Game.Scripts.Areas.Wilderness.Npcs;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 

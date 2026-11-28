@@ -3,7 +3,7 @@
     /// <summary>
     /// Defines the different combat stances or styles a character can use, which affect experience gain and combat calculations.
     /// </summary>
-    public enum AttackStyle : int
+    public enum AttackStyle
     {
         /// <summary>
         /// No specific attack style is selected.

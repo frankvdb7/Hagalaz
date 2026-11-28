@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// <summary>
     /// Defines the different equipment slots on a character.
     /// </summary>
-    public enum EquipmentSlot : int
+    public enum EquipmentSlot
     {
         /// <summary>
         /// An item that is not equippable.

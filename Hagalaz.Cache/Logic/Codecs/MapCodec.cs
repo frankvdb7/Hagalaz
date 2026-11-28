@@ -52,16 +52,16 @@ namespace Hagalaz.Cache.Logic.Codecs
             var terrainStream = new MemoryStream();
 
             for (var z = 0; z < MAP_PLANES; z++)
-            for (var x = 0; x < MAP_DIMENSION; x++)
-            for (var y = 0; y < MAP_DIMENSION; y++)
-            {
-                var value = instance.TerrainData[z, x, y];
-                if (value != 0)
-                {
-                    terrainStream.WriteByte((byte)(value + TERRAIN_OPCODE_OFFSET));
-                }
-                terrainStream.WriteByte(0);
-            }
+                for (var x = 0; x < MAP_DIMENSION; x++)
+                    for (var y = 0; y < MAP_DIMENSION; y++)
+                    {
+                        var value = instance.TerrainData[z, x, y];
+                        if (value != 0)
+                        {
+                            terrainStream.WriteByte((byte)(value + TERRAIN_OPCODE_OFFSET));
+                        }
+                        terrainStream.WriteByte(0);
+                    }
 
             var terrainBytes = terrainStream.ToArray();
             stream.WriteInt(terrainBytes.Length);
@@ -94,18 +94,18 @@ namespace Hagalaz.Cache.Logic.Codecs
         public static void DecodeTerrainData(sbyte[,,] terrainData, MemoryStream stream)
         {
             for (var z = 0; z < MAP_PLANES; z++)
-            for (var x = 0; x < MAP_DIMENSION; x++)
-            for (var y = 0; y < MAP_DIMENSION; y++)
-            {
-                while (stream.Position < stream.Length)
-                {
-                    var value = stream.ReadUnsignedByte();
-                    if (value == 0) break;
-                    if (value == 1) { stream.ReadUnsignedByte(); break; }
-                    if (value <= TERRAIN_OPCODE_OFFSET) { stream.ReadSignedByte(); }
-                    else if (value <= TERRAIN_OPCODE_TERMINATOR) { terrainData[z, x, y] = (sbyte)(value - TERRAIN_OPCODE_OFFSET); }
-                }
-            }
+                for (var x = 0; x < MAP_DIMENSION; x++)
+                    for (var y = 0; y < MAP_DIMENSION; y++)
+                    {
+                        while (stream.Position < stream.Length)
+                        {
+                            var value = stream.ReadUnsignedByte();
+                            if (value == 0) break;
+                            if (value == 1) { stream.ReadUnsignedByte(); break; }
+                            if (value <= TERRAIN_OPCODE_OFFSET) { stream.ReadSignedByte(); }
+                            else if (value <= TERRAIN_OPCODE_TERMINATOR) { terrainData[z, x, y] = (sbyte)(value - TERRAIN_OPCODE_OFFSET); }
+                        }
+                    }
         }
 
         /// <summary>

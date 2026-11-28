@@ -19,17 +19,17 @@ public static class TextureImageConverter
             throw new System.NotSupportedException("HDR companion dimensions do not match the texture.");
         var values = new float[image.Width * image.Height * 4];
         for (var y = 0; y < image.Height; y++)
-        for (var x = 0; x < image.Width; x++)
-        {
-            var pixel = image[x, y];
-            var sample = hdr[x, y];
-            var multiplier = 1 + (((sample.G << 8) | sample.B) & 0xfff) * 31f / 4096;
-            var offset = (y * image.Width + x) * 4;
-            values[offset] = pixel.R / 255f * multiplier;
-            values[offset + 1] = pixel.G / 255f * multiplier;
-            values[offset + 2] = pixel.B / 255f * multiplier;
-            values[offset + 3] = pixel.A / 255f;
-        }
+            for (var x = 0; x < image.Width; x++)
+            {
+                var pixel = image[x, y];
+                var sample = hdr[x, y];
+                var multiplier = 1 + (((sample.G << 8) | sample.B) & 0xfff) * 31f / 4096;
+                var offset = (y * image.Width + x) * 4;
+                values[offset] = pixel.R / 255f * multiplier;
+                values[offset + 1] = pixel.G / 255f * multiplier;
+                values[offset + 2] = pixel.B / 255f * multiplier;
+                values[offset + 3] = pixel.A / 255f;
+            }
         return new HdrImage(image.Width, image.Height, values);
     }
 

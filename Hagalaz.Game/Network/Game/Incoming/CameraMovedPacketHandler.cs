@@ -30,11 +30,11 @@ namespace Hagalaz.Game.Network.Game.Incoming
         /// </value>
         public byte Opcode => 33;
 
-        /// <summary>
-        ///     Handles packet.
-        /// </summary>
-        /// <param name="session">The session to handle packet for.</param>
-        /// <param name="packet">The packet containing handle data.</param>
+        // <summary>
+        //     Handles packet.
+        // </summary>
+        // <param name="session">The session to handle packet for.</param>
+        // <param name="packet">The packet containing handle data.</param>
         // public Task HandleAsync(IGameSession session, Packet packet)
         // {
         //     short x = packet.ReadShortA(); // Occurs when character presses left or right.

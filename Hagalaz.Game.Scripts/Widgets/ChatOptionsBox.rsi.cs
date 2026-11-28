@@ -44,31 +44,9 @@ namespace Hagalaz.Game.Scripts.Widgets
                 }
             });
 
-            InterfaceInstance.AttachClickHandler(0, (componentID, clickType, extraData1, extraData2) =>
-            {
-                Availability? value = null;
-                if (clickType == ComponentClickType.Option2Click)
-                {
-                    value = Availability.Everyone;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    value = Availability.Friends;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    value = Availability.Nobody;
-                }
+            AttachFilterHandler(0, ProfileConstants.ChatSettingsFriendsFilter);
 
-                if (value != null)
-                {
-                    _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsFriendsFilter, value));
-                }
-
-                return false;
-            });
-
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -80,76 +58,11 @@ namespace Hagalaz.Game.Scripts.Widgets
                 return false;
             });
 
-            InterfaceInstance.AttachClickHandler(17, (componentID, clickType, extraData1, extraData2) =>
-            {
-                Availability? value = null;
-                if (clickType == ComponentClickType.Option2Click)
-                {
-                    value = Availability.Everyone;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    value = Availability.Friends;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    value = Availability.Nobody;
-                }
+            AttachFilterHandler(17, ProfileConstants.ChatSettingsAssistFilter);
 
-                if (value != null)
-                {
-                    _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsAssistFilter, value));
-                }
+            AttachFilterHandler(23, ProfileConstants.ChatSettingsClanFilter);
 
-                return false;
-            });
-
-            InterfaceInstance.AttachClickHandler(23, (componentID, clickType, extraData1, extraData2) =>
-            {
-                Availability? value = null;
-                if (clickType == ComponentClickType.Option2Click)
-                {
-                    value = Availability.Everyone;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    value = Availability.Friends;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    value = Availability.Nobody;
-                }
-
-                if (value != null)
-                {
-                    _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsClanFilter, value));
-                }
-
-                return false;
-            });
-
-            InterfaceInstance.AttachClickHandler(32, (componentID, clickType, extraData1, extraData2) =>
-            {
-                Availability? value = null;
-                if (clickType == ComponentClickType.Option2Click)
-                {
-                    value = Availability.Everyone;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    value = Availability.Friends;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    value = Availability.Nobody;
-                }
-
-                if (value != null)
-                {
-                    _gameMediator.Publish(new ProfileSetEnumAction(ProfileConstants.ChatSettingsGameFilter, value));
-                }
-                return false;
-            });
+            AttachFilterHandler(32, ProfileConstants.ChatSettingsGameFilter);
 
             Refresh();
         }
@@ -158,6 +71,27 @@ namespace Hagalaz.Game.Scripts.Widgets
         ///     Happens when interface is closed for character.
         /// </summary>
         public override void OnClose() => _gameConnectHandle.Disconnect();
+
+        private void AttachFilterHandler(int component, string profileKey)
+        {
+            InterfaceInstance.AttachClickHandler(component, (_, clickType, _, _) =>
+            {
+                var value = clickType switch
+                {
+                    ComponentClickType.Option2Click => Availability.Everyone,
+                    ComponentClickType.Option3Click => Availability.Friends,
+                    ComponentClickType.Option4Click => Availability.Nobody,
+                    _ => (Availability?)null,
+                };
+
+                if (value is { } availability)
+                {
+                    _gameMediator.Publish(new ProfileSetEnumAction(profileKey, availability));
+                }
+
+                return false;
+            });
+        }
 
         public void Refresh()
         {
