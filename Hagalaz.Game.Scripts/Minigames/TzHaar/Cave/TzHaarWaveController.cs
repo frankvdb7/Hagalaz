@@ -65,7 +65,8 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
             }
 
             // tokkul reward
-            _character.Inventory.TryAddItems(_character, [(6529, (int)(CurrentWaveId * 6 * (CurrentWaveId * 0.34)))], out _);
+            var tokkulCount = (int)(CurrentWaveId * 6d * (CurrentWaveId * 0.34));
+            _character.Inventory.TryAddItems(_character, [(6529, tokkulCount)], out _);
         }
     }
 }

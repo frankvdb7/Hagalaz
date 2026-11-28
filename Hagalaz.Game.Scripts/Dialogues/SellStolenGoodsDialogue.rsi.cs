@@ -60,7 +60,7 @@ namespace Hagalaz.Game.Scripts.Dialogues
                             continue;
                         }
 
-                        var price = (ulong)(removed * good.ItemDefinition.TradeValue * rateValue);
+                        var price = removed * (double)good.ItemDefinition.TradeValue * rateValue;
                         if (price > int.MaxValue)
                         {
                             price = int.MaxValue;
