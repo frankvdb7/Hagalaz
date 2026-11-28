@@ -193,7 +193,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
         {
             if (creature is ICharacter character)
             {
-                if (!Equals(character.Area.Script))
+                if (!GetType().IsInstanceOfType(character.Area.Script))
                 {
                     var toClose = character.Widgets.GetOpenWidget(381);
                     if (toClose != null)
