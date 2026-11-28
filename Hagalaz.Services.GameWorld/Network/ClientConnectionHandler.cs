@@ -223,7 +223,7 @@ internal sealed class ClientConnectionHandler
                 return null;
             }
 
-            if (maximumMessageSize is { } maximum && buffer.Length > maximum)
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
             {
                 connection.Transport.Input.AdvanceTo(buffer.End);
                 throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");
@@ -283,7 +283,7 @@ internal sealed class ClientConnectionHandler
                 return null;
             }
 
-            if (maximumMessageSize is { } maximum && buffer.Length > maximum)
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
             {
                 connection.Transport.Input.AdvanceTo(buffer.End);
                 throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");
@@ -333,7 +333,7 @@ internal sealed class ClientConnectionHandler
                 return null;
             }
 
-            if (maximumMessageSize is { } maximum && buffer.Length > maximum)
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
             {
                 connection.Transport.Input.AdvanceTo(buffer.End);
                 throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");
@@ -377,7 +377,7 @@ internal sealed class ClientConnectionHandler
                 return null;
             }
 
-            if (maximumMessageSize is { } maximum && buffer.Length > maximum)
+            if (maximumMessageSize is long maximum && buffer.Length > maximum)
             {
                 connection.Transport.Input.AdvanceTo(buffer.End);
                 throw new InvalidDataException($"The maximum message size of {maximum}B was exceeded.");

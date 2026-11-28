@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             // Arrange
             var glowBuilderMock = Substitute.For<IGlowBuilder>();
             var glowOptionalMock = Substitute.For<IGlowOptional>();
-            _ = Substitute.For<IGlowBuild>();
+            var glowBuildMock = Substitute.For<IGlowBuild>();
             var glowMock = Substitute.For<IGlow>();
 
             glowBuilderMock.Create().Returns(glowOptionalMock);

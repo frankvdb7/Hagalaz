@@ -64,8 +64,8 @@ public sealed class TextureSource(ICacheAPI cache, ITypeCodec<IMaterialTableType
             var image = sprite.Image.Frames[frame];
             var mask = new bool[image.Width * image.Height];
             for (var y = 0; y < image.Height; y++)
-            for (var x = 0; x < image.Width; x++)
-                mask[y * image.Width + x] = image[x, y].A > 0;
+                for (var x = 0; x < image.Width; x++)
+                    mask[y * image.Width + x] = image[x, y].A > 0;
             glyphs[frame] = new ClientFont.Glyph(image.Width, image.Height, mask);
         }
         return _font = new ClientFont(metrics.Data.ToArray(), glyphs);

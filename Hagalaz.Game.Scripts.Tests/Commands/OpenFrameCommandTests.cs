@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var widgetCharacterMock = Substitute.For<IWidgetCharacter>();
             var widgetIdMock = Substitute.For<IWidgetId>();
             var widgetOptionalMock = Substitute.For<IWidgetOptional>();
-            _ = Substitute.For<IWidgetBuild>();
+            var widgetBuildMock = Substitute.For<IWidgetBuild>();
             var widgetMock = Substitute.For<IWidget>();
 
             widgetBuilderMock.Create().Returns(widgetCharacterMock);

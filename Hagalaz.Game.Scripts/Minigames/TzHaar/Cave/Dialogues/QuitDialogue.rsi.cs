@@ -32,13 +32,13 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave.Dialogues
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (_, _) =>
+            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
             {
                 StandardNpcDialogue(_definition, DialogueAnimations.CalmTalk, "Well I suppose you tried...", "Better luck next time.");
                 return true;
             });
 
-            AttachDialogueContinueClickHandler(1, (_, _) =>
+            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

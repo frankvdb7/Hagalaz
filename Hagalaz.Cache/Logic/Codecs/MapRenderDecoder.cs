@@ -15,36 +15,36 @@ public static class MapRenderDecoder
         if (regionId is < 0 or > 65535) throw new ArgumentOutOfRangeException(nameof(regionId));
         var planes = Enumerable.Range(0, 4).Select(_ => new TerrainRenderPlane(new int[4096], new int[4096], new int[4096], new int[4096], new int[4096], new int[4096])).ToArray();
         for (var z = 0; z < 4; z++)
-        for (var x = 0; x < 64; x++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            for (var y = 0; y < 64; y++)
+            for (var x = 0; x < 64; x++)
             {
-                var tile = x * 64 + y;
-                var plane = planes[z];
-                while (true)
+                cancellationToken.ThrowIfCancellationRequested();
+                for (var y = 0; y < 64; y++)
                 {
-                    var opcode = ReadByte(stream);
-                    if (opcode <= 1)
+                    var tile = x * 64 + y;
+                    var plane = planes[z];
+                    while (true)
                     {
-                        var height = opcode == 1 ? ReadByte(stream) : 0;
-                        if (height == 1) height = 0;
-                        plane.Heights[tile] = opcode == 0
-                            ? z == 0 ? TerrainHeight(((regionId >> 8) * 64) + x, ((regionId & 255) * 64) + y) : planes[z - 1].Heights[tile] - 960
-                            : (z == 0 ? 0 : planes[z - 1].Heights[tile]) - height * 32;
-                        break;
+                        var opcode = ReadByte(stream);
+                        if (opcode <= 1)
+                        {
+                            var height = opcode == 1 ? ReadByte(stream) : 0;
+                            if (height == 1) height = 0;
+                            plane.Heights[tile] = opcode == 0
+                                ? z == 0 ? TerrainHeight(((regionId >> 8) * 64) + x, ((regionId & 255) * 64) + y) : planes[z - 1].Heights[tile] - 960
+                                : (z == 0 ? 0 : planes[z - 1].Heights[tile]) - height * 32;
+                            break;
+                        }
+                        if (opcode <= 49)
+                        {
+                            plane.Overlays[tile] = ReadByte(stream);
+                            plane.OverlayShapes[tile] = (opcode - 2) / 4;
+                            plane.OverlayRotations[tile] = (opcode - 2) & 3;
+                        }
+                        else if (opcode <= 81) plane.Flags[tile] = opcode - 49;
+                        else plane.Underlays[tile] = opcode - 81;
                     }
-                    if (opcode <= 49)
-                    {
-                        plane.Overlays[tile] = ReadByte(stream);
-                        plane.OverlayShapes[tile] = (opcode - 2) / 4;
-                        plane.OverlayRotations[tile] = (opcode - 2) & 3;
-                    }
-                    else if (opcode <= 81) plane.Flags[tile] = opcode - 49;
-                    else plane.Underlays[tile] = opcode - 81;
                 }
             }
-        }
         return planes;
     }
 
