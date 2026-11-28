@@ -1,17 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Authorization;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -82,7 +76,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// The current play list index.
         /// </summary>
-        private int _currentPlayListIndex = 0;
+        private int _currentPlayListIndex;
 
         /// <summary>
         /// contains the index of the playing music.
@@ -103,6 +97,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Initializes a new instance of the <see cref="Music"/> class.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="clientMapDefinitionProvider">Provides client map definitions.</param>
+        /// <param name="musicService">Provides music track definitions.</param>
         public Music(ICharacter owner, IClientMapDefinitionProvider clientMapDefinitionProvider, IMusicService musicService)
         {
             _owner = owner;

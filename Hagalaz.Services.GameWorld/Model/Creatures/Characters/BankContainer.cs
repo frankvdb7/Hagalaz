@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics.CodeAnalysis;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Services.GameWorld.Logic.Characters;
@@ -31,6 +28,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
         /// <param name="capacity">The capacity of the container.</param>
+        /// <param name="itemBuilder">Builds items for the container.</param>
         public BankContainer(ICharacter owner, int capacity, IItemBuilder itemBuilder)
         {
             _owner = owner;
@@ -43,7 +41,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
         void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();
@@ -79,25 +76,20 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool DepositFromMoneyPouch([NotNullWhen(true)] out IItem? deposited)
         {
             deposited = null;
-            var bankFull = false;
             using (var transaction = ItemContainerTransaction.Begin(this, _owner.MoneyPouch))
             {
                 var count = _owner.MoneyPouch.Count;
                 if (count <= 0) return false;
                 var coins = _itemBuilder.Create().WithId(995).WithCount(count).Build();
                 if (!_owner.MoneyPouch.TryRemoveExact(count)) return false;
-                if (!_items.Add(coins))
-                {
-                    bankFull = true;
-                }
-                else
+                if (_items.Add(coins))
                 {
                     transaction.Commit();
                     deposited = coins;
                     return true;
                 }
             }
-            if (bankFull) _owner.SendChatMessage("Not enough space in your bank.");
+            _owner.SendChatMessage("Not enough space in your bank.");
             return false;
         }
 

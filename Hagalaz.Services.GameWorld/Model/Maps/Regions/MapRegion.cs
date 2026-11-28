@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using AutoMapper;
@@ -240,7 +238,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return false;
             }
 
-            if (Enumerable.Any<IGameObject>(FindAllGameObjects(), obj => !obj.CanSuspend()))
+            if (Enumerable.Any(FindAllGameObjects(), obj => !obj.CanSuspend()))
             {
                 return false;
             }
@@ -270,7 +268,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                 return false;
             }
 
-            if (Enumerable.Any<IGameObject>(FindAllGameObjects(), obj => !obj.CanDestroy()))
+            if (Enumerable.Any(FindAllGameObjects(), obj => !obj.CanDestroy()))
             {
                 return false;
             }
@@ -390,7 +388,7 @@ namespace Hagalaz.Services.GameWorld.Model.Maps.Regions
                          .Where(obj =>
                          {
                              var bounds = GetCollisionBounds(obj);
-                             return bounds.MinX < minX || bounds.MinY < minY || bounds.MaxX >= minX + Hagalaz.Cache.Abstractions.Types.Providers.MapTerrain.MapDimension || bounds.MaxY >= minY + Hagalaz.Cache.Abstractions.Types.Providers.MapTerrain.MapDimension;
+                             return bounds.MinX < minX || bounds.MinY < minY || bounds.MaxX >= minX + Cache.Abstractions.Types.Providers.MapTerrain.MapDimension || bounds.MaxY >= minY + Cache.Abstractions.Types.Providers.MapTerrain.MapDimension;
                          })
                          .GroupBy(obj => obj.Location.Z))
             {

@@ -5,7 +5,6 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Skills.Slayer;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Widgets;
@@ -98,7 +97,7 @@ public sealed class RewardsBuyScreenTests
         {
             Balance = balance;
             var profile = Substitute.For<IProfile>();
-            profile.GetValue<int>(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()).Returns(_ => Balance);
+            profile.GetValue(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()).Returns(_ => Balance);
             profile.When(x => x.SetValue(ProfileConstants.SlayerRewardPoints, Arg.Any<int>()))
                 .Do(call => Balance = call.ArgAt<int>(1));
             var inventory = Substitute.For<IInventoryContainer>();

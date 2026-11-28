@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
         /// </summary>
         public override void OnOpen()
         {
-            InterfaceInstance.AttachClickHandler(4, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(4, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.Logging.Abstractions;

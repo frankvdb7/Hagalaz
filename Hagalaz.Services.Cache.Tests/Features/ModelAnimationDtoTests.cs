@@ -1,11 +1,10 @@
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -120,7 +119,7 @@ public class ModelAnimationDtoTests
 
     private static void Seed(MemoryFileStore store, int index, int group, int child, byte[] data)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var entry = new ReferenceTableEntry(0);
         entry.InitializeEntries(1);
         entry.AddEntry(child, new ReferenceTableChildEntry(0));

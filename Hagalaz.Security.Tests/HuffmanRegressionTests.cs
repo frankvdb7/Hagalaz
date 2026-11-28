@@ -1,5 +1,3 @@
-using System.IO;
-using System.Linq;
 using Xunit;
 
 namespace Hagalaz.Security.Tests
@@ -67,7 +65,7 @@ namespace Hagalaz.Security.Tests
         public void Decode_RandomLengthStrings_ShouldMatch(int length)
         {
             var chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ";
-            var random = new System.Random(42);
+            var random = new Random(42);
             var input = new string(Enumerable.Repeat(chars, length).Select(s => s[random.Next(s.Length)]).Take(length).ToArray());
 
             var encoded = Huffman.Encode(input, out var msgLen);

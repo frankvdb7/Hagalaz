@@ -3,10 +3,8 @@ using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
-using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Fletching
 {
@@ -40,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                var amount = 1;
+                int amount;
                 var resource = character.Inventory.Items.GetById(definition.ResourceId);
                 if (resource == null)
                 {
@@ -181,7 +179,7 @@ namespace Hagalaz.Game.Scripts.Skills.Fletching
         {
             return productIndex =>
             {
-                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out var tool, out _)) return true;
+                if (!TryGetFletchingItems(character, definition, out var resource, out var resourceSlot, out _, out _)) return true;
 
                 var amount = definition.ProductCounts[productIndex];
 

@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Services.Characters.Model;
 
 namespace Hagalaz.Services.Characters.Tests.Model

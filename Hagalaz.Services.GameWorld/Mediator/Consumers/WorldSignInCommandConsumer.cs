@@ -1,8 +1,6 @@
 ﻿using System.Threading.Tasks;
-using System;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages;
 using Hagalaz.Game.Messages.Mediator;

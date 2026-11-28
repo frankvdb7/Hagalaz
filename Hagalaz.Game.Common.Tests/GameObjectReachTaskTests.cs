@@ -1,12 +1,10 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Common.Tests;
@@ -20,7 +18,7 @@ public sealed class GameObjectReachTaskTests
         var (reacher, entityService, pathFinder) = CreateFixture();
         var target = CreateTarget(new EntityHandle<IGameObject>(12, 4));
         var isRegistered = true;
-        entityService.TryResolve<IGameObject>(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+        entityService.TryResolve(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
             if (isRegistered)
             {
@@ -48,13 +46,13 @@ public sealed class GameObjectReachTaskTests
         var (reacher, entityService, pathFinder) = CreateFixture();
         var target = CreateTarget(new EntityHandle<IGameObject>(13, 5));
         target.IsDisabled.Returns(true);
-        entityService.TryResolve<IGameObject>(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+        entityService.TryResolve(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
             callInfo[1] = target;
             return true;
         });
 
-        Assert.IsTrue(entityService.TryResolve<IGameObject>(target.Handle, out var resolved));
+        Assert.IsTrue(entityService.TryResolve(target.Handle, out var resolved));
         Assert.AreSame(target, resolved);
 
         var result = true;
@@ -73,7 +71,7 @@ public sealed class GameObjectReachTaskTests
         var target = CreateTarget(new EntityHandle<IGameObject>(14, 6));
         var replacement = CreateTarget(new EntityHandle<IGameObject>(target.Handle.Slot, target.Handle.Generation + 1));
         var isRegistered = true;
-        entityService.TryResolve<IGameObject>(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+        entityService.TryResolve(target.Handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
             if (isRegistered)
             {

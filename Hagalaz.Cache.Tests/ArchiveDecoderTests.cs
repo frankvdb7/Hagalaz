@@ -15,7 +15,7 @@ namespace Hagalaz.Cache.Tests
             var decoder = new ArchiveDecoder();
             var fileData = new byte[] { 1, 2, 3, 4, 5 };
             using var stream = new MemoryStream(fileData);
-            var container = new Container(CompressionType.None, stream, -1);
+            var container = new Container(CompressionType.None, stream);
 
             // Act
             using var archive = decoder.Decode(container, 1);
@@ -52,7 +52,7 @@ namespace Hagalaz.Cache.Tests
             stream.WriteByte(1);
 
             stream.Position = 0;
-            var container = new Container(CompressionType.None, stream, -1);
+            var container = new Container(CompressionType.None, stream);
 
             // Act
             using var archive = decoder.Decode(container, 2);
@@ -89,7 +89,7 @@ namespace Hagalaz.Cache.Tests
             stream.WriteByte(1);
             stream.Position = 0;
 
-            using var archive = decoder.Decode(new Container(CompressionType.None, stream, -1), 2);
+            using var archive = decoder.Decode(new Container(CompressionType.None, stream), 2);
 
             Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7 }, archive.GetEntry(0).ToArray());
             Assert.Equal(new byte[] { 8, 9, 10 }, archive.GetEntry(1).ToArray());
@@ -111,7 +111,7 @@ namespace Hagalaz.Cache.Tests
             stream.WriteByte(2);
             stream.Position = 0;
 
-            using var archive = decoder.Decode(new Container(CompressionType.None, stream, -1), 2);
+            using var archive = decoder.Decode(new Container(CompressionType.None, stream), 2);
 
             Assert.Equal(new byte[] { 1, 2, 6 }, archive.GetEntry(0).ToArray());
             Assert.Equal(new byte[] { 3, 4, 5, 7, 8, 9, 10 }, archive.GetEntry(1).ToArray());
@@ -129,7 +129,7 @@ namespace Hagalaz.Cache.Tests
             stream.Position = 0;
 
             var exception = Assert.Throws<InvalidDataException>(() =>
-                decoder.Decode(new Container(CompressionType.None, stream, -1), 2));
+                decoder.Decode(new Container(CompressionType.None, stream), 2));
 
             Assert.Contains("negative chunk size", exception.Message);
         }

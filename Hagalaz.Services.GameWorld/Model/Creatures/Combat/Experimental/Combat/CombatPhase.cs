@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using Hagalaz.Utilities;
+﻿using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
 {
@@ -27,12 +25,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat
         /// <summary>
         /// The rotations
         /// </summary>
-        private readonly List<T> _rotations = null;
+        private readonly List<T> _rotations;
 
         /// <summary>
         /// The active
         /// </summary>
-        private bool _active = false;
+        private bool _active;
 
         /// <summary>
         /// Gets a value indicating whether this <see cref="CombatPhase{T}"/> is active.

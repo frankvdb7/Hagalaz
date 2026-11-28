@@ -112,7 +112,7 @@ public sealed class RaidoProtocolSwitchIntegrationTests
         await server.Application.WaitForMessageAsync(0x72).WaitAsync(ObservationTimeout);
 
         CollectionAssert.AreEqual(
-            new[] { (int)RaidoTestProtocol.BufferedFrameFirstMessageId, 0x72 },
+            new[] { RaidoTestProtocol.BufferedFrameFirstMessageId, 0x72 },
             server.Application.ReceivedMessageIds.ToArray());
         Assert.AreSame(protocolB, logical.Protocol);
         Assert.AreEqual(1, server.Application.DispatcherConnectedCount);
@@ -323,7 +323,7 @@ internal sealed class RaidoAlternateTestProtocol : IRaidoProtocol
     public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message)
     {
         var id = message is RaidoTestMessage testMessage ? testMessage.Id : (byte)0xFF;
-        return new byte[] { Marker, id };
+        return new[] { Marker, id };
     }
 
     public bool IsVersionSupported(int version) => version == Version;

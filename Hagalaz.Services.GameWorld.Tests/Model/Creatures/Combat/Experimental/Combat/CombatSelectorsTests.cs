@@ -1,8 +1,5 @@
 using Hagalaz.Services.GameWorld.Model.Creatures.Combat.Experimental.Combat;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System;
-using System.Collections.Generic;
 
 namespace Hagalaz.Services.GameWorld.Tests.Model.Creatures.Combat.Experimental.Combat
 {

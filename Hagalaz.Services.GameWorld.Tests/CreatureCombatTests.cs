@@ -260,7 +260,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _characterCombat.Tick();
             _characterCombat.Tick();
 
-            entityService.DidNotReceive().TryResolve<ICreature>(handle, out Arg.Any<ICreature>());
+            entityService.DidNotReceive().TryResolve(handle, out Arg.Any<ICreature>());
         }
 
         [TestMethod]
@@ -316,7 +316,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var familiarScript = Substitute.For<IFamiliarScript>();
             var summoner = EntityTestFactory.Create<ICharacter>();
             familiarScript.Summoner.Returns(summoner);
-            familiar.TryGetScript<IFamiliarScript>(out Arg.Any<IFamiliarScript>())
+            familiar.TryGetScript(out Arg.Any<IFamiliarScript>())
                 .Returns(callInfo =>
                 {
                     callInfo[0] = familiarScript;
@@ -637,7 +637,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             _characterCombat.AddAttackerPublic(npc);
             _characterCombat.AddDamageToAttackerPublic(npc, 10);
 
-            foreach (var field in typeof(Hagalaz.Services.GameWorld.Model.Creatures.CreatureCombat)
+            foreach (var field in typeof(CreatureCombat)
                          .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                          .Where(field => field.Name.Contains("DamageContributions", StringComparison.Ordinal)))
             {
@@ -646,7 +646,7 @@ namespace Hagalaz.Services.GameWorld.Tests
                 {
                     var attackerField = entry.GetType().GetField("<Attacker>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                     Assert.IsNotNull(attackerField);
-                    Assert.AreEqual(typeof(EntityHandle<ICreature>), attackerField!.FieldType);
+                    Assert.AreEqual(typeof(EntityHandle<ICreature>), attackerField.FieldType);
                     Assert.IsFalse(typeof(ICreature).IsAssignableFrom(attackerField.FieldType));
                 }
             }

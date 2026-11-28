@@ -334,7 +334,7 @@ namespace Hagalaz.Game.Scripts.Widgets
 
             // xp orb
             InterfaceInstance.AttachClickHandler(Owner.GameClient.IsScreenFixed ? 38 : 97,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -362,7 +362,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 });
 
             InterfaceInstance.AttachClickHandler(Owner.GameClient.IsScreenFixed ? 160 : 242,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -381,7 +381,7 @@ namespace Hagalaz.Game.Scripts.Widgets
 
             // money pouch toggle
             InterfaceInstance.AttachClickHandler(Owner.GameClient.IsScreenFixed ? 201 : 247,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -393,7 +393,7 @@ namespace Hagalaz.Game.Scripts.Widgets
                 });
 
             InterfaceInstance.AttachClickHandler(Owner.GameClient.IsScreenFixed ? 170 : 250,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {

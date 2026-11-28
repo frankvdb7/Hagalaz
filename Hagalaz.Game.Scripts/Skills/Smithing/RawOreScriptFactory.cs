@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Factories;
 
 namespace Hagalaz.Game.Scripts.Skills.Smithing
 {

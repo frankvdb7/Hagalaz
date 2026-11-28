@@ -6,7 +6,7 @@ namespace Hagalaz.Services.GameWorld.Builders
     /// <summary>
     /// 
     /// </summary>
-    public class GraphicBuilder : IGraphicBuilder, IGraphicId, IGraphicOptional, IGraphicBuild
+    public class GraphicBuilder : IGraphicBuilder, IGraphicId, IGraphicOptional
     {
         private int _id;
         private int _delay;

@@ -18,23 +18,23 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
         public override void OnOpen()
         {
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Greetings adventurer!", "What do you want from me?");
                     return true;
                 });
             AttachDialogueContinueClickHandler(1,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue("I would like to talk about fencing goods.", "I want to talk about your skill cape.", "Nothing, thanks.");
                     return true;
                 });
             AttachDialogueOptionClickHandler("I would like to talk about fencing goods.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I would like to talk about fencing goods.");
                     AttachDialogueContinueClickHandler(3,
-                        (e1, e2) =>
+                        (_, _) =>
                         {
                             var dialogue = Owner.ServiceProvider.GetRequiredService<SellStolenGoodsDialogue>();
                             dialogue.SetStage(1);
@@ -45,11 +45,11 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
                     return true;
                 });
             AttachDialogueOptionClickHandler("I want to talk about your skill cape.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I want to talk about your skill cape.");
                     AttachDialogueContinueClickHandler(3,
-                        (e1, e2) =>
+                        (_, _) =>
                         {
                             var dialogue = Owner.ServiceProvider.GetRequiredService<SkillCapeDialogue.SkillCapeDialogue>();
                             dialogue.SkillID = StatisticsConstants.Thieving;
@@ -60,11 +60,11 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Martin
                     return true;
                 });
             AttachDialogueOptionClickHandler("Nothing, thanks.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Nothing, thanks.");
                     AttachDialogueContinueClickHandler(3,
-                        (e1, e2) =>
+                        (_, _) =>
                         {
                             InterfaceInstance.Close();
                             return true;

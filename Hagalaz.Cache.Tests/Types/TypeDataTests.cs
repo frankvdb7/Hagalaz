@@ -1,5 +1,5 @@
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
 using Hagalaz.Cache.Types.Data;
@@ -138,7 +138,7 @@ namespace Hagalaz.Cache.Tests.Types
 
         private static int GetArchiveSize(TypeData typeData, params (int ArchiveId, int[] ChildIds)[] groups)
         {
-            var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, groups.Length);
+            var table = new ReferenceTable(7, 1, 0, groups.Length);
             foreach (var (archiveId, childIds) in groups)
             {
                 var archive = new ReferenceTableEntry(archiveId);

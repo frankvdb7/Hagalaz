@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Creatures;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures
 {

@@ -1,4 +1,3 @@
-using System.Threading;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Services;

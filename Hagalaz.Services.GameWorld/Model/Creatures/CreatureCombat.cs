@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -11,7 +9,6 @@ using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Configuration;
-using Hagalaz.Game.Resources;
 using Hagalaz.Game.Utilities;
 using Microsoft.Extensions.Options;
 
@@ -88,7 +85,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
         protected ICreature? ResolveCreature(EntityHandle<ICreature> handle)
         {
-            return _entityService.TryResolve<ICreature>(handle, out var creature)
+            return _entityService.TryResolve(handle, out var creature)
                 ? creature
                 : null;
         }
@@ -351,7 +348,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         public virtual IRsTaskHandle<AttackResult> PerformAttack(AttackParams attackParams)
         {
             var targetHandle = attackParams.Target;
-            if (!_entityService.TryResolve<ICreature>(targetHandle, out var targetOwner))
+            if (!_entityService.TryResolve(targetHandle, out var targetOwner))
             {
                 return Owner.QueueTask(new RsTask<AttackResult>(() => new AttackResult
                 {
@@ -441,7 +438,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
 
             foreach (var contribution in _damageContributions)
             {
-                if (_entityService.TryResolve<ICreature>(contribution.Attacker, out var attacker)
+                if (_entityService.TryResolve(contribution.Attacker, out var attacker)
                     && contribution.TotalDamage > damage)
                 {
                     killer = attacker;

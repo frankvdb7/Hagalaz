@@ -1,6 +1,6 @@
 ﻿namespace Hagalaz.Game.Scripts.Model.Maps
 {
-    using Hagalaz.Game.Configuration;
+    using Configuration;
     using Microsoft.Extensions.Options;
 
     /// <summary>

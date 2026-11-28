@@ -158,7 +158,7 @@ public sealed class RaidoReflectionTests
     {
         var methods = RaidoHubReflectionHelper.GetHubMethods(typeof(DerivedReflectionTarget)).Select(x => x.Name).ToArray();
         CollectionAssert.Contains(methods, nameof(DerivedReflectionTarget.OwnMethod));
-        CollectionAssert.DoesNotContain(methods, nameof(object.ToString));
+        CollectionAssert.DoesNotContain(methods, nameof(ToString));
         CollectionAssert.DoesNotContain(methods, nameof(IDisposable.Dispose));
         CollectionAssert.DoesNotContain(methods, nameof(RaidoHub.OnConnectedAsync));
     }

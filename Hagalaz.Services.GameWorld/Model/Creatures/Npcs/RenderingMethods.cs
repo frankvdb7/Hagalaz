@@ -1,5 +1,4 @@
-﻿using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Model.Combat;
+﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -9,7 +8,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
     /// <summary>
     /// Contains NPC rendering methods.
     /// </summary>
-    public partial class Npc : Creature
+    public partial class Npc
     {
         /// <summary>
         /// Get's if this npc should be rendered for specific character.

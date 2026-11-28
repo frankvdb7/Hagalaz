@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -25,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Skills.Thieving
             _wallSafe = wallSafe;
             _owner = owner;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = owner.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = owner.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

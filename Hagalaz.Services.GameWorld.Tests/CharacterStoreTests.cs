@@ -1,11 +1,8 @@
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Hagalaz.Services.GameWorld.Store;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Hagalaz.Services.GameWorld.Services;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 

@@ -1,7 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -120,7 +116,7 @@ public sealed class GameWorldWorkloadMetricsTests
     {
         var loader = Substitute.For<IMapRegionLoader>();
         loader.LoadAsync(Arg.Any<IMapRegion>(), Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => throw new InvalidOperationException("boom"));
+            .Returns(_ => throw new InvalidOperationException("boom"));
         using var provider = new ServiceCollection().AddScoped(_ => loader).BuildServiceProvider();
         using var scheduler = CreateScheduler(provider, new ManualTimeProvider());
         using var spy = new MeterListenerSpy(MeterName);

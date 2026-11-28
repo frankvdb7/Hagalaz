@@ -20,7 +20,7 @@ internal static class CacheServiceTestHost
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
-        builder.Services.AddSingleton<IFileStore>(store);
+        builder.Services.AddSingleton(store);
         builder.Services.AddGameCache();
         builder.Services.AddOutputCache();
         configureServices?.Invoke(builder.Services);

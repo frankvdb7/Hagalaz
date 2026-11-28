@@ -1,9 +1,5 @@
-using Hagalaz.Game.Abstractions;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Utilities;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NSubstitute;
 
 namespace Hagalaz.Game.Extensions.Tests
 {

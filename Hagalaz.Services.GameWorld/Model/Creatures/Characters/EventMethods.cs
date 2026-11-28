@@ -1,10 +1,6 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Features;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +9,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
     /// <summary>
     /// Contains methods for managing character events.
     /// </summary>
-    public partial class Character : Creature
+    public partial class Character
     {
         /// <summary>
         /// Get's called when character class is created.

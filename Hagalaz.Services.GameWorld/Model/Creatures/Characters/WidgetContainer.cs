@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Model.Widgets;
 
@@ -55,6 +52,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new interfaces container.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="widgetScriptProvider">Resolves widget scripts.</param>
         public WidgetContainer(ICharacter owner, IWidgetScriptProvider widgetScriptProvider)
         {
             _owner = owner;

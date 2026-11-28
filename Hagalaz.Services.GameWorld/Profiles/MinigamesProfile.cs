@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using AutoMapper;
+﻿using AutoMapper;
 using Hagalaz.Data.Entities;
 using Hagalaz.Game.Abstractions.Services.Model;
 

@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using Hagalaz.Services.Extensions;
-using System.Reflection;
 
 namespace Hagalaz.Services.Extensions.Tests
 {

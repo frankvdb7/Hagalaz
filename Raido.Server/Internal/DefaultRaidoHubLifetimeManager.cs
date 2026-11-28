@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Raido.Common.Messages;
 using Raido.Common.Protocol;
 
 namespace Raido.Server.Internal

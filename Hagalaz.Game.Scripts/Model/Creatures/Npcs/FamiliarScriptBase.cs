@@ -7,11 +7,8 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Events.Creatures;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
@@ -112,7 +109,7 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
             {
                 // Load event handlers.
 
-                _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((e) =>
+                _summoningAllowHandler = Summoner.RegisterEventHandler(new EventHappened<SummoningAllowEvent>((_) =>
                 {
                     // Dissallow summoning.
                     if (Summoner.HasFamiliar())
@@ -125,21 +122,21 @@ namespace Hagalaz.Game.Scripts.Model.Creatures.Npcs
                     return false;
                 }));
 
-                _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((e) =>
+                _summonerDiedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDiedEvent>((_) =>
                 {
                     Owner.OnDeath();
                     UnregisterHandler<CreatureDiedEvent>(ref _summonerDiedHandler);
                     return false;
                 }));
 
-                _summonerDestroyedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>((e) =>
+                _summonerDestroyedHandler = Summoner.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>((_) =>
                 {
                     _summonerDestroyed = true;
                     _npcService.Unregister(Owner);
                     return false;
                 }));
 
-                _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((e) =>
+                _familiarDismissHandler = Summoner.RegisterEventHandler(new EventHappened<FamiliarDismissEvent>((_) =>
                 {
                     _npcService.UnregisterAsync(Owner);
                     UnregisterHandler<FamiliarDismissEvent>(ref _familiarDismissHandler);

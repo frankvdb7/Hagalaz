@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
@@ -19,7 +18,7 @@ using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class NpcBuilder : INpcBuilder, INpcBuild, INpcOptional, INpcId, INpcLocation
+    public class NpcBuilder : INpcBuilder, INpcOptional, INpcId, INpcLocation
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IServiceScope _serviceScope = default!;
@@ -30,7 +29,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         private Action<INpcScript>? _scriptConfiguration;
         private DirectionFlag? _faceDirection;
         private ILocation _location = default!;
-        private int _id = default!;
+        private int _id;
 
         public NpcBuilder(IServiceProvider serviceProvider, INpcScriptProvider npcScriptProvider)
         {

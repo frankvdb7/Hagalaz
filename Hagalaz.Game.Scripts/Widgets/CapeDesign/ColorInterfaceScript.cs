@@ -63,7 +63,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
                 return false;
             }));
 
-            InterfaceInstance.AttachClickHandler(21, (componentID, type, extraInfo1, extraInfo2) =>
+            InterfaceInstance.AttachClickHandler(21, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {

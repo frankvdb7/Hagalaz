@@ -23,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Areas.Guilds.Mining.GameObjects
         {
             if (clickType == GameObjectClickType.Option1Click)
             {
-                ILocation loc = null;
+                ILocation loc;
                 if (Owner.Id == 52856)
                 {
                     loc = Location.Create(1052, 4521, 0, 0);

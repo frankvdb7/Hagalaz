@@ -1,6 +1,4 @@
-using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Services.Authorization.Mediator.Commands;

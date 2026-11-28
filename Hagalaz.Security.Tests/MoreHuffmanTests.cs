@@ -1,4 +1,3 @@
-using System.IO;
 using Xunit;
 
 namespace Hagalaz.Security.Tests
@@ -79,7 +78,7 @@ namespace Hagalaz.Security.Tests
                 return;
             }
             var truncatedData = new byte[encodedBytes.Length - 1];
-            System.Array.Copy(encodedBytes, truncatedData, truncatedData.Length);
+            Array.Copy(encodedBytes, truncatedData, truncatedData.Length);
 
             using var stream = new MemoryStream(truncatedData);
 

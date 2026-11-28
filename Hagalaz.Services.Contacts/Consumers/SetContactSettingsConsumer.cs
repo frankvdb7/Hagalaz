@@ -5,7 +5,7 @@ using MassTransit;
 using Hagalaz.Exceptions;
 using Hagalaz.Services.Contacts.Services;
 using Hagalaz.Services.Contacts.Store;
-using ContactSettingsDto = Hagalaz.Services.Contacts.Services.Model.ContactSettingsDto;
+
 using Model_ContactSettingsDto = Hagalaz.Services.Contacts.Services.Model.ContactSettingsDto;
 
 namespace Hagalaz.Services.Contacts.Consumers

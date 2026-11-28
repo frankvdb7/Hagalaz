@@ -26,7 +26,7 @@ public sealed class NpcScriptRegistrationTests
 
         var validationServices = new ServiceCollection();
         validationServices.AddSingleton<IServiceDescriptorProvider>(new ServiceDescriptorProvider(validationServices));
-        validationServices.AddSingleton<Assembly>(typeof(Startup).Assembly);
+        validationServices.AddSingleton(typeof(Startup).Assembly);
         validationServices.AddLogging();
         validationServices.AddScoped<NpcScriptMetaDataFactory>();
         using var validationProvider = validationServices.BuildServiceProvider(new ServiceProviderOptions
@@ -76,7 +76,7 @@ public sealed class NpcScriptRegistrationTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var services = new ServiceCollection();
-        services.AddSingleton<Assembly>(typeof(Startup).Assembly);
+        services.AddSingleton(typeof(Startup).Assembly);
         var factory = new NpcScriptMetaDataFactory(
             new ServiceDescriptorProvider(services),
             NullLogger<NpcScriptMetaDataFactory>.Instance);
@@ -94,7 +94,7 @@ public sealed class NpcScriptRegistrationTests
         var services = new ServiceCollection();
         foreach (var assembly in assemblies)
         {
-            services.AddSingleton<Assembly>(assembly);
+            services.AddSingleton(assembly);
         }
 
         var factory = new NpcScriptMetaDataFactory(

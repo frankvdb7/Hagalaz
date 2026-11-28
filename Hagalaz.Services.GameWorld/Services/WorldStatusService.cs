@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -191,7 +190,7 @@ public sealed class WorldStatusService : BackgroundService
                 continue;
             }
 
-            await worldInfoService.AddOrUpdateWorldInfoAsync(_mapper.Map<Model.WorldInfo>(update.ActiveMessage));
+            await worldInfoService.AddOrUpdateWorldInfoAsync(_mapper.Map<WorldInfo>(update.ActiveMessage));
             await worldInfoService.UpdateWorldCharacterInfoAsync(
                 new WorldCharacterInfo(update.WorldId, update.ActiveMessage.CharacterCount, true));
         }

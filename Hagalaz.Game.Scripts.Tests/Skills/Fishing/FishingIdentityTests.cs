@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Skills;
@@ -14,16 +9,13 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Skills.Fishing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
@@ -40,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             var handle = new EntityHandle<ICreature>(1, 1);
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(false);
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(false);
 
             var callbackCalls = 0;
             var task = new FishingTask(
@@ -72,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             replacement.Handle.Returns(new EntityHandle<ICreature>(2, 2));
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             performer.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(staleHandle, out Arg.Any<ICreature>()).Returns(false);
+            entityService.TryResolve(staleHandle, out Arg.Any<ICreature>()).Returns(false);
 
             var callbackCalls = 0;
             var task = new FishingTask(
@@ -119,7 +111,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             ownerAppearance.Visible.Returns(true);
             serviceProvider.GetService(typeof(IEntityService)).Returns(entityService);
             clicker.ServiceProvider.Returns(serviceProvider);
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 if (!isLive)
                 {
@@ -131,7 +123,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
                 return true;
             });
             fishingService.FindSpotByNpcIdClickType(123, NpcClickType.Option1Click).Returns(lookup.Task);
-            clicker.RegisterEventHandler<CreatureInterruptedEvent>(Arg.Any<EventHappened<CreatureInterruptedEvent>>())
+            clicker.RegisterEventHandler(Arg.Any<EventHappened<CreatureInterruptedEvent>>())
                 .Returns(Substitute.For<EventHappened>());
             clicker.QueueTask(Arg.Do<Func<CancellationToken, Task>>(value => operation = value))
                 .Returns(Substitute.For<IRsTaskHandle>());
@@ -270,7 +262,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
 
             fixture.IsLive = true;
             fixture.CurrentCreature = originalSpot;
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(callInfo =>
             {
                 if (!fixture.IsLive)
                 {

@@ -1,5 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using Hagalaz.Game.Common.Tasks;
 
 namespace Hagalaz.Game.Common.Tests
@@ -20,7 +18,7 @@ namespace Hagalaz.Game.Common.Tests
         public void CanInterrupt_WithNullSource_ReturnsTrue()
         {
             // Arrange
-            var task = new TestableReachTask(new Type[] { typeof(string) });
+            var task = new TestableReachTask(new[] { typeof(string) });
 
             // Act
             var result = task.PublicCanInterrupt(null);
@@ -33,7 +31,7 @@ namespace Hagalaz.Game.Common.Tests
         public void CanInterrupt_WithUnrelatedSource_ReturnsTrue()
         {
             // Arrange
-            var task = new TestableReachTask(new Type[] { typeof(string) });
+            var task = new TestableReachTask(new[] { typeof(string) });
 
             // Act
             var result = task.PublicCanInterrupt(123);
@@ -46,7 +44,7 @@ namespace Hagalaz.Game.Common.Tests
         public void CanInterrupt_WithDirectlyBlockedSource_ReturnsFalse()
         {
             // Arrange
-            var task = new TestableReachTask(new Type[] { typeof(string) });
+            var task = new TestableReachTask(new[] { typeof(string) });
 
             // Act
             var result = task.PublicCanInterrupt("test");
@@ -59,7 +57,7 @@ namespace Hagalaz.Game.Common.Tests
         public void CanInterrupt_WithDerivedBlockedSource_ReturnsFalse()
         {
             // Arrange
-            var task = new TestableReachTask(new Type[] { typeof(Exception) });
+            var task = new TestableReachTask(new[] { typeof(Exception) });
 
             // Act
             var result = task.PublicCanInterrupt(new InvalidOperationException());

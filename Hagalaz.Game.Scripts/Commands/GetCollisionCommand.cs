@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Game.Scripts.Commands
 {

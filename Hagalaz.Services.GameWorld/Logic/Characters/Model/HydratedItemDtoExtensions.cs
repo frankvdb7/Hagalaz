@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 
 namespace Hagalaz.Services.GameWorld.Logic.Characters;
 

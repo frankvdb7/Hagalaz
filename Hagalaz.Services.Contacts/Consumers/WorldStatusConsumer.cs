@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.Contacts.Services;
 using Hagalaz.Services.Contacts.Store;

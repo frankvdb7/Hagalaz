@@ -1,8 +1,4 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Extensions;
-using System;
-using System.Linq;
 
 namespace Hagalaz.Game.Extensions.Tests
 {

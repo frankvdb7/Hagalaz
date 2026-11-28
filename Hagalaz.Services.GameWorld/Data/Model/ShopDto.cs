@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Items;
 
 namespace Hagalaz.Services.GameWorld.Data.Model

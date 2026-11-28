@@ -1,9 +1,6 @@
-using System;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
@@ -21,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var command = new GenericGameCommand
             {
                 Name = "test",
-                Permission = Hagalaz.Game.Abstractions.Authorization.Permission.Standard,
+                Permission = Abstractions.Authorization.Permission.Standard,
                 CommandFunc = commandFuncMock
             };
             var args = new GameCommandArgs(characterMock, []);

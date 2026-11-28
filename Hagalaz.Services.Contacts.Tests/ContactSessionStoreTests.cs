@@ -62,7 +62,7 @@ public sealed class ContactSessionStoreTests
     public void RemoveSessionsForWorld_RemovesMatchingSessionsAtomicallyAndReturnsExactEntries()
     {
         var store = new ContactSessionStore();
-        var first = CreateSession(1, "first", 1, 42, "instance-a");
+        var first = CreateSession(1, "first");
         var otherWorld = CreateSession(1, "other-world", 2, 43);
         store.TrySetNewerSession(first);
         store.TrySetNewerSession(otherWorld);

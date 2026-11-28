@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
@@ -16,7 +12,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Skills.Mining;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
@@ -24,6 +19,34 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
     [TestClass]
     public sealed class MiningIdentityTests
     {
+        [TestMethod]
+        [DataRow(0, 0)]
+        [DataRow(1, 1)]
+        [DataRow(5, 1)]
+        [DataRow(6, 2)]
+        public void FindPickaxe_SelectsHighestUsableOwnedPickaxe(int miningLevel, int expectedItemId)
+        {
+            var character = Substitute.For<ICharacter>();
+            character.Statistics.GetSkillLevel(StatisticsConstants.Mining).Returns(miningLevel);
+            var bronze = new PickaxeDto
+            {
+                Type = PickaxeType.Bronze, ItemId = 1, AnimationId = 1,
+                RequiredLevel = 1, BaseHarvestChance = 0.1,
+            };
+            var higherLevel = bronze with { ItemId = 2, RequiredLevel = 6 };
+            var unowned = bronze with { ItemId = 3, RequiredLevel = 3 };
+            character.Equipment.Items.GetById(bronze.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(higherLevel.ItemId).Returns(_ => null);
+            character.Inventory.Items.GetById(higherLevel.ItemId).Returns(Substitute.For<IItem>());
+            character.Equipment.Items.GetById(unowned.ItemId).Returns(_ => null);
+            character.Inventory.Items.GetById(unowned.ItemId).Returns(_ => null);
+
+            var selected = Hagalaz.Game.Scripts.Skills.Mining.Mining.FindPickaxe(character, [unowned, bronze, higherLevel]);
+
+            int? expectedPickaxe = expectedItemId == 0 ? null : expectedItemId;
+            Assert.AreEqual(expectedPickaxe, selected?.ItemId);
+        }
+
         [TestMethod]
         public async Task MiningRocks_WhenTargetIsReplacedDuringSetup_DoesNotQueueMiningTask()
         {
@@ -41,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             rocks.Handle.Returns(handle);
             rocks.Id.Returns(1);
             var isLive = true;
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!isLive)
                 {
@@ -99,7 +122,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             var handle = new EntityHandle<IGameObject>(12, 1);
             rocks.Handle.Returns(handle);
             var isLive = true;
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!isLive)
                 {
@@ -197,7 +220,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Mining
             resolvedRock.Id.Returns(1);
             resolvedRock.IsDisabled.Returns(false);
             fixture.IsLive = true;
-            entityService.TryResolve<IGameObject>(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+            entityService.TryResolve(handle, out Arg.Any<IGameObject>()).Returns(callInfo =>
             {
                 if (!fixture.IsLive)
                 {

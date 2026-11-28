@@ -1,9 +1,7 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Graphic;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
@@ -25,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             graphicIdMock.WithId(Arg.Any<int>()).Returns(graphicOptionalMock);
             graphicOptionalMock.WithHeight(Arg.Any<int>()).Returns(graphicOptionalMock);
             graphicOptionalMock.WithRotation(Arg.Any<int>()).Returns(graphicOptionalMock);
-            ((IGraphicBuild)graphicOptionalMock).Build().Returns(graphicMock);
+            (graphicOptionalMock).Build().Returns(graphicMock);
 
             var characterMock = Substitute.For<ICharacter>();
             var command = new TileGfxCommand(graphicBuilderMock);

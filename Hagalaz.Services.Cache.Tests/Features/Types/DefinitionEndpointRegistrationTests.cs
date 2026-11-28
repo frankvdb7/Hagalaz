@@ -1,10 +1,7 @@
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.TestSupport;
-using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features.Types;
 

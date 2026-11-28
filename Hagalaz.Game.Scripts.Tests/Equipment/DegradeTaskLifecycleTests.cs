@@ -151,7 +151,7 @@ public sealed class DegradeTaskLifecycleTests
         public IItem Equip(EquipmentSlot slot, long ticks)
         {
             var item = Substitute.For<IItem>();
-            item.ExtraData.Returns(new long[] { ticks });
+            item.ExtraData.Returns(new[] { ticks });
             item.Equals(Arg.Any<IItem>(), Arg.Any<bool>()).Returns(call => ReferenceEquals(item, call.Arg<IItem>()));
             _equipped[slot] = item;
             return item;

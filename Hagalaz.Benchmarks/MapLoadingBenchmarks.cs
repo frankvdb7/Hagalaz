@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
@@ -81,7 +81,7 @@ public class MapAppearanceRequestBenchmarks
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production", Args = [] });
         builder.Logging.ClearProviders();
         var cachePath = Environment.GetEnvironmentVariable("HAGALAZ_BENCHMARK_CACHE_PATH");
-        if (string.IsNullOrWhiteSpace(cachePath)) builder.Services.AddSingleton<IFileStore>(CreateFixture());
+        if (string.IsNullOrWhiteSpace(cachePath)) builder.Services.AddSingleton(CreateFixture());
         builder.Services.AddGameCache(options => { if (!string.IsNullOrWhiteSpace(cachePath)) options.Path = cachePath; });
         _app = builder.Build();
         _app.MapGroup("/api/v1/cache").MapModelEndpoints();
@@ -213,7 +213,7 @@ public class MapAppearanceRequestBenchmarks
 
     private static IFileStore CreateFixture()
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var entry = new ReferenceTableEntry(0);
         entry.InitializeEntries(KeyCount);
         var members = new byte[KeyCount][];

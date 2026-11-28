@@ -5,7 +5,6 @@ using Hagalaz.Services.Characters.Profiles;
 using Hagalaz.Services.Characters.Services.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Characters.Tests
 {

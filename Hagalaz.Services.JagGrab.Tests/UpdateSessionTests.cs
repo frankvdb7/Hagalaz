@@ -2,8 +2,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Hagalaz.Services.JagGrab.Network;
-using Hagalaz.Services.JagGrab;
-using Xunit;
 
 namespace Hagalaz.Services.JagGrab.Tests
 {

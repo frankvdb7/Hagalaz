@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Dialogues.Generic
@@ -128,7 +127,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
 
             // count = 1
             InterfaceInstance.AttachClickHandler(10,
-                (component, type, extraData1, slot) =>
+                (_, _, _, _) =>
                 {
                     SetCurrentCount(1, false);
                     return true;
@@ -136,7 +135,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
 
             // count = 5
             InterfaceInstance.AttachClickHandler(11,
-                (component, type, extraData1, slot) =>
+                (_, _, _, _) =>
                 {
                     SetCurrentCount(5, false);
                     return true;
@@ -144,7 +143,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
 
             // count = 10
             InterfaceInstance.AttachClickHandler(12,
-                (component, type, extraData1, slot) =>
+                (_, _, _, _) =>
                 {
                     SetCurrentCount(10, false);
                     return true;
@@ -152,7 +151,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
 
             // count = all
             InterfaceInstance.AttachClickHandler(13,
-                (component, type, extraData1, slot) =>
+                (_, _, _, _) =>
                 {
                     SetCurrentCount(_maxCount, false);
                     return true;
@@ -160,7 +159,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
 
             // count += 1
             InterfaceInstance.AttachClickHandler(24,
-                (component, type, extraData1, slot) =>
+                (_, _, _, _) =>
                 {
                     IncreaseCurrentCount(1, false);
                     return true;
@@ -168,13 +167,13 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
 
             // count -= 1
             InterfaceInstance.AttachClickHandler(25,
-                (component, type, extraData1, slot) =>
+                (_, _, _, _) =>
                 {
                     DecreaseCurrentCount(1, false);
                     return true;
                 });
 
-            OnComponentClick productClick = (component, type, extraData1, extraData2) =>
+            OnComponentClick productClick = (component, type, _, _) =>
             {
                 if (type == ComponentClickType.SpecialClick)
                 {

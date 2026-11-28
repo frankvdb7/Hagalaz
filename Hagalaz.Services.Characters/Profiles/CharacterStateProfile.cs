@@ -12,8 +12,8 @@ namespace Hagalaz.Services.Characters.Profiles
             CreateMap<CharactersState, State.StateEx>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.StateId))
                 .ForMember(dest => dest.TicksLeft, opt => opt.MapFrom(src => src.TicksLeft));
-            CreateMap<Services.Model.State, StateDto>();
-            CreateMap<Services.Model.State.StateEx, StateDto.StateExDto>();
+            CreateMap<State, StateDto>();
+            CreateMap<State.StateEx, StateDto.StateExDto>();
         }
     }
 }

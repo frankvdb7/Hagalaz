@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Model.Maps;
 
 namespace Hagalaz.Services.GameWorld.Model.Maps.Regions

@@ -4,7 +4,6 @@ using System.Text.Json;
 using Hagalaz.Services.Cache.Features.Mutations;
 using Hagalaz.Services.Cache.Features.Mutations.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 

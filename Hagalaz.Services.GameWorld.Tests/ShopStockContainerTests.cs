@@ -1,17 +1,12 @@
-using System.Collections.Generic;
-using System;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Features.Shops;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Services.GameWorld.Logic.Shops;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -101,7 +96,7 @@ public sealed class ShopStockContainerTests
         {
             foreach (var boundary in ((IItemTransactionSource)scenario.MoneyPouch).Synchronizations)
             {
-                Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
+                Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
             }
             Assert.AreEqual(0, scenario.MoneyPouch.Count);
             Assert.AreEqual(1, scenario.Inventory.Items.GetCountById(ItemId));
@@ -283,7 +278,7 @@ public sealed class ShopStockContainerTests
         scenario.Stock.SetItems([depletedOriginal], update: false);
         scenario.ShopEvents.When(manager => manager.SendEvent(Arg.Any<ShopStockChangedEvent>())).Do(_ =>
         {
-            Assert.IsFalse(System.Threading.Monitor.IsEntered(boundary.SynchronizationLock));
+            Assert.IsFalse(Monitor.IsEntered(boundary.SynchronizationLock));
             lock (boundary.SynchronizationLock)
             {
                 Assert.IsTrue(boundary.IsStandalonePublicationOwnedByCurrentThread);

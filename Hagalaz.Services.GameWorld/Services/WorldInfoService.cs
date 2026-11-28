@@ -1,6 +1,4 @@
-using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -99,10 +97,10 @@ namespace Hagalaz.Services.GameWorld.Services
                 .ToList();
 
         public ValueTask<IList<WorldInfo>> FindAllWorldInfoAsync(CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult<IList<WorldInfo>>(_mapper.Map<IList<WorldInfo>>(_worldInfoStore.ToList().OrderBy(info => info.Id)));
+            ValueTask.FromResult(_mapper.Map<IList<WorldInfo>>(_worldInfoStore.ToList().OrderBy(info => info.Id)));
 
         public ValueTask<IList<WorldCharacterInfo>> FindAllWorldCharacterInfoAsync(CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult<IList<WorldCharacterInfo>>(_mapper.Map<IList<WorldCharacterInfo>>(_worldInfoStore.ToList().OrderBy(info => info.Id)));
+            ValueTask.FromResult(_mapper.Map<IList<WorldCharacterInfo>>(_worldInfoStore.ToList().OrderBy(info => info.Id)));
 
         public Task AddOrUpdateWorldInfoAsync(WorldInfo worldInfo)
         {

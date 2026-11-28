@@ -1,7 +1,6 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
 using Xunit;
-using System.Collections.Generic;
 
 namespace Hagalaz.Cache.Tests
 {
@@ -31,17 +30,17 @@ namespace Hagalaz.Cache.Tests
                 MaleHeadModel2 = 7001,
                 FemaleHeadModel = 8000,
                 FemaleHeadModel2 = 8001,
-                GroundOptions = new string?[] { null, null, "take", "Test", null },
-                InventoryOptions = new string?[] { "Wear", "Check", null, null, "drop" },
-                OriginalModelColors = new int[] { 1, 2 },
-                ModifiedModelColors = new int[] { 3, 4 },
-                OriginalTextureColors = new int[] { 5, 6 },
-                ModifiedTextureColors = new int[] { 7, 8 },
+                GroundOptions = new[] { null, null, "take", "Test", null },
+                InventoryOptions = new[] { "Wear", "Check", null, null, "drop" },
+                OriginalModelColors = new[] { 1, 2 },
+                ModifiedModelColors = new[] { 3, 4 },
+                OriginalTextureColors = new[] { 5, 6 },
+                ModifiedTextureColors = new[] { 7, 8 },
                 Unnoted = true,
                 NoteId = -1,
                 NoteTemplateId = -1,
-                StackIds = new int[] { 10, 20, 0, 0, 0, 0, 0, 0, 0, 0 },
-                StackAmounts = new int[] { 100, 200, 0, 0, 0, 0, 0, 0, 0, 0 },
+                StackIds = new[] { 10, 20, 0, 0, 0, 0, 0, 0, 0, 0 },
+                StackAmounts = new[] { 100, 200, 0, 0, 0, 0, 0, 0, 0, 0 },
                 ScaleX = 150,
                 ScaleY = 160,
                 ScaleZ = 170,
@@ -79,8 +78,8 @@ namespace Hagalaz.Cache.Tests
             var codec = new ItemTypeCodec();
             var item = new ItemType(1)
             {
-                GroundOptions = new string?[] { null, "take", null, null, null },
-                InventoryOptions = new string?[] { "Wear", null, null, null, "drop" }
+                GroundOptions = new[] { null, "take", null, null, null },
+                InventoryOptions = new[] { "Wear", null, null, null, "drop" }
             };
 
             // Act & Assert

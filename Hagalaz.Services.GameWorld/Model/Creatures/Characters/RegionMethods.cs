@@ -1,16 +1,13 @@
 ﻿using System.Linq;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
     /// <summary>
     /// Contains methods for managing character regions.
     /// </summary>
-    public partial class Character : Creature
+    public partial class Character
     {
         /// <summary>
         /// Update's character visible regions.
@@ -21,7 +18,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Notifies character that it must add itself to given region.
         /// </summary>
-        /// <param name="newRegion"></param>
         protected override IMapRegion AddToRegion() => MapRegionService.AttachCharacter(this);
 
         /// <summary>

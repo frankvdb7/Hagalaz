@@ -1,6 +1,4 @@
 using Hagalaz.Game.Scripts.Util;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 
 namespace Hagalaz.Game.Scripts.Tests
 {

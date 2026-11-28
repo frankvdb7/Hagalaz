@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena
@@ -20,7 +19,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             var yNe = 3279;
             var randomX = xNe - xSw;
             var randomY = yNe - ySw;
-            ILocation? location = null;
+            ILocation? location;
             while (true)
             {
                 location = Location.Create(xSw + RandomStatic.Generator.Next(randomX - 1), ySw + RandomStatic.Generator.Next(randomY - 1), 0, 0);

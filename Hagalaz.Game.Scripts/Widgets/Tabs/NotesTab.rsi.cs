@@ -31,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             InterfaceInstance.SetVisible(3, true);
             Owner.Configurations.SendStandardConfiguration(1437, 1);
             Owner.Configurations.SendStandardConfiguration(1439, -1);
-            InterfaceInstance.AttachClickHandler(3, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(3, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {
@@ -53,7 +53,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            OnComponentClick deleteClickHandler = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick deleteClickHandler = (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick && _selectedNote != null)
                 {
@@ -73,7 +73,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             InterfaceInstance.AttachClickHandler(8, deleteClickHandler);
             InterfaceInstance.AttachClickHandler(11, deleteClickHandler);
 
-            InterfaceInstance.AttachClickHandler(9, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(9, (_, clickType, _, extraData2) =>
             {
                 var noteId = extraData2;
                 if (noteId < 0 || noteId >= Owner.Notes.Count)
@@ -126,7 +126,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 return false;
             });
 
-            OnComponentClick colourClickHandler = (componentID, clickType, extraData1, extraData2) =>
+            OnComponentClick colourClickHandler = (componentID, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

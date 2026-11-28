@@ -1,7 +1,4 @@
 using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Model.Items;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Items;
 

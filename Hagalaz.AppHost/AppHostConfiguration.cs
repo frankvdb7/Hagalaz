@@ -1,4 +1,3 @@
-using Aspire.Hosting;
 using Microsoft.Extensions.Hosting;
 
 namespace Hagalaz.AppHost;

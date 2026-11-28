@@ -6,7 +6,6 @@ using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 
 namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
@@ -46,7 +45,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Godwars.GameObjects.Armadyl
                         clicker.Interrupt(this);
                         clicker.Movement.Lock(true);
                         ILocation destination;
-                        var movementDirection = FaceDirection.None;
+                        FaceDirection movementDirection;
 
                         if (clicker.Location.Y > Owner.Location.Y)
                         {

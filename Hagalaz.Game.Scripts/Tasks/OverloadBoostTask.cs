@@ -30,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Tasks
         public OverloadBoostTask(ICharacter drinker)
         {
             _drinker = drinker;
-            _interruptEvent = drinker.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = drinker.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

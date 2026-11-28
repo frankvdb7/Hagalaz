@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
 {
@@ -93,7 +92,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Model.Creatures.Characters
         [DataRow(99, 13034431)]
         public void ExperienceForLevel_AdditionalLevels_CalculatesCorrectly(int level, int expectedExperience)
         {
-            Assert.AreEqual(expectedExperience, (int)StatisticsHelpers.ExperienceForLevel(level));
+            Assert.AreEqual(expectedExperience, StatisticsHelpers.ExperienceForLevel(level));
         }
 
         [TestMethod]

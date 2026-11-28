@@ -1,7 +1,6 @@
 using System;
 using System.Security.Claims;
 using Hagalaz.Authorization.Constants;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
 

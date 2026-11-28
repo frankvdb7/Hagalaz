@@ -26,7 +26,7 @@ public sealed class SignpostTests
         target.Location.Returns(new Location(2480, 3418, 0, 0));
 
         var entityService = Substitute.For<IEntityService>();
-        entityService.TryResolve<IGameObject>(targetHandle, out Arg.Any<IGameObject>()).Returns(callInfo =>
+        entityService.TryResolve(targetHandle, out Arg.Any<IGameObject>()).Returns(callInfo =>
         {
             callInfo[1] = target;
             return true;

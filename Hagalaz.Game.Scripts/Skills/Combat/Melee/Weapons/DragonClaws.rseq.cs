@@ -41,9 +41,9 @@ namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
             var fullMax = combat.GetMeleeMaxHit(victim, true);
 
             var damage1 = combat.GetMeleeDamage(victim, true);
-            var damage2 = -1;
-            var damage3 = -1;
-            var damage4 = -1;
+            int damage2;
+            int damage3;
+            int damage4;
             if (damage1 != -1)
             {
                 damage2 = (int)(damage1 * 0.50);

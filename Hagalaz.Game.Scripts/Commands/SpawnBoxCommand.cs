@@ -2,12 +2,9 @@ using System;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Scripts.Items;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Commands
@@ -106,7 +103,7 @@ namespace Hagalaz.Game.Scripts.Commands
             args.Character.Configurations.SendItems(90, false, container);
 
                 spawnBox.AttachClickHandler(16,
-                    (componentID, clickType, itemID, slot) =>
+                    (_, clickType, itemID, slot) =>
                     {
                         if (clickType == ComponentClickType.LeftClick)
                         {
@@ -135,7 +132,7 @@ namespace Hagalaz.Game.Scripts.Commands
 
                         if (clickType == ComponentClickType.Option2Click)
                         {
-                            var inputHandler = args.Character.Widgets.IntInputHandler = value =>
+                            args.Character.Widgets.IntInputHandler = value =>
                             {
                                 args.Character.Widgets.IntInputHandler = null;
                                 if (!spawnBox.IsOpened)

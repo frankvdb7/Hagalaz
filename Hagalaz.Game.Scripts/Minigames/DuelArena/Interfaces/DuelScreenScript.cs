@@ -1,204 +1,59 @@
-﻿using System;
+using System;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
 {
-    /// <summary>
-    /// </summary>
     public class DuelScreenScript : WidgetScript
     {
-        /// <summary>
-        ///     The script.
-        /// </summary>
-        public DuelArenaScript Script { get; set; }
-
-        /// <summary>
-        ///     Gets or sets the close callback.
-        /// </summary>
-        public Action CloseCallback { get; set; }
-
+        public DuelArenaScript? Script { get; set; }
+        public Action? CloseCallback { get; set; }
 
         public DuelScreenScript(ICharacterContextAccessor characterContextAccessor) : base(characterContextAccessor) { }
 
-        /// <summary>
-        ///     Happens when interface is opened for character.
-        /// </summary>
         public override void OnOpen()
         {
-            InterfaceInstance.AttachClickHandler(30,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoRanged); // no ranged
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(31,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoMelee); // no melee
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(32,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoMagic); // no magic
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(33,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.FunWeapons);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(34,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoForfeit); // no forfeit
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(35,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoDrinks);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(36,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoFood);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(37,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoPrayer);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(38,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoMovement);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(39,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.Obstacles);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(40,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.EnableSummoning); // enable summoning
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(41,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoSpecialAttacks); // no special attacks
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(18,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoHelm);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(19,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoCape);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(20,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoAmulet);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(28,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoAmmo);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(21,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoWeapon);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(22,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoBody);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(23,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoShield);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(24,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoLegs);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(25,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoGloves);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(26,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoBoots);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
-            InterfaceInstance.AttachClickHandler(27,
-                (componentId, clickType, extra1, extra2) =>
-                {
-                    Script.CurrentRules.ToggleRule(DuelRules.Rule.NoRing);
-                    Script.CurrentRules.SendRules(Script.Character, Script.Target);
-                    return true;
-                });
+            AttachRuleButton(30, DuelRules.Rule.NoRanged);
+            AttachRuleButton(31, DuelRules.Rule.NoMelee);
+            AttachRuleButton(32, DuelRules.Rule.NoMagic);
+            AttachRuleButton(33, DuelRules.Rule.FunWeapons);
+            AttachRuleButton(34, DuelRules.Rule.NoForfeit);
+            AttachRuleButton(35, DuelRules.Rule.NoDrinks);
+            AttachRuleButton(36, DuelRules.Rule.NoFood);
+            AttachRuleButton(37, DuelRules.Rule.NoPrayer);
+            AttachRuleButton(38, DuelRules.Rule.NoMovement);
+            AttachRuleButton(39, DuelRules.Rule.Obstacles);
+            AttachRuleButton(40, DuelRules.Rule.EnableSummoning);
+            AttachRuleButton(41, DuelRules.Rule.NoSpecialAttacks);
+            AttachRuleButton(18, DuelRules.Rule.NoHelm);
+            AttachRuleButton(19, DuelRules.Rule.NoCape);
+            AttachRuleButton(20, DuelRules.Rule.NoAmulet);
+            AttachRuleButton(28, DuelRules.Rule.NoAmmo);
+            AttachRuleButton(21, DuelRules.Rule.NoWeapon);
+            AttachRuleButton(22, DuelRules.Rule.NoBody);
+            AttachRuleButton(23, DuelRules.Rule.NoShield);
+            AttachRuleButton(24, DuelRules.Rule.NoLegs);
+            AttachRuleButton(25, DuelRules.Rule.NoGloves);
+            AttachRuleButton(26, DuelRules.Rule.NoBoots);
+            AttachRuleButton(27, DuelRules.Rule.NoRing);
         }
 
-        /// <summary>
-        ///     Happens when interface is closed for character.
-        /// </summary>
+        private void AttachRuleButton(int component, DuelRules.Rule rule) =>
+            InterfaceInstance.AttachClickHandler(component, (_, _, _, _) =>
+            {
+                if (Script is not { Target: { } target } script)
+                {
+                    return false;
+                }
+
+                script.CurrentRules.ToggleRule(rule);
+                script.CurrentRules.SendRules(script.Character, target);
+                return true;
+            });
+
         public override void OnClose()
         {
-            if (CloseCallback != null)
-            {
-                CloseCallback();
-            }
-
+            CloseCallback?.Invoke();
             Script = null;
         }
     }

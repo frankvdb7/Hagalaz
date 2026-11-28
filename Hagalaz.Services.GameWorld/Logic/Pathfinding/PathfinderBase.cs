@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
-using System;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;

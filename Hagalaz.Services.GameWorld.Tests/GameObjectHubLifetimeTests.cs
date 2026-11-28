@@ -1,5 +1,3 @@
-using System.IO.Pipelines;
-using System.Security.Claims;
 using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -10,16 +8,11 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Services.GameWorld.Builders;
-using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Hubs;
 using Hagalaz.Services.GameWorld.Services;
-using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Connections.Features;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Raido.Common.Protocol;
 using Raido.Server;
 using Raido.Server.Extensions;
 

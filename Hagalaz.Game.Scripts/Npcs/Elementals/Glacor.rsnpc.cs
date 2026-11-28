@@ -4,16 +4,13 @@ using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Builders.Region;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
-using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Utilities;
 
@@ -429,7 +426,7 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
                             Target = target.Handle
                         });
 
-                        handle.RegisterResultHandler(result =>
+                        handle.RegisterResultHandler(_ =>
                         {
                             if (RandomStatic.Generator.Next(0, 15) == 10)
                             {

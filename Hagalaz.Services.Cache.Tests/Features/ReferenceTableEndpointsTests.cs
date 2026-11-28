@@ -1,16 +1,12 @@
-﻿using System.IO;
-using System.Linq;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Models;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.ReferenceTables;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -20,7 +16,7 @@ public class ReferenceTableEndpointsTests
     [TestMethod]
     public async Task SparseReferenceTableResponse_ReportsCountAndIdCapacitySeparately()
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+        var table = new ReferenceTable(7, 1, 0, 2);
         table.AddEntry(1, CreateEntry(0));
         table.AddEntry(100, CreateEntry(1));
 
@@ -91,7 +87,7 @@ public class ReferenceTableEndpointsTests
 
         public (int FileId, int EntryId) AppendArchiveMemberCopy(int indexId, int sourceFileId, int sourceEntryId, int archiveMemberLimit) => throw new NotSupportedException();
 
-        public void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, global::System.ReadOnlyMemory<byte> replacement) => throw new NotSupportedException();
+        public void ReplaceArchiveMember(int indexId, int fileId, int archiveEntryId, ReadOnlyMemory<byte> replacement) => throw new NotSupportedException();
 
         public void WriteRawFile(int indexId, int fileId, MemoryStream data) => throw new NotSupportedException();
 

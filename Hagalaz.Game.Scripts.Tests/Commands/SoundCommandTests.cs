@@ -1,10 +1,8 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Sound;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
@@ -30,7 +28,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             soundOptionalMock.WithDelay(Arg.Any<int>()).Returns(soundOptionalMock);
             soundOptionalMock.WithPlaybackSpeed(Arg.Any<int>()).Returns(soundOptionalMock);
             soundOptionalMock.WithRepeatCount(Arg.Any<int>()).Returns(soundOptionalMock);
-            ((ISoundBuild)soundOptionalMock).Build().Returns(audioMock);
+            (soundOptionalMock).Build().Returns(audioMock);
 
             var sessionMock = Substitute.For<IGameSession>();
             var characterMock = Substitute.For<ICharacter>();

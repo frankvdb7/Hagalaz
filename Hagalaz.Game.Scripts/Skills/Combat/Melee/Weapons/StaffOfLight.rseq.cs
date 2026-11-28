@@ -9,7 +9,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Resources;
 using Hagalaz.Game.Scripts.Model.Items;
-using Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Melee.Weapons
 {

@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
@@ -316,7 +314,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             if (this[Rule.NoMovement])
             {
-                script.RegisterRuleHandler(character, new EventHappened<WalkAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<WalkAllowEvent>(_ =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
@@ -330,7 +328,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (!this[Rule.EnableSummoning])
             {
-                script.RegisterRuleHandler(character, new EventHappened<SummoningAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<SummoningAllowEvent>(_ =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
@@ -344,7 +342,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (this[Rule.NoDrinks])
             {
-                script.RegisterRuleHandler(character, new EventHappened<DrinkAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<DrinkAllowEvent>(_ =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
@@ -358,7 +356,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (this[Rule.NoFood])
             {
-                script.RegisterRuleHandler(character, new EventHappened<EatAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<EatAllowEvent>(_ =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
@@ -372,7 +370,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (this[Rule.NoSpecialAttacks])
             {
-                script.RegisterRuleHandler(character, new EventHappened<SpecialAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<SpecialAllowEvent>(_ =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {
@@ -386,7 +384,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
             if (this[Rule.NoPrayer])
             {
-                script.RegisterRuleHandler(character, new EventHappened<PrayerAllowEvent>(e =>
+                script.RegisterRuleHandler(character, new EventHappened<PrayerAllowEvent>(_ =>
                 {
                     if (character.GetScript<DuelArenaCombatScript>() != script)
                     {

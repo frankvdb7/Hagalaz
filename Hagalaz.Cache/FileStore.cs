@@ -120,7 +120,7 @@ namespace Hagalaz.Cache
                         if (fileId != sector.FileID) throw new InvalidDataException("Invalid file id.");
                         if (indexId != sector.IndexID) throw new InvalidDataException("Invalid index id.");
                         if (currentChunkId != sector.ChunkID) throw new InvalidDataException("Invalid chunk id.");
-                        if (sector.NextSectorID < 0 || (_dataFile.Length / (long)(Sector.DataSize)) < sector.NextSectorID)
+                        if (sector.NextSectorID < 0 || (_dataFile.Length / (Sector.DataSize)) < sector.NextSectorID)
                             throw new InvalidDataException("Invalid next sector id.");
 
                         dataBuffer.AsSpan(headerSectorSize, dataSectorSize).CopyTo(data.AsSpan(readBytesCount));
@@ -195,7 +195,7 @@ namespace Hagalaz.Cache
                         indexStream.ReadExactly(indexData, 0, Models.Index.IndexSize);
 
                         nextSectorId = _indexCodec.Decode(indexData).SectorID;
-                        if (nextSectorId <= 0 || nextSectorId > (_dataFile.Length / (long)Sector.DataSize)) return false;
+                        if (nextSectorId <= 0 || nextSectorId > (_dataFile.Length / Sector.DataSize)) return false;
                     }
                     else
                     {

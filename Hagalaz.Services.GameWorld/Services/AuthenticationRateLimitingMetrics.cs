@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using Hagalaz.Game.Configuration;
 using Microsoft.Extensions.Options;

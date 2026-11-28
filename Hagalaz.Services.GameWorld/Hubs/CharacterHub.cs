@@ -6,10 +6,8 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Hubs.Filters;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -53,7 +51,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                if (_entityService.TryResolve(targetHandle, out var currentTarget)
                     && currentTarget is ICharacter currentCharacter
                     && character.Viewport.VisibleCreatures.Contains(currentCharacter))
                 {

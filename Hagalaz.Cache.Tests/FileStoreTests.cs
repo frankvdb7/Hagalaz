@@ -372,7 +372,7 @@ namespace Hagalaz.Cache.Tests
             // Arrange
             const int indexId = 0;
             const int fileId = ushort.MaxValue + 1;
-            var fileData = System.Text.Encoding.UTF8.GetBytes("This is a test file for extended file IDs.");
+            var fileData = Encoding.UTF8.GetBytes("This is a test file for extended file IDs.");
 
             // Act
             _fileStore.Write(indexId, fileId, new MemoryStream(fileData));

@@ -1,5 +1,4 @@
 using System;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 
 namespace Hagalaz.Game.Abstractions.Features.States.Effects

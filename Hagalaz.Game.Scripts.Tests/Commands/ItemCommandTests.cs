@@ -1,10 +1,7 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -33,7 +30,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             itemBuilderMock.Create().Returns(itemIdMock);
             itemIdMock.WithId(123).Returns(itemOptionalMock);
             itemOptionalMock.WithCount(456).Returns(itemOptionalMock);
-            ((IItemBuild)itemOptionalMock).Build().Returns(itemMock);
+            (itemOptionalMock).Build().Returns(itemMock);
 
             var inventoryMock = new ComposedTestContainer(28);
 

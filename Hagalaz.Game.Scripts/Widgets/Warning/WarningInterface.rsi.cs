@@ -50,14 +50,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Warning
         /// </summary>
         public override void OnOpen()
         {
-            InterfaceInstance.AttachClickHandler(AcceptComponentID, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(AcceptComponentID, (_, _, _, _) =>
             {
                 OnAcceptClicked?.Invoke();
                 Owner.Widgets.CloseWidget(InterfaceInstance);
                 return true;
             });
 
-            InterfaceInstance.AttachClickHandler(DeclineComponentID, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(DeclineComponentID, (_, _, _, _) =>
             {
                 OnDeclineClicked?.Invoke();
                 Owner.Widgets.CloseWidget(InterfaceInstance);

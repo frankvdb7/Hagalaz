@@ -1,9 +1,5 @@
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Scripts.Widgets;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Scripts.Tests.Widgets;
 

@@ -423,12 +423,12 @@ namespace Hagalaz.Cache.Tests.Logic
         }
 
         [Theory]
-        [InlineData(0, new int[] { 3, 3, 3, -1 })]
-        [InlineData(1, new int[] { 3, 3, 3, -1 })]
-        [InlineData(2, new int[] { 2, 2, 3, 2 })]
-        [InlineData(13, new int[] { 4, 4, 4, -1 })]
-        [InlineData(27, new int[] { 2, 1, 3, -1 })]
-        [InlineData(28, new int[] { 3, 3, 3, -1 })] // Default case
+        [InlineData(0, new[] { 3, 3, 3, -1 })]
+        [InlineData(1, new[] { 3, 3, 3, -1 })]
+        [InlineData(2, new[] { 2, 2, 3, 2 })]
+        [InlineData(13, new[] { 4, 4, 4, -1 })]
+        [InlineData(27, new[] { 2, 1, 3, -1 })]
+        [InlineData(28, new[] { 3, 3, 3, -1 })] // Default case
         public void GetAttackBonusTypes_ShouldReturnCorrectArray_ForWeaponType(int weaponType, int[] expected)
         {
             // Arrange
@@ -443,12 +443,12 @@ namespace Hagalaz.Cache.Tests.Logic
         }
 
         [Theory]
-        [InlineData(0, new int[] { 1, 2, 3, -1 })]
-        [InlineData(1, new int[] { 1, 2, 3, -1 })]
-        [InlineData(2, new int[] { 1, 2, 2, 3 })]
-        [InlineData(13, new int[] { 5, 6, 7, -1 })]
-        [InlineData(27, new int[] { 4, 4, 4, -1 })]
-        [InlineData(28, new int[] { 1, 2, 3, -1 })] // Default case
+        [InlineData(0, new[] { 1, 2, 3, -1 })]
+        [InlineData(1, new[] { 1, 2, 3, -1 })]
+        [InlineData(2, new[] { 1, 2, 2, 3 })]
+        [InlineData(13, new[] { 5, 6, 7, -1 })]
+        [InlineData(27, new[] { 4, 4, 4, -1 })]
+        [InlineData(28, new[] { 1, 2, 3, -1 })] // Default case
         public void GetAttackStylesTypes_ShouldReturnCorrectArray_ForWeaponType(int weaponType, int[] expected)
         {
             // Arrange
@@ -703,7 +703,7 @@ namespace Hagalaz.Cache.Tests.Logic
         public void HasDestroyOption_ShouldReturnTrue_WhenOptionExists()
         {
             // Arrange
-            _mockItemType.Setup(i => i.InventoryOptions).Returns(new string[] { "Wield", "Destroy", "Drop" });
+            _mockItemType.Setup(i => i.InventoryOptions).Returns(new[] { "Wield", "Destroy", "Drop" });
 
             // Act
             var result = _mockItemType.Object.HasDestroyOption();
@@ -716,7 +716,7 @@ namespace Hagalaz.Cache.Tests.Logic
         public void HasDestroyOption_ShouldReturnFalse_WhenOptionDoesNotExist()
         {
             // Arrange
-            _mockItemType.Setup(i => i.InventoryOptions).Returns(new string[] { "Wield", "Drop" });
+            _mockItemType.Setup(i => i.InventoryOptions).Returns(new[] { "Wield", "Drop" });
 
             // Act
             var result = _mockItemType.Object.HasDestroyOption();
@@ -729,7 +729,7 @@ namespace Hagalaz.Cache.Tests.Logic
         public void HasDestroyOption_ShouldReturnFalse_WhenOptionsAreNull()
         {
             // Arrange
-            _mockItemType.Setup(i => i.InventoryOptions).Returns(new string[] { "Wield", null, "Drop" });
+            _mockItemType.Setup(i => i.InventoryOptions).Returns(new[] { "Wield", null, "Drop" });
 
             // Act
             var result = _mockItemType.Object.HasDestroyOption();

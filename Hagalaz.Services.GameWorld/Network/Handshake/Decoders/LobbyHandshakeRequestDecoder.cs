@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Configuration.Model;
@@ -7,7 +6,6 @@ using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using Raido.Common.Protocol;
 using Raido.Server.Extensions;
-using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 {
@@ -38,12 +36,12 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 (ref SequenceReader<byte> xteaDataReader, uint[] isaacSeed, string password, string login) =>
                 {
 
-                if (!xteaDataReader.TryRead(out byte gameId))
+                if (!xteaDataReader.TryRead(out byte _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out byte localeId))
+                if (!xteaDataReader.TryRead(out byte _))
                 {
                     return false;
                 }
@@ -53,7 +51,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out string settings))
+                if (!xteaDataReader.TryRead(out string _))
                 {
                     return false;
                 }
@@ -72,23 +70,23 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 // stop hardware block
 
-                if (!xteaDataReader.TryRead(out string staticClientId))
+                if (!xteaDataReader.TryRead(out string _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryReadBigEndian(out int affiliateId))
+                if (!xteaDataReader.TryReadBigEndian(out int _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryReadBigEndian(out int staticClientNumber))
+                if (!xteaDataReader.TryReadBigEndian(out int _))
                 {
                     return false;
                 }
 
                 // TODO - validate servertoken
-                if (!xteaDataReader.TryRead(out string serverToken))
+                if (!xteaDataReader.TryRead(out string _))
                 {
                     return false;
                 }

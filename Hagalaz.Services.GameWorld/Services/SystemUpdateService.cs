@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Configuration.Model;

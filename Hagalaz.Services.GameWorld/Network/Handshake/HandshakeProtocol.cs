@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using Hagalaz.Services.GameWorld.Configuration.Model;
 using Microsoft.Extensions.Options;
 using Raido.Common.Buffers;

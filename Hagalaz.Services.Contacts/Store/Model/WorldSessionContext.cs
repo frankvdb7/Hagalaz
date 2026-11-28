@@ -1,4 +1,3 @@
-using System;
 
 namespace Hagalaz.Services.Contacts.Store.Model
 {

@@ -1,12 +1,10 @@
 using Hagalaz.Services.Cache.Features.Models.Dtos;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Models;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 [TestClass]
@@ -91,7 +89,7 @@ public class ModelParticleEndpointsTests
     private static byte[] ContainerBytes(byte[] data) {using var container=new Container(new MemoryStream(data));return container.Encode();}
     private static void Seed(MemoryFileStore store,int index,int child,byte[] data,int archiveId=0,bool includeConstant=false)
     {
-        var table=new ReferenceTable(7,1,(ReferenceTableFlags)0,(includeConstant ? 2 : archiveId+1));var archive=new ReferenceTableEntry(archiveId);
+        var table=new ReferenceTable(7,1,0,(includeConstant ? 2 : archiveId+1));var archive=new ReferenceTableEntry(archiveId);
         archive.InitializeEntries(1);archive.AddEntry(child,new ReferenceTableChildEntry(0));table.AddEntry(archiveId,archive);
         if (includeConstant)
         {
@@ -107,7 +105,7 @@ public class ModelParticleEndpointsTests
 
     private static object ExpectedEmitter(byte[] data)
     {
-        var e = new Hagalaz.Cache.Logic.Codecs.ParticleEmitterTypeCodec().Decode(403, new MemoryStream(data));
+        var e = new ParticleEmitterTypeCodec().Decode(403, new MemoryStream(data));
         return new
         {
             TextureId = e.RenderTextureId, e.ColorMin, e.ColorMax, e.LifeMin, e.LifeMax, e.RateMin, e.RateMax, e.SizeMin, e.SizeMax, e.SpeedMin, e.SpeedMax,

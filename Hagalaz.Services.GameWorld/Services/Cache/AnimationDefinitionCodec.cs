@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Logic.Codecs;

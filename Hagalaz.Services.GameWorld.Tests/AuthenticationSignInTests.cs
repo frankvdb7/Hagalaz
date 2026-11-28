@@ -1,7 +1,6 @@
 using System.Net;
 using System.Reflection;
 using System.Security.Claims;
-using System.Threading;
 using AutoMapper;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Characters.Messages;
@@ -1634,7 +1633,7 @@ public sealed partial class AuthenticationSignInTests
         public ValueTask<ICharacter?> FindByMasterId(uint masterId)
         {
             FindByMasterIdCallCount++;
-            return ValueTask.FromResult<ICharacter?>(_existingCharacter);
+            return ValueTask.FromResult(_existingCharacter);
         }
 
     }

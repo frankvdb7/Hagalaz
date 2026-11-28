@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Services.GameWorld.Store;
 using NSubstitute;
 

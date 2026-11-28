@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
-using Hagalaz.Game.Abstractions.Scripts;
 
 namespace Hagalaz.Game.Abstractions.Builders.GameObject
 {

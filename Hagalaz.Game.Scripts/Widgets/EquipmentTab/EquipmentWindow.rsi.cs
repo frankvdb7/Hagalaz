@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
@@ -54,7 +53,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
             InterfaceInstance.SetOptions(9, 0, 14, 1026);
             _inventoryInterface.SetOptions(0, 0, 27, 1026);
 
-            InterfaceInstance.AttachClickHandler(9, (component, type, itemID, slot) =>
+            InterfaceInstance.AttachClickHandler(9, (_, type, itemID, slot) =>
             {
                 if (slot < 0 || slot >= Owner.Equipment.Items.Capacity)
                 {
@@ -85,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            _inventoryInterface.AttachClickHandler(0, (component, type, itemID, slot) =>
+            _inventoryInterface.AttachClickHandler(0, (_, type, itemID, slot) =>
             {
                 if (slot < 0 || slot >= Owner.Inventory.Items.Capacity)
                 {
@@ -116,7 +115,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(46, (component, type, itemID, slot) =>
+            InterfaceInstance.AttachClickHandler(46, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {
@@ -129,7 +128,7 @@ namespace Hagalaz.Game.Scripts.Widgets.EquipmentTab
                 return false;
             });
 
-            _handler = Owner.RegisterEventHandler(new EventHappened<EquipmentChangedEvent>(e =>
+            _handler = Owner.RegisterEventHandler(new EventHappened<EquipmentChangedEvent>(_ =>
             {
                 RefreshBonuses();
                 return false;

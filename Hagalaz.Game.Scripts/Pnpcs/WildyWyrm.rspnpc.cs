@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Characters;
@@ -64,7 +63,7 @@ namespace Hagalaz.Game.Scripts.Pnpcs
             Owner.Statistics.Bonuses.Reset();
             Owner.Statistics.Bonuses.Add(Definition.Bonuses);
 
-            _equipAllowEvent = Owner.RegisterEventHandler(new EventHappened<EquipAllowEvent>(e => true));
+            _equipAllowEvent = Owner.RegisterEventHandler(new EventHappened<EquipAllowEvent>(_ => true));
 
             _initialized = true;
         }

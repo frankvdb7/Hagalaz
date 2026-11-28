@@ -7,7 +7,7 @@ using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class MovementBuilder : IMovementBuilder, IMovementBuild, IMovementOptional, IMovementLocationEnd, IMovementLocationStart
+    public class MovementBuilder : IMovementBuilder, IMovementOptional, IMovementLocationEnd, IMovementLocationStart
     {
         private ILocation? _start;
         private ILocation? _end;

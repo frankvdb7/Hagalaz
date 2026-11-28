@@ -1,8 +1,3 @@
-using System.Collections.Generic;
-using System.Threading;
-using Aspire.Hosting;
-using Aspire.Hosting.ApplicationModel;
-using Hagalaz.AppHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.AppHost.Tests;

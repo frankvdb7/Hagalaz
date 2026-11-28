@@ -1,7 +1,4 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Linq;
 using System.Globalization;
-using System.Threading;
 
 namespace Hagalaz.Utilities.Tests
 {
@@ -15,7 +12,7 @@ namespace Hagalaz.Utilities.Tests
             var originalCulture = Thread.CurrentThread.CurrentCulture;
             Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
             var input = "1.1,2.2,3.3";
-            var expected = new double[] { 1.1, 2.2, 3.3 };
+            var expected = new[] { 1.1, 2.2, 3.3 };
 
             // Act
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
@@ -32,7 +29,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var data = "1,abc,0";
-            var expected = new bool[] { true, false, false };
+            var expected = new[] { true, false, false };
 
             // Act
             var actual = StringUtilities.DecodeValues(data);
@@ -156,7 +153,7 @@ namespace Hagalaz.Utilities.Tests
         public void EncodeValues_IntArray_EncodesCorrectly()
         {
             // Arrange
-            var values = new int[] { 1, 2, 3 };
+            var values = new[] { 1, 2, 3 };
             var expected = "1,2,3";
 
             // Act
@@ -170,7 +167,7 @@ namespace Hagalaz.Utilities.Tests
         public void EncodeValues_StringArray_EncodesCorrectly()
         {
             // Arrange
-            var values = new string[] { "a", "b", "c" };
+            var values = new[] { "a", "b", "c" };
             var expected = "a,b,c";
 
             // Act
@@ -198,7 +195,7 @@ namespace Hagalaz.Utilities.Tests
         public void EncodeValues_BoolArray_EncodesCorrectly()
         {
             // Arrange
-            var values = new bool[] { true, false, true };
+            var values = new[] { true, false, true };
             var expected = "1,0,1";
 
             // Act
@@ -213,7 +210,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var input = "1.1,2.2,3.3";
-            var expected = new double[] { 1.1, 2.2, 3.3 };
+            var expected = new[] { 1.1, 2.2, 3.3 };
 
             // Act
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
@@ -227,7 +224,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var input = "1.1,abc,3.3";
-            var expected = new double[] { 1.1, 0.0, 3.3 };
+            var expected = new[] { 1.1, 0.0, 3.3 };
 
             // Act
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
@@ -267,7 +264,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var input = "1,2,3";
-            var expected = new int[] { 1, 2, 3 };
+            var expected = new[] { 1, 2, 3 };
 
             // Act
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
@@ -281,7 +278,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var input = "1,0,1";
-            var expected = new bool[] { true, false, true };
+            var expected = new[] { true, false, true };
 
             // Act
             var actual = StringUtilities.SelectBoolFromString(input).ToArray();
@@ -295,7 +292,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var data = "1,2,3";
-            var expected = new int[] { 1, 2, 3 };
+            var expected = new[] { 1, 2, 3 };
 
             // Act
             var actual = StringUtilities.DecodeValues(data, int.Parse);
@@ -309,7 +306,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var data = "1;2;3";
-            var expected = new int[] { 1, 2, 3 };
+            var expected = new[] { 1, 2, 3 };
 
             // Act
             var actual = StringUtilities.DecodeValues(data, int.Parse, ';');
@@ -349,7 +346,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var data = "1,0,1";
-            var expected = new bool[] { true, false, true };
+            var expected = new[] { true, false, true };
 
             // Act
             var actual = StringUtilities.DecodeValues(data);
@@ -424,7 +421,7 @@ namespace Hagalaz.Utilities.Tests
         {
             // Arrange
             var input = "1,abc,3";
-            var expected = new int[] { 1, 0, 3 };
+            var expected = new[] { 1, 0, 3 };
 
             // Act
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
@@ -520,7 +517,7 @@ namespace Hagalaz.Utilities.Tests
         public void SelectIntFromString_TrailingComma_HandlesCorrectly()
         {
             var input = "1,2,";
-            var expected = new int[] { 1, 2, 0 };
+            var expected = new[] { 1, 2, 0 };
             var actual = StringUtilities.SelectIntFromString(input).ToArray();
             CollectionAssert.AreEqual(expected, actual);
         }
@@ -529,7 +526,7 @@ namespace Hagalaz.Utilities.Tests
         public void SelectDoubleFromString_TrailingComma_HandlesCorrectly()
         {
             var input = "1.1,2.2,";
-            var expected = new double[] { 1.1, 2.2, 0.0 };
+            var expected = new[] { 1.1, 2.2, 0.0 };
             var actual = StringUtilities.SelectDoubleFromString(input).ToArray();
             CollectionAssert.AreEqual(expected, actual);
         }

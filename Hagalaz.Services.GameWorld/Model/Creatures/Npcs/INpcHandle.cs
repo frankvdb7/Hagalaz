@@ -1,6 +1,5 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Extensions;
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
 {
     public class NpcHandle : INpcHandle

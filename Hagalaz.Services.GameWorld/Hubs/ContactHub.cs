@@ -1,6 +1,4 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
+﻿using System.Buffers;
 using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
@@ -13,7 +11,6 @@ using Hagalaz.Exceptions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Messages.Protocol;
 using Hagalaz.Game.Messages.Protocol.Model;
-using Hagalaz.Game.Resources;
 using Hagalaz.Services.GameWorld.Extensions;
 using Hagalaz.Services.GameWorld.Features;
 

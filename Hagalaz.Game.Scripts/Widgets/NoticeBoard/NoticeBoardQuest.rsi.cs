@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Widgets.NoticeBoard
         ///     Called when [open].
         /// </summary>
         public override void OnOpen() =>
-            InterfaceInstance.AttachClickHandler(7, (componentID, type, extraInfo1, extraInfo2) =>
+            InterfaceInstance.AttachClickHandler(7, (_, _, _, _) =>
             {
                 // TODO - check
                 //Owner.Session.SendPacketAsync(new GameFramePacketComposer(Owner.Interfaces.CurrentFrame)); // reset frame

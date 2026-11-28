@@ -1,4 +1,3 @@
-using System.IO;
 using Xunit;
 
 namespace Hagalaz.Security.Tests
@@ -26,8 +25,8 @@ namespace Hagalaz.Security.Tests
             var validPrefix = Huffman.Encode("valid", out _);
             var invalidSuffix = new byte[] { 0xff, 0xff };
             var combinedData = new byte[validPrefix.Length + invalidSuffix.Length];
-            System.Buffer.BlockCopy(validPrefix, 0, combinedData, 0, validPrefix.Length);
-            System.Buffer.BlockCopy(invalidSuffix, 0, combinedData, validPrefix.Length, invalidSuffix.Length);
+            Buffer.BlockCopy(validPrefix, 0, combinedData, 0, validPrefix.Length);
+            Buffer.BlockCopy(invalidSuffix, 0, combinedData, validPrefix.Length, invalidSuffix.Length);
 
             using var stream = new MemoryStream(combinedData);
 

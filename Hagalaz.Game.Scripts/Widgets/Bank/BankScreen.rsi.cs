@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Mediator;
@@ -13,7 +12,6 @@ using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Widgets.EquipmentTab;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
-using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Bank
 {
@@ -121,7 +119,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 return true; // event handled
             }));
             _inventoryInterface.AttachClickHandler(0,
-                (componentID, type, itemID, slot) =>
+                (_, type, itemID, slot) =>
                 {
                     if (!ItemWidgetOperations.TryGetItem(Owner.Inventory.Items, itemID, slot, out var item)) return false;
 
@@ -191,7 +189,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                             }
 
                             _mediator.Publish(new ProfileSetIntAction(ProfileConstants.BankSettingsOptionX, value));
-                            Owner.Bank.WithdrawFromBank(item, value, _notingEnabled, out var withdrawed);
+                            Owner.Bank.WithdrawFromBank(item, value, _notingEnabled, out _);
                             if (Owner.Bank.Items.GetInstanceSlot(item) == -1)
                             {
                                 RemoveFromTab(ItemTab(slot), slot);
@@ -220,7 +218,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
 
                     if (amount > 0)
                     {
-                        Owner.Bank.WithdrawFromBank(item, amount, _notingEnabled, out var withdraw);
+                        Owner.Bank.WithdrawFromBank(item, amount, _notingEnabled, out _);
                         if (Owner.Bank.Items.GetInstanceSlot(item) == -1)
                         {
                             RemoveFromTab(ItemTab(slot), slot);
@@ -231,14 +229,14 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     return true;
                 });
             InterfaceInstance.AttachClickHandler(19,
-                (componentID, type, extra1, extra2) =>
+                (_, _, _, _) =>
                 {
                     _notingEnabled = !_notingEnabled;
                     RefreshSettings();
                     return true;
                 });
             InterfaceInstance.AttachClickHandler(39,
-                (componentID, type, extra1, extra2) =>
+                (_, _, _, _) =>
                 {
                     if (!Owner.HasFamiliar())
                     {
@@ -274,7 +272,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 });
 
             InterfaceInstance.AttachClickHandler(33,
-                (componentID, type, extra1, extra2) =>
+                (_, _, _, _) =>
                 {
                     foreach (var item in Owner.Inventory.Items.OfType<IItem>())
                     {
@@ -290,7 +288,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     return true;
                 });
             InterfaceInstance.AttachClickHandler(35,
-                (componentID, type, extra1, extra2) =>
+                (_, _, _, _) =>
                 {
                     if (!Owner.Bank.DepositFromMoneyPouch(out var outItem))
                     {
@@ -306,7 +304,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     return true;
                 });
             InterfaceInstance.AttachClickHandler(37,
-                (componentID, type, extra1, extra2) =>
+                (_, _, _, _) =>
                 {
                     foreach (var item in Owner.Equipment.Items)
                     {
@@ -327,7 +325,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                     return true;
                 });
             _inventoryInterface.AttachDragHandler(0,
-                (fromComponentID, fExtra, fromSlot, to, toComponentID, tExtra, toSlot) =>
+                (fromComponentID, _, fromSlot, to, toComponentID, _, toSlot) =>
                 {
                     if (fromComponentID != 0 || toComponentID != 0)
                     {
@@ -355,7 +353,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             InterfaceInstance.AttachDragHandler(95, BankComponentDragged);
 
             InterfaceInstance.AttachClickHandler(119,
-                (componentID, type, extra1, extra2) =>
+                (_, _, _, _) =>
                 {
                     Owner.AddState(new BankingState());
                     var script = Owner.ServiceProvider.GetRequiredService<EquipmentWindow>();
@@ -394,8 +392,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
                 InterfaceInstance.AttachClickHandler(t, TabClick);
             }
 
-            RefreshBank(null);
-            RefreshInventory(null);
+            RefreshBank();
+            RefreshInventory();
             RefreshBankX();
         }
 
@@ -560,12 +558,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Bank
             return 8; // main
         }
 
-        /// <summary>
-        ///     Insert's item into given tab.
-        /// </summary>
-        /// <param name="tab"></param>
-        /// <param name="slot"></param>
-        /// <returns></returns>
+        /// <summary>Maps a bank menu option to its item quantity.</summary>
+        /// <param name="type">The clicked bank menu option.</param>
+        /// <param name="amount">The quantity for a supported option.</param>
+        /// <returns>Whether the option specifies a quantity.</returns>
         private bool TryGetBankAmount(ComponentClickType type, out int amount)
         {
             switch (type)

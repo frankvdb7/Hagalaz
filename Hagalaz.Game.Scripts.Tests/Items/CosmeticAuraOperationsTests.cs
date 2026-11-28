@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Equipment.Auras;
 using Hagalaz.Game.Scripts.Items.Auras;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Items;

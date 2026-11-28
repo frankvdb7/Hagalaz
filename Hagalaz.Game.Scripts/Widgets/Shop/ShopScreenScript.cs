@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Builders.Widget;
@@ -7,12 +6,10 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Utilities;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
-using Hagalaz.Game.Scripts.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.Shop
 {
@@ -134,8 +131,8 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
 
             Owner.Configurations.SendGlobalCs2String(361, Owner.CurrentShop.Name);
 
-            RefreshMainStock(null);
-            RefreshSampleStock(null);
+            RefreshMainStock();
+            RefreshSampleStock();
             RefreshMoneyPouch();
 
             InterfaceInstance.SetVisible(52, Owner.CurrentShop.GeneralStore);
@@ -272,7 +269,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
             InterfaceInstance.AttachClickHandler(20, Owner.HasState<ShopSellScreenState>() ? SellScreenHandler : BuyScreenHandler); // default handler
 
             InterfaceInstance.AttachClickHandler(21,
-                (componentID, type, itemID, slot) =>
+                (_, type, _, slot) =>
                 {
                     if (slot < 0 || slot >= Owner.CurrentShop.SampleStockContainer.Items.Capacity)
                     {
@@ -309,21 +306,21 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
                 });
 
             InterfaceInstance.AttachClickHandler(15,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     IncrementCount(1);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(208,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     IncrementCount(5);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(211,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     if (_selectedItem == null)
                     {
@@ -334,49 +331,49 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
                 });
 
             InterfaceInstance.AttachClickHandler(214,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     DecrementCount(1);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(217,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     DecrementCount(5);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(220,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     SetCount(1);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(49,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     Owner.Configurations.SendStandardConfiguration(1078, -1);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(50,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     Owner.Configurations.SendStandardConfiguration(1078, 0);
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(201,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     HandleBuyTakeSellButton();
                     return true;
                 });
 
             InterfaceInstance.AttachClickHandler(28,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     InterfaceInstance.DetachClickHandlers(20);
                     InterfaceInstance.AttachClickHandler(20, BuyScreenHandler);
@@ -385,7 +382,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Shop
                 });
 
             InterfaceInstance.AttachClickHandler(29,
-                (componentID, type, itemID, slot) =>
+                (_, _, _, _) =>
                 {
                     InterfaceInstance.DetachClickHandlers(20);
                     InterfaceInstance.AttachClickHandler(20, SellScreenHandler);

@@ -1,9 +1,7 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events;
 
@@ -28,7 +26,7 @@ namespace Hagalaz.Game.Scripts.Tasks
             _actor = actor;
             _performer = performer;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = _actor.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = _actor.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 _finishCallback?.Invoke();
                 Cancel();

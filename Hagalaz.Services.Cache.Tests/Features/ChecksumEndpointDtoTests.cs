@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Utilities;
@@ -8,7 +8,6 @@ using Hagalaz.Security;
 using Hagalaz.Services.Cache.Features.Checksums;
 using Hagalaz.Services.Cache.Features.Checksums.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -20,7 +19,7 @@ public class ChecksumEndpointDtoTests
     {
         var store = new MemoryFileStore();
         for (var index = 0; index < store.IndexFileCount; index++) store.Set(255, index, []);
-        var table = new ReferenceTable(7, 37, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 37, 0, 1);
         var archive = new ReferenceTableEntry(0);
         archive.InitializeEntries(1);
         archive.AddEntry(0, new ReferenceTableChildEntry(0));

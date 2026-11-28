@@ -1,8 +1,6 @@
-﻿using Hagalaz.Game.Abstractions.Factories;
-using Hagalaz.Game.Abstractions.Model.Items;
+﻿using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
@@ -54,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
             Refresh();
 
             InterfaceInstance.AttachClickHandler(58,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -70,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
                 });
 
             InterfaceInstance.AttachClickHandler(34,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -86,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
                 });
 
             InterfaceInstance.AttachClickHandler(71,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -102,7 +100,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
                 });
 
             InterfaceInstance.AttachClickHandler(83,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -118,7 +116,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
                 });
 
             InterfaceInstance.AttachClickHandler(95,
-                (componentID, type, extraInfo1, extraInfo2) =>
+                (_, type, _, _) =>
                 {
                     if (type == ComponentClickType.LeftClick)
                     {
@@ -133,7 +131,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CapeDesign
                     return false;
                 });
 
-            OnComponentClick finish = (componentID, type, extraInfo1, extraInfo2) =>
+            OnComponentClick finish = (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {

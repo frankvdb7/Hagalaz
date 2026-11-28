@@ -25,7 +25,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using OpenIddict.Abstractions;
-using Raido.Common.Messages;
 using Raido.Common.Protocol;
 using Raido.Server;
 
@@ -366,16 +365,7 @@ public sealed class ClientConnectionHandlerTests
         character.Index.Returns(1);
         character.Location.Returns(Location.Create(3200, 3200));
         character.GameClient.Returns(gameClient);
-        target.Features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
-        target.Features.Set<ICharacterFeature>(new CharacterFeature { Character = character });
-        target.Features.Set<IAuthenticationFeature>(new AuthenticationFeature
-        {
-            AuthenticationProperties = new AuthenticationProperties
-            {
-                Claims = new Dictionary<string, object> { [OpenIddictConstants.Claims.Subject] = "42" },
-                AuthorizationId = "authorization-id"
-            }
-        });
+        AuthenticatedCharacterFeatureSetup.Set(target, session, character);
 
         tcp.OnPhysicalConnectionClosed(initial);
         Assert.IsTrue(tcp.Transport.Input.TryRead(out var boundary));
@@ -490,7 +480,7 @@ public sealed class ClientConnectionHandlerTests
             Assert.IsNotNull(authenticationRequest);
             Assert.AreEqual("203.0.113.7", authenticationRequest!.RemoteAddress!.ToString());
             Assert.AreEqual("physical-reconnect", authenticationRequest.ConnectionId);
-            Assert.AreSame(session, target.Features.Get<Hagalaz.Services.GameWorld.Features.ISessionFeature>()!.Session);
+            Assert.AreSame(session, target.Features.Get<Features.ISessionFeature>()!.Session);
             Assert.AreSame(character, target.Features.Get<ICharacterFeature>()!.Character);
             Assert.AreSame(freshProtocol, target.Protocol);
             Assert.IsInstanceOfType(gameMessage, typeof(TestGameMessage));

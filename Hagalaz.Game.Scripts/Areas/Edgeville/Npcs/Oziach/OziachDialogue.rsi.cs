@@ -18,7 +18,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
         public override void OnOpen()
         {
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo,
                         DialogueAnimations.Angry,
@@ -29,27 +29,27 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
                     return true;
                 });
             AttachDialogueContinueClickHandler(1,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue("I've only come to ask a favor.", "I'll take my business elsewhere.");
                     return true;
                 });
             AttachDialogueOptionClickHandler("I've only come to ask a favor.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "I've only come to ask a favor.", "I would like you to create a Dragonfire shield!");
                     SetStage(1);
                     return true;
                 });
             AttachDialogueOptionClickHandler("I'll take my business elsewhere.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Very well then.", "I'll take my business elsewhere, Old Man.");
                     SetStage(7);
                     return false;
                 });
             AttachDialogueContinueClickHandler(2,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo,
                         DialogueAnimations.CalmTalk,
@@ -59,13 +59,13 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
                     return true;
                 });
             AttachDialogueContinueClickHandler(3,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue("Yes.", "No.");
                     return true;
                 });
             AttachDialogueOptionClickHandler("Yes.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     if (Stage == 4)
                     {
@@ -76,7 +76,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
                     return true;
                 });
             AttachDialogueOptionClickHandler("No.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     if (Stage == 4)
                     {
@@ -87,7 +87,7 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
                     return true;
                 });
             AttachDialogueContinueClickHandler(4,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     if (Owner.MoneyPouch.HasCoins(1200000) && Owner.Inventory.Items.Contains(11286, 1) && Owner.Inventory.Items.Contains(1540, 1))
                     {
@@ -113,26 +113,26 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Oziach
                     return true;
                 });
             AttachDialogueContinueClickHandler(5,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultCharacterDialogue(DialogueAnimations.CalmTalk, "Thank you very much!");
                     return true;
                 });
             AttachDialogueContinueClickHandler(6,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "No problem! Come back if you want one more!");
                     SetStage(7);
                     return true;
                 });
             AttachDialogueContinueClickHandler(7,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(TalkingTo, DialogueAnimations.Angry, "Why you little... Go away you swine!");
                     return true;
                 });
             AttachDialogueContinueClickHandler(8,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;

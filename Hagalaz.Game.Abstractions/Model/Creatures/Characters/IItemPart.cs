@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
 {
     /// <summary>

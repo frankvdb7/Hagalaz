@@ -1,22 +1,19 @@
 using Hagalaz.Services.Cache.Features.Mutations.Dtos;
 using System.Net;
 using System.Net.Http.Json;
-using System.Threading;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Cache.Types;
-using Hagalaz.Services.Cache.Features;
 using Hagalaz.Services.Cache.Features.Mutations;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -100,7 +97,7 @@ public sealed class RawStoreMutationCoherenceTests
         using var client = CacheServiceTestHost.CreateClient(app);
         const string updatedName = "updated café";
 
-        Assert.AreEqual("initial", await ReadObjectNameAsync(client, 259));
+        Assert.AreEqual("initial", await ReadObjectNameAsync(client));
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/cache/types/objects/259/name",
@@ -116,7 +113,7 @@ public sealed class RawStoreMutationCoherenceTests
             AssertGatewayRawFields(persistedObject);
         }
 
-        Assert.AreEqual(updatedName, await ReadObjectNameAsync(client, 259));
+        Assert.AreEqual(updatedName, await ReadObjectNameAsync(client));
         Assert.AreEqual("sibling", await ReadObjectNameAsync(client, 258));
     }
 
@@ -474,7 +471,7 @@ public sealed class RawStoreMutationCoherenceTests
         using (var persistedTarget = cacheApi.Read(2, 16, 1))
         {
             var decoded = configCodec.Decode(1, persistedTarget);
-            Assert.AreEqual((int)ushort.MaxValue, decoded.DefaultValue);
+            Assert.AreEqual(ushort.MaxValue, decoded.DefaultValue);
             Assert.AreEqual('Z', decoded.ValueType);
         }
 
@@ -656,7 +653,7 @@ public sealed class RawStoreMutationCoherenceTests
 
     private static byte[] EncodeReferenceTable(ReferenceTableCodec codec, int memberCount, bool mapObjectToLastMember)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 2);
+        var table = new ReferenceTable(7, 1, 0, 2);
 
         var firstArchive = new ReferenceTableEntry(0);
         firstArchive.InitializeEntries(1);
@@ -688,7 +685,7 @@ public sealed class RawStoreMutationCoherenceTests
 
     private static byte[] EncodeSingleArchiveReferenceTable(ReferenceTableCodec codec, int archiveId, int memberCount)
     {
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var archive = new ReferenceTableEntry(archiveId);
         archive.InitializeEntries(memberCount);
         for (var memberIndex = 0; memberIndex < memberCount; memberIndex++)

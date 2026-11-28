@@ -1,12 +1,9 @@
-using System.Linq;
 using System.Reflection;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Factories;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
-using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Dwarf;
@@ -66,7 +63,7 @@ public sealed class SkillCapeMasterTests
 
         world.Create(npc).OnCharacterClickPerform(world.Clicker, NpcClickType.Option2Click);
 
-        world.Clicker.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default, default!);
+        world.Clicker.Widgets.DidNotReceiveWithAnyArgs().OpenDialogue(default!, default);
         world.WidgetActivator.DidNotReceiveWithAnyArgs().Create(default!, default!);
     }
 
@@ -128,7 +125,7 @@ public sealed class SkillCapeMasterTests
             "larriar" => new Larriar(Owner, NpcService, PathFinder, WidgetActivator),
             "ajjat" => new Ajjat(Owner, NpcService, PathFinder, WidgetActivator),
             "sloane" => new Sloane(Owner, NpcService, PathFinder, WidgetActivator),
-            _ => throw new System.ArgumentOutOfRangeException(nameof(npc))
+            _ => throw new ArgumentOutOfRangeException(nameof(npc))
         };
     }
 }

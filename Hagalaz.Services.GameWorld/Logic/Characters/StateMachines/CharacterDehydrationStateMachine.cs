@@ -1,5 +1,4 @@
-﻿using System;
-using AutoMapper;
+﻿using AutoMapper;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Characters.Messages.Model;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;

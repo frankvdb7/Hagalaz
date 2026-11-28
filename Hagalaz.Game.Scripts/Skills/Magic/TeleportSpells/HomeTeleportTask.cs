@@ -20,7 +20,7 @@ namespace Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells
         {
             _caster = caster;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = caster.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = caster.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 if (TickCount < 18)
                 {

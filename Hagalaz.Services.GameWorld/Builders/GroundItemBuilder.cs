@@ -1,6 +1,4 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -12,13 +10,13 @@ using Microsoft.Extensions.Options;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class GroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional, IGroundItemBuild
+    public class GroundItemBuilder : IGroundItemBuilder, IGroundItemOnGround, IGroundItemLocation, IGroundItemOptional
     {
         private IItem _item = default!;
         private ILocation _location = default!;
-        private ICharacter? _owner = default!;
-        private int? _respawnTicks = default!;
-        private int? _ticks = default!;
+        private ICharacter? _owner;
+        private int? _respawnTicks;
+        private int? _ticks;
         private bool _isRespawning;
         private readonly IOptions<GroundItemOptions> _groundItemOptions;
         private readonly IServiceProvider _serviceProvider;

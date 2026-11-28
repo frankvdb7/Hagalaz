@@ -1,6 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Logic.Characters.Model;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
+﻿using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using MassTransit;
 
 namespace Hagalaz.Services.GameWorld.Logic.Characters.States

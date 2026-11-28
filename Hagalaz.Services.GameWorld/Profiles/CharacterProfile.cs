@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Logic.Characters.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Services.Model;
 using OpenIddict.Abstractions;
 
@@ -41,7 +40,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
             CreateMap<AuthenticationProperties, HydratedClaims>()
                 .ForMember(dest => dest.Permissions,
                 opt => opt.MapFrom(
-                    src => src.GetClaimList<string>(OpenIddictConstants.Claims.Role)!
+                    src => src.GetClaimList<string>(OpenIddictConstants.Claims.Role)
                     .Select(PermissionHelpers.ParseRole)
                     .Aggregate((permissions, permission) => permissions | permission)))
                 .ForMember(dest => dest.PreviousDisplayName,

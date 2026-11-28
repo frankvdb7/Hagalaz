@@ -1,7 +1,5 @@
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Skills.Summoning
@@ -40,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
             // 665 = inventory interface.
 
             InterfaceInstance.AttachClickHandler(18,
-                (componentID, type, itemID, slot) =>
+                (_, type, _, _) =>
                 {
                     if (type != ComponentClickType.LeftClick)
                     {
@@ -53,7 +51,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
                 });
 
             InterfaceInstance.AttachClickHandler(16,
-                (componentID, type, itemID, itemSlot) =>
+                (_, type, itemID, itemSlot) =>
                 {
                     if (itemSlot < 0)
                     {

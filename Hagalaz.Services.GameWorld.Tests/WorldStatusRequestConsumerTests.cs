@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Linq.Expressions;
 using AutoMapper;
 using Hagalaz.Data.Entities;
@@ -28,7 +27,7 @@ public sealed class WorldStatusRequestConsumerTests
         await consumer.Consume(context);
 
         await context.Received(1).RespondAsync(Arg.Any<WorldOnlineMessage>());
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(WorldOnlineMessage)!, default);
+        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(WorldOnlineMessage)!);
     }
 
     [TestMethod]

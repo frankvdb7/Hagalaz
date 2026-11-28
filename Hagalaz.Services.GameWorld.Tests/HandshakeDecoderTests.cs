@@ -16,6 +16,21 @@ namespace Hagalaz.Services.GameWorld.Tests
     public sealed class HandshakeDecoderTests
     {
         [TestMethod]
+        public void TryParseHardwareBlock_LeavesFollowingFieldUnread()
+        {
+            const byte marker = 0x7F;
+            var payload = new List<byte>();
+            AppendHardwareBlock(payload);
+            payload.Add(marker);
+            var reader = new SequenceReader<byte>(new ReadOnlySequence<byte>(payload.ToArray()));
+
+            Assert.IsTrue(HandshakeDecoderHelper.TryParseHardwareBlock(ref reader));
+            Assert.AreEqual(1L, reader.Remaining);
+            Assert.IsTrue(reader.TryRead(out var next));
+            Assert.AreEqual(marker, next);
+        }
+
+        [TestMethod]
         public void TryParseRsaHeader_ValidData_ReturnsTrue()
         {
             // Arrange
@@ -103,7 +118,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = HandshakeDecoderHelper.TryParseXteaBlock(
                 ref reader,
                 keys,
-                (in ReadOnlySequence<byte> payload) =>
+                (in payload) =>
                 {
                     Assert.IsTrue(payload.IsSingleSegment);
                     Assert.AreEqual(plaintext.Length, payload.Length);
@@ -124,7 +139,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = HandshakeDecoderHelper.TryParseXteaBlock(
                 ref reader,
                 [1, 2, 3, 4],
-                (in ReadOnlySequence<byte> _) =>
+                (in _) =>
                 {
                     parserInvoked = true;
                     return true;
@@ -148,7 +163,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = HandshakeDecoderHelper.TryParseXteaBlock(
                 ref reader,
                 keys,
-                (in ReadOnlySequence<byte> payload) =>
+                (in payload) =>
                 {
                     parsedPayload = payload.ToArray();
                     return true;
@@ -171,7 +186,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var result = HandshakeDecoderHelper.TryParseXteaBlock(
                 ref reader,
                 keys,
-                (in ReadOnlySequence<byte> _) => true,
+                (in _) => true,
                 pool);
 
             Assert.IsTrue(result);
@@ -316,7 +331,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(segmentedResult);
             Assert.IsInstanceOfType<WorldSignInRequest>(contiguousMessage);
             Assert.IsInstanceOfType<WorldSignInRequest>(segmentedMessage);
-            AssertEquivalentRequests((WorldSignInRequest)contiguousMessage!, (WorldSignInRequest)segmentedMessage!);
+            AssertEquivalentRequests((WorldSignInRequest)contiguousMessage, (WorldSignInRequest)segmentedMessage);
         }
 
         [TestMethod]
@@ -336,7 +351,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.IsTrue(result);
             Assert.IsInstanceOfType<WorldSignInRequest>(message);
-            Assert.AreEqual("lobby-claim", ((WorldSignInRequest)message!).LobbySessionClaimId);
+            Assert.AreEqual("lobby-claim", ((WorldSignInRequest)message).LobbySessionClaimId);
         }
 
         [TestMethod]
@@ -363,7 +378,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsInstanceOfType<WorldReconnectRequest>(segmentedMessage);
             Assert.IsFalse(contiguousMessage is WorldSignInRequest);
             Assert.IsFalse(segmentedMessage is WorldSignInRequest);
-            AssertEquivalentRequests((ClientSignInRequest)contiguousMessage!, (ClientSignInRequest)segmentedMessage!);
+            AssertEquivalentRequests((ClientSignInRequest)contiguousMessage, (ClientSignInRequest)segmentedMessage);
         }
 
         [TestMethod]
@@ -388,7 +403,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             Assert.IsTrue(segmentedResult);
             Assert.IsInstanceOfType<LobbySignInRequest>(contiguousMessage);
             Assert.IsInstanceOfType<LobbySignInRequest>(segmentedMessage);
-            AssertEquivalentRequests((LobbySignInRequest)contiguousMessage!, (LobbySignInRequest)segmentedMessage!);
+            AssertEquivalentRequests((LobbySignInRequest)contiguousMessage, (LobbySignInRequest)segmentedMessage);
         }
 
         [TestMethod]

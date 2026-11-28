@@ -50,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             // top mottif
             InterfaceInstance.AttachClickHandler(66,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, extraData2) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -64,7 +64,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             // bottom mottif
             InterfaceInstance.AttachClickHandler(63,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, extraData2) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -78,7 +78,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             // colour 1
             InterfaceInstance.AttachClickHandler(35,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -107,7 +107,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             // colour 2
             InterfaceInstance.AttachClickHandler(80,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -137,7 +137,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             // colour 3
             InterfaceInstance.AttachClickHandler(92,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -166,7 +166,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
 
             // colour 4
             InterfaceInstance.AttachClickHandler(104,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -194,7 +194,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 });
 
             InterfaceInstance.AttachClickHandler(120,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {

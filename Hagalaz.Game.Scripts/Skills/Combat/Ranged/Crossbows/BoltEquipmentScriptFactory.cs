@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Factories;
 
 namespace Hagalaz.Game.Scripts.Skills.Combat.Ranged.Crossbows
 {

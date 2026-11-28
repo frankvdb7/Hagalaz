@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
@@ -98,7 +96,7 @@ namespace Hagalaz.Cache.Tests
             _cacheApiMock.Setup(x => x.GetFileId(5, "l0_123")).Returns(1);
             _cacheApiMock.Setup(x => x.ReadContainer(5, 1)).Returns(new Container(new MemoryStream()));
 
-            _provider.Get(123, System.Array.Empty<int>());
+            _provider.Get(123, Array.Empty<int>());
 
             _cacheApiMock.Verify(x => x.ReadContainer(5, 1), Times.Once);
             _cacheApiMock.Verify(x => x.ReadContainer(5, 1, It.IsAny<int[]>()), Times.Never);
@@ -107,7 +105,7 @@ namespace Hagalaz.Cache.Tests
         [Fact]
         public void DecodedMapRegion_ConstructorSnapshotsItsInputs()
         {
-            var adjusted = new System.Collections.Generic.List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
+            var adjusted = new List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
             var region = new DecodedMapRegion(adjusted, [], [], new sbyte[4, 64, 64]);
 
             adjusted.Clear();
@@ -118,7 +116,7 @@ namespace Hagalaz.Cache.Tests
         [Fact]
         public void DecodedMapRegion_DerivesTheAdjustedViewOnceFromItsOwnedSnapshots()
         {
-            var raw = new System.Collections.Generic.List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
+            var raw = new List<Hagalaz.Cache.Abstractions.Types.IMapObject> { new Hagalaz.Cache.Types.MapObject { Id = 1 } };
             var terrain = new sbyte[4, 64, 64];
             var derivations = 0;
             var region = DecodedMapRegion.CreateWithDerivedObjectPlacements(raw, [], terrain, (owned, _) =>
@@ -140,7 +138,7 @@ namespace Hagalaz.Cache.Tests
         {
             _cacheApiMock.Setup(x => x.GetFileId(5, It.IsAny<string>())).Returns(-1);
 
-            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
+            var decodedRegion = _provider.DecodeRegion(257, Array.Empty<int>(), CancellationToken.None);
 
             Assert.Empty(decodedRegion.ObjectPlacements);
             Assert.Empty(decodedRegion.BlockedTiles);
@@ -156,7 +154,7 @@ namespace Hagalaz.Cache.Tests
 
             Assert.Throws<OperationCanceledException>(() => _provider.DecodeRegion(
                 257,
-                System.Array.Empty<int>(),
+                Array.Empty<int>(),
                 cancellation.Token));
 
             _cacheApiMock.Verify(x => x.GetFileId(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
@@ -186,7 +184,7 @@ namespace Hagalaz.Cache.Tests
             SetupRegionContainers(terrainData, objectData);
 
             // Act
-            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
+            var decodedRegion = _provider.DecodeRegion(257, Array.Empty<int>(), CancellationToken.None);
 
             // Assert
             Assert.Collection(decodedRegion.ObjectPlacements,
@@ -207,7 +205,7 @@ namespace Hagalaz.Cache.Tests
             SetupRegionContainers(terrainData, objectData);
 
             // Act
-            var decodedRegion = _provider.DecodeRegion(257, System.Array.Empty<int>(), CancellationToken.None);
+            var decodedRegion = _provider.DecodeRegion(257, Array.Empty<int>(), CancellationToken.None);
 
             // Assert
             Assert.Equal([(7, 8, 0), (9, 10, 3)], decodedRegion.BlockedTiles.Select(tile => (tile.LocalX, tile.LocalY, tile.Z)));
@@ -278,7 +276,7 @@ namespace Hagalaz.Cache.Tests
 
             var actual = Assert.Throws<InvalidDataException>(() => _provider.DecodeRegion(
                 257,
-                System.Array.Empty<int>(),
+                Array.Empty<int>(),
                 CancellationToken.None));
 
             Assert.Same(failure, actual);

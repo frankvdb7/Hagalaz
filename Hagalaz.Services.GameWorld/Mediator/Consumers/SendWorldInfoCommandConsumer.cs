@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Game.Messages.Protocol;

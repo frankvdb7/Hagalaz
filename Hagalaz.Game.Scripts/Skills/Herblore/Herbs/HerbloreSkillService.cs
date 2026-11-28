@@ -1,14 +1,11 @@
 ﻿using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
-using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Tasks;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
@@ -24,6 +21,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         /// </summary>
         /// <param name="character"></param>
         /// <param name="item"></param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task TryCleanHerb(
             ICharacter character,
             IItem item,
@@ -86,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
             var service = character.ServiceProvider.GetRequiredService<IItemService>();
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [overload.PotionId];
-            dialogue.PerformMakeProductCallback = (itemID, count) =>
+            dialogue.PerformMakeProductCallback = (_, count) =>
             {
                 // the character has selected an amount, we then queue an task that will create all products
                 character.QueueTask(new MakeProductTask(count,
@@ -147,7 +145,7 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
 
             var dialogue = character.ServiceProvider.GetRequiredService<InteractiveDialogueScript>();
             dialogue.ProductIds = [makeUnfinished ? potion.UnfinishedPotionId : potion.PotionId];
-            dialogue.PerformMakeProductCallback = (itemID, count) =>
+            dialogue.PerformMakeProductCallback = (_, count) =>
             {
                 // the character has selected an amount, we then queue an task that will create all products
                 character.QueueTask(new MakeProductTask(count,

@@ -1,4 +1,3 @@
-using Hagalaz.Cache.Abstractions.Logic;
 
 namespace Hagalaz.Cache.Abstractions.Types
 {

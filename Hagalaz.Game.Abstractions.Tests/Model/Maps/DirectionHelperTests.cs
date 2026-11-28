@@ -1,6 +1,4 @@
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Abstractions.Tests.Model.Maps;
 

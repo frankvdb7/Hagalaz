@@ -108,7 +108,7 @@ public sealed class ContactSessionServiceTests
 
         Assert.AreNotEqual(0u, replacementMasterId);
         Assert.IsTrue(contactSessions.TryGetValue(replacementMasterId, out var replacement));
-        Assert.AreEqual(worldId, replacement!.WorldId);
+        Assert.AreEqual(worldId, replacement.WorldId);
         Assert.AreEqual("instance-b", replacement.WorldInstanceId);
         Assert.AreEqual(2L, replacement.WorldGeneration);
         var originalReplacementSession = replacementMasterId == firstMasterId ? firstSession : replacedSession;
@@ -135,7 +135,7 @@ public sealed class ContactSessionServiceTests
         await service.RemoveSession(42, 1, "lobby-a");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual("world-b", session!.ConnectionId);
+        Assert.AreEqual("world-b", session.ConnectionId);
         Assert.AreEqual(1, session.WorldId);
         Assert.AreEqual("instance-a", session.WorldInstanceId);
         Assert.AreEqual(1L, session.WorldGeneration);
@@ -161,7 +161,7 @@ public sealed class ContactSessionServiceTests
         await service.AddWorldSession(1, "instance-a", 1, 42, 2, "world-b");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual("world-b", session!.ConnectionId);
+        Assert.AreEqual("world-b", session.ConnectionId);
         Assert.AreEqual(1, session.WorldId);
     }
 
@@ -179,7 +179,7 @@ public sealed class ContactSessionServiceTests
         await service.RemoveSession(42, 1, "world-a");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual("world-b", session!.ConnectionId);
+        Assert.AreEqual("world-b", session.ConnectionId);
         publishEndpoint.Verify(
             x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -243,7 +243,7 @@ public sealed class ContactSessionServiceTests
         await service.AddWorldSession(1, "instance-a", 1, 42, 2, "shared-connection");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual(2, session!.SessionGeneration);
+        Assert.AreEqual(2, session.SessionGeneration);
         Assert.AreEqual(1, session.WorldId);
         publishEndpoint.Verify(
             x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
@@ -266,7 +266,7 @@ public sealed class ContactSessionServiceTests
         await service.RemoveSession(42, 1, "world-a");
 
         Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual(2, session!.SessionGeneration);
+        Assert.AreEqual(2, session.SessionGeneration);
         Assert.AreEqual("lobby-b", session.ConnectionId);
     }
 
@@ -282,15 +282,7 @@ public sealed class ContactSessionServiceTests
         await service.AddWorldSession(1, "instance-a", 1, 42, 2, "world-b");
         await service.AddWorldSession(1, "instance-a", 1, 42, 1, "world-a");
 
-        Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual(2, session!.SessionGeneration);
-        Assert.AreEqual("world-b", session.ConnectionId);
-        publishEndpoint.Verify(
-            x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-        publishEndpoint.Verify(
-            x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        AssertCurrentWorldPresence(contactSessions, publishEndpoint);
     }
 
     [TestMethod]
@@ -305,15 +297,7 @@ public sealed class ContactSessionServiceTests
         await service.AddWorldSession(1, "instance-a", 1, 42, 2, "world-b");
         await service.AddLobbySession(1, "instance-a", 1, 42, 1, "lobby-a");
 
-        Assert.IsTrue(contactSessions.TryGetValue(42, out var session));
-        Assert.AreEqual(2, session!.SessionGeneration);
-        Assert.AreEqual("world-b", session.ConnectionId);
-        publishEndpoint.Verify(
-            x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-        publishEndpoint.Verify(
-            x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        AssertCurrentWorldPresence(contactSessions, publishEndpoint);
     }
 
     [TestMethod]
@@ -362,6 +346,19 @@ public sealed class ContactSessionServiceTests
         Assert.IsFalse(contactSessions.TryGetValue(42, out _));
         publishEndpoint.Verify(
             x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    private static void AssertCurrentWorldPresence(ContactSessionStore sessions, Mock<IPublishEndpoint> publishEndpoint)
+    {
+        Assert.IsTrue(sessions.TryGetValue(42, out var session));
+        Assert.AreEqual(2, session.SessionGeneration);
+        Assert.AreEqual("world-b", session.ConnectionId);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignInMessage>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        publishEndpoint.Verify(
+            x => x.Publish(It.IsAny<ContactSignOutMessage>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

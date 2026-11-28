@@ -1,8 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Logic.Dehydrations;
-using Hagalaz.Game.Abstractions.Logic.Hydrations;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -13,7 +11,6 @@ using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Configuration;
-using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
@@ -58,6 +55,11 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Initializes a new instance of the <see cref="Slayer"/> class.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="slayerService">Provides slayer task data.</param>
+        /// <param name="ratesService">Provides rate modifiers.</param>
+        /// <param name="slayerTaskGenerator">Generates slayer assignments.</param>
+        /// <param name="slayerTaskCompletedDialogue">Displays the slayer task completion dialogue.</param>
+        /// <param name="mediator">Publishes game notifications.</param>
         public Slayer(
             ICharacter owner,
             ISlayerService slayerService,

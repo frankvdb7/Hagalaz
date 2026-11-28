@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Numerics;
 using System.Security.Cryptography;
 using Hagalaz.Cache.Abstractions;
@@ -193,7 +192,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                 return false;
             }
 
-            return TryParseXteaBlock(ref reader, isaacSeed, (in ReadOnlySequence<byte> xteaData) =>
+            return TryParseXteaBlock(ref reader, isaacSeed, (in xteaData) =>
             {
                 var xteaDataReader = new SequenceReader<byte>(xteaData);
                 return TryReadLogin(ref xteaDataReader, out var login) && parser(ref xteaDataReader, isaacSeed, password, login);

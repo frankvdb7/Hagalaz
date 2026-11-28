@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
 namespace Hagalaz.Game.Scripts.Items.Slayer
@@ -37,21 +36,21 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
             var npcDefinition = _npcService.FindNpcDefinitionById(currentTask.SlayerMasterId);
 
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(npcDefinition, DialogueAnimations.CalmTalk, "Good day " + Owner.DisplayName + ",", "how may I help you?");
                     return true;
                 });
 
             AttachDialogueContinueClickHandler(1,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue("How am I doing so far?", "Who are you?", "Where are you?", "Got any tips for me?", "That's all thanks.");
                     return true;
                 });
 
             AttachDialogueOptionClickHandler("How am I doing so far?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.QueueTask(async cancellationToken =>
                     {
@@ -69,7 +68,7 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                             StandardNpcDialogue(npcDefinition,
                                     DialogueAnimations.CalmTalk,
                                     "You are currently assigned to kill:",
-                                    slayerTask!.Name,
+                                    slayerTask.Name,
                                     "Only " + Owner.Slayer.CurrentKillCount + " more to go.");
                         }
                         else
@@ -85,7 +84,7 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                 });
 
             AttachDialogueOptionClickHandler("Who are you?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(npcDefinition,
                         DialogueAnimations.CalmTalk,
@@ -96,7 +95,7 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                 });
 
             AttachDialogueOptionClickHandler("Where are you?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     if (npcDefinition.Id == 8464)
                     {
@@ -113,21 +112,21 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                 });
 
             AttachDialogueOptionClickHandler("Got any tips for me?",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     StandardNpcDialogue(npcDefinition, DialogueAnimations.CalmTalk, "I currently do not have any tips for you.");
                     return true;
                 });
 
             AttachDialogueOptionClickHandler("That's all thanks.",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;
                 });
 
             AttachDialogueContinueClickHandler(3,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     return true;

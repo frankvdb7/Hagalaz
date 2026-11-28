@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
@@ -36,7 +31,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             projectileOptionalMock.WithToHeight(Arg.Any<int>()).Returns(projectileOptionalMock);
             projectileOptionalMock.WithSlope(Arg.Any<int>()).Returns(projectileOptionalMock);
             projectileOptionalMock.WithDelay(Arg.Any<int>()).Returns(projectileOptionalMock);
-            ((IProjectileBuild)projectileOptionalMock).Send();
+            (projectileOptionalMock).Send();
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IProjectileBuilder)).Returns(projectileBuilderMock);

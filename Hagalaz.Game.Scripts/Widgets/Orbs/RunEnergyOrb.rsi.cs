@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
-using Hagalaz.Game.Scripts.Widgets.Orbs;
 
 namespace Hagalaz.Game.Scripts.Widgets.Orbs
 {
@@ -43,7 +42,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // toggle running
-            InterfaceInstance.AttachClickHandler(4, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(4, (_, clickType, _, _) =>
             {
                 if (clickType == ComponentClickType.LeftClick)
                 {

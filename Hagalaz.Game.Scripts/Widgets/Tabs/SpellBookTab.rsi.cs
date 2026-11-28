@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Configuration;
@@ -12,7 +11,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Combat.Magic;
@@ -354,7 +352,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                     RefreshMagicFilters();
                 }
             });
-            _bookChanged = _gameMediator.ConnectHandler<ProfileValueChanged<MagicBook>>((context) =>
+            _bookChanged = _gameMediator.ConnectHandler<ProfileValueChanged<MagicBook>>((_) =>
             {
                 Owner.Magic.ClearAutoCastingSpell(false);
                 return Task.CompletedTask;
@@ -362,12 +360,12 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             var magicManager = _magicService;
 
-            switch (Owner.Profile.GetValue<MagicBook>(ProfileConstants.MagicSettingsBook, MagicBook.StandardBook))
+            switch (Owner.Profile.GetValue(ProfileConstants.MagicSettingsBook, MagicBook.StandardBook))
             {
                 case MagicBook.StandardBook:
                     {
                         InterfaceInstance.AttachClickHandler(24,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -378,7 +376,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 return true;
                             });
                         InterfaceInstance.AttachClickHandler(2,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -390,7 +388,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(7,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -402,7 +400,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(9,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -414,7 +412,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(11,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -426,7 +424,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(13,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -438,7 +436,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(27,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -451,7 +449,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(33,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -463,7 +461,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachUseOnComponentHandler(38,
-                            (componentID, extraInfo1, extraInfo2, itemUsedOnId, itemUsedOnSlot) =>
+                            (_, _, _, itemUsedOnId, itemUsedOnSlot) =>
                             {
                                 if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                                 {
@@ -481,7 +479,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachUseOnComponentHandler(59,
-                            (componentID, extraInfo1, extraInfo2, itemUsedOnId, itemUsedOnSlot) =>
+                            (_, _, _, itemUsedOnId, itemUsedOnSlot) =>
                             {
                                 if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                                 {
@@ -499,7 +497,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(65,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -511,7 +509,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(83,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -541,7 +539,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         foreach (var childID in _normalTeleports.Keys)
                         {
                             InterfaceInstance.AttachClickHandler(childID,
-                                (componentID, clickType, extra1, extra2) =>
+                                (componentID, clickType, _, _) =>
                                 {
                                     if (clickType != ComponentClickType.LeftClick)
                                     {
@@ -557,7 +555,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                      .Where(spell => spell.SpellBook == MagicBook.StandardBook))
                         {
                             InterfaceInstance.AttachClickHandler(definition.ButtonId,
-                                (componentID, clickType, extra1, extra2) =>
+                                (_, clickType, _, _) =>
                                 {
                                     if (clickType != ComponentClickType.LeftClick)
                                     {
@@ -569,7 +567,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
 
                             InterfaceInstance.AttachUseOnCreatureHandler(definition.ButtonId,
-                                (componentID, usedOn, shouldRun, extra1, extra2) =>
+                                (_, usedOn, shouldRun, _, _) =>
                                 {
                                     Owner.Interrupt(this);
                                     Cast(_normalCombatSpells.TryGetValue(definition.ButtonId, out var spell) ? spell : new StandardCombatSpell(definition),
@@ -582,7 +580,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         foreach (var definition in magicManager.FindAllEnchantingSpells().ConfigureAwait(false).GetAwaiter().GetResult())
                         {
                             InterfaceInstance.AttachUseOnComponentHandler(definition.ButtonId,
-                                (componentID, extraInfo1, extraInfo2, itemUsedOnId, itemUsedOnSlot) =>
+                                (_, _, _, itemUsedOnId, itemUsedOnSlot) =>
                                 {
                                     if (itemUsedOnSlot < 0 || itemUsedOnSlot >= Owner.Inventory.Items.Capacity)
                                     {
@@ -605,7 +603,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 case MagicBook.LunarBook:
                     {
                         InterfaceInstance.AttachClickHandler(39,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -616,7 +614,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 return true;
                             });
                         InterfaceInstance.AttachClickHandler(5,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -628,7 +626,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(7,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -640,7 +638,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(9,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -652,7 +650,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                             });
 
                         InterfaceInstance.AttachClickHandler(20,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -666,7 +664,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         foreach (var childID in _lunarTeleports.Keys)
                         {
                             InterfaceInstance.AttachClickHandler(childID,
-                                (componentID, clickType, extra1, extra2) =>
+                                (componentID, clickType, _, _) =>
                                 {
                                     if (clickType != ComponentClickType.LeftClick)
                                     {
@@ -678,7 +676,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
                         }
 
-                        OnComponentClick spellClickHandler = (componentID, clickType, extra1, extra2) =>
+                        OnComponentClick spellClickHandler = (componentID, clickType, _, _) =>
                         {
                             if (clickType != ComponentClickType.LeftClick)
                             {
@@ -713,7 +711,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                 case MagicBook.AncientBook:
                     {
                         InterfaceInstance.AttachClickHandler(48,
-                            (componentID, clickType, extra1, extra2) =>
+                            (_, clickType, _, _) =>
                             {
                                 if (clickType != ComponentClickType.LeftClick)
                                 {
@@ -731,7 +729,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         foreach (var childID in _ancientTeleports.Keys)
                         {
                             InterfaceInstance.AttachClickHandler(childID,
-                                (componentID, clickType, extra1, extra2) =>
+                                (componentID, clickType, _, _) =>
                                 {
                                     if (clickType != ComponentClickType.LeftClick)
                                     {
@@ -747,7 +745,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                         foreach (var (buttonId, spell) in ancientSpells)
                         {
                             InterfaceInstance.AttachClickHandler(buttonId,
-                                (componentID, clickType, extra1, extra2) =>
+                                (_, clickType, _, _) =>
                                 {
                                     if (clickType != ComponentClickType.Option6Click)
                                     {
@@ -759,7 +757,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
                                 });
 
                             InterfaceInstance.AttachUseOnCreatureHandler(buttonId,
-                                (componentID, usedOn, shouldRun, extra1, extra2) =>
+                                (_, usedOn, shouldRun, _, _) =>
                                 {
                                     Owner.Interrupt(this);
                                     Cast(spell, usedOn, shouldRun);
@@ -779,7 +777,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
         /// </summary>
         private void AttachToggleHandler(int componentId, string profileKey) =>
             InterfaceInstance.AttachClickHandler(componentId,
-                (componentID, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {

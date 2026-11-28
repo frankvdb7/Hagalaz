@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -22,26 +21,20 @@ public sealed class CommandGameLoopOwnershipTests
     [TestMethod]
     public async Task SearchObjectCommand_SendsResultsOnlyOnGameWorkerContinuation()
     {
-        var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var definition = Substitute.For<IGameObjectDefinition>();
-        definition.Name.Returns("Test Object");
-        var gameObjectService = Substitute.For<IGameObjectService>();
-        gameObjectService.GetObjectsCount().Returns(1);
-        gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
-        var character = CreateCharacter(out var characterStore);
-        var command = new SearchObjectCommand(gameObjectService);
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var creatureTaskService = new CreatureTaskService(scheduler);
-        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
-        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        using var fixture = CreateSearchObjectCommandFixture();
+        var definitionReady = fixture.DefinitionReady;
+        var definition = fixture.Definition;
+        var character = fixture.Character;
+        var scheduler = fixture.Scheduler;
+        var queuedContinuation = fixture.QueuedContinuation;
+        var task = fixture.Task;
 
         scheduler.Schedule(task);
         scheduler.Tick();
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
         definitionReady.SetResult(definition);
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
 
         scheduler.Tick();
         await queuedContinuation.Task.WaitAsync(TestTimeout);
@@ -54,32 +47,26 @@ public sealed class CommandGameLoopOwnershipTests
     [TestMethod]
     public async Task SearchObjectCommand_DoesNotMutateCharacterAfterCharacterIsDestroyed()
     {
-        var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var definition = Substitute.For<IGameObjectDefinition>();
-        definition.Name.Returns("Test Object");
-        var gameObjectService = Substitute.For<IGameObjectService>();
-        gameObjectService.GetObjectsCount().Returns(1);
-        gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
-        var character = CreateCharacter(out var characterStore);
-        var command = new SearchObjectCommand(gameObjectService);
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var creatureTaskService = new CreatureTaskService(scheduler);
-        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
-        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        using var fixture = CreateSearchObjectCommandFixture();
+        var definitionReady = fixture.DefinitionReady;
+        var definition = fixture.Definition;
+        var character = fixture.Character;
+        var scheduler = fixture.Scheduler;
+        var queuedContinuation = fixture.QueuedContinuation;
+        var task = fixture.Task;
 
         scheduler.Schedule(task);
         scheduler.Tick();
 
         character.Destroy();
         definitionReady.SetResult(definition);
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
 
         scheduler.Tick();
         await queuedContinuation.Task.WaitAsync(TestTimeout);
         scheduler.Tick();
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
         Assert.IsTrue(task.IsCompleted);
     }
 
@@ -88,7 +75,6 @@ public sealed class CommandGameLoopOwnershipTests
     {
         var searchStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseSearch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var searchCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var definition = Substitute.For<IItemDefinition>();
         definition.Name.Returns("Test Item");
         var itemService = Substitute.For<IItemService>();
@@ -98,11 +84,7 @@ public sealed class CommandGameLoopOwnershipTests
             releaseSearch.Task.Wait(TestTimeout);
             return 1;
         });
-        itemService.FindItemDefinitionById(0).Returns(_ =>
-        {
-            searchCompleted.SetResult(true);
-            return definition;
-        });
+        itemService.FindItemDefinitionById(0).Returns(definition);
 
         var area = Substitute.For<IArea>();
         area.IsPvP.Returns(false);
@@ -116,32 +98,81 @@ public sealed class CommandGameLoopOwnershipTests
         character.Widgets.Returns(widgets);
         character.Configurations.Returns(configurations);
         character.ServiceProvider.Returns(serviceProvider);
-        var command = new SpawnBoxCommand(Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
+        var command = new SpawnBoxCommand(Substitute.For<Abstractions.Builders.Item.IItemBuilder>());
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var creatureTaskService = new CreatureTaskService(scheduler);
         var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
-        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        using var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
 
         scheduler.Schedule(task);
-        scheduler.Tick();
-        await searchStarted.Task.WaitAsync(TestTimeout);
+        try
+        {
+            scheduler.Tick();
+            await searchStarted.Task.WaitAsync(TestTimeout);
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
-        widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
-        releaseSearch.SetResult(true);
-        await searchCompleted.Task.WaitAsync(TestTimeout);
-        character.Destroy();
+            character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
+            widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
+            character.Destroy();
+        }
+        finally
+        {
+            releaseSearch.TrySetResult(true);
+        }
 
+        using var timeout = new CancellationTokenSource(TestTimeout);
         scheduler.Tick();
-        await queuedContinuation.Task.WaitAsync(TestTimeout);
+        while (!task.IsCompleted && !task.IsFaulted)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1), timeout.Token);
+            scheduler.Tick();
+        }
         scheduler.Tick();
         scheduler.Tick();
 
-        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!, default, default, default);
+        Assert.IsTrue(task.IsCompleted);
+        Assert.IsTrue(queuedContinuation.Task.IsCompletedSuccessfully);
+        character.DidNotReceiveWithAnyArgs().SendChatMessage(default!);
         widgets.DidNotReceiveWithAnyArgs().OpenWidget(default, default, default!, default);
         configurations.DidNotReceiveWithAnyArgs().SendCs2Script(default, default!);
         configurations.DidNotReceiveWithAnyArgs().SendItems(default, default, default!);
+    }
+
+    private static SearchObjectCommandFixture CreateSearchObjectCommandFixture()
+    {
+        var definitionReady = new TaskCompletionSource<IGameObjectDefinition>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var definition = Substitute.For<IGameObjectDefinition>();
+        definition.Name.Returns("Test Object");
+        var gameObjectService = Substitute.For<IGameObjectService>();
+        gameObjectService.GetObjectsCount().Returns(1);
+        gameObjectService.FindGameObjectDefinitionById(0).Returns(definitionReady.Task);
+        var character = CreateCharacter(out _);
+        var command = new SearchObjectCommand(gameObjectService);
+        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var creatureTaskService = new CreatureTaskService(scheduler);
+        var queuedContinuation = new TaskCompletionSource<ITaskItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var taskCancellation = ConfigureCharacterQueue(character, creatureTaskService, queuedContinuation);
+        var task = new RsAsyncTask(() => command.Execute(new GameCommandArgs(character, ["test"])));
+        return new SearchObjectCommandFixture(
+            definitionReady,
+            definition,
+            character,
+            scheduler,
+            queuedContinuation,
+            task,
+            taskCancellation);
+    }
+
+    private sealed record SearchObjectCommandFixture(
+        TaskCompletionSource<IGameObjectDefinition> DefinitionReady,
+        IGameObjectDefinition Definition,
+        ICharacter Character,
+        RsTaskService Scheduler,
+        TaskCompletionSource<ITaskItem> QueuedContinuation,
+        RsAsyncTask Task,
+        CancellationTokenSource TaskCancellation) : IDisposable
+    {
+        public void Dispose() => TaskCancellation.Dispose();
     }
 
     private static ICharacter CreateCharacter(out ICharacterStore characterStore)

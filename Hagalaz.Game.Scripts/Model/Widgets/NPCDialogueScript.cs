@@ -1,6 +1,5 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Providers;
 
 namespace Hagalaz.Game.Scripts.Model.Widgets

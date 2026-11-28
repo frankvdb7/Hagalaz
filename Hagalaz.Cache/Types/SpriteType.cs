@@ -10,7 +10,7 @@ namespace Hagalaz.Cache.Types
     /// 
     /// </summary>
     /// <seealso cref="IType" />
-    public class SpriteType : IType, ISpriteType
+    public class SpriteType :  ISpriteType
     {
         private bool _disposed;
 

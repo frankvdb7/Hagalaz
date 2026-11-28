@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 
@@ -137,7 +135,7 @@ namespace Hagalaz.Services.GameWorld.Store
             }
         }
 
-        private struct Enumerator : IEnumerator<TCreature>, IEnumerator
+        private struct Enumerator : IEnumerator<TCreature>
         {
             private readonly CreatureCollection<TCreature> _container;
             private readonly int _version;

@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Tasks
         {
             _actor = actor;
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = _actor.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = _actor.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 _finishCallback?.Invoke();
                 Cancel();

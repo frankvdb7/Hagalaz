@@ -3,7 +3,7 @@ using Hagalaz.Game.Messages.Protocol;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {
-    public partial class Character : Creature
+    public partial class Character
     {
         public void OnCharacterClicked(CharacterClickType clickType, bool forceRun, ICharacter target) =>
             _optionHandlers[(int)clickType - 1]?.Invoke(target, forceRun);

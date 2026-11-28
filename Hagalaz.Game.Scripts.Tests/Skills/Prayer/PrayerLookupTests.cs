@@ -2,8 +2,6 @@ using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
-using Hagalaz.Game.Scripts.Skills.Prayer;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Prayer;
@@ -28,7 +26,7 @@ public sealed class PrayerLookupTests
         var result = await Hagalaz.Game.Scripts.Skills.Prayer.Prayer.FindAvailableItem(character, item, prayerService, CancellationToken.None);
 
         Assert.IsNotNull(result);
-        var available = result!.Value;
+        var available = result.GetValueOrDefault();
         Assert.AreSame(definition, available.Definition);
         Assert.AreEqual(0, available.Slot);
     }

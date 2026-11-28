@@ -1,4 +1,3 @@
-using System.IO;
 using Xunit;
 
 namespace Hagalaz.Security.Tests
@@ -71,7 +70,7 @@ namespace Hagalaz.Security.Tests
             // Arrange
             var validData = Huffman.Encode("This is some valid data", out var validLength);
             var truncatedData = new byte[validData.Length - 1];
-            System.Array.Copy(validData, truncatedData, truncatedData.Length);
+            Array.Copy(validData, truncatedData, truncatedData.Length);
             using var stream = new MemoryStream(truncatedData);
 
             // Act
@@ -96,7 +95,7 @@ namespace Hagalaz.Security.Tests
                 // Assert
                 Assert.Equal(string.Empty, result);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Assert.Fail($"Test failed with exception: {e}");
             }

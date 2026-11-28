@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -9,7 +7,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Characters;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Characters;
@@ -17,6 +14,28 @@ namespace Hagalaz.Game.Scripts.Tests.Characters;
 [TestClass]
 public sealed class TradeInteractionRegressionTests
 {
+    [TestMethod]
+    public void CancelTrade_ClearsParticipantInputAndRejectsPreviouslyRegisteredCallbacks()
+    {
+        var session = CreateSession(20, 20);
+        Assert.IsTrue(session.SelfPouch!(53, ComponentClickType.LeftClick, 0, 0));
+        Assert.IsTrue(session.TargetPouch!(53, ComponentClickType.LeftClick, 0, 0));
+        var selfInput = session.Self.Widgets.IntInputHandler;
+        var targetInput = session.Target.Widgets.IntInputHandler;
+        Assert.IsNotNull(selfInput);
+        Assert.IsNotNull(targetInput);
+
+        session.SelfScript.CancelTradeSession();
+        selfInput(5);
+        targetInput(5);
+
+        Assert.IsNull(session.Self.Widgets.IntInputHandler);
+        Assert.IsNull(session.Target.Widgets.IntInputHandler);
+        Assert.AreEqual(100, session.Self.MoneyPouch.Count);
+        Assert.AreEqual(100, session.Target.MoneyPouch.Count);
+        Assert.IsFalse(session.SelfScript.TradeSession);
+    }
+
     [TestMethod]
     public void SelfAndTargetOfferHandlers_MoveItemsFromTheirOwnInventories()
     {

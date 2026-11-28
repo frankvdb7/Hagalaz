@@ -22,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Skills
         /// </summary>
         public override void OnOpen()
         {
-            InterfaceInstance.AttachClickHandler(18, (componentID, type, extraInfo1, extraInfo2) =>
+            InterfaceInstance.AttachClickHandler(18, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {
@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Skills
 
                 return false;
             });
-            OnComponentClick counterClicked = (componentID, type, extraInfo1, extraInfo2) =>
+            OnComponentClick counterClicked = (componentID, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {
@@ -47,7 +47,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Skills
                 InterfaceInstance.AttachClickHandler(i, counterClicked);
             }
 
-            InterfaceInstance.AttachClickHandler(27, (componentID, type, extraInfo1, extraInfo2) =>
+            InterfaceInstance.AttachClickHandler(27, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {
@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Skills
 
                 return false;
             });
-            InterfaceInstance.AttachClickHandler(61, (componentID, type, extraInfo1, extraInfo2) =>
+            InterfaceInstance.AttachClickHandler(61, (_, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {
@@ -68,11 +68,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Skills
                 return false;
             });
 
-            OnComponentClick optionClicked = (componentID, type, extraInfo1, extraInfo2) =>
+            OnComponentClick optionClicked = (componentID, type, _, _) =>
             {
                 if (type == ComponentClickType.LeftClick)
                 {
-                    var optionID = 0;
+                    int optionID;
                     if (componentID == 33)
                     {
                         optionID = 4;

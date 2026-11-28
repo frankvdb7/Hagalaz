@@ -1,11 +1,7 @@
 using Hagalaz.TestSupport;
 using System.Buffers;
-using System.Collections.Generic;
-using System.IO.Pipelines;
-using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using Raido.Common.Buffers;
 using Raido.Common.Messages;

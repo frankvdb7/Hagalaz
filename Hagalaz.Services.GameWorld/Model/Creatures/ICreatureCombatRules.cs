@@ -37,6 +37,12 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// Calculates melee hit accuracy with attack and target defence style adjustments.
         /// </summary>
+        /// <param name="attackLevel">The attacker’s attack level.</param>
+        /// <param name="defenceLevel">The target’s defence level.</param>
+        /// <param name="attackStyle">The attacker’s combat style.</param>
+        /// <param name="targetDefenceStyle">The target’s defensive combat style.</param>
+        /// <param name="attackBonus">The attacker’s accuracy bonus.</param>
+        /// <param name="defenceBonus">The target’s defence bonus.</param>
         /// <param name="attackLevelMultiplier">Applied after attack-style adjustments.</param>
         /// <param name="attackRollMultiplier">Applied after calculating the attack roll.</param>
         double CalculateMeleeAccuracy(

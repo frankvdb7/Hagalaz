@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Configuration;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Actions;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -30,6 +29,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Construct's new magic class with given owner.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="itemService">Provides item definitions.</param>
         public Magic(ICharacter owner, IItemService itemService)
         {
             _owner = owner;
@@ -110,7 +110,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                     else
                     {
                         amounts[a] -= left;
-                        left = 0;
                         break;
                     }
                 }

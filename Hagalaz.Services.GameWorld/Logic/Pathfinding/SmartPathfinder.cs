@@ -638,7 +638,7 @@ namespace Hagalaz.Services.GameWorld.Logic.Pathfinding
                 }
                 end:
                 {
-                    continue;
+
                 }
             }
         }

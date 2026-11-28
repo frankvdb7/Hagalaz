@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Model.Events;
 
 namespace Hagalaz.Game.Abstractions.Data

@@ -2,7 +2,6 @@ using AutoMapper;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -12,7 +11,6 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Store;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Data.Model;
 using Hagalaz.Services.GameWorld.Builders;
@@ -235,7 +233,7 @@ public sealed class MapRegionStaleMutationTests
         .AddSingleton(Substitute.For<INpcService>())
         .AddSingleton<IEntityStore, EntityStore>()
         .AddSingleton(loadScheduler)
-        .AddSingleton<IRsTaskService>(Substitute.For<IRsTaskService>())
+        .AddSingleton(Substitute.For<IRsTaskService>())
         .BuildServiceProvider();
 
     private static MapRegionService CreateService(IServiceProvider provider, IMapper? mapper = null) => new(

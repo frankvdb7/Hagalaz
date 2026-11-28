@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
@@ -23,7 +22,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Contstructs a container for character ingame mail.
         /// </summary>
-        /// <param name="owner">The owner of the container.</param>
         private readonly ItemContainer _items;
         IReadOnlyList<ItemContainerSynchronization> IItemTransactionSource.Synchronizations =>
             ((IItemTransactionSource)_items).Synchronizations;
@@ -78,7 +76,6 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
         void IItemContainerCompletionOwner.PublishCommittedChanges()
         {
             var slots = _items.ChangeTracker.GetSlots();

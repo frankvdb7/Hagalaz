@@ -1,9 +1,7 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 
@@ -27,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             widgetCharacterMock.ForCharacter(Arg.Any<ICharacter>()).Returns(widgetIdMock);
             widgetIdMock.WithId(Arg.Any<int>()).Returns(widgetOptionalMock);
             widgetOptionalMock.AsFrame().Returns(widgetOptionalMock);
-            ((IWidgetBuild)widgetOptionalMock).Build().Returns(widgetMock);
+            (widgetOptionalMock).Build().Returns(widgetMock);
 
             var widgetContainerMock = Substitute.For<IWidgetContainer>();
 

@@ -1,8 +1,4 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Abstractions.Tests.Tasks
 {
@@ -195,7 +191,7 @@ namespace Hagalaz.Game.Abstractions.Tests.Tasks
             context.Post(_ =>
             {
                 firstRan = true;
-                context.Post(__ => secondRan = true, null);
+                context.Post(_ => secondRan = true, null);
             }, null);
 
             context.RunPending();

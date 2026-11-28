@@ -1,5 +1,4 @@
-﻿using System;
-using System.Buffers;
+﻿using System.Buffers;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Configuration.Model;
@@ -7,7 +6,6 @@ using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using Raido.Common.Protocol;
 using Raido.Server.Extensions;
-using Hagalaz.Utilities;
 
 namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 {
@@ -59,7 +57,7 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out byte somePreferenceValue))
+                if (!xteaDataReader.TryRead(out byte _))
                 {
                     return false;
                 }
@@ -69,12 +67,12 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out string settings))
+                if (!xteaDataReader.TryRead(out string _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryReadBigEndian(out int affliateId))
+                if (!xteaDataReader.TryReadBigEndian(out int _))
                 {
                     return false;
                 }
@@ -93,17 +91,17 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 // stop hardware block
 
-                if (!xteaDataReader.TryReadBigEndian(out int somePacketIncrementalValue)) 
+                if (!xteaDataReader.TryReadBigEndian(out int _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryReadBigEndian(out long someAppletLongSetting))
+                if (!xteaDataReader.TryReadBigEndian(out long _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out string randomLoaderId))
+                if (!xteaDataReader.TryRead(out string _))
                 {
                     return false;
                 }
@@ -115,33 +113,33 @@ namespace Hagalaz.Services.GameWorld.Network.Handshake.Decoders
 
                 if (someClientSetting2)
                 {
-                    if (!xteaDataReader.TryRead(out string clientSetting2))
+                    if (!xteaDataReader.TryRead(out string _))
                     {
                         return false;
                     }
                 }
 
-                if (!xteaDataReader.TryRead(out bool jagTheoraLoaded))
+                if (!xteaDataReader.TryRead(out bool _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out bool supportsJavascript))
+                if (!xteaDataReader.TryRead(out bool _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out bool someRandomBool))
+                if (!xteaDataReader.TryRead(out bool _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryRead(out byte afflicateId))
+                if (!xteaDataReader.TryRead(out byte _))
                 {
                     return false;
                 }
 
-                if (!xteaDataReader.TryReadBigEndian(out int randomLoaderNumber))
+                if (!xteaDataReader.TryReadBigEndian(out int _))
                 {
                     return false;
                 }

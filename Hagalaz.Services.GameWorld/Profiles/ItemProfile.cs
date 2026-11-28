@@ -20,7 +20,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(destination => destination.LowAlchemyValue, options => options.Ignore())
                 .ForMember(destination => destination.TradeValue, options => options.Ignore());
             CreateMap<ItemType, IItemDefinition>().As<GameItemDefinition>();
-            CreateMap<Hagalaz.Data.Entities.ItemDefinition, GameItemDefinition>(MemberList.None)
+            CreateMap<ItemDefinition, GameItemDefinition>(MemberList.None)
                 .ConstructUsing(source => new GameItemDefinition(source.Id))
                 .ForMember(destination => destination.Examine, options => options.MapFrom(source => source.Examine))
                 .ForMember(destination => destination.Weight, options => options.MapFrom(source => (double)source.Weight))
@@ -28,7 +28,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(destination => destination.HighAlchemyValue, options => options.MapFrom(source => source.HighAlchemyValue))
                 .ForMember(destination => destination.LowAlchemyValue, options => options.MapFrom(source => source.LowAlchemyValue))
                 .ForMember(destination => destination.TradeValue, options => options.MapFrom(source => source.TradePrice));
-            CreateMap<Hagalaz.Data.Entities.ItemDefinition, IItemDefinition>().As<GameItemDefinition>();
+            CreateMap<ItemDefinition, IItemDefinition>().As<GameItemDefinition>();
 
             CreateProjection<ItemSpawn, GroundItemSpawnDto>()
                 .ForMember(dto => dto.ItemID, opt => opt.MapFrom(src => (int)src.ItemId))

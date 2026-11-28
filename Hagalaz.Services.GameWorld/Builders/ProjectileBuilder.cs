@@ -9,7 +9,7 @@ using Hagalaz.Services.GameWorld.Model.Maps.Regions.Updates;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class ProjectileBuilder : IProjectileBuilder, IProjectileId, IProjectileFrom, IProjectileTo, IProjectileDuration, IProjectileOptional, IProjectileBuild
+    public class ProjectileBuilder : IProjectileBuilder, IProjectileId, IProjectileFrom, IProjectileTo, IProjectileDuration, IProjectileOptional
     {
         private int _graphicId;
         private int _duration;

@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 
@@ -36,6 +35,10 @@ namespace Hagalaz.Game.Scripts.Npcs.Elementals
         ///     Initializes a new instance of the <see cref="UnstableGlacyte" /> class.
         /// </summary>
         /// <param name="hitSplatBuilder">The hit splat builder.</param>
+        /// <param name="owner">The glacyte controlled by this script.</param>
+        /// <param name="npcService">Provides NPC definitions.</param>
+        /// <param name="pathFinder">Creates paths for NPC movement.</param>
+        /// <param name="widgetScriptActivator">Creates widget scripts.</param>
         public UnstableGlacyte(INpc owner, IHitSplatBuilder hitSplatBuilder,
             INpcService npcService, ISimplePathFinder pathFinder, IWidgetScriptActivator widgetScriptActivator)
             : base(owner, npcService, pathFinder, widgetScriptActivator)

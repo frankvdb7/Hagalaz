@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character.Packet;
@@ -122,7 +121,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
                     return;
                 }
 
-                if (_entityService.TryResolve<ICreature>(targetHandle, out var currentTarget)
+                if (_entityService.TryResolve(targetHandle, out var currentTarget)
                     && currentTarget is not null)
                 {
                     @interface.OnComponentUsedOnCreature(componentId, currentTarget, forceRun, extraData1, extraData2);

@@ -4,8 +4,6 @@ using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Raido.Common.Messages;
-using Raido.Common.Protocol;
 
 namespace Hagalaz.Services.GameWorld.Tests;
 

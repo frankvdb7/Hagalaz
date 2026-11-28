@@ -5,11 +5,9 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
 using Hagalaz.Game.Resources;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Model.GameObjects
 {
@@ -168,7 +166,7 @@ namespace Hagalaz.Game.Scripts.Model.GameObjects
         }
 
         private bool IsActiveTarget(ICharacter clicker, EntityHandle<IGameObject> targetHandle) =>
-            clicker.ServiceProvider.GetRequiredService<IEntityService>().TryResolve<IGameObject>(targetHandle, out var target)
+            clicker.ServiceProvider.GetRequiredService<IEntityService>().TryResolve(targetHandle, out var target)
             && target is not null
             && !target.IsDisabled
             && ReferenceEquals(target, Owner);

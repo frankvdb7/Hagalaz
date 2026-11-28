@@ -1,5 +1,4 @@
 using Hagalaz.TestSupport;
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Pipelines;
@@ -361,7 +360,7 @@ public sealed class RaidoHubDispatcherTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == RaidoServerActivitySource.Name,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData
+            Sample = (ref _) => ActivitySamplingResult.AllData
         };
         ActivitySource.AddActivityListener(listener);
         using var provider = CreateProvider().Provider;
@@ -382,7 +381,7 @@ public sealed class RaidoHubDispatcherTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = _ => true,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStarted = activity => started.Add(activity.OperationName)
         };
         ActivitySource.AddActivityListener(listener);
@@ -404,7 +403,7 @@ public sealed class RaidoHubDispatcherTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = _ => true,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity => stopped.Add(activity)
         };
         ActivitySource.AddActivityListener(listener);

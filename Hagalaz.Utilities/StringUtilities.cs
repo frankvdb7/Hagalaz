@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Hagalaz.Utilities
@@ -370,7 +369,7 @@ namespace Hagalaz.Utilities
             var lookup = Base37Lookup;
             foreach (char c in s)
             {
-                if ((uint)c < (uint)lookup.Length)
+                if (c < (uint)lookup.Length)
                 {
                     byte val = lookup[c];
                     if (val == 0) return 0L; // Invalid character found

@@ -20,24 +20,24 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.Npcs.Sage
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardNpcDialogue(TalkingTo, DialogueAnimations.CalmTalk, "Hello again " + Owner.DisplayName + "!", "Would you like to follow the quick tutorial again?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 DefaultOptionDialogue("Yes, please!", "No, thanks!");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Yes, please!", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Yes, please!", (_, _) =>
             {
                 var script = Owner.ServiceProvider.GetRequiredService<SageStarterDialogue>();
                 Owner.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, script, false, TalkingTo);
                 return false;
             });
 
-            AttachDialogueOptionClickHandler("No, thanks!", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("No, thanks!", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;

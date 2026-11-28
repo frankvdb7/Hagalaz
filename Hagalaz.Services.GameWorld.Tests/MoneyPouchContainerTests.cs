@@ -1,14 +1,11 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Resources;
+using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using NSubstitute;
 
@@ -18,6 +15,41 @@ namespace Hagalaz.Services.GameWorld.Tests;
 public sealed class MoneyPouchContainerTests
 {
     private const int CoinId = 995;
+
+    [TestMethod]
+    public void Hydrate_ReplacesBalanceWithPersistedCoins()
+    {
+        var scenario = CreateScenario(pouchCoins: 100, inventoryCoins: 0);
+
+        scenario.MoneyPouch.Hydrate([new HydratedItemDto(CoinId, 25, 0, null)]);
+
+        Assert.AreEqual(25, scenario.MoneyPouch.Count);
+    }
+
+    [TestMethod]
+    public void Hydrate_EmptyStateClearsBalanceAndPreservesCoinSlot()
+    {
+        var scenario = CreateScenario(pouchCoins: 100, inventoryCoins: 0);
+
+        scenario.MoneyPouch.Hydrate([]);
+
+        Assert.AreEqual(0, scenario.MoneyPouch.Count);
+        var savedCoins = scenario.MoneyPouch.Dehydrate().Single();
+        Assert.AreEqual(CoinId, savedCoins.ItemId);
+        Assert.AreEqual(0, savedCoins.SlotId);
+        Assert.AreEqual(0, savedCoins.Count);
+    }
+
+    [TestMethod]
+    public void Hydrate_RejectsWrongSlotWithoutReplacingBalance()
+    {
+        var scenario = CreateScenario(pouchCoins: 100, inventoryCoins: 0);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            scenario.MoneyPouch.Hydrate([new HydratedItemDto(CoinId, 25, 1, null)]));
+
+        Assert.AreEqual(100, scenario.MoneyPouch.Count);
+    }
 
     [TestMethod]
     public void HasCoins_WhenPouchCoinsSatisfyRequest_ReturnsTrue()

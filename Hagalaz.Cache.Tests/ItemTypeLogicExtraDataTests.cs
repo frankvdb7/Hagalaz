@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Logic;
 using Hagalaz.Cache.Types;

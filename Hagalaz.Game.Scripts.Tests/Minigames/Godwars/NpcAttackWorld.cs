@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Projectile;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;

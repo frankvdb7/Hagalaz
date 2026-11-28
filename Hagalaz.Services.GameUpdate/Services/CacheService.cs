@@ -1,9 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Microsoft.Extensions.Options;
@@ -43,7 +41,7 @@ namespace Hagalaz.Services.GameUpdate.Services
                 return new ValueTask<MemoryStream>(new MemoryStream(_encodedChecksumTable.Value));
             }
 
-            return ValueTask.FromResult<MemoryStream>(_cacheApi.Read(indexId, fileId));
+            return ValueTask.FromResult(_cacheApi.Read(indexId, fileId));
         }
 
         public bool IsValidFile(byte indexId, int fileId)

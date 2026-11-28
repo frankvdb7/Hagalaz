@@ -4,7 +4,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Items;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -53,6 +52,7 @@ namespace Hagalaz.Game.Scripts.Skills.Cooking
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task EatFood(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken = default)
         {
             var definition = await _cookingService.FindFoodById(item.Id);

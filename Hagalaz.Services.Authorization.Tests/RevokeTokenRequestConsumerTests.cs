@@ -1,4 +1,3 @@
-using System.Threading;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Services.Authorization.Consumers;
 using MassTransit;
@@ -149,7 +148,7 @@ public sealed class RevokeTokenRequestConsumerTests
 
     private static ContextFixture CreateContext(string authorizationId)
     {
-        var context = new Moq.Mock<ConsumeContext<RevokeTokenRequestMessage>>();
+        var context = new Mock<ConsumeContext<RevokeTokenRequestMessage>>();
         var fixture = new ContextFixture(context);
         context.SetupGet(value => value.Message)
             .Returns(new RevokeTokenRequestMessage("world-client", "42", authorizationId));

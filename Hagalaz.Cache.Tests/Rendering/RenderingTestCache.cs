@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Extensions;
 using Hagalaz.Cache.Logic.Codecs;
@@ -21,7 +16,7 @@ internal sealed class RenderingTestCache : IDisposable
     public MemoryFileStore Store { get; } = new();
 
     public IServiceProvider Services => _services ??= new ServiceCollection()
-        .AddSingleton<Hagalaz.Cache.Abstractions.IFileStore>(Store)
+        .AddSingleton<Abstractions.IFileStore>(Store)
         .AddGameCache()
         .BuildServiceProvider();
 

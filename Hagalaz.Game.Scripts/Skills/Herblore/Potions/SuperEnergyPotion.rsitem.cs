@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Services;
 
 namespace Hagalaz.Game.Scripts.Skills.Herblore.Potions
 {

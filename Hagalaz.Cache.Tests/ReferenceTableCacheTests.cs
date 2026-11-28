@@ -1,5 +1,3 @@
-using System.IO;
-using Hagalaz.Cache.Abstractions;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Moq;

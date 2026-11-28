@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;

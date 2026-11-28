@@ -161,30 +161,30 @@ public class ModelTypeCodecTests
     // Golden coordinates produced by the unmodified GameClient Model projection helpers.
     public static IEnumerable<object[]> ClientProjectionUvs()
     {
-        yield return new object[] { 1, 0, 0, new float[] { 0.25f, -9.5f, 0.75f, -9.5f, 0.25f, 10.5f } };
-        yield return new object[] { 1, 0, 1, new float[] { 9.5f, 0.25f, 9.5f, 0.75f, -10.5f, 0.25f } };
-        yield return new object[] { 1, 0, 2, new float[] { -0.25f, 9.5f, -0.75f, 9.5f, -0.25f, -10.5f } };
-        yield return new object[] { 1, 0, 3, new float[] { -9.5f, -0.25f, -9.5f, -0.75f, 10.5f, -0.25f } };
-        yield return new object[] { 1, 64, 0, new float[] { 0.5f, -9.5f, 2.9802322E-8f, -9.5f, 0.5f, 10.5f } };
-        yield return new object[] { 1, 64, 1, new float[] { 9.5f, 0.5f, 9.5f, 2.9802322E-8f, -10.5f, 0.5f } };
-        yield return new object[] { 1, 64, 2, new float[] { -0.5f, 9.5f, -2.9802322E-8f, 9.5f, -0.5f, -10.5f } };
-        yield return new object[] { 1, 64, 3, new float[] { -9.5f, -0.5f, -9.5f, -2.9802322E-8f, 10.5f, -0.5f } };
-        yield return new object[] { 2, 0, 0, new float[] { 5.5f, 10.5f, -4.5f, 10.5f, 5.5f, -9.5f } };
-        yield return new object[] { 2, 0, 1, new float[] { -10.5f, 5.5f, -10.5f, -4.5f, 9.5f, 5.5f } };
-        yield return new object[] { 2, 0, 2, new float[] { -5.5f, -10.5f, 4.5f, -10.5f, -5.5f, 9.5f } };
-        yield return new object[] { 2, 0, 3, new float[] { 10.5f, -5.5f, 10.5f, 4.5f, -9.5f, -5.5f } };
-        yield return new object[] { 2, 64, 0, new float[] { 5.5f, 10.5f, -4.5f, 10.5f, 5.5f, -9.5f } };
-        yield return new object[] { 2, 64, 1, new float[] { -10.5f, 5.5f, -10.5f, -4.5f, 9.5f, 5.5f } };
-        yield return new object[] { 2, 64, 2, new float[] { -5.5f, -10.5f, 4.5f, -10.5f, -5.5f, 9.5f } };
-        yield return new object[] { 2, 64, 3, new float[] { 10.5f, -5.5f, 10.5f, 4.5f, -9.5f, -5.5f } };
-        yield return new object[] { 3, 0, 0, new float[] { 0.25f, 0.14758366f, 0.75f, 0.14758366f, 0.25f, 0.85241634f } };
-        yield return new object[] { 3, 0, 1, new float[] { -0.14758366f, 0.25f, -0.14758366f, 0.75f, -0.85241634f, 0.25f } };
-        yield return new object[] { 3, 0, 2, new float[] { -0.25f, -0.14758366f, -0.75f, -0.14758366f, -0.25f, -0.85241634f } };
-        yield return new object[] { 3, 0, 3, new float[] { 0.14758366f, -0.25f, 0.14758366f, -0.75f, 0.85241634f, -0.25f } };
-        yield return new object[] { 3, 64, 0, new float[] { 0.5f, 0.14758366f, 2.9802322E-8f, 0.14758366f, 0.5f, 0.85241634f } };
-        yield return new object[] { 3, 64, 1, new float[] { -0.14758366f, 0.5f, -0.14758366f, 2.9802322E-8f, -0.85241634f, 0.5f } };
-        yield return new object[] { 3, 64, 2, new float[] { -0.5f, -0.14758366f, -2.9802322E-8f, -0.14758366f, -0.5f, -0.85241634f } };
-        yield return new object[] { 3, 64, 3, new float[] { 0.14758366f, -0.5f, 0.14758366f, -2.9802322E-8f, 0.85241634f, -0.5f } };
+        yield return new object[] { 1, 0, 0, new [] { 0.25f, -9.5f, 0.75f, -9.5f, 0.25f, 10.5f } };
+        yield return new object[] { 1, 0, 1, new [] { 9.5f, 0.25f, 9.5f, 0.75f, -10.5f, 0.25f } };
+        yield return new object[] { 1, 0, 2, new [] { -0.25f, 9.5f, -0.75f, 9.5f, -0.25f, -10.5f } };
+        yield return new object[] { 1, 0, 3, new [] { -9.5f, -0.25f, -9.5f, -0.75f, 10.5f, -0.25f } };
+        yield return new object[] { 1, 64, 0, new [] { 0.5f, -9.5f, 2.9802322E-8f, -9.5f, 0.5f, 10.5f } };
+        yield return new object[] { 1, 64, 1, new [] { 9.5f, 0.5f, 9.5f, 2.9802322E-8f, -10.5f, 0.5f } };
+        yield return new object[] { 1, 64, 2, new [] { -0.5f, 9.5f, -2.9802322E-8f, 9.5f, -0.5f, -10.5f } };
+        yield return new object[] { 1, 64, 3, new [] { -9.5f, -0.5f, -9.5f, -2.9802322E-8f, 10.5f, -0.5f } };
+        yield return new object[] { 2, 0, 0, new [] { 5.5f, 10.5f, -4.5f, 10.5f, 5.5f, -9.5f } };
+        yield return new object[] { 2, 0, 1, new [] { -10.5f, 5.5f, -10.5f, -4.5f, 9.5f, 5.5f } };
+        yield return new object[] { 2, 0, 2, new [] { -5.5f, -10.5f, 4.5f, -10.5f, -5.5f, 9.5f } };
+        yield return new object[] { 2, 0, 3, new [] { 10.5f, -5.5f, 10.5f, 4.5f, -9.5f, -5.5f } };
+        yield return new object[] { 2, 64, 0, new [] { 5.5f, 10.5f, -4.5f, 10.5f, 5.5f, -9.5f } };
+        yield return new object[] { 2, 64, 1, new [] { -10.5f, 5.5f, -10.5f, -4.5f, 9.5f, 5.5f } };
+        yield return new object[] { 2, 64, 2, new [] { -5.5f, -10.5f, 4.5f, -10.5f, -5.5f, 9.5f } };
+        yield return new object[] { 2, 64, 3, new [] { 10.5f, -5.5f, 10.5f, 4.5f, -9.5f, -5.5f } };
+        yield return new object[] { 3, 0, 0, new [] { 0.25f, 0.14758366f, 0.75f, 0.14758366f, 0.25f, 0.85241634f } };
+        yield return new object[] { 3, 0, 1, new [] { -0.14758366f, 0.25f, -0.14758366f, 0.75f, -0.85241634f, 0.25f } };
+        yield return new object[] { 3, 0, 2, new [] { -0.25f, -0.14758366f, -0.75f, -0.14758366f, -0.25f, -0.85241634f } };
+        yield return new object[] { 3, 0, 3, new [] { 0.14758366f, -0.25f, 0.14758366f, -0.75f, 0.85241634f, -0.25f } };
+        yield return new object[] { 3, 64, 0, new [] { 0.5f, 0.14758366f, 2.9802322E-8f, 0.14758366f, 0.5f, 0.85241634f } };
+        yield return new object[] { 3, 64, 1, new [] { -0.14758366f, 0.5f, -0.14758366f, 2.9802322E-8f, -0.85241634f, 0.5f } };
+        yield return new object[] { 3, 64, 2, new [] { -0.5f, -0.14758366f, -2.9802322E-8f, -0.14758366f, -0.5f, -0.85241634f } };
+        yield return new object[] { 3, 64, 3, new [] { 0.14758366f, -0.5f, 0.14758366f, -2.9802322E-8f, 0.85241634f, -0.5f } };
     }
 
     [Theory]
@@ -256,7 +256,7 @@ public class ModelTypeCodecTests
 
         Assert.Equal(new[] { 42 }, geometry.FaceTextureIds);
         Assert.Equal(new[] { 0, 1, 2 }, geometry.Indices);
-        Assert.Equal(new float[] { -4.5f, -9.5f, 5.5f, -9.5f, -4.5f, 10.5f }, geometry.FaceTextureUvs);
+        Assert.Equal(new [] { -4.5f, -9.5f, 5.5f, -9.5f, -4.5f, 10.5f }, geometry.FaceTextureUvs);
     }
 
     [Theory]
@@ -267,7 +267,7 @@ public class ModelTypeCodecTests
     {
         var geometry = Build(ProjectionModel(2, version, 0, 0, orientationY: 0, orientationZ: 32767, scaleX: 0));
         // This orientation maps Z = -Y, so the client's -X side has U = Y + 0.5.
-        Assert.Equal(new float[] { -9.5f, 0.5f, -9.5f, 0.5f, 10.5f, 0.5f }, geometry.FaceTextureUvs);
+        Assert.Equal(new [] { -9.5f, 0.5f, -9.5f, 0.5f, 10.5f, 0.5f }, geometry.FaceTextureUvs);
     }
 
     [Theory]
@@ -280,7 +280,7 @@ public class ModelTypeCodecTests
         var geometry = Build(ProjectionModel(2, version, 0, 0, orientationY: 30000, orientationZ: 13177, scaleY: 0));
         var cosine = 30000f / 32767f;
         var slope = (float)Math.Sqrt(1 - cosine * cosine);
-        var expected = new float[] { -4.5f, 0.5f - 10 * slope, 5.5f, 0.5f - 10 * slope, -4.5f, 0.5f + 10 * slope };
+        var expected = new [] { -4.5f, 0.5f - 10 * slope, 5.5f, 0.5f - 10 * slope, -4.5f, 0.5f + 10 * slope };
         Assert.NotNull(geometry.FaceTextureUvs);
         for (var index = 0; index < expected.Length; index++)
             Assert.InRange(geometry.FaceTextureUvs[index], expected[index] - 0.00001f, expected[index] + 0.00001f);

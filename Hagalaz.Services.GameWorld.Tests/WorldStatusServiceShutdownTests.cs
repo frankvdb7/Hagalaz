@@ -1,9 +1,5 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Runtime.CompilerServices;
 using AutoMapper;
 using Hagalaz.Game.Abstractions.Mediator;
-using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Store;
@@ -15,7 +11,6 @@ using Hagalaz.Services.GameWorld.Services.Model;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 
@@ -78,22 +73,7 @@ public sealed class WorldStatusServiceShutdownTests
         using var host = new HostBuilder()
             .ConfigureServices(collection =>
             {
-                collection.AddLogging();
-                collection.AddSingleton(bus);
-                collection.AddSingleton(mediator);
-                collection.AddSingleton<IMapper>(Substitute.For<IMapper>());
-                collection.AddSingleton(identity);
-                collection.AddSingleton(lifecycle);
-                collection.AddSingleton<WorldRegistrationStore>();
-                collection.AddSingleton<IOptions<WorldOptions>>(Options.Create(new WorldOptions
-                {
-                    Id = onlineMessage.Id,
-                    Name = onlineMessage.Name,
-                    AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
-                    RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
-                    RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
-                    RegistrationRetryDelay = TimeSpan.FromSeconds(1)
-                }));
+                AddWorldStatusCoreServices(collection, bus, mediator, identity, lifecycle, onlineMessage, TimeSpan.FromSeconds(1));
                 collection.AddSingleton<ICharacterStore>(characterStore);
                 collection.AddSingleton<IRsTaskService>(new InlineTaskScheduler());
                 collection.AddSingleton(new CharacterPersistenceState());
@@ -155,22 +135,7 @@ public sealed class WorldStatusServiceShutdownTests
         using var host = new HostBuilder()
             .ConfigureServices(collection =>
             {
-                collection.AddLogging();
-                collection.AddSingleton(bus);
-                collection.AddSingleton(mediator);
-                collection.AddSingleton<IMapper>(Substitute.For<IMapper>());
-                collection.AddSingleton(identity);
-                collection.AddSingleton(lifecycle);
-                collection.AddSingleton<WorldRegistrationStore>();
-                collection.AddSingleton<IOptions<WorldOptions>>(Options.Create(new WorldOptions
-                {
-                    Id = onlineMessage.Id,
-                    Name = onlineMessage.Name,
-                    AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
-                    RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
-                    RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
-                    RegistrationRetryDelay = TimeSpan.FromHours(1)
-                }));
+                AddWorldStatusCoreServices(collection, bus, mediator, identity, lifecycle, onlineMessage, TimeSpan.FromHours(1));
                 collection.AddHostedService<WorldStatusService>();
             })
             .Build();
@@ -181,7 +146,34 @@ public sealed class WorldStatusServiceShutdownTests
         await bus.Received(1).Publish(Arg.Any<WorldOnlineMessage>(), Arg.Any<CancellationToken>());
 
         await host.StopAsync();
-        await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!, default);
+        await bus.DidNotReceiveWithAnyArgs().Publish(default(WorldOfflineMessage)!);
+    }
+
+    private static void AddWorldStatusCoreServices(
+        IServiceCollection services,
+        IBus bus,
+        IGameMediator mediator,
+        WorldInstanceIdentity identity,
+        WorldLifecycleState lifecycle,
+        WorldOnlineMessage onlineMessage,
+        TimeSpan registrationRetryDelay)
+    {
+        services.AddLogging();
+        services.AddSingleton(bus);
+        services.AddSingleton(mediator);
+        services.AddSingleton(Substitute.For<IMapper>());
+        services.AddSingleton(identity);
+        services.AddSingleton(lifecycle);
+        services.AddSingleton<WorldRegistrationStore>();
+        services.AddSingleton(Options.Create(new WorldOptions
+        {
+            Id = onlineMessage.Id,
+            Name = onlineMessage.Name,
+            AdvertisedEndpoint = new WorldEndpointOptions { Host = onlineMessage.IpAddress, Port = onlineMessage.Port },
+            RegistrationLeaseDuration = TimeSpan.FromMinutes(1),
+            RegistrationRenewalInterval = TimeSpan.FromMinutes(1),
+            RegistrationRetryDelay = registrationRetryDelay
+        }));
     }
 
     private static WorldOnlineMessage CreateOnlineMessage(WorldInstanceIdentity identity) => new()

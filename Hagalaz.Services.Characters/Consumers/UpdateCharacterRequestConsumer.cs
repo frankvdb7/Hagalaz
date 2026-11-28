@@ -143,7 +143,7 @@ namespace Hagalaz.Services.Characters.Consumers
 
         private static CharacterPersistenceOutcome Classify(
             ICharacterPersistenceMessage message,
-            Hagalaz.Data.Entities.Character character,
+            Character character,
             string snapshotFingerprint)
         {
             if (message.SnapshotRevision > character.SnapshotRevision)
@@ -160,7 +160,7 @@ namespace Hagalaz.Services.Characters.Consumers
 
         private async Task ApplySnapshotAsync(
             ICharacterPersistenceMessage message,
-            Hagalaz.Data.Entities.Character character,
+            Character character,
             string snapshotFingerprint)
         {
             character.SnapshotRevision = message.SnapshotRevision;

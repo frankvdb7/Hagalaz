@@ -3,16 +3,13 @@ using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -279,7 +276,7 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
                 _spawnEntries[i] = new SpawnEntry(BarrowsConstants.BarrowBrotherIDs[i], _npcBuilder, _hintIconBuilder);
             }
 
-            var barrowsDto = Character.Profile.GetObject(BarrowsConstants.MinigamesBarrows, NewRun())!;
+            var barrowsDto = Character.Profile.GetObject(BarrowsConstants.MinigamesBarrows, NewRun());
 
             if (barrowsDto.AhrimKilled)
             {

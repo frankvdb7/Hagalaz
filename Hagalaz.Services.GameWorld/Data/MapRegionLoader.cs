@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -85,7 +83,7 @@ namespace Hagalaz.Services.GameWorld.Data
                 throw new InvalidOperationException($"Region[{region.Id}] is no longer the current region instance.");
             }
 
-            using var activity = ActivitySource.StartActivity(LoadActivityName, ActivityKind.Internal);
+            using var activity = ActivitySource.StartActivity(LoadActivityName);
             activity?.SetTag("map.region.id", region.Id);
             activity?.SetTag("map.region.dimension", region.BaseLocation.Dimension);
 

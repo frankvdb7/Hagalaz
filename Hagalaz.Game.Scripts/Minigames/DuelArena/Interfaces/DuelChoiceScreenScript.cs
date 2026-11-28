@@ -38,14 +38,14 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena.Interfaces
             InterfaceInstance.DrawString(16, Target.DisplayName);
             InterfaceInstance.DrawString(17, "Combat level: " + Target.Statistics.FullCombatLevel);
 
-            InterfaceInstance.AttachClickHandler(25, (childId, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(25, (_, _, _, _) =>
             {
                 Callback?.Invoke(false);
 
                 Owner.Widgets.CloseWidget(InterfaceInstance);
                 return true;
             });
-            InterfaceInstance.AttachClickHandler(26, (childId, clickType, extra1, extra2) =>
+            InterfaceInstance.AttachClickHandler(26, (_, _, _, _) =>
             {
                 Callback?.Invoke(true);
 

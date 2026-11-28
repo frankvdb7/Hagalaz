@@ -1,5 +1,4 @@
 ﻿using Hagalaz.Game.Abstractions.Features.States;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Extensions
 {

@@ -22,7 +22,7 @@ public sealed class ClanCharterLifecycleTests
         var contextAccessor = Substitute.For<ICharacterContextAccessor>();
         contextAccessor.Context.Returns(context);
         EventHappened<CreatureDestroyedEvent>? destroyHandler = null;
-        founder.RegisterEventHandler<CreatureDestroyedEvent>(Arg.Do<EventHappened<CreatureDestroyedEvent>>(handler => destroyHandler = handler))
+        founder.RegisterEventHandler(Arg.Do<EventHappened<CreatureDestroyedEvent>>(handler => destroyHandler = handler))
             .Returns((EventHappened)(_ => false));
 
         var script = new ClanCharter.ClanFounding(contextAccessor);

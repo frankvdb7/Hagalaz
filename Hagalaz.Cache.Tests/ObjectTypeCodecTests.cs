@@ -1,6 +1,5 @@
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Types;
-using System.IO;
 using Xunit;
 
 namespace Hagalaz.Cache.Tests
@@ -126,7 +125,7 @@ namespace Hagalaz.Cache.Tests
             var codec = new ObjectTypeCodec();
             var originalObject = new ObjectType(1)
             {
-                ModelIDs = new int[][] { new int[] { 1, 2 }, new int[] { 3, 4 } },
+                ModelIDs = new [] { new [] { 1, 2 }, new [] { 3, 4 } },
                 Shapes = new sbyte[] { 1, 2 },
                 Name = "Complex Object",
                 SizeX = 5,
@@ -136,8 +135,8 @@ namespace Hagalaz.Cache.Tests
                 Interactable = 0,
                 GroundContoured = 1,
                 DelayShading = true,
-                AnimationIDs = new int[] { 123, 456, 789 },
-                AnIntArray784 = new int[] { 1, 2, 3 },
+                AnimationIDs = new[] { 123, 456, 789 },
+                AnIntArray784 = new[] { 1, 2, 3 },
                 DecorDisplacement = 128,
                 Ambient = 10,
                 Contrast = 20,
@@ -161,7 +160,7 @@ namespace Hagalaz.Cache.Tests
                 SupportItemsFlag = 1,
                 AmbientSoundID = 456,
                 AmbientSoundHearDistance = 5,
-                AudioTracks = new int[] { 7, 8, 9 },
+                AudioTracks = new[] { 7, 8, 9 },
                 AnInt833 = 10,
                 AnInt768 = 20,
                 Hidden = true,
@@ -170,7 +169,7 @@ namespace Hagalaz.Cache.Tests
                 MembersOnly = true,
                 VarpBitFileId = 12,
                 VarpFileId = 34,
-                TransformToIDs = new int[] { 101, 102, 103, -1 },
+                TransformToIDs = new [] { 101, 102, 103, -1 },
                 AdjustMapSceneRotation = true,
                 HasAnimation = true,
                 AnInt788 = 5,
@@ -183,7 +182,7 @@ namespace Hagalaz.Cache.Tests
                 AmbientSoundVolume = 200,
                 FlipMapSprite = true,
                 MapIcon = 14,
-                QuestIDs = new int[] { 1, 2, 3 },
+                QuestIDs = new [] { 1, 2, 3 },
                 AByte826 = -5,
                 AByte790 = -6,
                 AByte821 = -7,
@@ -291,7 +290,7 @@ namespace Hagalaz.Cache.Tests
             var codec = new ObjectTypeCodec();
             var obj = new ObjectType(20)
             {
-                Actions = new string?[] { null, "Open", null, "Examine", null }
+                Actions = new[] { null, "Open", null, "Examine", null }
             };
 
             // Act & Assert

@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Magic.TeleportSpells;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
@@ -23,7 +22,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Lodestone
         {
             foreach (var def in _lodestoneService.FindAll().GetAwaiter().GetResult())
             {
-                InterfaceInstance.AttachClickHandler(def.ComponentId, (componentID, clickType, extraData1, extraData2) =>
+                InterfaceInstance.AttachClickHandler(def.ComponentId, (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {

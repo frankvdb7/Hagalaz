@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Raido.Server.Extensions;
 using Hagalaz.Services.GameUpdate.Hubs;
 using Hagalaz.Services.GameUpdate.Network;

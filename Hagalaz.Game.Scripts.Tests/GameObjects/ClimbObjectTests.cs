@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -141,7 +139,7 @@ public sealed class ClimbObjectTests
                 "stepsTwo" => new StepsTwo(),
                 "slayerFirst" => new StaircaseFirstFloor(),
                 "slayerSecond" => new StaircaseSecondFloor(),
-                _ => throw new System.ArgumentOutOfRangeException(nameof(script))
+                _ => throw new ArgumentOutOfRangeException(nameof(script))
             };
             instance.Initialize(Owner);
             instance.OnCharacterClickPerform(Clicker, GameObjectClickType.Option1Click);

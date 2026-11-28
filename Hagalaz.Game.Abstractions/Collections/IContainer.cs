@@ -9,7 +9,7 @@ namespace Hagalaz.Game.Abstractions.Collections
     /// It provides indexed access and a fixed capacity.
     /// </summary>
     /// <typeparam name="T">The type of elements in the container.</typeparam>
-    public interface IContainer<out T> : IEnumerable<T>, IEnumerable
+    public interface IContainer<out T> : IEnumerable<T>
     {
         /// <summary>
         /// Gets the element at the specified index in the container.

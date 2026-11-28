@@ -1,8 +1,5 @@
 global using Hagalaz.TestSupport;
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
 using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model.Items;
 using NSubstitute;

@@ -1,5 +1,3 @@
-using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Collections.Tests
 {

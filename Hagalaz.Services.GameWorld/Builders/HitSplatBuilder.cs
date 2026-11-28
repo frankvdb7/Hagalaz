@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
@@ -8,7 +6,7 @@ using Hagalaz.Services.GameWorld.Model.Creatures.Combat;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class HitSplatSpriteBuilder : IHitSplatSpriteBuilder, IHitSplatSpriteOptional
+    public class HitSplatSpriteBuilder : IHitSplatSpriteBuilder
     {
         public int? Damage { get; private set; }
         public HitSplatType? SplatType { get; private set; }
@@ -47,7 +45,7 @@ namespace Hagalaz.Services.GameWorld.Builders
         }
     }
 
-    public class HitSplatBuilder : IHitSplatBuilder, IHitSplatOptional, IHitSplatBuild, IHitSplatSprite
+    public class HitSplatBuilder : IHitSplatBuilder, IHitSplatOptional
     {
         private int? _delay;
         private IRuneObject? _sender;

@@ -5,8 +5,8 @@ using Hagalaz.Contacts.Messages.Model;
 using Hagalaz.Data.Entities;
 using Hagalaz.Services.Contacts.Services.Model;
 using Hagalaz.Text.Json;
-using ContactDto = Hagalaz.Services.Contacts.Services.Model.ContactDto;
-using ContactSettingsDto = Hagalaz.Services.Contacts.Services.Model.ContactSettingsDto;
+
+
 using Model_ContactDto = Hagalaz.Services.Contacts.Services.Model.ContactDto;
 using Model_ContactSettingsDto = Hagalaz.Services.Contacts.Services.Model.ContactSettingsDto;
 

@@ -1,5 +1,4 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Data;
+﻿using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -109,6 +108,8 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Npcs
         /// Construct's new statistics class.
         /// </summary>
         /// <param name="owner">The owner.</param>
+        /// <param name="hitSplatBuilder">Builds hitsplats for damage updates.</param>
+        /// <param name="eventManager">Publishes NPC statistics events.</param>
         public NpcStatistics(INpc owner, IEventManager eventManager, IHitSplatBuilder hitSplatBuilder)
         {
             _owner = owner;

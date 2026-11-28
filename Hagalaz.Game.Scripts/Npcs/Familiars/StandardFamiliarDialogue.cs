@@ -1,6 +1,5 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
@@ -31,12 +30,12 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
         /// </summary>
         public void Setup()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 DefaultOptionDialogue("Special Move", "Dismiss", "Nevermind");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Special Move", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Special Move", (_, _) =>
             {
                 if (Owner.FamiliarScript.Familiar == TalkingTo)
                 {
@@ -46,13 +45,13 @@ namespace Hagalaz.Game.Scripts.Npcs.Familiars
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Dismiss", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Dismiss", (_, _) =>
             {
                 Owner.EventManager.SendEvent(new FamiliarDismissEvent(Owner));
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;
             });
-            AttachDialogueOptionClickHandler("Nevermind", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Nevermind", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return false;

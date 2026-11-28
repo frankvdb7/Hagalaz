@@ -32,7 +32,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
             InterfaceInstance.SetOptions(30, 0, 241, _widgetOptionBuilder.SetRightClickOption(0, true).Value);
 
             InterfaceInstance.AttachClickHandler(30,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, extraData2) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {
@@ -44,7 +44,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Clans
                 });
 
             InterfaceInstance.AttachClickHandler(26,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType == ComponentClickType.LeftClick)
                     {

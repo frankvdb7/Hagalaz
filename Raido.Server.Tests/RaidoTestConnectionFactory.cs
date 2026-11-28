@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Raido.Common.Protocol;
-using Raido.Server;
 
 namespace Raido.Server.Tests;
 

@@ -29,12 +29,12 @@ namespace Hagalaz.Game.Scripts.Dialogues.Generic
         public override void OnOpen()
         {
             StandardOptionDialogue(Question, "Yes.", "No.");
-            AttachDialogueOptionClickHandler("Yes.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Yes.", (_, _) =>
             {
                 Complete(true);
                 return true;
             });
-            AttachDialogueOptionClickHandler("No.", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("No.", (_, _) =>
             {
                 Complete(false);
                 return true;

@@ -1,4 +1,3 @@
-using AutoMapper;
 using System.Data.Common;
 using System.Text.Json;
 using Hagalaz.Characters.Messages;
@@ -14,7 +13,6 @@ using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MySql;
 
 namespace Hagalaz.Services.Characters.Tests;
 
@@ -139,7 +137,7 @@ public sealed class CharacterPersistenceIntegrationTests
             Assert.AreEqual(masterId, faultMessage.Message.MasterId);
             var exception = faultMessage.Exceptions.FirstOrDefault();
             Assert.IsNotNull(exception);
-            StringAssert.Contains(exception!.ExceptionType, nameof(DbUpdateException));
+            StringAssert.Contains(exception.ExceptionType, nameof(DbUpdateException));
             StringAssert.Contains(exception.Message, "Could not save changes");
 
             using var errorQueueTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));

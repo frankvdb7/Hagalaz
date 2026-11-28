@@ -1,12 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using Hagalaz.Cache.Abstractions.Model;
+
 using Hagalaz.Cache.Logic.Codecs;
 using Hagalaz.Cache.Models;
 using Hagalaz.Services.Cache.Features.Archives;
 using Hagalaz.Services.Cache.Features.Archives.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Services.Cache.Tests.Features;
 
@@ -42,7 +41,7 @@ public class ArchiveEndpointDtoTests
     private static MemoryFileStore Seed(int memberCount)
     {
         var store = new MemoryFileStore();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var entry = new ReferenceTableEntry(0);
         entry.InitializeEntries(memberCount);
         for (var i = 0; i < memberCount; i++) entry.AddEntry(i, new ReferenceTableChildEntry(i));

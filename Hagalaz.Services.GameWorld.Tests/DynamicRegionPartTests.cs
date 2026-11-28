@@ -880,7 +880,7 @@ public sealed class DynamicRegionPartTests
         foreach (var field in new[] { "_unclippedObjects", "_objectsWithoutCollision" })
         {
             var set = (HashSet<IGameObject>)typeof(MapRegion)
-                .GetField(field, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .GetField(field, BindingFlags.NonPublic | BindingFlags.Instance)!
                 .GetValue(region)!;
             Assert.IsFalse(set.Contains(web), $"{field} still references the replaced object.");
         }

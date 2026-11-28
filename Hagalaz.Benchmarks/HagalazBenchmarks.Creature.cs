@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Utilities.Model.Creatures;
-using System;
 
 namespace Hagalaz.Benchmarks
 {
@@ -19,13 +18,13 @@ namespace Hagalaz.Benchmarks
         [Benchmark]
         public bool CreatureWithinRange_1x1_WorstCase_v2()
         {
-            return CreatureRangeHelper.IsWithinRange<Location, Location>(_loc1, 1, _loc2, 1, 5);
+            return CreatureRangeHelper.IsWithinRange(_loc1, 1, _loc2, 1, 5);
         }
 
         [Benchmark]
         public bool CreatureWithinRange_3x3_WorstCase_v2()
         {
-            return CreatureRangeHelper.IsWithinRange<Location, Location>(_loc1, 3, _loc2, 3, 5);
+            return CreatureRangeHelper.IsWithinRange(_loc1, 3, _loc2, 3, 5);
         }
     }
 }

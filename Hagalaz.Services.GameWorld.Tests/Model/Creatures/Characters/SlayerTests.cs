@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Logic.Skills;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -8,7 +6,6 @@ using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events;
-using Hagalaz.Game.Configuration;
 using Hagalaz.Services.GameWorld.Logic.Characters.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using NSubstitute;
@@ -22,7 +19,7 @@ public sealed class SlayerTests
     {
         var character = Substitute.For<ICharacter>();
         var profile = Substitute.For<IProfile>();
-        profile.TryGetValue<int>(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, out Arg.Any<int>())
+        profile.TryGetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, out Arg.Any<int>())
             .Returns(call =>
             {
                 call[1] = balance ?? 0;
@@ -119,7 +116,7 @@ public sealed class SlayerTests
         var profile = new Profile();
         profile.SetValue(Hagalaz.Configuration.ProfileConstants.SlayerRewardPoints, 100);
         character.Profile.Returns(profile);
-        var queued = new System.Collections.Generic.List<Hagalaz.Game.Abstractions.Tasks.ITaskItem>();
+        var queued = new List<Hagalaz.Game.Abstractions.Tasks.ITaskItem>();
         character.QueueTask(Arg.Do<Func<CancellationToken, Task>>(op => queued.Add(new Hagalaz.Game.Abstractions.Tasks.RsAsyncTask(op))))
             .Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
         var killHandler = default(EventHappened<CreatureKillEvent>);
@@ -174,7 +171,7 @@ public sealed class SlayerTests
         var character = Substitute.For<ICharacter>();
         var statistics = Substitute.For<ICharacterStatistics>();
         character.Statistics.Returns(statistics);
-        var queued = new System.Collections.Generic.List<Hagalaz.Game.Abstractions.Tasks.ITaskItem>();
+        var queued = new List<Hagalaz.Game.Abstractions.Tasks.ITaskItem>();
         character.QueueTask(Arg.Do<Func<CancellationToken, Task>>(op => queued.Add(new Hagalaz.Game.Abstractions.Tasks.RsAsyncTask(op))))
             .Returns(Substitute.For<Hagalaz.Game.Abstractions.Tasks.IRsTaskHandle>());
         var killHandler = default(EventHappened<CreatureKillEvent>);

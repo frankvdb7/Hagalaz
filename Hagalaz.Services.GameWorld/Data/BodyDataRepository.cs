@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using Hagalaz.Cache.Abstractions.Types;
 using Hagalaz.Cache.Abstractions.Types.Providers;

@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using AutoMapper;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Game.Abstractions.Features.Chat;
@@ -12,7 +10,6 @@ using Hagalaz.Game.Messages;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Mediator.Consumers;
-using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Network.Model;
 using Hagalaz.Services.GameWorld.Services;
 using MassTransit;

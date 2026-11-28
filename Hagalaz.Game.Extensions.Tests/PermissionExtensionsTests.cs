@@ -1,6 +1,4 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Authorization;
-using Hagalaz.Game.Extensions;
 
 namespace Hagalaz.Game.Extensions.Tests
 {

@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;
 using Raido.Common.Protocol;

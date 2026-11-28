@@ -1,8 +1,6 @@
-﻿using System;
-using Hagalaz.Game.Abstractions.Model.Creatures;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Common.Tasks;
-using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
 {

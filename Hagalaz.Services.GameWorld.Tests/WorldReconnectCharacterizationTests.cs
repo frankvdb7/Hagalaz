@@ -81,7 +81,7 @@ public sealed class WorldReconnectCharacterizationTests
         Assert.IsNotNull(stream);
 
         var fixture = new System.Collections.Specialized.NameValueCollection();
-        using var reader = new StreamReader(stream!);
+        using var reader = new StreamReader(stream);
         while (reader.ReadLine() is { } line)
         {
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))

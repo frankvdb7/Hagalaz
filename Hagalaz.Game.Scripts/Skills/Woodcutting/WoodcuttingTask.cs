@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Game.Scripts.Skills.Woodcutting
 {
@@ -37,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Skills.Woodcutting
             _finishCallback = finishCallback;
             _entityService = performer.ServiceProvider.GetRequiredService<IEntityService>();
             TickActionMethod = PerformTickImpl;
-            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

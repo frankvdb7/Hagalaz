@@ -1,5 +1,4 @@
-﻿using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
+﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Tasks;
@@ -51,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
             ExecuteDelay = executeDelay;
             ExecuteHandler = DegradeToDust;
 
-            _equipChangedHandler = _character.RegisterEventHandler(new EventHappened<EquipmentChangedEvent>(e =>
+            _equipChangedHandler = _character.RegisterEventHandler(new EventHappened<EquipmentChangedEvent>(_ =>
             {
                 if (_character.Equipment.GetInstanceSlot(_item) == EquipmentSlot.NoSlot)
                 {
@@ -60,13 +59,13 @@ namespace Hagalaz.Game.Scripts.Equipment.Degraded
                 return false;
             }));
 
-            _detachHandler = _character.RegisterEventHandler(new EventHappened<CharacterDetachingEvent>(e =>
+            _detachHandler = _character.RegisterEventHandler(new EventHappened<CharacterDetachingEvent>(_ =>
             {
                 Save();
                 return false;
             }));
 
-            _destroyHandler = _character.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>(e =>
+            _destroyHandler = _character.RegisterEventHandler(new EventHappened<CreatureDestroyedEvent>(_ =>
             {
                 UnregisterEventHandlers();
                 Cancel();

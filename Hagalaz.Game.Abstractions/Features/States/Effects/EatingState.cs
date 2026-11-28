@@ -1,4 +1,3 @@
-using Hagalaz.Game.Abstractions.Features.States;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using System;
 

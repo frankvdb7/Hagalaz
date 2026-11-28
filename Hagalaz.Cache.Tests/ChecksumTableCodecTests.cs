@@ -83,11 +83,11 @@ namespace Hagalaz.Cache.Tests
             var codec = new ChecksumTableCodec();
             using var stream = new MemoryStream();
             // Entry 1
-            stream.Write(System.BitConverter.GetBytes(123)); // CRC
-            stream.Write(System.BitConverter.GetBytes(456)); // Version
+            stream.Write(BitConverter.GetBytes(123)); // CRC
+            stream.Write(BitConverter.GetBytes(456)); // Version
             // Entry 2
-            stream.Write(System.BitConverter.GetBytes(789)); // CRC
-            stream.Write(System.BitConverter.GetBytes(101)); // Version
+            stream.Write(BitConverter.GetBytes(789)); // CRC
+            stream.Write(BitConverter.GetBytes(101)); // Version
             stream.Position = 0;
 
             // Act
@@ -103,15 +103,7 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var codec = new ChecksumTableCodec();
-            using var stream = new MemoryStream();
-            stream.WriteByte(1); // Number of entries
-            // Entry 1
-            stream.Write(System.BitConverter.GetBytes(123)); // CRC
-            stream.Write(System.BitConverter.GetBytes(456)); // Version
-            stream.Write(new byte[64]); // Whirlpool digest
-
-            var dataToHash = stream.ToArray();
-            var whirlpoolHash = Whirlpool.GenerateDigest(dataToHash, 0, dataToHash.Length);
+            var (dataToHash, whirlpoolHash) = CreateWhirlpoolPayload();
 
             using var finalStream = new MemoryStream();
             finalStream.Write(dataToHash);
@@ -148,15 +140,7 @@ namespace Hagalaz.Cache.Tests
         {
             // Arrange
             var codec = new ChecksumTableCodec();
-            using var stream = new MemoryStream();
-            stream.WriteByte(1); // Number of entries
-            // Entry 1
-            stream.Write(System.BitConverter.GetBytes(123)); // CRC
-            stream.Write(System.BitConverter.GetBytes(456)); // Version
-            stream.Write(new byte[64]); // Whirlpool digest
-
-            var dataToHash = stream.ToArray();
-            var whirlpoolHash = Whirlpool.GenerateDigest(dataToHash, 0, dataToHash.Length);
+            var (dataToHash, whirlpoolHash) = CreateWhirlpoolPayload();
             whirlpoolHash[0]++; // Corrupt the hash
 
             using var finalStream = new MemoryStream();
@@ -192,6 +176,19 @@ namespace Hagalaz.Cache.Tests
             Assert.Equal(table.Count, decodedTable.Count);
             Assert.Equal(table[0].Crc32, decodedTable[0].Crc32);
             Assert.Equal(table[0].Version, decodedTable[0].Version);
+        }
+
+        private static (byte[] DataToHash, byte[] WhirlpoolHash) CreateWhirlpoolPayload()
+        {
+            using var stream = new MemoryStream();
+            stream.WriteByte(1); // Number of entries
+            stream.Write(BitConverter.GetBytes(123)); // CRC
+            stream.Write(BitConverter.GetBytes(456)); // Version
+            stream.Write(new byte[64]); // Whirlpool digest
+
+            var dataToHash = stream.ToArray();
+            var whirlpoolHash = Whirlpool.GenerateDigest(dataToHash, 0, dataToHash.Length);
+            return (dataToHash, whirlpoolHash);
         }
     }
 }

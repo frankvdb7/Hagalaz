@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
@@ -42,7 +41,6 @@ namespace Hagalaz.Services.GameWorld.Services
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="masterConnectionAdapter"></param>
         /// <param name="characterStore"></param>
         public GameMessageService(ICharacterStore characterStore)
         {
@@ -94,7 +92,7 @@ namespace Hagalaz.Services.GameWorld.Services
                 switch (type)
                 {
                     case GameMessageType.WorldSpecific:
-                        var friendText = FormatMessage(message, GameMessageType.Friends);
+                        FormatMessage(message, GameMessageType.Friends);
                         // TODO
                         //character.SendMessage(announcerDisplayName != null && character.ContactList.ContainsFriend(announcerDisplayName) ? friendText : text);
 

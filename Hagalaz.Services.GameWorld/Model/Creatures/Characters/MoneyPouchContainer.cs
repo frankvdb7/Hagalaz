@@ -58,6 +58,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// Contstructs a container for character inventories.
         /// </summary>
         /// <param name="owner">The owner of the container.</param>
+        /// <param name="itemBuilder">Builds items for the container.</param>
         public MoneyPouchContainer(ICharacter owner, IItemBuilder itemBuilder)
         {
             _owner = owner;
@@ -147,7 +148,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public int Remove(int count)
         {
             if (count <= 0) return 0;
-            var amount = (int)Math.Min((long)count, (long)Count + _owner.Inventory.Items.GetCountById(CoinsItemId));
+            var amount = (int)Math.Min(count, (long)Count + _owner.Inventory.Items.GetCountById(CoinsItemId));
             return amount > 0 && TryRemoveExact(amount) ? amount : 0;
         }
 
@@ -284,7 +285,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         public bool MoveToInventory(int count)
         {
             EnsureStandaloneGameplayCommand(nameof(MoveToInventory));
-            var inventoryFull = false;
+            bool inventoryFull;
             using (var transaction = ItemContainerTransaction.Begin(this))
             {
                 if (TryMoveToInventoryCore(count, out inventoryFull))
@@ -321,7 +322,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// Called when multiple items from specified slot(s) have changed.
         /// </summary>
-        /// <param name="slots">The slots.</param>
+        /// <param name="moneyPouch">The persisted coin stack for slot zero, or an empty list.</param>
         public void Hydrate(IReadOnlyList<HydratedItemDto> moneyPouch)
         {
             if (moneyPouch.Any(item => item.ItemId != CoinsItemId))
@@ -339,7 +340,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
                 : moneyPouch.Select(entry => (entry.SlotId,
                     _itemBuilder.Create().WithId(CoinsItemId).WithCount(entry.Count)
                         .WithExtraData(entry.ExtraData ?? string.Empty).Build())).ToArray();
-            using (var write = _pouchSynchronization.BeginWrite())
+            using (_pouchSynchronization.BeginWrite())
                 _storage.RestoreItems(items, allowZeroCount: true);
         }
 

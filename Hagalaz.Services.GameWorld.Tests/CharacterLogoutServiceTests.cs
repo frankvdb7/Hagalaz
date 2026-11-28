@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Services;
@@ -192,7 +187,7 @@ public sealed class CharacterLogoutServiceTests
         character.When(value => value.OnDetach()).Do(_ => order.Add("script-detach"));
         character.When(value => value.Destroy()).Do(_ => order.Add("destroy"));
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var service = new CharacterLogoutService(
@@ -216,17 +211,10 @@ public sealed class CharacterLogoutServiceTests
     [TestMethod]
     public async Task DetachAsync_WhenWaitIsCanceledBeforeWorkerRuns_MakesTerminalSnapshotRecoverable()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
 
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var persistenceState = new CharacterPersistenceState();
@@ -280,7 +268,7 @@ public sealed class CharacterLogoutServiceTests
         var failure = new InvalidOperationException("dehydration failed");
         dehydrationService.Dehydrate(character).Returns(_ => throw failure);
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
 
@@ -302,17 +290,10 @@ public sealed class CharacterLogoutServiceTests
     [TestMethod]
     public async Task DetachAsync_WhenCleanupFailsAfterSnapshot_MakesLogoutRecoverable()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
         var failure = new InvalidOperationException("destroy failed");
         character.When(value => value.Destroy()).Do(_ => throw failure);
 
@@ -339,46 +320,29 @@ public sealed class CharacterLogoutServiceTests
         Assert.IsTrue(state.TryBeginLogout(character, out _));
         Assert.IsTrue(state.SetSnapshot(character, new CharacterModel { SnapshotRevision = 1 }));
         Assert.IsTrue(state.MarkRecoveryEligible(character));
-
-        var persistenceState = new CharacterPersistenceState();
-        persistenceState.InitializeRevision(42, 0, 7);
-        var persistence = Substitute.For<ICharacterPersistenceService>();
-        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
-        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                persistenceStarted.TrySetResult(true);
-                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
-            });
-        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
-            .Returns(acknowledge.Task);
-        var sessionService = Substitute.For<IGameSessionService>();
-        sessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
-        var mediator = Substitute.For<IGameMediator>();
+        var persistenceSetup = CharacterLogoutTestSupport.CreatePersistenceDependencies(character, new InlineTaskScheduler());
         var service = new CharacterLogoutService(
             state,
             Substitute.For<ICharacterService>(),
-            new InlineTaskScheduler(),
-            mediator,
-            persistenceState,
-            persistence,
-            sessionService);
+            persistenceSetup.Scheduler,
+            persistenceSetup.Mediator,
+            persistenceSetup.PersistenceState,
+            persistenceSetup.Persistence,
+            persistenceSetup.GameSessionService);
 
         var firstRecovery = service.RecoverPendingLogoutsAsync();
-        await persistenceStarted.Task;
+        await persistenceSetup.PersistenceStarted.Task;
         var secondRecovery = service.RecoverPendingLogoutsAsync();
 
         await secondRecovery;
-        await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
-        await sessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+        await persistenceSetup.Persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await persistenceSetup.GameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
 
-        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        persistenceSetup.Acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
         await firstRecovery;
 
-        await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
-        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
+        await persistenceSetup.GameSessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
+        _ = persistenceSetup.Mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
     }
 
@@ -394,7 +358,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
@@ -434,24 +398,11 @@ public sealed class CharacterLogoutServiceTests
     [Timeout(5000)]
     public async Task DetachAsync_WhenCancellationWinsAfterSnapshotPublication_MakesSnapshotRecoverable()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
-        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        character.When(value => value.Destroy()).Do(_ =>
-        {
-            snapshotPublished.TrySetResult(true);
-            releaseDestroy.Task.GetAwaiter().GetResult();
-        });
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
+        var (snapshotPublished, releaseDestroy) = BlockDestroyUntilReleased(character);
         var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
         var service = new CharacterLogoutService(
             state,
@@ -477,66 +428,36 @@ public sealed class CharacterLogoutServiceTests
     [Timeout(5000)]
     public async Task RecoverPendingLogouts_WhenDestroyIsBlocked_CompletesRecoveryBeforeWorkerFinishes()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
-        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        character.When(value => value.Destroy()).Do(_ =>
-        {
-            snapshotPublished.TrySetResult(true);
-            releaseDestroy.Task.GetAwaiter().GetResult();
-        });
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var persistenceState = new CharacterPersistenceState();
-        persistenceState.InitializeRevision(42, 0, 7);
-        var persistence = Substitute.For<ICharacterPersistenceService>();
-        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
-        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                persistenceStarted.TrySetResult(true);
-                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
-            });
-        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
-            .Returns(acknowledge.Task);
-        var sessionService = Substitute.For<IGameSessionService>();
-        sessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
-        var mediator = Substitute.For<IGameMediator>();
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
+        var (snapshotPublished, releaseDestroy) = BlockDestroyUntilReleased(character);
+        var persistenceSetup = CharacterLogoutTestSupport.CreatePersistenceDependencies(character);
         var service = new CharacterLogoutService(
             state,
             characterService,
-            scheduler,
-            mediator,
-            persistenceState,
-            persistence,
-            sessionService);
+            persistenceSetup.Scheduler,
+            persistenceSetup.Mediator,
+            persistenceSetup.PersistenceState,
+            persistenceSetup.Persistence,
+            persistenceSetup.GameSessionService);
         using var cancellation = new CancellationTokenSource();
 
         var detach = service.DetachAsync(character, cancellation.Token);
         cancellation.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => detach);
-        var worker = Task.Run(scheduler.Tick);
+        var worker = Task.Run(persistenceSetup.Scheduler.Tick);
         await snapshotPublished.Task;
 
         var recovery = service.RecoverPendingLogoutsAsync();
-        await persistenceStarted.Task;
-        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        await persistenceSetup.PersistenceStarted.Task;
+        persistenceSetup.Acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
         await recovery;
 
-        await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
-        await sessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
-        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
+        await persistenceSetup.Persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await persistenceSetup.GameSessionService.Received(1).RemoveSession(character.Session, CancellationToken.None);
+        _ = persistenceSetup.Mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
 
         releaseDestroy.TrySetResult(true);
@@ -547,17 +468,10 @@ public sealed class CharacterLogoutServiceTests
     [Timeout(5000)]
     public async Task RecoverPendingLogouts_WhenDestroyFailsAfterRecoveryClaim_DoesNotReleaseRecoveryClaim()
     {
-        var character = CreateCharacter(42);
         var state = new CharacterLogoutState();
-        Assert.IsTrue(state.TryBeginLogout(character, out _));
-        var characterService = Substitute.For<ICharacterService>();
-        characterService.Remove(character).Returns(true);
-        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
-        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
-        using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
-            .BuildServiceProvider();
-        character.ServiceProvider.Returns(provider);
+        using var fixture = CreatePendingLogoutFixture(state);
+        var character = fixture.Character;
+        var characterService = fixture.CharacterService;
 
         var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -704,7 +618,7 @@ public sealed class CharacterLogoutServiceTests
             return snapshot;
         });
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         character.When(value => value.OnDetach()).Do(_ => order.Add("script-detach"));
@@ -737,7 +651,7 @@ public sealed class CharacterLogoutServiceTests
         var dehydrationService = Substitute.For<ICharacterDehydrationService>();
         dehydrationService.Dehydrate(character).Returns(new CharacterModel());
         using var provider = new ServiceCollection()
-            .AddSingleton<ICharacterDehydrationService>(dehydrationService)
+            .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(provider);
         var service = new CharacterLogoutService(
@@ -764,9 +678,85 @@ public sealed class CharacterLogoutServiceTests
         return character;
     }
 
+    private static (TaskCompletionSource<bool> SnapshotPublished, TaskCompletionSource<bool> ReleaseDestroy)
+        BlockDestroyUntilReleased(ICharacter character)
+    {
+        var snapshotPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDestroy = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        character.When(value => value.Destroy()).Do(_ =>
+        {
+            snapshotPublished.TrySetResult(true);
+            releaseDestroy.Task.GetAwaiter().GetResult();
+        });
+        return (snapshotPublished, releaseDestroy);
+    }
+    private static PendingLogoutFixture CreatePendingLogoutFixture(CharacterLogoutState state)
+    {
+        var character = CreateCharacter(42);
+        Assert.IsTrue(state.TryBeginLogout(character, out _));
+        var characterService = Substitute.For<ICharacterService>();
+        characterService.Remove(character).Returns(true);
+        var dehydrationService = Substitute.For<ICharacterDehydrationService>();
+        dehydrationService.Dehydrate(character).Returns(new CharacterModel());
+        var provider = new ServiceCollection()
+            .AddSingleton(dehydrationService)
+            .BuildServiceProvider();
+        character.ServiceProvider.Returns(provider);
+        return new PendingLogoutFixture(character, characterService, provider);
+    }
+
+    private sealed record PendingLogoutFixture(
+        ICharacter Character,
+        ICharacterService CharacterService,
+        ServiceProvider Provider) : IDisposable
+    {
+        public void Dispose() => Provider.Dispose();
+    }
+
     private sealed class InlineTaskScheduler : IRsTaskService
     {
         public void Schedule(ITaskItem action) => action.Tick();
         public void Tick() { }
     }
+}
+
+internal static class CharacterLogoutTestSupport
+{
+    public static PersistenceDependencies CreatePersistenceDependencies(ICharacter character, IRsTaskService? scheduler = null)
+    {
+        scheduler ??= new RsTaskService(NullLogger<RsTaskService>.Instance);
+        var persistenceState = new CharacterPersistenceState();
+        persistenceState.InitializeRevision(42, 0, 7);
+        var persistence = Substitute.For<ICharacterPersistenceService>();
+        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
+        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                persistenceStarted.TrySetResult(true);
+                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
+            });
+        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
+            .Returns(acknowledge.Task);
+        var gameSessionService = Substitute.For<IGameSessionService>();
+        gameSessionService.RemoveSession(character.Session, CancellationToken.None).Returns(Task.FromResult(true));
+        return new PersistenceDependencies(
+            scheduler,
+            persistenceState,
+            persistence,
+            persistenceStarted,
+            acknowledge,
+            gameSessionService,
+            Substitute.For<IGameMediator>());
+    }
+
+    public sealed record PersistenceDependencies(
+        IRsTaskService Scheduler,
+        CharacterPersistenceState PersistenceState,
+        ICharacterPersistenceService Persistence,
+        TaskCompletionSource<bool> PersistenceStarted,
+        TaskCompletionSource<CharacterPersistenceOutcome> Acknowledge,
+        IGameSessionService GameSessionService,
+        IGameMediator Mediator);
 }

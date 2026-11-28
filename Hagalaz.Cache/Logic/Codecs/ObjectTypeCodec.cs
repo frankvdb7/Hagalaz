@@ -654,11 +654,11 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                     {
                                                                                                                         if (opcode == ObjectTypeOpcodes.GroundContoured3Short)
                                                                                                                         {
-                                                                                                                            objectType.GroundContoured = (sbyte)3;
+                                                                                                                            objectType.GroundContoured = 3;
                                                                                                                             objectType.AnInt780 = buffer.ReadUnsignedShort();
                                                                                                                         }
                                                                                                                         else if (opcode == ObjectTypeOpcodes.GroundContoured4)
-                                                                                                                            objectType.GroundContoured = (sbyte)4;
+                                                                                                                            objectType.GroundContoured = 4;
                                                                                                                         else if (opcode != ObjectTypeOpcodes.GroundContoured5)
                                                                                                                         {
                                                                                                                             if (opcode != ObjectTypeOpcodes.AdjustMapSceneRotation)
@@ -790,7 +790,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                                                     }
                                                                                                                                                     else
                                                                                                                                                     {
-                                                                                                                                                        objectType.GroundContoured = (sbyte)3;
+                                                                                                                                                        objectType.GroundContoured = 3;
                                                                                                                                                         objectType.AnInt780 = buffer.ReadInt();
                                                                                                                                                     }
                                                                                                                                                 }
@@ -819,7 +819,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                                         }
                                                                                                                         else
                                                                                                                         {
-                                                                                                                            objectType.GroundContoured = (sbyte)5;
+                                                                                                                            objectType.GroundContoured = 5;
                                                                                                                             objectType.AnInt780 = buffer.ReadShort();
                                                                                                                         }
                                                                                                                     }
@@ -834,7 +834,7 @@ namespace Hagalaz.Cache.Logic.Codecs
                                                                                                         }
                                                                                                         else
                                                                                                         {
-                                                                                                            objectType.GroundContoured = (sbyte)2;
+                                                                                                            objectType.GroundContoured = 2;
                                                                                                             objectType.AnInt780 = buffer.ReadUnsignedByte() * 256;
                                                                                                         }
                                                                                                     }

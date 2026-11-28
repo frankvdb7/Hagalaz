@@ -1,7 +1,6 @@
 using Hagalaz.TestSupport;
 using System.Buffers;
 using System.IO.Pipelines;
-using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;

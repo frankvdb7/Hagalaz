@@ -1,6 +1,5 @@
 ﻿using System;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
@@ -41,7 +40,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
             InterfaceInstance.DrawString(29, "If you equip this item, it will degrade to a non-tradeable item.");
             InterfaceInstance.DrawString(13, _toDegrade.Name);
             InterfaceInstance.DrawItem(30, _toDegrade.Id, _toDegrade.Count);
-            InterfaceInstance.AttachClickHandler(14, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(14, (_, _, _, _) =>
             {
                 if (!_toDegrade.EquipmentScript.CanEquipItem(_toDegrade, Owner))
                 {
@@ -63,7 +62,7 @@ namespace Hagalaz.Game.Scripts.Dialogues.Items
                 return true;
 
             });
-            InterfaceInstance.AttachClickHandler(19, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(19, (_, _, _, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

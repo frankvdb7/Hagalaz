@@ -9,13 +9,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Quartz;
 using Refit;
-using Hagalaz.Data;
 using Hagalaz.Data.Entities;
 using Hagalaz.Data.Extensions;
 using Hagalaz.ServiceDefaults;
 using static OpenIddict.Abstractions.OpenIddictConstants;
-using OpenIddict.Abstractions;
-using System.Threading;
 using Hagalaz.Services.Authorization.Api;
 using Hagalaz.Services.Authorization.Config;
 using Hagalaz.Services.Authorization.Consumers;
@@ -23,7 +20,6 @@ using Hagalaz.Services.Authorization.Data;
 using Hagalaz.Services.Authorization.Identity;
 using Hagalaz.Services.Authorization.Mediator.Consumers;
 using Hagalaz.Services.Authorization.Services;
-using OpenIddict.Server.AspNetCore;
 
 namespace Hagalaz.Services.Authorization
 {

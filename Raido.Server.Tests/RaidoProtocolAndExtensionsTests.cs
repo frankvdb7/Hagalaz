@@ -1,11 +1,7 @@
 using System.Buffers;
 using System.IO.Pipelines;
-using Microsoft.AspNetCore.Connections;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Raido.Common.Buffers;
-using Raido.Common.Messages;
 using Raido.Common.Protocol;
 using Raido.Server.Extensions;
 
@@ -124,11 +120,11 @@ public sealed class RaidoProtocolAndExtensionsTests
     public void BufferExtensions_WriteBigEndianIntegers()
     {
         using var buffer = MemoryBufferWriter.Get();
-        Assert.AreSame(buffer, buffer.WriteInt16BigEndian(unchecked((short)0x1234)));
+        Assert.AreSame(buffer, buffer.WriteInt16BigEndian(unchecked(0x1234)));
         buffer.WriteInt24BigEndian(0x56789A);
         buffer.WriteInt32BigEndian(unchecked((int)0xBCDEF012));
         buffer.WriteInt40BigEndian(0x3456789ABC);
-        buffer.WriteInt64BigEndian(unchecked((long)0x123456789ABCDEF0));
+        buffer.WriteInt64BigEndian(unchecked(0x123456789ABCDEF0));
         CollectionAssert.AreEqual(
             new byte[] { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 },
             buffer.ToArray());

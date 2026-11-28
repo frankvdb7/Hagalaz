@@ -18,14 +18,14 @@ namespace Hagalaz.Game.Scripts.Dialogues
         public override void OnOpen()
         {
             AttachDialogueContinueClickHandler(0,
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     DefaultOptionDialogue("Talk", "Trade");
                     return true;
                 });
 
             AttachDialogueOptionClickHandler("Talk",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     var skillCapeDialogue = Owner.ServiceProvider.GetRequiredService<SkillCapeDialogue>();
                     skillCapeDialogue.SkillID = StatisticsConstants.Herblore;
@@ -34,7 +34,7 @@ namespace Hagalaz.Game.Scripts.Dialogues
                 });
 
             AttachDialogueOptionClickHandler("Trade",
-                (extraData1, extraData2) =>
+                (_, _) =>
                 {
                     Owner.Widgets.CloseChatboxOverlay();
                     Owner.EventManager.SendEvent(new OpenShopEvent(Owner, 2));

@@ -112,7 +112,7 @@ namespace Hagalaz.Game.Common.Tasks
         }
 
         private IGroundItem? ResolveTarget() =>
-            _entityService.TryResolve<IGroundItem>(_targetHandle, out var target) ? target : null;
+            _entityService.TryResolve(_targetHandle, out var target) ? target : null;
 
         /// <summary>
         /// 

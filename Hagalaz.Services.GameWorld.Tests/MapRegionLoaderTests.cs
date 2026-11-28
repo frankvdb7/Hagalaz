@@ -1,6 +1,4 @@
-using System.Collections;
 using System.Diagnostics;
-using System.IO;
 using System.Text.Json;
 using Hagalaz.Cache.Maps;
 using Hagalaz.Cache.Abstractions;
@@ -18,7 +16,6 @@ using Hagalaz.Cache.Abstractions.Types.Providers;
 using Hagalaz.Data.Entities;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
-using Hagalaz.Game.Abstractions.Builders.Location;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
@@ -56,7 +53,7 @@ public sealed class MapRegionLoaderTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity =>
             {
                 if (activity.GetTagItem("map.region.id") is int stoppedRegionId && stoppedRegionId == regionId)
@@ -122,17 +119,7 @@ public sealed class MapRegionLoaderTests
     {
         var stoppedActivities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
-                    stoppedActivities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateLoadActivityListener(stoppedActivities);
 
         var region = CreateRegion();
         var gameObject = Substitute.For<IGameObject>();
@@ -202,7 +189,7 @@ public sealed class MapRegionLoaderTests
         Assert.AreEqual(MapRegionState.Discarded, region.State);
         region.DidNotReceive().FlagCollision(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CollisionFlag>());
         region.DidNotReceive().Add(Arg.Any<IGameObject>());
-        region.DidNotReceive().Add(Arg.Any<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>());
+        region.DidNotReceive().Add(Arg.Any<IGroundItem>());
         fixture.RegionService.Received(1).TryRemoveMapRegion(region.Id, region.BaseLocation.Dimension, region);
     }
 
@@ -396,17 +383,7 @@ public sealed class MapRegionLoaderTests
     {
         var stoppedActivities = new List<Activity>();
         using var measurements = new MeterListenerSpy("Hagalaz.Services.GameWorld");
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity =>
-            {
-                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
-                    stoppedActivities.Add(activity);
-            }
-        };
-        ActivitySource.AddActivityListener(listener);
+        using var listener = CreateLoadActivityListener(stoppedActivities);
         using var cancellation = new CancellationTokenSource();
         var region = CreateRegion();
         var npcA = CreateNpc(1);
@@ -476,7 +453,7 @@ public sealed class MapRegionLoaderTests
         gameObject.IsStatic.Returns(true);
         var gameObjectBuilder = ConfigureStaticGameObjectBuilder(gameObject);
         var mapProvider = CreateMapProvider(new DecodedMapRegion([CreateMapObject(100, 0, 0, 3, 3, 0)], []));
-        var item = Substitute.For<Hagalaz.Game.Abstractions.Model.Items.IGroundItem>();
+        var item = Substitute.For<IGroundItem>();
         item.Location.Returns(Location.Create(65, 65, 0, 0));
         var groundItemBuilder = Substitute.For<IGroundItemBuilder>();
         var onGround = Substitute.For<IGroundItemOnGround>();
@@ -610,7 +587,7 @@ public sealed class MapRegionLoaderTests
         regionService.When(service => service.FlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
             .Do(call =>
             {
-                var location = call.ArgAt<ILocation>(0)!;
+                var location = call.ArgAt<ILocation>(0);
                 if (location.RegionId == destination.Id)
                     destination.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
             });
@@ -789,7 +766,7 @@ public sealed class MapRegionLoaderTests
         regionService.When(service => service.FlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
             .Do(call =>
             {
-                var location = call.ArgAt<ILocation>(0)!;
+                var location = call.ArgAt<ILocation>(0);
                 if (location.RegionId == region.Id)
                     region.FlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
             });
@@ -797,7 +774,7 @@ public sealed class MapRegionLoaderTests
         regionService.When(service => service.UnFlagCollision(Arg.Any<ILocation>(), Arg.Any<CollisionFlag>()))
             .Do(call =>
             {
-                var location = call.ArgAt<ILocation>(0)!;
+                var location = call.ArgAt<ILocation>(0);
                 if (location.RegionId == region.Id)
                     region.UnFlagCollision(location.RegionLocalX, location.RegionLocalY, location.Z, call.Arg<CollisionFlag>());
             });
@@ -858,6 +835,24 @@ public sealed class MapRegionLoaderTests
         }
         region.When(value => value.MarkDiscarded()).Do(_ => state = MapRegionState.Discarded);
         return region;
+    }
+
+    private static ActivityListener CreateLoadActivityListener(List<Activity> stoppedActivities)
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Hagalaz.Services.GameWorld",
+            Sample = (ref _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == "Hagalaz.Services.GameWorld.MapRegionLoader.Load")
+                {
+                    stoppedActivities.Add(activity);
+                }
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+        return listener;
     }
 
     private static NpcSpawn[] CreateNpcSpawns(params int[] ids) => ids.Select(id => new NpcSpawn
@@ -1027,7 +1022,7 @@ public sealed class MapRegionLoaderTests
                 {
                     var definitions = callInfo.Arg<IEnumerable<int>>()
                         .Distinct()
-                        .ToDictionary(id => id, _ => (IGameObjectDefinition)Substitute.For<IGameObjectDefinition>());
+                        .ToDictionary(id => id, _ => Substitute.For<IGameObjectDefinition>());
                     return Task.FromResult<IReadOnlyDictionary<int, IGameObjectDefinition>>(definitions);
                 });
         }

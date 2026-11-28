@@ -2,7 +2,6 @@
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Items.Rings
@@ -24,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Items.Rings
             }
             else if (clickType == ComponentClickType.Option7Click)
             {
-                character.Widgets.OpenDialogue(new RingOfSlayingDialogue(character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(), false),
+                character.Widgets.OpenDialogue(new RingOfSlayingDialogue(character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>()),
                     true,
                     item);
             }

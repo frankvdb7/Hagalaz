@@ -1,21 +1,16 @@
-﻿using System;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Factories;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Mediator;
-using Hagalaz.Services.GameWorld.Logic.Characters.Messages;
 using Hagalaz.Services.GameWorld.Metrics;
 using Hagalaz.Services.GameWorld.Services.Model;
 using Hagalaz.Services.GameWorld.Model;
@@ -312,7 +307,7 @@ namespace Hagalaz.Services.GameWorld.Services
             var signInMessage = signInResponse.Message;
             if (signInMessage.Succeeded)
             {
-                context.Features.Set<PendingAuthorizationCleanup>(new PendingAuthorizationCleanup(
+                context.Features.Set(new PendingAuthorizationCleanup(
                     clientId,
                     signInMessage.Subject,
                     signInMessage.AuthorizationId));

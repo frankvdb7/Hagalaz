@@ -1,9 +1,7 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Glow;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 
@@ -27,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             glowOptionalMock.WithBlue(Arg.Any<byte>()).Returns(glowOptionalMock);
             glowOptionalMock.WithAlpha(Arg.Any<byte>()).Returns(glowOptionalMock);
             glowOptionalMock.WithDuration(Arg.Any<int>()).Returns(glowOptionalMock);
-            ((IGlowBuild)glowOptionalMock).Build().Returns(glowMock);
+            (glowOptionalMock).Build().Returns(glowMock);
 
             var characterMock = Substitute.For<ICharacter>();
             var command = new GlowCommand(glowBuilderMock);

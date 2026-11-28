@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.IO.Pipelines;
 using System.Security.Claims;
 using Hagalaz.Authorization.Constants;
 using Hagalaz.Game.Abstractions.Data;
@@ -7,15 +5,9 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Common.Events.Character.Packet;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Hubs;
-using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Connections.Features;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Raido.Common.Protocol;
 using Raido.Server;
 using Raido.Server.Extensions;
 

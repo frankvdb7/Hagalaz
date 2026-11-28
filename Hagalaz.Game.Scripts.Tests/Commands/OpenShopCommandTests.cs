@@ -1,8 +1,6 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Commands
@@ -25,7 +23,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             await command.Execute(args);
 
             // Assert
-            eventManagerMock.Received(1).SendEvent(Arg.Is<Hagalaz.Game.Common.Events.Character.OpenShopEvent>(e => e.ShopId == 123));
+            eventManagerMock.Received(1).SendEvent(Arg.Is<Common.Events.Character.OpenShopEvent>(e => e.ShopId == 123));
         }
     }
 }

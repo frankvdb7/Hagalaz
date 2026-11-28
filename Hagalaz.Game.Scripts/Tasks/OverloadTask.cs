@@ -25,7 +25,7 @@ namespace Hagalaz.Game.Scripts.Tasks
         {
             _drinker = drinker;
             _ticks = ticks;
-            _interruptEvent = drinker.RegisterEventHandler<CreatureInterruptedEvent>(e =>
+            _interruptEvent = drinker.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {
                 Cancel();
                 return false;

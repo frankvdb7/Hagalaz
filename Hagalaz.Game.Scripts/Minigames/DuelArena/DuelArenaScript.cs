@@ -1,17 +1,12 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
-using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Builders.HintIcon;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Tasks;
@@ -152,12 +147,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// <summary>
         ///     Contains the encoded previous rules.
         /// </summary>
-        private DuelRulesDto PreviousRules { get; set; }
+        private DuelRulesDto PreviousRules { get; set; } = new() { Rules = [] };
 
         /// <summary>
         ///     Contains the encoded favourite rules.
         /// </summary>
-        private DuelRulesDto FavoriteRules { get; set; }
+        private DuelRulesDto FavoriteRules { get; set; } = new() { Rules = [] };
 
         public DuelArenaScript(ICharacterContextAccessor contextAccessor, IHintIconBuilder hintIconBuilder, IItemBuilder itemBuilder)
             : base(contextAccessor)
@@ -165,6 +160,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             _hintIconBuilder = hintIconBuilder;
             _itemBuilder = itemBuilder;
             _stakeExchange = new DuelStakeExchange(itemBuilder);
+            CurrentRules = CreateRules();
         }
 
         /// <summary>
@@ -249,6 +245,33 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
         }
 
+        private DuelRules CreateRules() =>
+            new DuelRules(_ =>
+            {
+                if (SelfAccepted && !TargetAccepted)
+                {
+                    Character.Configurations.SendGlobalCs2Int(1332, 1); // warning for change
+                    Character.QueueTask(new RsTask(() =>
+                        {
+                            Character.Configurations.SendGlobalCs2Int(1332, 0); // disable warning
+                        },
+                        5));
+                }
+                else if (TargetAccepted && !SelfAccepted && Target is { } target)
+                {
+                    target.Configurations.SendGlobalCs2Int(1332, 1); // warning for change
+                    target.QueueTask(new RsTask(() =>
+                        {
+                            target.Configurations.SendGlobalCs2Int(1332, 0); // disable warning
+                        },
+                        5));
+                }
+
+                SelfAccepted = false;
+                TargetAccepted = false;
+                RefreshDuelConfirmationStatus();
+            });
+
         /// <summary>
         ///     Starts the duel session.
         /// </summary>
@@ -295,31 +318,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            CurrentRules = new DuelRules(rule =>
-            {
-                if (SelfAccepted && !TargetAccepted)
-                {
-                    Character.Configurations.SendGlobalCs2Int(1332, 1); // warning for change
-                    Character.QueueTask(new RsTask(() =>
-                        {
-                            Character.Configurations.SendGlobalCs2Int(1332, 0); // disable warning
-                        },
-                        5));
-                }
-                else if (TargetAccepted && !SelfAccepted)
-                {
-                    Target.Configurations.SendGlobalCs2Int(1332, 1); // warning for change
-                    Target.QueueTask(new RsTask(() =>
-                        {
-                            Target.Configurations.SendGlobalCs2Int(1332, 0); // disable warning
-                        },
-                        5));
-                }
-
-                SelfAccepted = false;
-                TargetAccepted = false;
-                RefreshDuelConfirmationStatus();
-            });
+            CurrentRules = CreateRules();
 
             Character.Configurations.SendStandardConfiguration(286, 0); // reset rules
             Target.Configurations.SendStandardConfiguration(286, 0); // reset rules
@@ -331,7 +330,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendGlobalCs2String(378, string.Empty); // reset confirmation status
 
             SelfInterface.AttachClickHandler(42,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -343,7 +342,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(42,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -359,7 +358,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(48,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -371,7 +370,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(48,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -387,7 +386,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(56,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -404,7 +403,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(56,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -422,7 +421,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(71,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -434,7 +433,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                     return true;
                 });
             TargetInterface.AttachClickHandler(71,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -458,7 +457,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public void SetupDuelStakeScreen()
         {
-            if (!DuelSession || !IsStaking)
+            if (!DuelSession || !IsStaking || Target is null || SelfInterface is null || TargetInterface is null)
             {
                 return;
             }
@@ -516,16 +515,16 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendCs2Script(158, [(1367 << 16) | 13, 134, 3, 3, 1, -1, "Value", "", "", ""]);
 
             SelfOverlay.AttachClickHandler(0,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleInventoryStakeClick(true, clickType, itemID, itemSlot));
 
             TargetOverlay.AttachClickHandler(0,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleInventoryStakeClick(false, clickType, itemID, itemSlot));
 
             // money pouch
             SelfInterface.AttachClickHandler(8,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -547,7 +546,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             TargetInterface.AttachClickHandler(8,
-                (componentId, clickType, extra1, extra2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -569,11 +568,11 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             SelfInterface.AttachClickHandler(7,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleStakedItemClick(true, clickType, itemID, itemSlot));
 
             TargetInterface.AttachClickHandler(7,
-                (componentID, clickType, itemID, itemSlot) =>
+                (_, clickType, itemID, itemSlot) =>
                     HandleStakedItemClick(false, clickType, itemID, itemSlot));
         }
 
@@ -582,15 +581,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public void RefreshDuelStakeScreen()
         {
-            if (!DuelSession || !IsStaking)
+            if (!DuelSession || !IsStaking || Target is null || SelfContainer is null || TargetContainer is null)
             {
                 return;
             }
 
-            Character.Configurations.SendItems(134, false, SelfContainer.Items, null);
-            Character.Configurations.SendItems(134, true, TargetContainer.Items, null);
-            Target.Configurations.SendItems(134, false, TargetContainer.Items, null);
-            Target.Configurations.SendItems(134, true, SelfContainer.Items, null);
+            Character.Configurations.SendItems(134, false, SelfContainer.Items);
+            Character.Configurations.SendItems(134, true, TargetContainer.Items);
+            Target.Configurations.SendItems(134, false, TargetContainer.Items);
+            Target.Configurations.SendItems(134, true, SelfContainer.Items);
 
             var selfTotal = SelfContainer.CalculateTotalValue();
             var targetTotal = TargetContainer.CalculateTotalValue();
@@ -607,7 +606,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public void RefreshDuelConfirmationStatus()
         {
-            if (!DuelSession)
+            if (!DuelSession || Target is null)
             {
                 return;
             }
@@ -708,7 +707,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         /// </summary>
         public void StartConfirmationStage()
         {
-            if (!DuelSession || Stage != DuelStage.First)
+            if (!DuelSession || Stage != DuelStage.First || Target is null || SelfInterface is null || TargetInterface is null)
             {
                 return;
             }
@@ -731,8 +730,15 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             ((DuelScreenScript)TargetInterface.Script).CloseCallback = null;
             Character.Widgets.CloseWidget(SelfInterface);
             Target.Widgets.CloseWidget(TargetInterface);
-            Character.Widgets.CloseWidget(SelfOverlay);
-            Target.Widgets.CloseWidget(TargetOverlay);
+            if (SelfOverlay is { } selfOverlay)
+            {
+                Character.Widgets.CloseWidget(selfOverlay);
+            }
+
+            if (TargetOverlay is { } targetOverlay)
+            {
+                Target.Widgets.CloseWidget(targetOverlay);
+            }
             SelfIntInputHandler = null;
             TargetIntInputHandler = null;
 
@@ -802,7 +808,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Target.Configurations.SendGlobalCs2String(377, Character.DisplayName); // name, no combat
 
             SelfInterface.AttachClickHandler(24,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -820,7 +826,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 });
 
             TargetInterface.AttachClickHandler(24,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, _, _) =>
                 {
                     if (clickType != ComponentClickType.LeftClick)
                     {
@@ -847,6 +853,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             var character = self ? Character : Target;
             var container = self ? SelfContainer : TargetContainer;
+            if (character is null || container is null) return false;
             var inventory = character.Inventory.Items;
             if (itemSlot < 0 || itemSlot >= inventory.Capacity) return false;
 
@@ -911,6 +918,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         {
             var character = self ? Character : Target;
             var container = self ? SelfContainer : TargetContainer;
+            if (character is null || container is null) return false;
             if (itemSlot < 0 || itemSlot >= container.Items.Capacity) return false;
 
             var item = container.Items[itemSlot];
@@ -956,10 +964,19 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
         private void RequestDuelAmountInput(bool self, string message, Action<int> onAmount)
         {
             var character = self ? Character : Target;
-            OnIntInput handler = null;
-            handler = amount => CompleteDuelAmountInput(self, character, amount, handler, onAmount);
-            if (self) SelfIntInputHandler = Character.Widgets.IntInputHandler = handler;
-            else TargetIntInputHandler = Target.Widgets.IntInputHandler = handler;
+            if (character is null) return;
+
+            OnIntInput? handler = null;
+            handler = amount =>
+            {
+                if (handler is { } input)
+                {
+                    CompleteDuelAmountInput(self, character, amount, input, onAmount);
+                }
+            };
+
+            if (self) SelfIntInputHandler = character.Widgets.IntInputHandler = handler;
+            else TargetIntInputHandler = character.Widgets.IntInputHandler = handler;
             character.Configurations.SendIntegerInput(message);
         }
 
@@ -976,7 +993,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
         private void StartDuelCombatStage()
         {
-            if (!DuelSession || Stage != DuelStage.Second)
+            if (!DuelSession || Stage != DuelStage.Second || Target is not { } opponent || SelfInterface is null || TargetInterface is null)
             {
                 return;
             }
@@ -1052,38 +1069,38 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             }
 
             Character.Movement.Teleport(Teleport.Create(selfLocation));
-            Target.Movement.Teleport(Teleport.Create(targetLocation));
+            opponent.Movement.Teleport(Teleport.Create(targetLocation));
 
             CurrentRules.RemoveEquipment(Character);
-            CurrentRules.RemoveEquipment(Target);
+            CurrentRules.RemoveEquipment(opponent);
 
             Character.Statistics.NormalizeBoostedStatistics();
-            Target.Statistics.NormalizeBoostedStatistics();
+            opponent.Statistics.NormalizeBoostedStatistics();
 
             Character.Prayers.DeactivateAllPrayers();
-            Target.Prayers.DeactivateAllPrayers();
+            opponent.Prayers.DeactivateAllPrayers();
 
             var result = new DuelResult();
             Character.AddScript(new DuelArenaCombatScript(Character.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
-                Target,
+                opponent,
                 CurrentRules,
                 SelfContainer,
                 TargetContainer,
                 result,
                 _hintIconBuilder,
                 Character.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
-            Target.AddScript(new DuelArenaCombatScript(Target.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
+            opponent.AddScript(new DuelArenaCombatScript(opponent.ServiceProvider.GetRequiredService<ICharacterContextAccessor>(),
                 Character,
                 CurrentRules,
                 TargetContainer,
                 SelfContainer,
                 result,
                 _hintIconBuilder,
-                Target.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
+                opponent.ServiceProvider.GetRequiredService<ILogger<DuelArenaCombatScript>>()));
 
             var previousRules = CurrentRules.Dehydrate();
             PreviousRules = previousRules;
-            var script = Target.GetScript<DuelArenaScript>();
+            var script = opponent.GetScript<DuelArenaScript>();
             if (script != null)
             {
                 script.PreviousRules = previousRules;
@@ -1093,7 +1110,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
             Character.Profile.SetObject(DuelArenaConstants.MinigamesDuelArenaPreviousRules, PreviousRules);
 
             Character.TryRemoveScript<DuelArenaScript>();
-            Target.TryRemoveScript<DuelArenaScript>();
+            opponent.TryRemoveScript<DuelArenaScript>();
         }
 
         /// <summary>
@@ -1149,9 +1166,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 Character.Widgets.IntInputHandler = null;
             }
 
-            if (Target.Widgets.IntInputHandler == TargetIntInputHandler)
+            if (Target is { } opponent && opponent.Widgets.IntInputHandler == TargetIntInputHandler)
             {
-                Target.Widgets.IntInputHandler = null;
+                opponent.Widgets.IntInputHandler = null;
             }
 
             if (SelfInterface != null && SelfInterface.IsOpened)
@@ -1159,9 +1176,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 Character.Widgets.CloseWidget(SelfInterface);
             }
 
-            if (TargetInterface != null && TargetInterface.IsOpened)
+            if (TargetInterface is { IsOpened: true } openTargetInterface)
             {
-                Target.Widgets.CloseWidget(TargetInterface);
+                Target?.Widgets.CloseWidget(openTargetInterface);
             }
 
             if (SelfOverlay != null && SelfOverlay.IsOpened)
@@ -1169,9 +1186,9 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 Character.Widgets.CloseWidget(SelfOverlay);
             }
 
-            if (TargetOverlay != null && TargetOverlay.IsOpened)
+            if (TargetOverlay is { IsOpened: true } openTargetOverlay)
             {
-                Target.Widgets.CloseWidget(TargetOverlay);
+                Target?.Widgets.CloseWidget(openTargetOverlay);
             }
 
             SelfInterface = null;
@@ -1232,12 +1249,12 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
 
                 if (Stage == DuelStage.First || Stage == DuelStage.Second)
                 {
-                    if (!_interfacesClosed && !SelfInterface.IsOpened)
+                    if (!_interfacesClosed && SelfInterface?.IsOpened != true)
                     {
                         CancelDuelSession();
                     }
 
-                    if (!_interfacesClosed && !TargetInterface.IsOpened)
+                    if (!_interfacesClosed && TargetInterface?.IsOpened != true)
                     {
                         CancelDuelSession();
                     }
@@ -1247,7 +1264,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                         // duel step 1
                         case DuelStage.First:
                             {
-                                if (IsStaking && !_interfacesClosed && (!SelfOverlay.IsOpened || !TargetOverlay.IsOpened))
+                                if (IsStaking && !_interfacesClosed && (SelfOverlay?.IsOpened != true || TargetOverlay?.IsOpened != true))
                                 {
                                     CancelDuelSession();
                                 }
@@ -1258,7 +1275,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                             }
                         case DuelStage.Second:
                             {
-                                if (IsStaking && !_interfacesClosed && (SelfOverlay.IsOpened || TargetOverlay.IsOpened))
+                                if (IsStaking && !_interfacesClosed && (SelfOverlay?.IsOpened == true || TargetOverlay?.IsOpened == true))
                                 {
                                     CancelDuelSession();
                                 }
@@ -1274,7 +1291,7 @@ namespace Hagalaz.Game.Scripts.Minigames.DuelArena
                 return;
             }
 
-            if (!Character.Viewport.InBounds(LastRequest.Location))
+            if (Character is { } character && !character.Viewport.InBounds(LastRequest.Location))
             {
                 LastRequest = null;
             }

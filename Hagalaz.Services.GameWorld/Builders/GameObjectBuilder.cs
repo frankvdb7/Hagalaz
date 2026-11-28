@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Abstractions.Builders.GameObject;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.GameObjects;
@@ -9,18 +8,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class GameObjectBuilder : IGameObjectBuilder, IGameObjectId, IGameObjectLocation, IGameObjectOptional, IGameObjectBuild
+    public class GameObjectBuilder : IGameObjectBuilder, IGameObjectId, IGameObjectLocation, IGameObjectOptional
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IGameObjectScriptProvider _gameObjectScriptProvider;
         private int _id;
         private ILocation _location = default!;
-        private int _rotation = 0;
+        private int _rotation;
         private ShapeType _shapeType = ShapeType.GroundDefault;
         private IGameObjectScript? _script;
         private IGameObjectDefinition? _definition;
         private Type? _scriptType;
-        private bool _isStatic = false;
+        private bool _isStatic;
 
         public GameObjectBuilder(IServiceProvider serviceProvider, IGameObjectScriptProvider gameObjectScriptProvider)
         {

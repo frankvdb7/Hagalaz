@@ -29,9 +29,9 @@ namespace Hagalaz.Services.Characters.Profiles
             CreateMap<CharactersItemsLook, ItemAppearance>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => (int)src.ItemId))
                 .ForMember(dest => dest.MaleModels,
-                opt => opt.MapFrom(src => new int[] { src.MaleWornModel1, src.MaleWornModel2, src.MaleWornModel3 }))
+                opt => opt.MapFrom(src => new[] { src.MaleWornModel1, src.MaleWornModel2, src.MaleWornModel3 }))
                 .ForMember(dest => dest.FemaleModels,
-                opt => opt.MapFrom(src => new int[] { src.FemaleWornModel1, src.FemaleWornModel2, src.FemaleWornModel3 }))
+                opt => opt.MapFrom(src => new[] { src.FemaleWornModel1, src.FemaleWornModel2, src.FemaleWornModel3 }))
                 .ForMember(dest => dest.TextureColors,
                 opt => opt.MapFrom(src => StringUtilities.SelectIntFromString(src.TextureColours!)))
                 .ForMember(dest => dest.ModelColors, 

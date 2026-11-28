@@ -57,7 +57,7 @@ namespace Hagalaz.Game.Scripts.Dialogues
 
             if (continueClicked != null)
             {
-                InterfaceInstance.AttachClickHandler(3, (componentID, clickType, extraData1, extraData2) =>
+                InterfaceInstance.AttachClickHandler(3, (_, _, extraData1, _) =>
                 {
                     continueClicked.Invoke(3, extraData1);
                     return true;

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Request;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -195,7 +194,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                 }
 
                 EventHappened cevent = null;
-                cevent = character.RegisterEventHandler(new EventHappened<AllowClanInviteEvent>(e =>
+                cevent = character.RegisterEventHandler(new EventHappened<AllowClanInviteEvent>(_ =>
                 {
                     if (!_founders.Contains(character))
                     {
@@ -291,7 +290,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                 }
 
                 AttachDialogueContinueClickHandler(0,
-                    (extraData1, extraData2) =>
+                    (_, _) =>
                     {
                         if (_script.HasAllFounders())
                         {
@@ -323,7 +322,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
             /// </summary>
             private void AttachStartClanHandler() =>
                 AttachDialogueContinueClickHandler(1,
-                    (extraData1, extraData2) =>
+                    (_, _) =>
                     {
                         ShowFoundClanDialogue();
                         return true;
@@ -335,13 +334,13 @@ namespace Hagalaz.Game.Scripts.Items.Clans
             private void AttachInfoChartHandler()
             {
                 AttachDialogueContinueClickHandler(1,
-                    (extraData1, extraData2) =>
+                    (_, _) =>
                     {
                         StandardDialogue("Remember that all founders need to remain logged in to complete the founding of a clan.");
                         return true;
                     });
                 AttachDialogueContinueClickHandler(2,
-                    (extraData1, extraData2) =>
+                    (_, _) =>
                     {
                         Owner.Widgets.CloseChatboxOverlay();
                         return true;
@@ -353,7 +352,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
             /// </summary>
             private void AttachViewChartHandler() =>
                 AttachDialogueContinueClickHandler(1,
-                    (extraData1, extraData2) =>
+                    (_, _) =>
                     {
                         var count = _script.GetFounderCount();
                         var names = _script.GetFounderNames();
@@ -365,7 +364,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
 
                         StandardOptionDialogue("Your charter currently contains " + count + " " + name, names.ToArray());
 
-                        OnDialogueClick optionClick = (extra1, extra2) =>
+                        OnDialogueClick optionClick = (_, _) =>
                         {
                             InterfaceInstance.Close();
                             return true;
@@ -390,13 +389,13 @@ namespace Hagalaz.Game.Scripts.Items.Clans
                     _clanNameHandler = Owner.Widgets.StringInputHandler = null;
                     StandardOptionDialogue("Please confirm your chosen clan name.", input, "Choose a different name.");
                     AttachDialogueOptionClickHandler(input,
-                        (e1, e2) =>
+                        (_, _) =>
                         {
                             //adapter.SendPacketAsync(new AddClanRequestPacketComposer(Owner, input, _script.Founders));
                             return true;
                         });
                     AttachDialogueOptionClickHandler("Choose a different name.",
-                        (e1, e2) =>
+                        (_, _) =>
                         {
                             ShowFoundClanDialogue();
                             return true;
@@ -442,7 +441,7 @@ namespace Hagalaz.Game.Scripts.Items.Clans
             /// </summary>
             public override void OnOpen() =>
                 InterfaceInstance.AttachClickHandler(15,
-                    (componentID, clickType, extraData1, extraData2) =>
+                    (_, clickType, _, _) =>
                     {
                         if (clickType == ComponentClickType.SpecialClick)
                         {

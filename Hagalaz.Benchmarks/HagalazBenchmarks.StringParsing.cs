@@ -36,10 +36,10 @@ namespace Hagalaz.Benchmarks
         public bool[] DecodeBoolValues() => StringUtilities.DecodeValues(_csvBools);
 
         [Benchmark]
-        public int[] DecodeIntValues_StringDelegate() => StringUtilities.DecodeValues<int>(_csvInts, (string s) => int.Parse(s));
+        public int[] DecodeIntValues_StringDelegate() => StringUtilities.DecodeValues(_csvInts, (s) => int.Parse(s));
 
         [Benchmark]
-        public int[] DecodeIntValues_SpanDelegate() => StringUtilities.DecodeValuesFromSpan<int>(_csvInts, (ReadOnlySpan<char> segment) => int.Parse(segment, NumberStyles.Integer, CultureInfo.InvariantCulture));
+        public int[] DecodeIntValues_SpanDelegate() => StringUtilities.DecodeValuesFromSpan(_csvInts, (segment) => int.Parse(segment, NumberStyles.Integer, CultureInfo.InvariantCulture));
 
         [Benchmark]
         public string EncodeIntValues() => StringUtilities.EncodeValues(_intArray);

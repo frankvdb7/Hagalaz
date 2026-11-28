@@ -186,27 +186,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Interact
-            InterfaceInstance.AttachClickHandler(16, (componentID, clickType, extraData1, extraData2) =>
-            {
-                if (clickType != ComponentClickType.Option6Click)
-                {
-                    return false;
-                }
-
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Summoner != Owner)
-                {
-                    return false;
-                }
-
-                var familiarDialogue = Owner.ServiceProvider.GetRequiredService<StandardFamiliarDialogue>();
-                Owner.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, familiarDialogue, true, Owner.FamiliarScript.Familiar);
-                return true;
-            });
+            AttachInteractHandler(16, ComponentClickType.Option6Click);
 
             // Special move
             InterfaceInstance.AttachClickHandler(18, (componentID, clickType, extraData1, extraData2) =>
@@ -318,27 +298,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Left click Interact
-            InterfaceInstance.AttachClickHandler(27, (componentID, clickType, extraData1, extraData2) =>
-            {
-                if (clickType != ComponentClickType.LeftClick)
-                {
-                    return false;
-                }
-
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Summoner != Owner)
-                {
-                    return false;
-                }
-
-                var familiarDialogue = Owner.ServiceProvider.GetRequiredService<StandardFamiliarDialogue>();
-                Owner.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, familiarDialogue, true, Owner.FamiliarScript.Familiar);
-                return true;
-            });
+            AttachInteractHandler(27, ComponentClickType.LeftClick);
 
             // Attack
             InterfaceInstance.AttachUseOnCreatureHandler(15, (componentID, creature, forceRun, extraData1, extraData2) =>
@@ -476,6 +436,31 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
         ///     Selects the left click option.
         /// </summary>
         private void SelectLeftClickOption() => Owner.Widgets.OpenWidget(880, Owner.GameClient.IsScreenFixed ? 187 : 119, 1, _leftClickOptionTab, true);
+
+        private void AttachInteractHandler(int componentId, ComponentClickType requiredClickType)
+        {
+            InterfaceInstance.AttachClickHandler(componentId, (componentID, clickType, extraData1, extraData2) =>
+            {
+                if (clickType != requiredClickType)
+                {
+                    return false;
+                }
+
+                if (!Owner.HasFamiliar())
+                {
+                    return false;
+                }
+
+                if (Owner.FamiliarScript.Summoner != Owner)
+                {
+                    return false;
+                }
+
+                var familiarDialogue = Owner.ServiceProvider.GetRequiredService<StandardFamiliarDialogue>();
+                Owner.Widgets.OpenChatboxOverlay((short)DialogueInterfaces.Send2TextChatRight, 0, familiarDialogue, true, Owner.FamiliarScript.Familiar);
+                return true;
+            });
+        }
 
         /// <summary>
         ///     Happens when interface is closed for character.

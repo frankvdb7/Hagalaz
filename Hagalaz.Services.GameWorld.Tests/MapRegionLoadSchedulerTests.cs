@@ -1,15 +1,10 @@
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Maps;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Data;
 using Hagalaz.Services.GameWorld.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests
@@ -88,7 +83,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             await wait.WaitAsync(TimeSpan.FromSeconds(1));
             await scheduler.StopAsync(CancellationToken.None);
 
-            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!, default);
+            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!);
         }
 
         [TestMethod]
@@ -105,7 +100,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             scheduler.CompleteDynamicPopulation(region, false);
 
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => wait);
-            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!, default);
+            await loader.DidNotReceiveWithAnyArgs().LoadAsync(default!);
         }
 
         [TestMethod]

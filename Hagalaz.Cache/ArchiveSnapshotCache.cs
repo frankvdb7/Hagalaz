@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Metrics;
 using Hagalaz.Cache.Models;
 
@@ -82,7 +81,7 @@ internal sealed class ArchiveSnapshotCache
                 throw;
             }
 
-            CompleteSuccessfulFlight(key, flight!, snapshot);
+            CompleteSuccessfulFlight(key, flight, snapshot);
             return snapshot.OpenMember(physicalMemberIndex);
         }
         finally

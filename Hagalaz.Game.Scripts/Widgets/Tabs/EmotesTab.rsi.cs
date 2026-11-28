@@ -1,8 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Builders.Audio;
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Model;
-using Hagalaz.Game.Abstractions.Model.Maps.PathFinding;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Common;
@@ -54,7 +52,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             Owner.Configurations.SendStandardConfiguration(2405, -1); // living on borrowed time
             Owner.Configurations.SendStandardConfiguration(2458, -1); // chaotic cookery
             
-            InterfaceInstance.AttachClickHandler(8, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(8, (_, clickType, _, extraData2) =>
             {
                 if (clickType != ComponentClickType.LeftClick)
                 {

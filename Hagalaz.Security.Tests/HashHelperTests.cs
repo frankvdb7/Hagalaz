@@ -30,7 +30,7 @@ namespace Hagalaz.Security.Tests
         [InlineData(HashType.SHA256, typeof(SHA256))]
         [InlineData(HashType.SHA384, typeof(SHA384))]
         [InlineData(HashType.SHA512, typeof(SHA512))]
-        public void CreateNewInstance_ValidHashType_ReturnsInstance(HashType hashType, System.Type expectedType)
+        public void CreateNewInstance_ValidHashType_ReturnsInstance(HashType hashType, Type expectedType)
         {
             // Act
             var result = HashHelper.CreateNewInstance(hashType);

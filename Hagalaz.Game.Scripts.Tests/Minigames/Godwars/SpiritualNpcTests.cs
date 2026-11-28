@@ -2,7 +2,6 @@ using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Bandos;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
-using Hagalaz.Game.Scripts.Tests.Minigames.Godwars;
 using NSubstitute;
 using Saradomin = Hagalaz.Game.Scripts.Minigames.Godwars.NPCs.Saradomin;
 

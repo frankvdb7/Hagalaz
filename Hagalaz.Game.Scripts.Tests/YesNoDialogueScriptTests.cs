@@ -2,7 +2,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests;
@@ -10,6 +9,21 @@ namespace Hagalaz.Game.Scripts.Tests;
 [TestClass]
 public sealed class YesNoDialogueScriptTests
 {
+    [TestMethod]
+    [DataRow("Yes.", true)]
+    [DataRow("No.", false)]
+    public void RegisteredOption_UsesItsOwnAnswerWithExtraClickData(string option, bool expectedAnswer)
+    {
+        var dialogue = CreateDialogue();
+        var answers = new List<bool>();
+        dialogue.Callback = answers.Add;
+        dialogue.OnOpen();
+
+        dialogue.OnDialogueOptionClick(option, 41, 42);
+
+        CollectionAssert.AreEqual(new[] { expectedAnswer }, answers);
+    }
+
     [TestMethod]
     public void YesClick_ConsumesCallbackBeforeInvokingAndIgnoresRepeatedClicks()
     {
@@ -44,6 +58,24 @@ public sealed class YesNoDialogueScriptTests
 
         Assert.AreEqual(false, answer);
         Assert.IsNull(dialogue.Callback);
+    }
+
+    [TestMethod]
+    public void AnswerCallback_ReentrantClickDoesNotInvokeCallbackAgain()
+    {
+        var dialogue = CreateDialogue();
+        var answers = new List<bool>();
+        dialogue.Callback = answer =>
+        {
+            answers.Add(answer);
+            if (answer)
+                dialogue.PerformDialogueOptionClick("No.");
+        };
+        dialogue.OnOpen();
+
+        dialogue.PerformDialogueOptionClick("Yes.");
+
+        CollectionAssert.AreEqual(new[] { true }, answers);
     }
 
     [TestMethod]

@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Hagalaz.Cache;
 using Hagalaz.Cache.Abstractions;
-using Hagalaz.Cache.Abstractions.Logic;
 using Hagalaz.Cache.Abstractions.Logic.Codecs;
 using Hagalaz.Cache.Abstractions.Model;
 using Hagalaz.Cache.Logic;
@@ -344,7 +343,7 @@ internal static class CacheBenchmarkReads
         bool useSnapshots)
     {
         long totalLength = 0;
-        Parallel.For(0, readerCount, readerIndex =>
+        Parallel.For(0, readerCount, _ =>
         {
             long length;
             if (useSnapshots)
@@ -465,7 +464,7 @@ internal sealed class CacheBenchmarkFixture : IDisposable
         int[] objectTypeIds)
     {
         var files = new Dictionary<(int IndexId, int FileId), byte[]>();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, archiveCount);
+        var table = new ReferenceTable(7, 1, 0, archiveCount);
         var archiveData = includeArchives ? EncodeArchive(members) : null;
         var encodedArchive = archiveData is null ? null : EncodeContainer(CompressionType.Gzip, archiveData);
         for (var archiveId = 0; archiveId < archiveCount; archiveId++)

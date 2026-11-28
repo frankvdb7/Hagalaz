@@ -7,7 +7,6 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Dialogues.Generic;
 using Hagalaz.Game.Scripts.Model.Widgets;
 using Hagalaz.Game.Scripts.Skills.Crafting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Crafting;
@@ -118,6 +117,6 @@ public sealed class CraftingProductNamingTests
         return definition;
     }
 
-    private static Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder CreateItemBuilder() =>
+    private static Abstractions.Builders.Item.IItemBuilder CreateItemBuilder() =>
         new TestItemBuilder(ComposedTestContainer.CreateTestItem);
 }

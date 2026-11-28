@@ -1,7 +1,6 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Model.Widgets;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Scripts.Model.Items;
 
 namespace Hagalaz.Game.Scripts.Items.Slayer
@@ -39,7 +38,7 @@ namespace Hagalaz.Game.Scripts.Items.Slayer
                             return;
                         }
 
-                        character.SendChatMessage("You are currently assigned to kill: " + slayerTask!.Name + ". Only " + slayer.CurrentKillCount +
+                        character.SendChatMessage("You are currently assigned to kill: " + slayerTask.Name + ". Only " + slayer.CurrentKillCount +
                                                   " more to go.");
                     }
                     else

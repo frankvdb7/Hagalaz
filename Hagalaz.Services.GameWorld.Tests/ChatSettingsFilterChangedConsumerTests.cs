@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Threading.Tasks;
 using Hagalaz.Configuration;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Contacts.Messages.Model;
@@ -16,7 +15,6 @@ using MassTransit;
 using MassTransit.Mediator;
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Services.GameWorld.Tests;
@@ -44,7 +42,7 @@ public sealed class ChatSettingsFilterChangedConsumerTests
         var requests = new ConcurrentBag<SetContactSettingsRequest>();
         var profile = Substitute.For<IProfile>();
         // A different stored value so the action is a real change for every choice.
-        profile.GetValue<int>(ProfileConstants.ChatSettingsFriendsFilter, Arg.Any<int>()).Returns(99);
+        profile.GetValue(ProfileConstants.ChatSettingsFriendsFilter, Arg.Any<int>()).Returns(99);
         var character = Substitute.For<ICharacter>();
         character.MasterId.Returns(42u);
         character.Profile.Returns(profile);

@@ -6,10 +6,7 @@ using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Collections;
 using Hagalaz.Services.GameWorld.Model.Creatures;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Hagalaz.Services.GameWorld.Tests
 {
@@ -73,6 +70,29 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             // Act & Assert
             Assert.IsTrue(_viewport.VisibleCreatures.Contains(character));
+        }
+
+        [TestMethod]
+        public void UpdateTick_RemovesCharacterWhenAppearanceBecomesHidden()
+        {
+            var location = Location.Create(100, 100, 0, 0);
+            var region = CreateRegion(location, MapRegionState.Ready);
+            var character = Substitute.For<ICharacter>();
+            character.Location.Returns(location);
+            character.Appearance.Visible.Returns(true);
+            region.FindAllCharacters().Returns(new[] { character });
+            _owner.Location.Returns(location);
+            _regionService.GetMapRegionsWithinRange(Arg.Any<ILocation>(), _mapSize).Returns(new[] { region });
+            _regionService.GetOrCreateMapRegion(location.RegionId, location.Dimension).Returns(region);
+            _viewport.RebuildView();
+            _viewport.UpdateTick();
+            Assert.IsTrue(_viewport.VisibleCharacters.Contains(character));
+
+            character.Appearance.Visible.Returns(false);
+            _viewport.UpdateTick();
+
+            Assert.IsFalse(_viewport.VisibleCharacters.Contains(character));
+            Assert.IsFalse(_viewport.VisibleCreatures.Contains(character));
         }
 
         [TestMethod]

@@ -37,23 +37,23 @@ namespace Hagalaz.Game.Scripts.Minigames.Barrows
         public void Setup()
         {
             AttachDialogueContinueClickHandlers();
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 StandardDialogue("You've found a hidden tunnel, do you want to enter?");
                 return true;
             });
-            AttachDialogueContinueClickHandler(1, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(1, (_, _) =>
             {
                 DefaultOptionDialogue("Yeah I'm fearless!", "No way, that looks scary!");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Yeah I'm fearless!", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Yeah I'm fearless!", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 _barrows.TeleportToCrypts();
                 return true;
             });
-            AttachDialogueOptionClickHandler("No way, that looks scary!", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("No way, that looks scary!", (_, _) =>
             {
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;

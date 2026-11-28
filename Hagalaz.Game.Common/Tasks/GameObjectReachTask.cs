@@ -106,7 +106,7 @@ namespace Hagalaz.Game.Common.Tasks
         }
 
         private IGameObject? ResolveTarget() =>
-            _entityService.TryResolve<IGameObject>(_targetHandle, out var target) ? target : null;
+            _entityService.TryResolve(_targetHandle, out var target) ? target : null;
 
         /// <summary>
         /// 

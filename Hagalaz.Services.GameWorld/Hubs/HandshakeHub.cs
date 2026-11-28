@@ -1,14 +1,10 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Authorization.Constants;
 using Hagalaz.Game.Abstractions.Mediator;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Configuration;
 using Hagalaz.Game.Messages.Mediator;
-using Hagalaz.Services.GameWorld.Configuration.Model;
-using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Network.Handshake;
 using Hagalaz.Services.GameWorld.Network.Handshake.Messages;

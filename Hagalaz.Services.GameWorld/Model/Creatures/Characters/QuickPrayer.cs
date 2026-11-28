@@ -22,7 +22,7 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures.Characters
         /// <summary>
         /// 
         /// </summary>
-        private bool _selecting = false;
+        private bool _selecting;
 
         /// <summary>
         /// Gets a value indicating whether [quick praying].

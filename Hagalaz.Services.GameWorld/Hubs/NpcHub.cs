@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Model.Creatures;
+
 using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Protocol;
@@ -42,7 +42,7 @@ namespace Hagalaz.Services.GameWorld.Hubs
             var character = Context.GetCharacter();
             character.QueueTask(new RsTask(() =>
             {
-                if (_entityService.TryResolve<ICreature>(npcHandle, out var currentNpc)
+                if (_entityService.TryResolve(npcHandle, out var currentNpc)
                     && currentNpc is INpc resolvedNpc
                     && character.Viewport.VisibleCreatures.Contains(resolvedNpc))
                 {

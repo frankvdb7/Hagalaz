@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Text;
+﻿using System.Text;
 using Hagalaz.Game.Abstractions.Authorization;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Resources;
@@ -336,7 +334,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
                 if (i > 0) childID += 1;
                 InterfaceInstance.DetachClickHandlers(childID);
                 InterfaceInstance.AttachClickHandler(childID,
-                    (componentID, clickType, extraData1, extraData2) =>
+                    (_, clickType, extraData1, extraData2) =>
                     {
                         if (clickType == ComponentClickType.SpecialClick)
                         {
@@ -371,7 +369,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
             InterfaceInstance.DrawString(1, title);
             InterfaceInstance.DetachClickHandlers(1);
             InterfaceInstance.AttachClickHandler(1,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, extraData1, extraData2) =>
                 {
                     if (clickType == ComponentClickType.SpecialClick)
                     {
@@ -384,7 +382,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
             InterfaceInstance.DrawString(2, option1);
             InterfaceInstance.DetachClickHandlers(2);
             InterfaceInstance.AttachClickHandler(2,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, clickType, extraData1, extraData2) =>
                 {
                     if (clickType == ComponentClickType.SpecialClick)
                     {
@@ -399,7 +397,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
                 InterfaceInstance.DrawString(3, option2);
                 InterfaceInstance.DetachClickHandlers(3);
                 InterfaceInstance.AttachClickHandler(3,
-                    (componentID, clickType, extraData1, extraData2) =>
+                    (_, clickType, extraData1, extraData2) =>
                     {
                         if (clickType == ComponentClickType.SpecialClick)
                         {
@@ -416,7 +414,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
                 InterfaceInstance.DrawString(4, option3);
                 InterfaceInstance.DetachClickHandlers(4);
                 InterfaceInstance.AttachClickHandler(4,
-                    (componentID, clickType, extraData1, extraData2) =>
+                    (_, clickType, extraData1, extraData2) =>
                     {
                         if (clickType == ComponentClickType.SpecialClick)
                         {
@@ -433,7 +431,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
                 InterfaceInstance.DrawString(5, option4);
                 InterfaceInstance.DetachClickHandlers(5);
                 InterfaceInstance.AttachClickHandler(5,
-                    (componentID, clickType, extraData1, extraData2) =>
+                    (_, clickType, extraData1, extraData2) =>
                     {
                         if (clickType == ComponentClickType.SpecialClick)
                         {
@@ -450,7 +448,7 @@ namespace Hagalaz.Game.Scripts.Model.Widgets
                 InterfaceInstance.DrawString(6, option5);
                 InterfaceInstance.DetachClickHandlers(6);
                 InterfaceInstance.AttachClickHandler(6,
-                    (componentID, clickType, extraData1, extraData2) =>
+                    (_, clickType, extraData1, extraData2) =>
                     {
                         if (clickType == ComponentClickType.SpecialClick)
                         {

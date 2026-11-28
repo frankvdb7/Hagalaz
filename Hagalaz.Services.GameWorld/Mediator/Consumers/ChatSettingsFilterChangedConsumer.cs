@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Hagalaz.Configuration;
 using Hagalaz.Contacts.Messages;
 using Hagalaz.Contacts.Messages.Model;
@@ -9,7 +8,6 @@ using Hagalaz.Game.Abstractions.Features.Chat;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters.Events;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Messages.Protocol;
-using Hagalaz.Game.Resources;
 
 namespace Hagalaz.Services.GameWorld.Mediator.Consumers
 {
@@ -36,7 +34,7 @@ namespace Hagalaz.Services.GameWorld.Mediator.Consumers
                 });
                 try
                 {
-                    var result = await _setContactSettingsRequest.GetResponse<SetContactSettingsResponse>(new SetContactSettingsRequest
+                    await _setContactSettingsRequest.GetResponse<SetContactSettingsResponse>(new SetContactSettingsRequest
                     {
                         MasterId = character.MasterId,
                         Settings = new ContactSettingsDto((ContactAvailability)message.NewValue)

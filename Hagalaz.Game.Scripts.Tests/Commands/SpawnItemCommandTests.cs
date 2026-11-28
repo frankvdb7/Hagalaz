@@ -1,12 +1,8 @@
-using System;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Items;
 
@@ -28,7 +24,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             itemBuilderMock.Create().Returns(itemIdMock);
             itemIdMock.WithId(123).Returns(itemOptionalMock);
             itemOptionalMock.WithCount(456).Returns(itemOptionalMock);
-            ((IItemBuild)itemOptionalMock).Build().Returns(itemMock);
+            (itemOptionalMock).Build().Returns(itemMock);
 
             var groundItemBuilderMock = Substitute.For<IGroundItemBuilder>();
             var groundItemOnGroundMock = Substitute.For<IGroundItemOnGround>();
@@ -40,7 +36,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             groundItemOnGroundMock.WithItem(Arg.Any<Func<IItemBuilder, IItemBuild>>()).Returns(groundItemLocationMock);
             groundItemLocationMock.WithLocation(Arg.Any<Location>()).Returns(groundItemOptionalMock);
             groundItemOptionalMock.WithTicks(Arg.Any<int>()).Returns(groundItemOptionalMock);
-            ((IGroundItemBuild)groundItemOptionalMock).Spawn();
+            (groundItemOptionalMock).Spawn();
 
             var serviceProviderMock = Substitute.For<IServiceProvider>();
             serviceProviderMock.GetService(typeof(IGroundItemBuilder)).Returns(groundItemBuilderMock);

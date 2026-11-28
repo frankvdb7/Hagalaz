@@ -1,5 +1,3 @@
-using System;
-using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
@@ -8,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Hagalaz.Services.GameWorld.Builders
 {
-    public class ItemBuilder : IItemBuilder, IItemBuild, IItemId, IItemOptional
+    public class ItemBuilder : IItemBuilder, IItemId, IItemOptional
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IItemScriptProvider _itemScriptProvider;

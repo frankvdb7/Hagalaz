@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Utilities.Model.Creatures;
 

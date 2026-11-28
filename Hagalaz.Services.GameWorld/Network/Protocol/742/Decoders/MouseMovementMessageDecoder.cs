@@ -9,12 +9,12 @@ namespace Hagalaz.Services.GameWorld.Network.Protocol._742.Decoders
         public bool TryDecodeMessage(in ReadOnlySequence<byte> input, out RaidoMessage? message)
         {
             var reader = new SequenceReader<byte>(input);
-            if (!reader.TryRead(out byte messageOffset))
+            if (!reader.TryRead(out byte _))
             {
                 message = null;
                 return false;
             }
-            if (!reader.TryRead(out byte offsetX) || !reader.TryRead(out byte offsetY))
+            if (!reader.TryRead(out byte _) || !reader.TryRead(out byte _))
             {
                 message = null;
                 return false;

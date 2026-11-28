@@ -1,6 +1,5 @@
 using Hagalaz.Game.Abstractions.Builders.GroundItem;
 using Hagalaz.Game.Abstractions.Builders.HitSplat;
-using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Logic.Loot;
@@ -107,7 +106,7 @@ public sealed class NpcBuilderTests
         regionService.GetOrCreateMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(region);
         regionService.FindMapRegion(Arg.Any<int>(), Arg.Any<int>()).Returns(region);
         EventHappened eventHandle = _ => false;
-        eventManager.Listen<CreatureDestroyedEvent>(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(eventHandle);
+        eventManager.Listen(Arg.Any<EventHappened<CreatureDestroyedEvent>>()).Returns(eventHandle);
         var builder = CreateBuilder(npcService, services =>
         {
             services.AddSingleton(scriptActivator);
@@ -143,7 +142,7 @@ public sealed class NpcBuilderTests
             .AddSingleton(Substitute.For<IAreaService>())
             .AddSingleton(Substitute.For<IProjectilePathFinder>())
             .AddSingleton(Substitute.For<IEntityService>())
-            .AddSingleton<IOptions<CombatOptions>>(Options.Create(new CombatOptions()))
+            .AddSingleton(Options.Create(new CombatOptions()))
             .AddSingleton(Substitute.For<IHitSplatBuilder>())
             .AddSingleton(npcService)
             .AddSingleton(Substitute.For<ILootService>())

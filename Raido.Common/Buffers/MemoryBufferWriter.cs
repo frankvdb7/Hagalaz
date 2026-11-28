@@ -12,7 +12,7 @@ namespace Raido.Common.Buffers
     /// <summary>
     /// A <see cref="Stream"/> that writes to a buffer.
     /// </summary>
-    public sealed class MemoryBufferWriter : Stream, IBufferWriter<byte>, IByteBufferWriter
+    public sealed class MemoryBufferWriter : Stream, IByteBufferWriter
     {
         [ThreadStatic] private static MemoryBufferWriter? _cachedInstance;
 

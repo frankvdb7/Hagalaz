@@ -7,12 +7,10 @@ using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Raido.Common.Protocol;
-using Raido.Server;
 using Raido.Server.Extensions;
 
 namespace Raido.Server.IntegrationTests.Infrastructure;
@@ -379,7 +377,7 @@ internal sealed class RaidoTestProtocol : IRaidoProtocol
     public ReadOnlyMemory<byte> GetMessageBytes(RaidoMessage message)
     {
         var id = message is RaidoTestMessage testMessage ? testMessage.Id : (byte)0xFF;
-        return new byte[] { id, PayloadMarker };
+        return new[] { id, PayloadMarker };
     }
 
     public bool IsVersionSupported(int version) => version == Version;

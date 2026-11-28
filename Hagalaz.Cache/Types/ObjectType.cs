@@ -6,7 +6,7 @@ namespace Hagalaz.Cache.Types
     /// <summary>
     /// Represend's owner object definition.
     /// </summary>
-    public class ObjectType : IObjectType, IType
+    public class ObjectType : IObjectType
     {
         /// <summary>
         /// Contains object extra data.
@@ -437,7 +437,7 @@ namespace Hagalaz.Cache.Types
             AnInt808 = 256;
             AnIntArray784 = null;
             AnInt778 = 0;
-            GroundContoured = (sbyte)0;
+            GroundContoured = 0;
             AdjustMapSceneRotation = false;
             OffsetY = 0;
             AnimationIDs = null;
@@ -456,7 +456,7 @@ namespace Hagalaz.Cache.Types
             ClipType = 2;
             CastsShadow = true;
             AnInt833 = 0;
-            AByte787 = (sbyte)0;
+            AByte787 = 0;
             Ambient = 0;
             SupportItemsFlag = -1;
             Hidden = false;

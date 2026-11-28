@@ -63,7 +63,7 @@ namespace Hagalaz.Services.GameWorld.Tests
 
             Assert.AreEqual(1, profile.GetValue<int>("a.b"));
             Assert.AreEqual(2, profile.GetValue<int>("a.c.d"));
-            CollectionAssert.AreEqual(new int[] { 3, 4 }, profile.GetArray<int>("e").ToArray());
+            CollectionAssert.AreEqual(new[] { 3, 4 }, profile.GetArray<int>("e").ToArray());
             Assert.AreEqual(new ADto { B = 1, C = new CDto { D = 2 } }, profile.GetObject<ADto>("a"));
             Assert.AreEqual(DtoEnum.One, profile.GetValue<DtoEnum>("g"));
             Assert.AreEqual(15, profile.GetValue<int>("pascalcaseproperty"));
@@ -215,7 +215,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var profile = new Profile(_jsonOptions);
             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
 
-            var array = new int[] { 5, 6 };
+            var array = new[] { 5, 6 };
             profile.SetArray("e", array);
 
             CollectionAssert.AreEqual(array, profile.GetArray<int>("e").ToArray());
@@ -228,7 +228,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             var profile = new Profile(_jsonOptions);
             profile.Hydrate(new HydratedProfileDto { JsonData = _json });
 
-            var expected = new int[] { 5, 6 };
+            var expected = new[] { 5, 6 };
             CollectionAssert.AreEqual(expected, profile.GetArray("e.f.g.f", expected).ToArray());
         }
     }

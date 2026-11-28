@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Hagalaz.Configuration;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
@@ -30,17 +29,17 @@ namespace Hagalaz.Services.GameWorld.Model.Creatures
         /// <summary>
         /// Contains move pointer in moveQueue.
         /// </summary>
-        private byte _moveReadPointer = 0;
+        private byte _moveReadPointer;
 
         /// <summary>
         /// Contains move write pointer in moveQueue.
         /// </summary>
-        private byte _moveWritePointer = 0;
+        private byte _moveWritePointer;
 
         /// <summary>
         /// Contains movement lock data.
         /// </summary>
-        private int _movementLock = 0;
+        private int _movementLock;
 
         /// <summary>
         /// The path finder

@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 namespace Hagalaz.Services.GameWorld.Configuration.Model
 {
     /// <summary>

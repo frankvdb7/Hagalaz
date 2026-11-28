@@ -43,7 +43,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
             var deaths = Owner.Profile.GetValue<int>(ProfileConstants.PvpDeathCount);
             builder.Append(deaths);
             builder.Append("<br>");
-            var killDeathRatio = 1.0;
+            double killDeathRatio;
             if (deaths == 0)
             {
                 killDeathRatio = kills == 0 ? 1.0 : kills;

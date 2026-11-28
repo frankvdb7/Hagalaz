@@ -1,6 +1,4 @@
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Services.GameWorld.Factories;
-using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Services;
 using Hagalaz.Services.GameWorld.Store;
 using Microsoft.Extensions.Logging.Abstractions;

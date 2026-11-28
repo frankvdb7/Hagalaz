@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Random;
-using Hagalaz.Game.Resources;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 
 namespace Hagalaz.Services.GameWorld.Logic.Loot

@@ -1,6 +1,5 @@
 ﻿using Hagalaz.Game.Abstractions.Model.Combat;
 using Hagalaz.Game.Abstractions.Model.Creatures;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Common;
 
 namespace Hagalaz.Game.Scripts.Minigames.Barrows.NPCs

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using AutoMapper;
 using Hagalaz.Data.Entities;
 using System.Linq;
@@ -49,7 +48,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.ProductCounts, opt => opt.MapFrom(src => ParseInts(src.ProductCounts)))
                 .ForMember(dest => dest.ProductExperiences, opt => opt.MapFrom(src => ParseDoubles(src.ProductExperiences)))
                 .ForMember(dest => dest.RequiredLevels, opt => opt.MapFrom(src => ParseInts(src.RequiredLevels)))
-                .ForMember(dest => dest.AnimationId, opt => opt.MapFrom(src => src.AnimationId.HasValue ? (int)src.AnimationId.Value : -1));
+                .ForMember(dest => dest.AnimationId, opt => opt.MapFrom(src => src.AnimationId.HasValue ? src.AnimationId.Value : -1));
             CreateMap<SkillsFiremakingDefinition, FiremakingDto>()
                 .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
                 .ForMember(dest => dest.RequiredLevel, opt => opt.MapFrom(src => (int)src.RequiredLevel))
@@ -281,7 +280,7 @@ namespace Hagalaz.Services.GameWorld.Profiles
                 .ForMember(dest => dest.Enabled, opt => opt.Ignore());
             CreateMap<SkillsFishingToolDefinition, FishingToolDto>()
                 .ForMember(dest => dest.ItemId, opt => opt.MapFrom(src => (int)src.ItemId))
-                .ForMember(dest => dest.CastAnimationId, opt => opt.MapFrom(src => src.CastAnimationId.HasValue ? (int)src.CastAnimationId.Value : -1))
+                .ForMember(dest => dest.CastAnimationId, opt => opt.MapFrom(src => src.CastAnimationId.HasValue ? src.CastAnimationId.Value : -1))
                 .ForMember(dest => dest.FishAnimationId, opt => opt.MapFrom(src => (int)src.FishAnimationId));
         }
 

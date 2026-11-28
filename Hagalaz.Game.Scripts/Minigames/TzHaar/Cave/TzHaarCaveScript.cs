@@ -2,10 +2,8 @@
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Common.Events;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Common.Tasks;
@@ -108,7 +106,7 @@ namespace Hagalaz.Game.Scripts.Minigames.TzHaar.Cave
         {
             var dialog = Character.ServiceProvider.GetRequiredService<StartDialogue>();
             Character.Widgets.OpenDialogue(dialog, false);
-            var allowWalkingEvent = Character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(e =>
+            var allowWalkingEvent = Character.RegisterEventHandler(new EventHappened<WalkAllowEvent>(_ =>
             {
                 return true; // Dissallow walking
             }));

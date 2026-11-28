@@ -1,11 +1,9 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raido.Common.Protocol;
-using Raido.Server.Extensions;
 using Raido.Server.Internal;
 
 namespace Raido.Server

@@ -64,7 +64,7 @@ namespace Hagalaz.Text.Json.Tests
 
             Assert.AreEqual(1, dictionary.GetValue<int>("a.b"));
             Assert.AreEqual(2, dictionary.GetValue<int>("a.c.d"));
-            CollectionAssert.AreEqual(new int[]
+            CollectionAssert.AreEqual(new []
                 {
                     3, 4
                 },
@@ -334,7 +334,7 @@ namespace Hagalaz.Text.Json.Tests
             var dictionary = new JsonDictionary(_jsonOptions);
             dictionary.FromJson(_json);
 
-            var array = new int[]
+            var array = new []
             {
                 5, 6
             };
@@ -350,7 +350,7 @@ namespace Hagalaz.Text.Json.Tests
             var dictionary = new JsonDictionary(_jsonOptions);
             dictionary.FromJson(_json);
 
-            var expected = new int[]
+            var expected = new []
             {
                 5, 6
             };

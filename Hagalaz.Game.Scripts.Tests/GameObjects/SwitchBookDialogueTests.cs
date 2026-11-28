@@ -8,7 +8,6 @@ using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.GameObjects.Altars;
 using Hagalaz.Game.Scripts.Model.GameObjects;
 using Hagalaz.Game.Scripts.Model.Widgets;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.GameObjects;
@@ -93,9 +92,9 @@ public sealed class SwitchBookDialogueTests
         var world = new World();
         var dialogue = world.Open((context, mediator) => new SwitchAncientBookDialogue(context, mediator));
 
-        dialogue.SetSource(Substitute.For<Hagalaz.Game.Abstractions.Model.GameObjects.IGameObject>());
+        dialogue.SetSource(Substitute.For<IGameObject>());
 
-        Assert.ThrowsExactly<System.Exception>(() => dialogue.SetSource(Substitute.For<Hagalaz.Game.Abstractions.Model.IRuneObject>()));
+        Assert.ThrowsExactly<Exception>(() => dialogue.SetSource(Substitute.For<Hagalaz.Game.Abstractions.Model.IRuneObject>()));
     }
 
 
@@ -137,7 +136,7 @@ public sealed class SwitchBookDialogueTests
         }
         else
         {
-            world.Character.Widgets.DidNotReceiveWithAnyArgs().OpenChatboxOverlay(default, default, default!, default, default);
+            world.Character.Widgets.DidNotReceiveWithAnyArgs().OpenChatboxOverlay(default, default, default!, default);
         }
     }
 
@@ -159,7 +158,7 @@ public sealed class SwitchBookDialogueTests
         public ICharacterContextAccessor ContextAccessor { get; }
         public IScopedGameMediator Mediator { get; } = Substitute.For<IScopedGameMediator>();
 
-        public T Open<T>(System.Func<ICharacterContextAccessor, IScopedGameMediator, T> create) where T : DialogueScript
+        public T Open<T>(Func<ICharacterContextAccessor, IScopedGameMediator, T> create) where T : DialogueScript
         {
             var dialogue = create(ContextAccessor, Mediator);
             dialogue.Initialize(Substitute.For<IWidget>());
@@ -167,7 +166,7 @@ public sealed class SwitchBookDialogueTests
             return dialogue;
         }
 
-        public void AssertPublished(string key, System.Enum value) =>
+        public void AssertPublished(string key, Enum value) =>
             Mediator.Received(1).Publish(Arg.Is<ProfileSetEnumAction>(a => a.Key == key && a.Value.Equals(value)));
     }
 }

@@ -1,14 +1,11 @@
 using System;
 using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
-using Hagalaz.Game.Abstractions.Factories;
 using Hagalaz.Game.Abstractions.Builders.Npc;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Cache.Logic;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common.Events.Character;
 
@@ -129,6 +126,7 @@ namespace Hagalaz.Game.Scripts.Skills.Summoning
         /// </summary>
         /// <param name="character">The character.</param>
         /// <param name="item">The item.</param>
+        /// <param name="cancellationToken">Cancels the action.</param>
         public async Task SummonFamiliar(ICharacter character, IItem item, System.Threading.CancellationToken cancellationToken = default)
         {
             var pouchId = item.Id;

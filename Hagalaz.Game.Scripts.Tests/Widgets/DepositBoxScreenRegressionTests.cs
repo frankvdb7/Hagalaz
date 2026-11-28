@@ -3,7 +3,6 @@ using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Scripts.Widgets.Bank;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Widgets;
@@ -12,7 +11,9 @@ namespace Hagalaz.Game.Scripts.Tests.Widgets;
 public sealed class DepositBoxScreenRegressionTests
 {
     [TestMethod]
-    public void OptionXDepositsTheExactInventoryItemWithEnteredCount()
+    [DataRow(ComponentClickType.Option4Click, 7)]
+    [DataRow(ComponentClickType.Option5Click, 20)]
+    public void DepositOptionUsesTheExactInventoryItemAndQuantity(ComponentClickType clickType, int expectedCount)
     {
         var inventory = new ComposedTestContainer(2);
         var item = ComposedTestContainer.CreateTestItem(100, 20);
@@ -39,10 +40,17 @@ public sealed class DepositBoxScreenRegressionTests
         screen.Initialize(widget);
         screen.OnOpen();
 
-        Assert.IsTrue(clickHandler!(17, ComponentClickType.Option4Click, item.Id, 0));
-        widgets.IntInputHandler!(7);
+        Assert.IsTrue(clickHandler!(17, clickType, item.Id, 0));
+        if (clickType == ComponentClickType.Option4Click)
+        {
+            widgets.IntInputHandler!(expectedCount);
+            profile.Received(1).SetValue(Hagalaz.Configuration.ProfileConstants.BankSettingsOptionX, expectedCount);
+        }
+        else
+        {
+            configurations.DidNotReceiveWithAnyArgs().SendIntegerInput(default!);
+        }
 
-        bank.Received(1).DepositFromInventory(item, 7, out Arg.Any<Hagalaz.Game.Abstractions.Model.Items.IItem>());
-        profile.Received(1).SetValue(Hagalaz.Configuration.ProfileConstants.BankSettingsOptionX, 7);
+        bank.Received(1).DepositFromInventory(item, expectedCount, out Arg.Any<Hagalaz.Game.Abstractions.Model.Items.IItem>());
     }
 }

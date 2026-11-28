@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
 using Hagalaz.Game.Abstractions.Logic.Loot;
 using Hagalaz.Game.Abstractions.Logic.Skills;
@@ -12,10 +9,8 @@ using Hagalaz.Game.Abstractions.Model.Items;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Tasks;
-using Hagalaz.Game.Common;
 using Hagalaz.Game.Scripts.Skills.Fishing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
 namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
@@ -272,7 +267,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Fishing
             }).ToArray();
             lootGenerator.GenerateLoot<IFishingLoot>(Arg.Any<CharacterLootParams>()).Returns(loot);
 
-            entityService.TryResolve<ICreature>(handle, out Arg.Any<ICreature>()).Returns(call =>
+            entityService.TryResolve(handle, out Arg.Any<ICreature>()).Returns(call =>
             {
                 if (!fixture.IsLive)
                 {

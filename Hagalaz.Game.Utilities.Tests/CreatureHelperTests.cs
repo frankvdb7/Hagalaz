@@ -1,6 +1,3 @@
-using Hagalaz.Game.Utilities;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections.Generic;
 
 namespace Hagalaz.Game.Utilities.Tests
 {

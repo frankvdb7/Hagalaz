@@ -8,7 +8,6 @@ using Hagalaz.Services.Cache.Features.Mutations;
 using Hagalaz.Services.Cache.Features.Types;
 using Hagalaz.Services.Cache.Features.Types.Dtos;
 using Hagalaz.TestSupport;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -321,7 +320,7 @@ public sealed class ItemIconEndpointTests
     private static MemoryFileStore Seed(params (int Id, byte[] Data)[] items)
     {
         var store = new MemoryFileStore();
-        var table = new ReferenceTable(7, 1, (ReferenceTableFlags)0, 1);
+        var table = new ReferenceTable(7, 1, 0, 1);
         var archive = new ReferenceTableEntry(0);
         var members = items.OrderBy(item => item.Id).ToArray();
         archive.InitializeEntries(members.Length);

@@ -1,4 +1,3 @@
-using System;
 using Hagalaz.Game.Messages;
 using Hagalaz.Services.GameWorld.Services;
 

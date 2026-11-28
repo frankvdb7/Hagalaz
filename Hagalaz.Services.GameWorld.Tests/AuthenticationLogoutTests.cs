@@ -1,15 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Authorization.Messages;
 using Hagalaz.Characters.Messages;
 using Hagalaz.Game.Abstractions.Mediator;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Services;
-using Hagalaz.Game.Abstractions.Store;
 using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Messages.Mediator;
 using Hagalaz.Services.GameWorld.Features;
@@ -340,62 +335,45 @@ public sealed class AuthenticationLogoutTests
             .AddSingleton(dehydrationService)
             .BuildServiceProvider();
         character.ServiceProvider.Returns(characterProvider);
-        var scheduler = new RsTaskService(NullLogger<RsTaskService>.Instance);
-        var persistenceState = new CharacterPersistenceState();
-        persistenceState.InitializeRevision(42, 0, 7);
-        var persistence = Substitute.For<ICharacterPersistenceService>();
-        var receipt = new CharacterPersistenceReceipt(42, Guid.NewGuid(), 1);
-        var persistenceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var acknowledge = new TaskCompletionSource<CharacterPersistenceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        persistence.PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                persistenceStarted.TrySetResult(true);
-                return Task.FromResult<CharacterPersistenceReceipt?>(receipt);
-            });
-        persistence.WaitForAcknowledgementAsync(receipt, Arg.Any<CancellationToken>())
-            .Returns(acknowledge.Task);
-        var gameSessionService = Substitute.For<IGameSessionService>();
-        gameSessionService.RemoveSession(session, CancellationToken.None).Returns(Task.FromResult(true));
-        var mediator = Substitute.For<IGameMediator>();
+        var persistenceSetup = CharacterLogoutTestSupport.CreatePersistenceDependencies(character);
         var state = new CharacterLogoutState();
         Assert.IsTrue(state.TryBeginLogout(character, out _));
         var logout = new CharacterLogoutService(
             state,
             characterService,
-            scheduler,
-            mediator,
-            persistenceState,
-            persistence,
-            gameSessionService);
+            persistenceSetup.Scheduler,
+            persistenceSetup.Mediator,
+            persistenceSetup.PersistenceState,
+            persistenceSetup.Persistence,
+            persistenceSetup.GameSessionService);
         using var cancellation = new CancellationTokenSource();
 
         var firstDetach = logout.DetachAsync(character, cancellation.Token);
         cancellation.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => firstDetach);
-        scheduler.Tick();
+        persistenceSetup.Scheduler.Tick();
 
         var recovery = logout.RecoverPendingLogoutsAsync();
-        await persistenceStarted.Task;
+        await persistenceSetup.PersistenceStarted.Task;
 
         var authentication = CreateAuthenticationService(
             characterService,
-            persistence,
-            gameSessionService,
+            persistenceSetup.Persistence,
+            persistenceSetup.GameSessionService,
             CreateContextAccessor(character, session, CreateAuthenticationProperties(42)),
-            mediator: mediator,
+            mediator: persistenceSetup.Mediator,
             characterLogoutService: logout,
             configureLogoutService: false);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => authentication.SignOutAsync());
-        await persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
-        await gameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
+        await persistenceSetup.Persistence.Received(1).PersistAsync(42, Arg.Any<CharacterModel>(), true, Arg.Any<CancellationToken>());
+        await persistenceSetup.GameSessionService.DidNotReceive().RemoveSession(Arg.Any<IGameSession>(), Arg.Any<CancellationToken>());
 
-        acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
+        persistenceSetup.Acknowledge.TrySetResult(CharacterPersistenceOutcome.Committed);
         await recovery;
 
-        await gameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
-        _ = mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
+        await persistenceSetup.GameSessionService.Received(1).RemoveSession(session, CancellationToken.None);
+        _ = persistenceSetup.Mediator.Received(1).SendAsync(Arg.Any<WorldSignOutCommand>(), Arg.Any<CancellationToken>());
         Assert.IsFalse(state.IsPending(character));
     }
 
@@ -719,7 +697,7 @@ public sealed class AuthenticationLogoutTests
         var contextAccessor = CreateContextAccessor(
             character,
             session,
-            new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+            new AuthenticationProperties
             {
                 ClientId = "world-client",
                 AuthorizationId = "authorization-id",
@@ -778,7 +756,7 @@ public sealed class AuthenticationLogoutTests
             CreateContextAccessor(
                 character,
                 session,
-                new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                new AuthenticationProperties
                 {
                     ClientId = "world-client",
                     AuthorizationId = "authorization-id",
@@ -821,7 +799,7 @@ public sealed class AuthenticationLogoutTests
             CreateContextAccessor(
                 character: null,
                 session: session,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                authenticationProperties: new AuthenticationProperties
                 {
                     ClientId = "lobby-client",
                     AuthorizationId = "authorization-id",
@@ -893,7 +871,7 @@ public sealed class AuthenticationLogoutTests
     private static CharacterPersistenceReceipt CreateReceipt(ICharacter character) =>
         new(character.MasterId, Guid.NewGuid(), 7L);
 
-    private static Hagalaz.Services.GameWorld.Features.AuthenticationProperties CreateAuthenticationProperties(uint masterId) =>
+    private static AuthenticationProperties CreateAuthenticationProperties(uint masterId) =>
         new()
         {
             Claims = new Dictionary<string, object>
@@ -977,7 +955,7 @@ public sealed class AuthenticationLogoutTests
     private static IRaidoCallerContextAccessor CreateContextAccessor(
         ICharacter? character,
         IGameSession? session,
-        Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
+        AuthenticationProperties? authenticationProperties = null)
     {
         var accessor = Substitute.For<IRaidoCallerContextAccessor>();
         var context = CreateContext(character, session, authenticationProperties);
@@ -988,7 +966,7 @@ public sealed class AuthenticationLogoutTests
     private static RaidoCallerContext CreateContext(
         ICharacter? character,
         IGameSession? session,
-        Hagalaz.Services.GameWorld.Features.AuthenticationProperties? authenticationProperties = null)
+        AuthenticationProperties? authenticationProperties = null)
     {
         var context = Substitute.For<RaidoCallerContext>();
         var features = new FeatureCollection();
@@ -998,7 +976,7 @@ public sealed class AuthenticationLogoutTests
         }
         if (authenticationProperties != null)
         {
-            features.Set<Hagalaz.Services.GameWorld.Features.IAuthenticationFeature>(new Hagalaz.Services.GameWorld.Features.AuthenticationFeature
+            features.Set<IAuthenticationFeature>(new AuthenticationFeature
             {
                 AuthenticationProperties = authenticationProperties
             });
@@ -1006,7 +984,7 @@ public sealed class AuthenticationLogoutTests
 
         if (session != null)
         {
-            features.Set<Hagalaz.Services.GameWorld.Features.ISessionFeature>(new SessionFeature { Session = session });
+            features.Set<Features.ISessionFeature>(new SessionFeature { Session = session });
         }
 
         context.Features.Returns(features);
@@ -1023,7 +1001,7 @@ public sealed class AuthenticationLogoutTests
             CreateContextAccessor(
                 character: null,
                 session: null,
-                authenticationProperties: new Hagalaz.Services.GameWorld.Features.AuthenticationProperties
+                authenticationProperties: new AuthenticationProperties
                 {
                     ClientId = clientId,
                     AuthorizationId = "authorization-id",

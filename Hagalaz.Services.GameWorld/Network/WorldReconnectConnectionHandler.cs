@@ -1,8 +1,6 @@
-using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Model;
 using Hagalaz.Services.GameWorld.Network.Handshake;
@@ -14,7 +12,6 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenIddict.Abstractions;
-using Raido.Common.Messages;
 using Raido.Common.Protocol;
 using Raido.Server;
 using Polly.Timeout;
@@ -218,12 +215,12 @@ internal sealed class WorldReconnectConnectionHandler
             if (!attached && reconnectResult == ReconnectResult.Rejected)
             {
                 await SendResponseAsync(connection, handshakeProtocol, ClientSignInResponse.BadSession, cancellationToken);
-                return;
+
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return;
+
         }
         catch (Exception ex)
         {

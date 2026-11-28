@@ -1,14 +1,11 @@
 using System;
 using System.Linq;
 using Hagalaz.Game.Abstractions.Builders.Item;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Data;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
-using Hagalaz.Game.Abstractions.Model.Creatures.Npcs;
 using Hagalaz.Game.Abstractions.Model.Events;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Common;
 using Hagalaz.Game.Common.Events;
@@ -49,66 +46,6 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
         private int _step;
 
         /// <summary>
-        ///     Contains step button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _stepButtonHandler;
-
-        /// <summary>
-        ///     Contains style button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _styleButtonHandler;
-
-        /// <summary>
-        ///     Contains gender button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _genderButtonHandler;
-
-        /// <summary>
-        ///     Contains substyle button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _substyleButtonHandler;
-
-        /// <summary>
-        ///     Contains confirm button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _confirmClick;
-
-        /// <summary>
-        ///     Contains name confirm button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _nameConfirmClick;
-
-        /// <summary>
-        ///     Contains suggestion button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _suggestionClick;
-
-        /// <summary>
-        ///     Contains skinChooser button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _skinChooserClick;
-
-        /// <summary>
-        ///     Contains designerChooser button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _designerChooserClick;
-
-        /// <summary>
-        ///     Contains designerPallete button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _designerPalleteClick;
-
-        /// <summary>
-        ///     Contains designerPanel button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _designerPanelClick;
-
-        /// <summary>
-        ///     Contains designerRandomizerclick button unEquipHandler.
-        /// </summary>
-        private OnComponentClick _designerRandomizerClick;
-
-        /// <summary>
         ///     Contains suggestion table.
         /// </summary>
         private static readonly string[] _suggestionTable =
@@ -124,7 +61,7 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
         /// <summary>
         ///     Contains last name entered.
         /// </summary>
-        private string _lastName;
+        private string _lastName = string.Empty;
 
         private readonly IGameMessageService _gameMessageService;
         private readonly ICharacterCreateInfoRepository _characterCreateInfoRepository;
@@ -138,25 +75,6 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
             _gameMessageService = gameMessageService;
             _characterCreateInfoRepository = characterCreateInfoRepository;
             _itemBuilder = itemBuilder;
-        }
-
-        /// <summary>
-        ///     Get's called when Script instance is created.
-        /// </summary>
-        protected override void Initialize()
-        {
-            _stepButtonHandler = StepButtonClicked;
-            _styleButtonHandler = StyleButtonClicked;
-            _genderButtonHandler = GenderButtonClicked;
-            _substyleButtonHandler = SubStyleButtonClicked;
-            _confirmClick = ConfirmButtonClicked;
-            _nameConfirmClick = AccountConfirmButtonClicked;
-            _suggestionClick = SuggestionButtonClicked;
-            _skinChooserClick = SkinChooserClicked;
-            _designerChooserClick = DesignerChooserClicked;
-            _designerPalleteClick = DesignerPalleteClicked;
-            _designerPanelClick = DesignerPanelClicked;
-            _designerRandomizerClick = ColorRandomizerButtonClicked;
         }
 
         /// <summary>
@@ -176,34 +94,34 @@ namespace Hagalaz.Game.Scripts.Widgets.CharacterDesign
         /// </summary>
         public void SetupHandlers()
         {
-            InterfaceInstance.AttachClickHandler(139, _stepButtonHandler); // continue
-            InterfaceInstance.AttachClickHandler(137, _stepButtonHandler); // back
+            InterfaceInstance.AttachClickHandler(139, StepButtonClicked); // continue
+            InterfaceInstance.AttachClickHandler(137, StepButtonClicked); // back
             for (var i = 68; i < 75; i++)
             {
-                InterfaceInstance.AttachClickHandler(i, _styleButtonHandler);
+                InterfaceInstance.AttachClickHandler(i, StyleButtonClicked);
             }
 
             for (var i = 103; i < 106; i++)
             {
-                InterfaceInstance.AttachClickHandler(i, _substyleButtonHandler);
+                InterfaceInstance.AttachClickHandler(i, SubStyleButtonClicked);
             }
 
             /*for (int i = 158; i < 161; i++)
                 this.interfaceInstance.AttachClickHandler((short)i, this.suggestionClick);*/
             for (var i = 116; i < 122; i++)
             {
-                InterfaceInstance.AttachClickHandler(i, _designerChooserClick);
+                InterfaceInstance.AttachClickHandler(i, DesignerChooserClicked);
             }
 
-            InterfaceInstance.AttachClickHandler(123, _designerRandomizerClick);
-            InterfaceInstance.AttachClickHandler(128, _designerPanelClick);
-            InterfaceInstance.AttachClickHandler(132, _designerPalleteClick);
+            InterfaceInstance.AttachClickHandler(123, ColorRandomizerButtonClicked);
+            InterfaceInstance.AttachClickHandler(128, DesignerPanelClicked);
+            InterfaceInstance.AttachClickHandler(132, DesignerPalleteClicked);
             /*this.interfaceInstance.AttachClickHandler(165, this.suggestionClick);*/
-            InterfaceInstance.AttachClickHandler(62, _genderButtonHandler); // male
-            InterfaceInstance.AttachClickHandler(63, _genderButtonHandler); // female
-            InterfaceInstance.AttachClickHandler(138, _confirmClick); // confirm
-            InterfaceInstance.AttachClickHandler(182, _nameConfirmClick); // name confirm
-            InterfaceInstance.AttachClickHandler(65, _skinChooserClick); // skin chooser.
+            InterfaceInstance.AttachClickHandler(62, GenderButtonClicked); // male
+            InterfaceInstance.AttachClickHandler(63, GenderButtonClicked); // female
+            InterfaceInstance.AttachClickHandler(138, ConfirmButtonClicked); // confirm
+            InterfaceInstance.AttachClickHandler(182, AccountConfirmButtonClicked); // name confirm
+            InterfaceInstance.AttachClickHandler(65, SkinChooserClicked); // skin chooser.
         }
 
         /// <summary>

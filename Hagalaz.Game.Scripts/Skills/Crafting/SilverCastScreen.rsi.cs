@@ -1,7 +1,5 @@
-using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Model.Widgets;
 
@@ -52,7 +50,7 @@ namespace Hagalaz.Game.Scripts.Skills.Crafting
                 else
                 {
                     InterfaceInstance.DrawItem(definition.ChildID, definition.ProductID, 1);
-                    InterfaceInstance.AttachClickHandler(definition.ChildID, (componentID, type, extra1, extra2) => HandleClick(definition, type));
+                    InterfaceInstance.AttachClickHandler(definition.ChildID, (_, type, _, _) => HandleClick(definition, type));
                 }
             }
         }

@@ -33,26 +33,26 @@ namespace Hagalaz.Game.Scripts.Skills.Slayer
             InterfaceInstance.DrawString(20, Owner.Profile.GetValue<int>(ProfileConstants.SlayerRewardPoints).ToString());
 
             InterfaceInstance.AttachClickHandler(16,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, _, _, _) =>
                 {
                     Owner.Widgets.OpenWidget(163, 0, Owner.ServiceProvider.GetRequiredService<RewardsLearnScreen>(), true);
                     return true;
                 });
             InterfaceInstance.AttachClickHandler(17,
-                (componentID, clickType, extraData1, extraData2) =>
+                (_, _, _, _) =>
                 {
                     Owner.Widgets.OpenWidget(161, 0, Owner.ServiceProvider.GetRequiredService<RewardsAssignmentScreen>(), true);
                     return true;
                 });
-            InterfaceInstance.AttachClickHandler(24, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(24, (_, _, _, _) =>
                 TryPurchase(400, [], () => Owner.Statistics.AddExperience(StatisticsConstants.Slayer, 10000)));
-            InterfaceInstance.AttachClickHandler(26, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(26, (_, _, _, _) =>
                 TryPurchase(75, [_itemBuilder.Create().WithId(13281).Build()]));
-            InterfaceInstance.AttachClickHandler(28, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(28, (_, _, _, _) =>
                 TryPurchase(35, [_itemBuilder.Create().WithId(560).Build(), _itemBuilder.Create().WithId(558).WithCount(4).Build()]));
-            InterfaceInstance.AttachClickHandler(37, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(37, (_, _, _, _) =>
                 TryPurchase(35, [_itemBuilder.Create().WithId(13280).WithCount(250).Build()]));
-            InterfaceInstance.AttachClickHandler(39, (componentID, clickType, extraData1, extraData2) =>
+            InterfaceInstance.AttachClickHandler(39, (_, _, _, _) =>
                 TryPurchase(35, [_itemBuilder.Create().WithId(4160).WithCount(250).Build()]));
         }
 

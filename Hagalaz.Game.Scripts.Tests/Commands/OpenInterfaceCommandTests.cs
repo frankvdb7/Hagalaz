@@ -1,9 +1,7 @@
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Widget;
 using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Scripts.Commands;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 
@@ -29,7 +27,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             widgetOptionalMock.WithParentId(Arg.Any<int>()).Returns(widgetOptionalMock);
             widgetOptionalMock.WithParentSlot(Arg.Any<int>()).Returns(widgetOptionalMock);
             widgetOptionalMock.WithTransparency(Arg.Any<int>()).Returns(widgetOptionalMock);
-            ((IWidgetBuild)widgetOptionalMock).Build().Returns(widgetMock);
+            (widgetOptionalMock).Build().Returns(widgetMock);
 
             var gameClientMock = Substitute.For<IGameClient>();
             gameClientMock.IsScreenFixed.Returns(true);

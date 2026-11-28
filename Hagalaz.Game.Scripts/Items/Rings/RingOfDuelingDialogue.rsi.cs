@@ -14,34 +14,34 @@ namespace Hagalaz.Game.Scripts.Items.Rings
         /// </summary>
         public override void OnOpen()
         {
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 var nameArray = Item.Name.Split('(');
-                var charges = 1;
+                int charges;
                 int.TryParse(nameArray[1].Replace("(", "").Replace(")", ""), out charges);
                 StandardOptionDialogue(charges + " Charges Remaining", "Duel Arena", "Castle Wars", "Mobilising Armies", "Fist Of Guthix");
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Duel Arena", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Duel Arena", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfDueling(Owner, Item, false, Jewelry.Jewelry.RingOfDuelingTeleports[0]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Castle Wars", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Castle Wars", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfDueling(Owner, Item, false, Jewelry.Jewelry.RingOfDuelingTeleports[1]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Mobilising Armies", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Mobilising Armies", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfDueling(Owner, Item, false, Jewelry.Jewelry.RingOfDuelingTeleports[2]);
                 return true;
             });
 
-            AttachDialogueOptionClickHandler("Fist Of Guthix", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Fist Of Guthix", (_, _) =>
             {
                 Jewelry.Jewelry.TeleportRingOfDueling(Owner, Item, false, Jewelry.Jewelry.RingOfDuelingTeleports[3]);
                 return true;

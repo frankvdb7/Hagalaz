@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AutoMapper;
 using Hagalaz.Services.GameWorld.Profiles;
 using Hagalaz.Services.GameWorld.Services;

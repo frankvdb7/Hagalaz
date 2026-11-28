@@ -1,13 +1,9 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Hagalaz.Game.Abstractions.Builders.Npc;
-using Hagalaz.Game.Abstractions.Collections;
 using Hagalaz.Game.Abstractions.Providers;
 using Hagalaz.Game.Abstractions.Services;
 using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Items;
-using Hagalaz.Game.Abstractions.Model.Maps;
 using Hagalaz.Game.Scripts.Skills.Summoning;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -33,7 +29,7 @@ public sealed class SummoningSkillServiceTests
         var item = Substitute.For<IItem>();
         item.Id.Returns(123);
         character.ServiceProvider.Returns(new ServiceCollection()
-            .AddSingleton<ISummoningService>(summoningService)
+            .AddSingleton(summoningService)
             .BuildServiceProvider());
         var inventory = new ComposedTestContainer(28);
         character.Inventory.Returns(inventory);
@@ -42,7 +38,7 @@ public sealed class SummoningSkillServiceTests
         var service = new SummoningSkillService(
             Substitute.For<INpcBuilder>(),
             Substitute.For<IFamiliarScriptProvider>(),
-            Substitute.For<Hagalaz.Game.Abstractions.Builders.Item.IItemBuilder>());
+            Substitute.For<Abstractions.Builders.Item.IItemBuilder>());
 
         using var cancellation = new CancellationTokenSource();
         var summonTask = service.SummonFamiliar(character, item, cancellation.Token);

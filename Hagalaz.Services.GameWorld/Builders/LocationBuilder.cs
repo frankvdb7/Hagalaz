@@ -7,7 +7,7 @@ namespace Hagalaz.Services.GameWorld.Builders
     /// <summary>
     /// 
     /// </summary>
-    public class LocationBuilder : ILocationBuilder, ILocationX, ILocationY, ILocationOptional, ILocationBuild
+    public class LocationBuilder : ILocationBuilder, ILocationX, ILocationY, ILocationOptional
     {
         private int _x;
         private int _y;

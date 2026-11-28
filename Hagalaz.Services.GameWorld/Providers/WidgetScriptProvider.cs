@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using Hagalaz.Cache.Abstractions;
 using Hagalaz.Game.Abstractions.Factories;

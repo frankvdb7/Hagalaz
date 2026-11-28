@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hagalaz.Services.GameWorld.Network.Model;
 using Raido.Server;

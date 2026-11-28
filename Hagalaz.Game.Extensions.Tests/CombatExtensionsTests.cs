@@ -1,5 +1,4 @@
 using Hagalaz.Game.Abstractions.Model.Combat;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Hagalaz.Game.Extensions.Tests;
 

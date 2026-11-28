@@ -1,5 +1,3 @@
-using AutoMapper;
-using Hagalaz.Data;
 using Hagalaz.Data.Entities;
 using Hagalaz.Game.Abstractions.Features.States.Effects;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
@@ -7,13 +5,9 @@ using Hagalaz.Game.Abstractions.Services.Model;
 using Hagalaz.Game.Scripts.Skills.Agility;
 using Hagalaz.Game.Scripts.Skills.Agility.Courses.Gnome;
 using Hagalaz.Services.GameWorld.Data;
-using Hagalaz.Services.GameWorld.Profiles;
 using Hagalaz.Services.GameWorld.Services;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
-using MySql.EntityFrameworkCore.Extensions;
 using Testcontainers.MySql;
 
 namespace Hagalaz.Services.GameWorld.IntegrationTests;

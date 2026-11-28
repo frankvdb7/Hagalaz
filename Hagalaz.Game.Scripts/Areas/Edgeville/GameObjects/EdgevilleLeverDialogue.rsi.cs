@@ -36,24 +36,24 @@ namespace Hagalaz.Game.Scripts.Areas.Edgeville.GameObjects
         private void Setup()
         {
             AttachDialogueContinueClickHandlers();
-            AttachDialogueContinueClickHandler(0, (extraData1, extraData2) =>
+            AttachDialogueContinueClickHandler(0, (_, _) =>
             {
                 DefaultOptionDialogue("Mage bank", "Deserted keep (Wilderness)", "Green dragons east (Wilderness)");
                 return true;
             });
-            AttachDialogueOptionClickHandler("Mage bank", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Mage bank", (_, _) =>
             {
                 new LeverTeleport(_obj, 2539, 4716, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Deserted keep (Wilderness)", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Deserted keep (Wilderness)", (_, _) =>
             {
                 new LeverTeleport(_obj, 3153, 3923, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();
                 return true;
             });
-            AttachDialogueOptionClickHandler("Green dragons east (Wilderness)", (extraData1, extraData2) =>
+            AttachDialogueOptionClickHandler("Green dragons east (Wilderness)", (_, _) =>
             {
                 new LeverTeleport(_obj, 3315, 3697, 0, 0).PerformTeleport(Owner);
                 Owner.Widgets.CloseChatboxOverlay();

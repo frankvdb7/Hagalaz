@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using Hagalaz.Collections.Extensions;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
