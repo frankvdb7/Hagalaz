@@ -19,6 +19,7 @@
     <PackageReference Include="Aspire.Hosting.MySql" Version="13.4.6" />
     <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.4.6" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.4.6" />
+    <PackageReference Include="MessagePack" Version="2.5.303" />
   </ItemGroup>
 
   <ItemGroup>
