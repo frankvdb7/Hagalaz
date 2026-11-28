@@ -30,9 +30,9 @@ public sealed class ItemIconRendererTests
             852482, 1442562, 7017999, 10098957, 9641493, 13771539, 11281432, 16197910, 855309, 855310, 4342341, 6052965, 5921374, 8289930, 6974063, 9737634];
         var actual = new List<int>();
         foreach (var packed in new[] { 0, 127, 50000, 21000, 960, 43072 })
-        foreach (var intensity in new[] { 2, 64, 100, 126 })
-        foreach (var textured in new[] { false, true })
-            actual.Add(ClientModelShading.LitFaceColor(packed, intensity, textured, 80));
+            foreach (var intensity in new[] { 2, 64, 100, 126 })
+                foreach (var textured in new[] { false, true })
+                    actual.Add(ClientModelShading.LitFaceColor(packed, intensity, textured, 80));
         Assert.Equal(expected, actual);
     }
 

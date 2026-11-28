@@ -251,16 +251,16 @@ namespace Hagalaz.Cache.Tests
             var flagged = flaggedTiles.ToHashSet();
             var stream = new MemoryStream();
             for (var z = 0; z < 4; z++)
-            for (var x = 0; x < 64; x++)
-            for (var y = 0; y < 64; y++)
-            {
-                if (flagged.Contains((z, x, y)))
-                {
-                    stream.WriteByte(50);
-                }
+                for (var x = 0; x < 64; x++)
+                    for (var y = 0; y < 64; y++)
+                    {
+                        if (flagged.Contains((z, x, y)))
+                        {
+                            stream.WriteByte(50);
+                        }
 
-                stream.WriteByte(0);
-            }
+                        stream.WriteByte(0);
+                    }
 
             stream.Position = 0;
             return stream;

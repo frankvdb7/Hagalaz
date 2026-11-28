@@ -17,12 +17,12 @@ public sealed class MapRenderDecoderTests
         Assert.Equal(5934, placements.Length);
         using var semantic = new MemoryStream();
         foreach (var placement in placements)
-        foreach (var value in new[] { placement.Id, placement.Shape, placement.Rotation, placement.X, placement.Y, placement.Plane })
-        {
-            var bytes = new byte[4];
-            BinaryPrimitives.WriteInt32BigEndian(bytes, value);
-            semantic.Write(bytes);
-        }
+            foreach (var value in new[] { placement.Id, placement.Shape, placement.Rotation, placement.X, placement.Y, placement.Plane })
+            {
+                var bytes = new byte[4];
+                BinaryPrimitives.WriteInt32BigEndian(bytes, value);
+                semantic.Write(bytes);
+            }
         Assert.Equal("bee90dfdcbf5e934e4d0c9faac97959490dbb2da4a44882c5891892513374077", Convert.ToHexStringLower(SHA256.HashData(semantic.ToArray())));
     }
 
