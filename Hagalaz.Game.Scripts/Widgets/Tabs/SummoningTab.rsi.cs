@@ -1,7 +1,6 @@
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Game.Abstractions.Model.Widgets;
 using Hagalaz.Game.Abstractions.Providers;
-using Hagalaz.Game.Abstractions.Tasks;
 using Hagalaz.Game.Common.Events.Character;
 using Hagalaz.Game.Scripts.Model.Creatures.Npcs;
 using Hagalaz.Game.Scripts.Model.Widgets;
@@ -148,21 +147,7 @@ namespace Hagalaz.Game.Scripts.Widgets.Tabs
 
             // Attack
             InterfaceInstance.AttachUseOnCreatureHandler(65, (_, creature, _, _, _) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+                FamiliarScriptBase.TryQueueAttack(Owner, creature));
 
             // Cast special move
             InterfaceInstance.AttachUseOnCreatureHandler(74, (_, creature, _, _, _) =>

@@ -48,173 +48,10 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
                 return false;
             });
 
-            // "who can enter chat?" setting
-            InterfaceInstance.AttachClickHandler(2, (_, clickType, _, _) =>
-            {
-                var rank = FriendsChatRank.Regular;
-                if (clickType == ComponentClickType.LeftClick)
-                {
-                    rank = FriendsChatRank.Regular;
-                }
-                else if (clickType == ComponentClickType.Option2Click)
-                {
-                    rank = FriendsChatRank.Friend;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    rank = FriendsChatRank.Recruit;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    rank = FriendsChatRank.Corporal;
-                }
-                else if (clickType == ComponentClickType.Option5Click)
-                {
-                    rank = FriendsChatRank.Sergeant;
-                }
-                else if (clickType == ComponentClickType.Option6Click)
-                {
-                    rank = FriendsChatRank.Lieutenant;
-                }
-                else if (clickType == ComponentClickType.Option7Click)
-                {
-                    rank = FriendsChatRank.Captain;
-                }
-                else if (clickType == ComponentClickType.Option8Click)
-                {
-                    rank = FriendsChatRank.General;
-                }
-                else if (clickType == ComponentClickType.Option9Click)
-                {
-                    rank = FriendsChatRank.Owner;
-                }
-
-                InterfaceInstance.DrawString(2, GetRankString(rank));
-                SetRank("fc_rank_enter", rank);
-                return true;
-            });
-
-            // "who can talk on chat?" setting
-            InterfaceInstance.AttachClickHandler(3, (_, clickType, _, _) =>
-            {
-                var rank = FriendsChatRank.Regular;
-                if (clickType == ComponentClickType.LeftClick)
-                {
-                    rank = FriendsChatRank.Regular;
-                }
-                else if (clickType == ComponentClickType.Option2Click)
-                {
-                    rank = FriendsChatRank.Friend;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    rank = FriendsChatRank.Recruit;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    rank = FriendsChatRank.Corporal;
-                }
-                else if (clickType == ComponentClickType.Option5Click)
-                {
-                    rank = FriendsChatRank.Sergeant;
-                }
-                else if (clickType == ComponentClickType.Option6Click)
-                {
-                    rank = FriendsChatRank.Lieutenant;
-                }
-                else if (clickType == ComponentClickType.Option7Click)
-                {
-                    rank = FriendsChatRank.Captain;
-                }
-                else if (clickType == ComponentClickType.Option8Click)
-                {
-                    rank = FriendsChatRank.General;
-                }
-                else if (clickType == ComponentClickType.Option9Click)
-                {
-                    rank = FriendsChatRank.Owner;
-                }
-
-                InterfaceInstance.DrawString(3, GetRankString(rank));
-                SetRank("fc_rank_talk", rank);
-                return true;
-            });
-
-            // "who can kick from chat?" setting
-            InterfaceInstance.AttachClickHandler(4, (_, clickType, _, _) =>
-            {
-                var rank = FriendsChatRank.Owner;
-                if (clickType == ComponentClickType.Option4Click)
-                {
-                    rank = FriendsChatRank.Corporal;
-                }
-                else if (clickType == ComponentClickType.Option5Click)
-                {
-                    rank = FriendsChatRank.Sergeant;
-                }
-                else if (clickType == ComponentClickType.Option6Click)
-                {
-                    rank = FriendsChatRank.Lieutenant;
-                }
-                else if (clickType == ComponentClickType.Option7Click)
-                {
-                    rank = FriendsChatRank.Captain;
-                }
-                else if (clickType == ComponentClickType.Option8Click)
-                {
-                    rank = FriendsChatRank.General;
-                }
-                else if (clickType == ComponentClickType.Option9Click)
-                {
-                    rank = FriendsChatRank.Owner;
-                }
-
-                InterfaceInstance.DrawString(4, GetRankString(rank));
-                SetRank("fc_rank_kick", rank);
-                return true;
-            });
-
-            // "who can loot share?" setting
-            InterfaceInstance.AttachClickHandler(5, (_, clickType, _, _) =>
-            {
-                var rank = FriendsChatRank.NoOne;
-                if (clickType == ComponentClickType.LeftClick)
-                {
-                    rank = FriendsChatRank.NoOne;
-                }
-                else if (clickType == ComponentClickType.Option2Click)
-                {
-                    rank = FriendsChatRank.Friend;
-                }
-                else if (clickType == ComponentClickType.Option3Click)
-                {
-                    rank = FriendsChatRank.Recruit;
-                }
-                else if (clickType == ComponentClickType.Option4Click)
-                {
-                    rank = FriendsChatRank.Corporal;
-                }
-                else if (clickType == ComponentClickType.Option5Click)
-                {
-                    rank = FriendsChatRank.Sergeant;
-                }
-                else if (clickType == ComponentClickType.Option6Click)
-                {
-                    rank = FriendsChatRank.Lieutenant;
-                }
-                else if (clickType == ComponentClickType.Option7Click)
-                {
-                    rank = FriendsChatRank.Captain;
-                }
-                else if (clickType == ComponentClickType.Option8Click)
-                {
-                    rank = FriendsChatRank.General;
-                }
-
-                InterfaceInstance.DrawString(5, GetRankString(rank));
-                SetRank("fc_rank_loot", rank);
-                return true;
-            });
+            AttachRankHandler(2, "fc_rank_enter", FriendsChatRank.Regular);
+            AttachRankHandler(3, "fc_rank_talk", FriendsChatRank.Regular);
+            AttachRankHandler(4, "fc_rank_kick", FriendsChatRank.Owner, firstOption: ComponentClickType.Option4Click);
+            AttachRankHandler(5, "fc_rank_loot", FriendsChatRank.NoOne, lastOption: ComponentClickType.Option8Click);
 
             InterfaceInstance.AttachClickHandler(12, (_, clickType, _, _) =>
             {
@@ -242,6 +79,35 @@ namespace Hagalaz.Game.Scripts.Widgets.FriendsChat
             InterfaceInstance.DrawString(3, GetRankString(Owner.Profile.GetValue<FriendsChatRank>(ProfileConstants.FriendsChatSettingsTalkRank)));
             InterfaceInstance.DrawString(4, GetRankString(Owner.Profile.GetValue<FriendsChatRank>(ProfileConstants.FriendsChatSettingsKickRank)));
             InterfaceInstance.DrawString(5, GetRankString(Owner.Profile.GetValue<FriendsChatRank>(ProfileConstants.FriendsChatSettingsLootRank)));
+        }
+
+        private void AttachRankHandler(
+            int component,
+            string profileKey,
+            FriendsChatRank defaultRank,
+            ComponentClickType firstOption = ComponentClickType.Option2Click,
+            ComponentClickType lastOption = ComponentClickType.Option9Click)
+        {
+            InterfaceInstance.AttachClickHandler(component, (_, clickType, _, _) =>
+            {
+                var rank = clickType switch
+                {
+                    _ when clickType < firstOption || clickType > lastOption => defaultRank,
+                    ComponentClickType.Option2Click => FriendsChatRank.Friend,
+                    ComponentClickType.Option3Click => FriendsChatRank.Recruit,
+                    ComponentClickType.Option4Click => FriendsChatRank.Corporal,
+                    ComponentClickType.Option5Click => FriendsChatRank.Sergeant,
+                    ComponentClickType.Option6Click => FriendsChatRank.Lieutenant,
+                    ComponentClickType.Option7Click => FriendsChatRank.Captain,
+                    ComponentClickType.Option8Click => FriendsChatRank.General,
+                    ComponentClickType.Option9Click => FriendsChatRank.Owner,
+                    _ => defaultRank,
+                };
+
+                InterfaceInstance.DrawString(component, GetRankString(rank));
+                SetRank(profileKey, rank);
+                return true;
+            });
         }
 
         /// <summary>

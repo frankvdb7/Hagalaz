@@ -302,39 +302,11 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
 
             // Attack
             InterfaceInstance.AttachUseOnCreatureHandler(15, (_, creature, _, _, _) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+                FamiliarScriptBase.TryQueueAttack(Owner, creature));
 
             // Attack left click
             InterfaceInstance.AttachUseOnCreatureHandler(24, (_, creature, _, _, _) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+                FamiliarScriptBase.TryQueueAttack(Owner, creature));
 
             // Cast special move
             InterfaceInstance.AttachUseOnCreatureHandler(18, (_, creature, _, _, _) =>
