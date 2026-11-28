@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Scripts.Tests.Skills.Magic;
 [TestClass]
 public sealed class SpellCastRegressionTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false, 1963, "2,2,1", 15, 25.0)]
     [DataRow(true, 6883, "2,4,4", 60, 35.5)]
     public void BonesConversionSpell_CastChecksAndRemovesRunesBeforeConverting(bool peaches, int productId, string expectedRuneAmounts, int level, double xpPerBone)
@@ -52,7 +52,7 @@ public sealed class SpellCastRegressionTests
         character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, xpPerBone * 2);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false, 526, 1963)]
     [DataRow(true, 532, 6883)]
     public void BonesConversionSpell_WhenRuneRequirementFailsDoesNotConsumeBones(bool peaches, int boneId, int productId)
@@ -70,7 +70,7 @@ public sealed class SpellCastRegressionTests
         magic.DidNotReceive().RemoveRunes(Arg.Any<RuneType[]>(), Arg.Any<int[]>());
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void BonesConversionSpell_WithNoBonesStillConsumesRequirementsBeforeReturningFalse(bool peaches)
@@ -87,7 +87,7 @@ public sealed class SpellCastRegressionTests
         character.Received(1).SendChatMessage("You don't have any bones to cast this spell on.");
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false, 12345, 712, 112, 31)]
     [DataRow(true, 54321, 713, 113, 65)]
     public void Alchemy_CastUsesSpellSpecificValueEffectsAndState(bool high, int value, int animation, int graphic, int xp)
@@ -153,7 +153,7 @@ public sealed class SpellCastRegressionTests
         character.Statistics.Received(1).AddExperience(StatisticsConstants.Magic, 65);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void Alchemy_WhenPouchIsFullPaysExactCoinsToInventory(bool existingCoinStack)

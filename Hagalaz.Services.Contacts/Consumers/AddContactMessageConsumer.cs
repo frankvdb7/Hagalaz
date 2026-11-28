@@ -31,7 +31,7 @@ namespace Hagalaz.Services.Contacts.Consumers
             var message = context.Message;
             var receiver = await _characterService.FindCharacterByDisplayName(message.ContactDisplayName);
             if (receiver == null || !_contactSessionStore.TryGetValue(receiver.MasterId, out var session) ||
-                !_worldSessionStore.TryGetValue(session.WorldId, out var world))
+                !_worldSessionStore.TryGetValue(session.WorldId, out _))
             {
                 throw new NotFoundException(nameof(receiver));
             }

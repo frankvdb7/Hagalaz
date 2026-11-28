@@ -9,10 +9,10 @@ namespace Hagalaz.Game.Network.Game.Incoming
     {
         //private readonly ISqlDatabaseManager _databaseManager;
 
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="FriendsChatRankChangePacketHandler" /> class.
-        /// </summary>
-        /// <param name="databaseManager">The database manager.</param>
+        // <summary>
+        //     Initializes a new instance of the <see cref="FriendsChatRankChangePacketHandler" /> class.
+        // </summary>
+        // <param name="databaseManager">The database manager.</param>
         //public FriendsChatRankChangePacketHandler(ISqlDatabaseManager databaseManager) => _databaseManager = databaseManager;
 
         /// <summary>
@@ -23,11 +23,11 @@ namespace Hagalaz.Game.Network.Game.Incoming
         /// </value>
         public byte Opcode => 75;
 
-        /// <summary>
-        ///     Handles the packet.
-        /// </summary>
-        /// <param name="session">The session to handle packet for.</param>
-        /// <param name="packet">The packet containing handle data.</param>
+        // <summary>
+        //     Handles the packet.
+        // </summary>
+        // <param name="session">The session to handle packet for.</param>
+        // <param name="packet">The packet containing handle data.</param>
         // public async Task HandleAsync(IGameSession session, Packet packet)
         // {
         //     await Task.CompletedTask;

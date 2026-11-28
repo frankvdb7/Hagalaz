@@ -324,7 +324,7 @@ public sealed class MoneyPouchContainerTests
         Assert.AreEqual(0, scenario.Inventory.Items.GetCountById(CoinId));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
     public void MoveToInventory_RejectsCallerOwnedScopeBeforeValidation(bool includePouch)

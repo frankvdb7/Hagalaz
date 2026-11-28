@@ -10,7 +10,7 @@ namespace Hagalaz.Services.Extensions
     {
         public GlobalExceptionService(ILogger<GlobalExceptionService> logger)
         {
-            AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs) =>
+            AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
             {
                 logger.LogCritical(eventArgs.ExceptionObject as Exception, "Error while running the application");
             };

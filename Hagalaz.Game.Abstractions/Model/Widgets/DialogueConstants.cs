@@ -14,7 +14,7 @@ namespace Hagalaz.Game.Abstractions.Model.Widgets
     /// <summary>
     /// Defines the widget IDs for various dialogue interfaces.
     /// </summary>
-    public enum DialogueInterfaces : int
+    public enum DialogueInterfaces
     {
         /// <summary>
         /// A standard dialogue box.

@@ -1,9 +1,9 @@
 ﻿
 namespace Hagalaz.Tasks.Extensions
 {
-    /// <summary>
-    /// TODO: .NET 8
-    ///     public static void Forget(this Task task)
+    // <summary>
+    // TODO: .NET 8
+    //     public static void Forget(this Task task)
 //    {
 //        if (!task.IsCompleted || task.IsFaulted)
 //        {

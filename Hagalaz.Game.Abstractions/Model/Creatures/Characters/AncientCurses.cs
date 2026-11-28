@@ -3,7 +3,7 @@
     /// <summary>
     /// Defines the set of Ancient Curses, a high-level prayer book. The integer values use bitwise operations to manage activation groups.
     /// </summary>
-    public enum AncientCurses : int
+    public enum AncientCurses
     {
         /// <summary>
         /// Protects one additional item upon death.

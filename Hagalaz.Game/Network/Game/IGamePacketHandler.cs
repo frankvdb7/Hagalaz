@@ -16,12 +16,12 @@ namespace Hagalaz.Game.Network.Game
         /// </value>
         byte Opcode { get; }
 
-        /// <summary>
-        ///     Handles the asynchronous game packet.
-        /// </summary>
-        /// <param name="session">The session.</param>
-        /// <param name="packet">The packet.</param>
-        /// <returns></returns>
+        // <summary>
+        //     Handles the asynchronous game packet.
+        // </summary>
+        // <param name="session">The session.</param>
+        // <param name="packet">The packet.</param>
+        // <returns></returns>
         //Task HandleAsync(IGameSession session, Packet packet);
     }
 }

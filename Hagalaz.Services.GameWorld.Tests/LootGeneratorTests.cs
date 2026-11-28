@@ -171,7 +171,7 @@ namespace Hagalaz.Services.GameWorld.Tests
             public int MaximumCount { get; set; } = 1;
             public bool Enabled { get; set; } = true;
             public double Probability { get; set; } = 1;
-            public bool Always { get; set; } = false;
+            public bool Always { get; set; }
         }
 
         private class TestLootTable : ILootTable

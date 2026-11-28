@@ -53,7 +53,7 @@ public sealed class TradeInteractionRegressionTests
         Assert.AreEqual(0, session.TargetScript.SelfContainer.Items.TakenSlots);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(ComponentClickType.LeftClick, 1)]
     [DataRow(ComponentClickType.Option2Click, 5)]
     [DataRow(ComponentClickType.Option3Click, 10)]
@@ -69,7 +69,7 @@ public sealed class TradeInteractionRegressionTests
         Assert.AreEqual(0, session.TargetScript.SelfContainer.Items.GetCountById(session.SelfItem.Id));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(ComponentClickType.LeftClick, 1)]
     [DataRow(ComponentClickType.Option2Click, 5)]
     [DataRow(ComponentClickType.Option3Click, 10)]
@@ -105,7 +105,7 @@ public sealed class TradeInteractionRegressionTests
         Assert.IsNull(session.Target.Widgets.IntInputHandler);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-4)]
     public void OfferX_NonpositiveInputDoesNotTransfer(int amount)
@@ -133,7 +133,7 @@ public sealed class TradeInteractionRegressionTests
         Assert.IsNull(session.Self.Widgets.IntInputHandler);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-2)]
     public void RemoveOfferX_NonpositiveInputDoesNotTransfer(int amount)
@@ -171,7 +171,7 @@ public sealed class TradeInteractionRegressionTests
         Assert.IsNull(session.Self.Widgets.IntInputHandler);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-1)]
     public void SelfMoneyPouchX_NonpositiveAmountDoesNotOfferCoins(int amount)

@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Characters
     /// <summary>
     /// Defines the set of prayers available in the standard prayer book.
     /// </summary>
-    public enum NormalPrayer : int
+    public enum NormalPrayer
     {
         /// <summary>
         /// Increases Defence by 5%.

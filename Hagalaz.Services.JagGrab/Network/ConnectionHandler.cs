@@ -15,9 +15,9 @@ namespace Hagalaz.Services.JagGrab.Network
         /// The logger
         /// </summary>
         private readonly ILogger<ConnectionHandler> _logger;
-        /// <summary>
-        /// Gets the list of current connections.
-        /// </summary>
+        // <summary>
+        // Gets the list of current connections.
+        // </summary>
         //public List<ISocketChannel> CurrentConnections { get; }
         #endregion Fields
 
@@ -35,10 +35,10 @@ namespace Hagalaz.Services.JagGrab.Network
         #endregion Constructors
 
         #region Methods
-        /// <summary>
-        /// A connection is opened for a JAGGRAB request.
-        /// </summary>
-        /// <param name="channel">The client created.</param>
+        // <summary>
+        // A connection is opened for a JAGGRAB request.
+        // </summary>
+        // <param name="channel">The client created.</param>
         //public void ConnectionOpened(ISocketChannel channel)
         //{
            // _logger.LogDebug("JAGGRAB connection opened [id=" + channel.ConnectionId + ", ip=" + channel.IpAddress + "].");

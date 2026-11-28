@@ -3,7 +3,7 @@
     /// <summary>
     /// Defines a character's availability for multiple situations.
     /// </summary>
-    public enum Availability : int
+    public enum Availability
     {
         /// <summary>
         /// The character is available to everyone.

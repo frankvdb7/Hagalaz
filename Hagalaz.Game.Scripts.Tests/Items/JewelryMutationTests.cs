@@ -12,7 +12,7 @@ namespace Hagalaz.Game.Scripts.Tests.Items;
 [TestClass]
 public sealed class JewelryMutationTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void ChargedGlory_ReplacesExactItemInstanceInInventoryOrEquipment(bool equipped)

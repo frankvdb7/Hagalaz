@@ -101,7 +101,7 @@
     /// <summary>
     /// Defines a subset of advanced or combination runes.
     /// </summary>
-    public enum AdvancedRuneType : int
+    public enum AdvancedRuneType
     {
         /// <summary>
         /// A dust rune.

@@ -50,7 +50,7 @@ namespace Hagalaz.Text.Json.Tests
             public int D { get; init; }
         }
 
-        private enum DtoEnum : int
+        private enum DtoEnum
         {
             None = 0,
             One = 1

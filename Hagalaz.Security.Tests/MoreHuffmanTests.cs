@@ -110,7 +110,7 @@ namespace Hagalaz.Security.Tests
         {
             // Arrange
             var originalString = "This is a test string.";
-            var encodedBytes = Huffman.Encode(originalString, out var messageLength);
+            var encodedBytes = Huffman.Encode(originalString, out _);
             var incorrectLength = 5;
             var expectedString = originalString.Substring(0, incorrectLength);
 

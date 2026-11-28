@@ -43,7 +43,7 @@ public sealed class CraftingItemScreenOperationsTests
         Assert.IsNull(inputHandler);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-2)]
     public void HandleMakeClick_Option4RejectsNonpositiveInput(int input)

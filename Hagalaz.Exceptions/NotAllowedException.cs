@@ -2,7 +2,7 @@ namespace Hagalaz.Exceptions
 {
     public class NotAllowedException : Exception
     {
-        public NotAllowedException() : base() { }
+        public NotAllowedException() { }
 
         public NotAllowedException(string message) : base(message) { }
     }

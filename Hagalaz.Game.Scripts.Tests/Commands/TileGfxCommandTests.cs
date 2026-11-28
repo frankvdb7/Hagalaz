@@ -16,7 +16,7 @@ namespace Hagalaz.Game.Scripts.Tests.Commands
             var graphicBuilderMock = Substitute.For<IGraphicBuilder>();
             var graphicIdMock = Substitute.For<IGraphicId>();
             var graphicOptionalMock = Substitute.For<IGraphicOptional>();
-            var graphicBuildMock = Substitute.For<IGraphicBuild>();
+            _ = Substitute.For<IGraphicBuild>();
             var graphicMock = Substitute.For<IGraphic>();
 
             graphicBuilderMock.Create().Returns(graphicIdMock);

@@ -24,7 +24,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using OpenIddict.Abstractions;
 using Raido.Common.Protocol;
 using Raido.Server;
 

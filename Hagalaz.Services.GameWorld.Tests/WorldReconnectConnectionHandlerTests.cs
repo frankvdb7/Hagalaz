@@ -2,7 +2,6 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
-using Hagalaz.Game.Abstractions.Model;
 using Hagalaz.Game.Abstractions.Model.Creatures.Characters;
 using Hagalaz.Services.GameWorld.Features;
 using Hagalaz.Services.GameWorld.Model;
@@ -22,7 +21,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using OpenIddict.Abstractions;
 using Raido.Common.Protocol;
 using Raido.Server;
 
@@ -517,7 +515,7 @@ public sealed class WorldReconnectConnectionHandlerTests
     [Timeout(30000)]
     public async Task ConcurrentReconnectCandidates_DoNotReplaceWinnerProtocolOrSendLoserSuccess()
     {
-        var initial = CreatePhysicalConnection("stable-logical", out var initialInput, out var initialOutput, out var initialClosed);
+        var initial = CreatePhysicalConnection("stable-logical", out var initialInput, out var initialOutput, out _);
         var candidateA = CreatePhysicalConnection("candidate-a", out var inputA, out var outputA, out var closedA);
         var candidateB = CreatePhysicalConnection("candidate-b", out var inputB, out var outputB, out var closedB);
         var candidateC = CreatePhysicalConnection("candidate-c", out var inputC, out var outputC, out var closedC);
@@ -885,7 +883,7 @@ public sealed class WorldReconnectConnectionHandlerTests
         session.MasterId.Returns(42u);
         session.SessionClaimId.Returns("claim");
         var gameClient = new GameClient(DisplayMode.FixedScreen, Language.English, 800, 600);
-        var character = AuthenticatedCharacterFeatureSetup.Create(target, session, gameClient);
+        _ = AuthenticatedCharacterFeatureSetup.Create(target, session, gameClient);
 
         var connections = AuthenticatedCharacterFeatureSetup.CreateConnectionStore(target);
         var metricsMeter = new Meter($"{nameof(WorldReconnectConnectionHandlerTests)}-{Guid.NewGuid()}");

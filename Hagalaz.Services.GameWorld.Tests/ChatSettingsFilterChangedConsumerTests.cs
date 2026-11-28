@@ -33,7 +33,7 @@ public sealed class ChatSettingsFilterChangedConsumerTests
         mediator.DidNotReceive().Publish(Arg.Is<ProfileSetEnumAction>(a => a.Key.EndsWith("private_filter")));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(Availability.Everyone, ContactAvailability.Everyone)]
     [DataRow(Availability.Friends, ContactAvailability.Friends)]
     [DataRow(Availability.Nobody, ContactAvailability.Off)]

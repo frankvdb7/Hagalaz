@@ -16,11 +16,11 @@ namespace Hagalaz.Game.Network.Game.Incoming
         /// </value>
         public byte Opcode => 84;
 
-        /// <summary>
-        ///     Handles the packet.
-        /// </summary>
-        /// <param name="session">The session to handle packet for.</param>
-        /// <param name="packet">The packet containing handle data.</param>
+        // <summary>
+        //     Handles the packet.
+        // </summary>
+        // <param name="session">The session to handle packet for.</param>
+        // <param name="packet">The packet containing handle data.</param>
         // public async Task HandleAsync(IGameSession session, Packet packet)
         // {
         //     await Task.CompletedTask;

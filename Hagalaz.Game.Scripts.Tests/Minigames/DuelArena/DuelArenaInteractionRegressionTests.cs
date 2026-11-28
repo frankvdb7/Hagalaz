@@ -790,7 +790,7 @@ public sealed class DuelArenaInteractionRegressionTests
         duel.Target.Configurations.Received(1).SendGlobalCs2Int(9, 1);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(ComponentClickType.LeftClick, 1)]
     [DataRow(ComponentClickType.Option2Click, 5)]
     [DataRow(ComponentClickType.Option3Click, 10)]
@@ -811,7 +811,7 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(0, duel.TargetStakeContainer.GetCountById(duel.SelfItem.Id));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(ComponentClickType.LeftClick, 1)]
     [DataRow(ComponentClickType.Option2Click, 5)]
     [DataRow(ComponentClickType.Option3Click, 10)]
@@ -860,7 +860,7 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.IsNull(duel.Self.Widgets.IntInputHandler);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-2)]
     public void UnstakeX_NonpositiveInputDoesNotReturnItem(int amount)
@@ -887,7 +887,7 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(20, duel.SelfStakeContainer.GetCountById(duel.SelfItem.Id));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-3)]
     public void StakeX_NonpositiveInputDoesNotMutate(int amount)
@@ -954,7 +954,7 @@ public sealed class DuelArenaInteractionRegressionTests
         Assert.AreEqual(10, duel.SelfStakeContainer.GetCountById(995));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-1)]
     public void SelfMoneyPouchX_NonpositiveInputDoesNotStake(int amount)

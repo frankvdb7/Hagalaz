@@ -18,7 +18,6 @@ namespace Hagalaz.Game.Scripts.Skills.Herblore.Herbs
         {
             _itemBuilder = itemBuilder;
             Performer = characterContextAccessor.Context.Character;
-            ;
             TickActionMethod = PerformTickImpl;
             _interruptEvent = Performer.RegisterEventHandler<CreatureInterruptedEvent>(_ =>
             {

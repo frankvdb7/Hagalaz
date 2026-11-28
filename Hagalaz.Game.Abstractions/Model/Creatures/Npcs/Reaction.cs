@@ -3,7 +3,7 @@ namespace Hagalaz.Game.Abstractions.Model.Creatures.Npcs
     /// <summary>
     /// Defines how an NPC reacts when a character enters its line of sight.
     /// </summary>
-    public enum ReactionType : int
+    public enum ReactionType
     {
         /// <summary>
         /// The NPC is passive and will not initiate combat.

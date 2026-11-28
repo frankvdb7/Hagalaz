@@ -70,7 +70,7 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryStageCompletion_MissingOfferParticipantRejectsAndRollsBack()
     {
-        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+        CreateTradeParticipants(out _, out var secondInventory, out var first, out var second,
             out var firstOffer, out var secondOffer);
         AddOfferItem(firstOffer, new TestItem(100, 1)).Should().BeTrue();
 
@@ -87,7 +87,7 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryStageCompletion_MissingRecipientInventoryRejectsAndRollsBack()
     {
-        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+        CreateTradeParticipants(out var firstInventory, out _, out var first, out var second,
             out var firstOffer, out var secondOffer);
         AddOfferItem(secondOffer, new TestItem(100, 1)).Should().BeTrue();
 
@@ -126,7 +126,7 @@ public sealed class TradeExchangeTests
     [TestMethod]
     public void TryStageRefund_MissingParticipantRejectsAndRollsBack()
     {
-        CreateTradeParticipants(out var firstInventory, out var secondInventory, out var first, out var second,
+        CreateTradeParticipants(out var firstInventory, out _, out var first, out var second,
             out var firstOffer, out var secondOffer);
         AddOfferItem(firstOffer, new TestItem(100, 1)).Should().BeTrue();
 
