@@ -341,40 +341,10 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
             });
 
             // Attack
-            InterfaceInstance.AttachUseOnCreatureHandler(15, (componentID, creature, forceRun, extraData1, extraData2) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+            AttachAttackHandler(15);
 
             // Attack left click
-            InterfaceInstance.AttachUseOnCreatureHandler(24, (componentID, creature, forceRun, extraData1, extraData2) =>
-            {
-                if (!Owner.HasFamiliar())
-                {
-                    return false;
-                }
-
-                if (Owner.FamiliarScript.Familiar == creature)
-                {
-                    return false;
-                }
-
-                var creatureHandle = creature.Handle;
-                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
-                return true;
-            });
+            AttachAttackHandler(24);
 
             // Cast special move
             InterfaceInstance.AttachUseOnCreatureHandler(18, (componentID, creature, forceRun, extraData1, extraData2) =>
@@ -476,6 +446,26 @@ namespace Hagalaz.Game.Scripts.Widgets.Orbs
         ///     Selects the left click option.
         /// </summary>
         private void SelectLeftClickOption() => Owner.Widgets.OpenWidget(880, Owner.GameClient.IsScreenFixed ? 187 : 119, 1, _leftClickOptionTab, true);
+
+        private void AttachAttackHandler(int componentId)
+        {
+            InterfaceInstance.AttachUseOnCreatureHandler(componentId, (componentID, creature, forceRun, extraData1, extraData2) =>
+            {
+                if (!Owner.HasFamiliar())
+                {
+                    return false;
+                }
+
+                if (Owner.FamiliarScript.Familiar == creature)
+                {
+                    return false;
+                }
+
+                var creatureHandle = creature.Handle;
+                Owner.FamiliarScript.Familiar.QueueTask(new RsTask(() => Owner.FamiliarScript.Familiar.Combat.SetTarget(creatureHandle), 1));
+                return true;
+            });
+        }
 
         /// <summary>
         ///     Happens when interface is closed for character.
