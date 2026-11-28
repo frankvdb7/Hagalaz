@@ -249,7 +249,7 @@ namespace Hagalaz.Game.Scripts.Areas.Wilderness
                 return;
             }
 
-            if (!base.Equals(character.Area.Script))
+            if (!GetType().IsInstanceOfType(character.Area.Script))
             {
                 if (character.HasFamiliar())
                 {
